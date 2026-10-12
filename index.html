@@ -12,9 +12,6 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--red:#E50914;--red2:#B20710;--bg:#000;--card:#141414;--el:#1f1f1f;--line:#ffffff1a;--txt:#fff;--sec:#b3b3b3;--max:1180px}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -93,11 +90,14 @@ nav .right{margin-left:auto;display:flex;align-items:center;gap:14px}
 .platforms{padding:90px 0 40px;text-align:center}
 .platforms h2,.sec-title{font-size:clamp(32px,4.4vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1.08}
 .platforms .sub,.sec-sub{color:var(--sec);font-size:19px;margin-top:12px}
-.plats{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:40px}
-.plat{width:200px;padding:26px 18px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.plats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;max-width:780px;margin-left:auto;margin-right:auto}
+.plat{padding:24px 14px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
 .plat svg{width:46px;height:46px;margin:0 auto 12px;color:#fff}
 .plat b{display:block;font-size:18px}
-.plat span{color:var(--sec);font-size:14px}
+.plat span{color:var(--sec);font-size:14px;display:block;margin-top:4px}
+.plat em{display:block;font-style:normal;font-size:12px;color:#8c8c8c;margin-top:2px}
+.platlinks{margin-top:28px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.ghostbtn{background:#ffffff1a;color:#fff}
 
 /* features */
 section{scroll-margin-top:80px}
@@ -187,9 +187,10 @@ footer .copy{margin-top:16px;font-size:13px}
   .stage .phone{width:110px;border-radius:26px;padding:5px}
   .stage .phone img{border-radius:21px}
   .avatars{grid-template-columns:repeat(4,1fr)}
-  .plat{width:calc(50% - 9px)}
+  .plats{grid-template-columns:repeat(2,1fr)}
 }
 </style>
+<script src="assets/js/consent.js" data-base=""></script>
 </head>
 <body>
 
@@ -221,9 +222,13 @@ footer .copy{margin-top:16px;font-size:13px}
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.5c-.02-2.3 1.88-3.4 1.97-3.46-1.07-1.57-2.74-1.78-3.33-1.8-1.42-.14-2.77.83-3.49.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.59-.75 2.99-.75 1.4 0 1.79.75 3.01.72 1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.45-3.71zM14.08 5.73c.64-.78 1.07-1.85.95-2.93-.92.04-2.04.61-2.7 1.39-.59.69-1.11 1.79-.97 2.85 1.03.08 2.07-.52 2.72-1.31z"/></svg>
         <span><small data-i18n="cta.soon">Download in de</small><b>App Store</b></span>
       </a>
+      <a class="appstore" href="https://github.com/LRvdLinden/bingr-android/releases/latest" aria-label="Android">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
+        <span><small data-i18n="cta.android">Download voor</small><b>Android</b></span>
+      </a>
       <a class="btn ghost" href="#features" data-i18n="hero.more">Bekijk de functies</a>
     </div>
-    <div class="trust rv"><span>iPhone</span><span>iPad</span><span>Apple TV</span><span>Mac</span><span data-i18n="hero.lang">11 talen</span><span>iCloud</span><span class="trakt-badge"><img src="assets/img/trakt.svg" alt="" width="16" height="16"><b data-i18n="hero.trakt">Werkt met Trakt</b></span></div>
+    <div class="trust rv"><span>iPhone</span><span>iPad</span><span>Apple TV</span><span>Mac</span><span>Android</span><span>Android TV</span><span>Google TV</span><span>Fire TV</span><span data-i18n="hero.lang">11 talen</span><span>iCloud</span><span class="trakt-badge"><img src="assets/img/trakt.svg" alt="" width="16" height="16"><b data-i18n="hero.trakt">Werkt met Trakt</b></span></div>
 
     <div class="devices rv">
       <div class="phone d-phone"><img data-loc src="assets/img/nl/ios_home.jpg" alt="Bingr op iPhone"></div>
@@ -241,14 +246,20 @@ footer .copy{margin-top:16px;font-size:13px}
 
 <section class="platforms" id="platforms">
   <div class="wrap">
-    <h2 class="rv" data-i18n="plat.title">Eén app voor elk Apple-scherm.</h2>
-    <p class="sub rv" data-i18n="plat.sub">Van je telefoon tot de grote tv: begin op het ene scherm, kijk verder op het andere.</p>
+    <h2 class="rv" data-i18n="plat.title">Kijk Bingr vanaf deze apparaten</h2>
+    <p class="sub rv" data-i18n="plat.sub">Eén account op al je schermen: begin op je telefoon, kijk verder op de grote tv. Op maximaal 10 apparaten tegelijk gekoppeld.</p>
     <div class="plats">
-      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="14" y="4" width="20" height="40" rx="5"/><path d="M21 8h6"/></svg><b>iPhone</b><span data-i18n="plat.iphone">Kijk overal</span></div>
-      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="8" y="5" width="32" height="38" rx="4"/><circle cx="24" cy="39" r="1.2" fill="currentColor"/></svg><b>iPad</b><span data-i18n="plat.ipad">Groot en draagbaar</span></div>
-      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/></svg><b>Apple TV</b><span data-i18n="plat.tv">Bediening met de Siri Remote</span></div>
-      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="8" y="9" width="32" height="22" rx="2.5"/><path d="M3 37h42l-3-6H6z"/></svg><b>Mac</b><span data-i18n="plat.mac">Een echte Mac-app</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="20" height="40" rx="5"/><path d="M21 8h6"/></svg><b>iPhone</b><em>iOS 17+</em><span data-i18n="plat.iphone">Kijk overal</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="5" width="32" height="38" rx="4"/><circle cx="24" cy="39" r="1.2" fill="currentColor"/></svg><b>iPad</b><em>iPadOS 17+</em><span data-i18n="plat.ipad">Groot en draagbaar</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="9" width="32" height="22" rx="2.5"/><path d="M3 37h42l-3-6H6z"/></svg><b>Mac</b><em>macOS 14+</em><span data-i18n="plat.mac">Een echte Mac-app</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="17" width="34" height="14" rx="4"/><path d="M14 36h20"/></svg><b>Apple TV</b><em>tvOS 17+</em><span data-i18n="plat.tv">Bediening met de Siri Remote</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="20" height="40" rx="5"/><circle cx="24" cy="9" r="1.3" fill="currentColor"/></svg><b>Android</b><em>Android 7+</em><span data-i18n="plat.android">Telefoon</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="40" height="30" rx="4"/><circle cx="24" cy="13" r="1.2" fill="currentColor"/></svg><b>Android tablet</b><em>Android 7+</em><span data-i18n="plat.atab">Groot scherm, overal</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/></svg><b>Android TV</b><em>Android TV 7+</em><span data-i18n="plat.atv">Met je afstandsbediening</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/><circle cx="24" cy="21" r="5"/></svg><b>Google TV</b><em>Chromecast & tv's</em><span data-i18n="plat.gtv">Inloggen met een QR-code</span></div>
+      <div class="plat rv"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="20" width="26" height="9" rx="3"/><path d="M32 22.5h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M12 24.5h8"/></svg><b>Fire TV</b><em>Stick, Cube & tv's</em><span data-i18n="plat.fire">Alexa-afstandsbediening</span></div>
     </div>
+    <p class="platlinks rv"><a class="btn red sm" href="#download" data-i18n="plat.apple">Download voor Apple</a> <a class="btn sm ghostbtn" href="https://github.com/LRvdLinden/bingr-android/releases/latest" data-i18n="plat.apk">Download voor Android (APK)</a></p>
   </div>
 </section>
 
@@ -445,17 +456,18 @@ footer .copy{margin-top:16px;font-size:13px}
         <a href="support.html">Support</a>
         <a href="changelog/">Changelog</a>
         <a href="account/" data-i18n="foot.account">Mijn Bingr</a>
+        <a href="#" onclick="BingrConsent.open();return false" data-i18n="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-i18n="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc.</p>
-    <p class="copy">© <span id="yr">2026</span> Bingr · <span data-i18n="foot.version">Versie</span> <span data-build>1.0.0 (build 44)</span></p>
+    <p class="copy">© <span id="yr">2026</span> Bingr · <span data-i18n="foot.version">Versie</span> <span data-build>1.0.0 (build 45)</span></p>
   </div>
 </footer>
 
 <script>
 const EN = {
  "mac.title":"Right at home on your Mac.","mac.p":"A real Mac app, not a stretched iPad version. With VLC for every format, AirPlay, Chromecast and Picture in Picture, plus shortcuts: space = pause, ←/→ = 10 seconds, ↑/↓ = zap.",
- "hero.lang":"11 languages","hero.trakt":"Works with Trakt","plat.title":"One app for every Apple screen.","plat.sub":"From your phone to the big TV: start on one screen, keep watching on the next.",
+ "hero.lang":"11 languages","hero.trakt":"Works with Trakt","plat.title":"Watch Bingr on these devices","plat.sub":"One account on all your screens: start on your phone, keep watching on the big TV. Up to 10 devices linked at once.","plat.android":"Phone","plat.atab":"Big screen, anywhere","plat.atv":"With your remote","plat.gtv":"Sign in with a QR code","plat.fire":"Alexa Voice Remote","plat.apple":"Download for Apple","cta.android":"Download for","plat.apk":"Download for Android (APK)",
  "g.eyebrow":"Guides","g.title":"Get the most out of Bingr.","g.howto":"How-to","g.1":"Add your playlist or Xtream server","g.2":"Link Trakt and check everything off as watched","g.3":"Set up profiles and a kids profile",
  "band.joke":"Made by someone who watches way too many series.","nav.guides":"Guides",
  "tick.title":"Works with everything you have","feat.eyebrow":"The good stuff",
@@ -502,7 +514,7 @@ const EN = {
  "q3":"Which devices does Bingr run on?","a3":"iPhone and iPad with iOS 17 or later, Apple TV with tvOS 17 or later, Macs with macOS 14 or later, and Android phones, tablets, Android TV, Google TV and Fire TV (Android 7 or later, <a href=\"https://github.com/LRvdLinden/bingr-android/releases/latest\">download the APK</a>).",
  "q4":"Do I have to set everything up on every device?","a4":"No. You sign in everywhere with your Bingr account, so your profiles and profile photos are on all your devices, including Android. On a TV you sign in by scanning a QR code. Your server, My List and progress also sync via iCloud between your Apple devices. Your account works on up to 10 devices.",
  "q5":"What does a kids profile show?","a5":"Only kids channels, cartoons and family titles, plus titles with a known age rating within the limit. Above the limit, Bingr asks for the main account's PIN.",
- "foot.tag":"IPTV, done right.","foot.privacy":"Privacy","foot.account":"My Bingr","foot.version":"Version",
+ "foot.tag":"IPTV, done right.","foot.privacy":"Privacy","foot.account":"My Bingr","foot.cookies":"Cookie settings","foot.version":"Version",
  "foot.disc":"Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc."
 };
 const TICK_EN = {"Beeld-in-beeld":"Picture in Picture","11 talen":"11 languages","MAC-portal":"MAC portal","Terugkijken":"Catch-up","Kinderprofiel":"Kids profile","Herinneringen":"Reminders"};

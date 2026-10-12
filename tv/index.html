@@ -7,8 +7,8 @@
 <meta name="robots" content="noindex">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/js/account.css">
+<script src="../assets/js/consent.js" data-base="../"></script>
 </head>
 <body>
 <header><a class="logo" href="../index.html">BINGR</a><span style="display:flex;align-items:center;gap:12px"><a id="langSwitch" class="lang" href="#">English</a><span data-userbtn style="display:inline-flex"></span></span></header>
@@ -55,7 +55,7 @@
     <p data-t="confirmText"></p>
   </section>
 </div></main>
-<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>

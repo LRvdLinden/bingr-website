@@ -6,7 +6,6 @@
 <title>Changelog · Bingr</title>
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/js/account.css">
 <style>
 main{display:block;max-width:820px;margin:0 auto;padding:30px 24px 80px}
@@ -16,12 +15,13 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 .filters button.on{background:#fff;color:#000;border-color:#fff}
 .rel{display:grid;grid-template-columns:150px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid #ffffff14}
 @media (max-width:560px){.rel{grid-template-columns:1fr;gap:6px}}
-.rel .b{font-weight:800;font-size:18px;white-space:nowrap}.rel .d{color:var(--sec);font-size:13px}
+.rel .v{font-weight:800;font-size:18px;white-space:nowrap}.rel .b{color:#e5e5e5;font-weight:600;font-size:15px;margin-top:2px}.rel .d{color:var(--sec);font-size:13px;margin-top:2px}
 .rel ul{margin:0;padding-left:18px}.rel li{color:#d4d4d4;font-size:16px;line-height:1.55;margin:3px 0}
 .tags{margin-bottom:6px}.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;margin-right:5px;background:#ffffff1a;color:#ddd}
 .tag.android{background:#3ddc8433;color:#7ff0b0}.tag.apple{background:#ffffff26}.tag.web{background:#e5091433;color:#ff8a8f}
-.latest{display:inline-block;margin-left:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;vertical-align:3px}
+.latest{display:inline-block;margin-top:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;vertical-align:3px}
 </style>
+<script src="../assets/js/consent.js" data-base="../"></script>
 </head>
 <body>
 <header><a class="logo" href="../index.html">BINGR</a><span style="display:flex;align-items:center;gap:12px"><a id="langSwitch" class="lang" href="#">English</a><span data-userbtn style="display:inline-flex"></span></span></header>
@@ -31,12 +31,12 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   <div class="filters" id="filters"></div>
   <div id="list"></div>
 </main>
-<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
 <script>
 (function () {
   let lang = "nl"; try { lang = (localStorage.getItem("bingr.lang") || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en"; } catch (e) {}
-  const T = { nl: { intro: "Wat er nieuw is in elke versie van Bingr. Het buildnummer loopt gelijk over alle apparaten.", all: "Alles", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Nieuwste" },
-              en: { intro: "What's new in every version of Bingr. The build number is the same across all devices.", all: "All", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Latest" } }[lang];
+  const T = { nl: { intro: "Wat er nieuw is in elke versie van Bingr. Het buildnummer loopt gelijk over alle apparaten.", all: "Alles", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Nieuwste", version: "Versie" },
+              en: { intro: "What's new in every version of Bingr. The build number is the same across all devices.", all: "All", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Latest", version: "Version" } }[lang];
   const tagName = { apple: "Apple", android: "Android", web: "Web" };
   document.documentElement.lang = lang;
   document.querySelector('[data-t="intro"]').textContent = T.intro;
@@ -49,8 +49,8 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
       document.getElementById("filters").innerHTML = ["all", "apple", "android", "web"].map((f) => `<button data-f="${f}" class="${f === filter ? "on" : ""}">${T[f]}</button>`).join("");
       document.querySelectorAll("#filters button").forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
       document.getElementById("list").innerHTML = data.filter((e) => filter === "all" || e.platforms.includes(filter)).map((e, i) => `
-        <div class="rel"><div><div class="b">Build ${e.build}${i === 0 && filter === "all" ? `<span class="latest">${T.latest}</span>` : ""}</div>
-          <div class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</div></div>
+        <div class="rel"><div><div class="v">${T.version} ${e.version || "1.0.0"}</div><div class="b">Build ${e.build}</div>
+          <div class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</div>${i === 0 ? `<span class="latest">${T.latest}</span>` : ""}</div>
           <div><div class="tags">${e.platforms.map((p) => `<span class="tag ${p}">${tagName[p]}</span>`).join("")}</div>
           <ul>${e[lang].map((x) => `<li>${x}</li>`).join("")}</ul></div></div>`).join("");
     }
