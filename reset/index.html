@@ -34,14 +34,14 @@
 <script>
 const { sb, $, t, pwToggles, busy } = Bingr;
 const tr = t({
-  nl: { title:"Nieuw wachtwoord", forAcc:"Voor", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
+  nl: { docTitle:"Nieuw wachtwoord · Bingr", title:"Nieuw wachtwoord", forAcc:"Voor", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
         doneTitle:"Wachtwoord gewijzigd", doneText:"Voor je veiligheid ben je op al je apparaten uitgelogd. Log opnieuw in met je nieuwe wachtwoord.", invalidTitle:"Link verlopen",
         invalidText:"Deze link is ongeldig of al gebruikt. Vraag in de Bingr-app via <b>Wachtwoord vergeten?</b> een nieuwe aan.",
-        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", waiting:"Even geduld…" },
-  en: { title:"New password", forAcc:"For", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
+        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", samePw:"Kies een ander wachtwoord dan je huidige.", waiting:"Even geduld…" },
+  en: { docTitle:"New password · Bingr", title:"New password", forAcc:"For", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
         doneTitle:"Password changed", doneText:"For your security you've been signed out on all your devices. Sign in again with your new password.", invalidTitle:"Link expired",
         invalidText:"This link is invalid or has already been used. Request a new one in the Bingr app with <b>Forgot password?</b>",
-        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", waiting:"One moment…" }
+        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", samePw:"Choose a different password from your current one.", waiting:"One moment…" }
 });
 pwToggles(tr);
 function show(id) { ["form", "done", "invalid", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
@@ -60,8 +60,10 @@ $("pwForm").onsubmit = async (e) => {
   busy($("saveBtn"), true, tr("waiting"));
   const { error } = await sb.auth.updateUser({ password: a });
   busy($("saveBtn"), false, tr("save"));
-  if (error) { $("err").textContent = (error.code === "same_password") ? tr("generic") : tr("generic"); return; }
-  await sb.auth.signOut();
+  if (error) { $("err").textContent = error.code === "same_password" ? tr("samePw") : error.code === "weak_password" ? tr("shortPw") : tr("generic"); return; }
+  // de server heeft alle sessies al ingetrokken (trigger bij wachtwoordwijziging); hier alleen lokaal opruimen
+  await sb.auth.signOut({ scope: "local" }).catch(() => {});
+  if (window.BingrAvatar) BingrAvatar.clear();
   show("done");
 };
 </script>

@@ -58,7 +58,7 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
       <div id="authErr" class="err"></div>
       <button id="authBtn" class="btn" type="submit" data-t="signIn"></button>
     </form>
-    <div class="links"><a id="forgot" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../tv/?mode=signup" data-t="signUpNow"></a></div></div>
+    <div class="links"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../tv/?mode=signup" data-t="signUpNow"></a></div></div>
   </section>
 
   <section id="acc" class="hidden">
@@ -132,7 +132,7 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
-  nl: { watching:"Nu aan het kijken", watchingCount:"%d van %d schermen kijken nu", watchingFor:"kijkt al %s", signedInSince:"ingelogd sinds %s", nobodyWatching:"Er kijkt nu niemand.",
+  nl: { docTitle:"Mijn Bingr", tooLarge:"Te groot om op te slaan.", loadFailed:"Laden mislukt. Ververs de pagina om het opnieuw te proberen.", watching:"Nu aan het kijken", watchingCount:"%d van %d schermen kijken nu", watchingFor:"kijkt al %s", signedInSince:"ingelogd sinds %s", nobodyWatching:"Er kijkt nu niemand.",
         historyTitle:"Kijkgeschiedenis (7 dagen)", historyHelp:"Wat er per profiel en apparaat is bekeken", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
         servers:"Servers en afspeellijsten", serversHelp:"Wijzigingen staan binnen een paar minuten op al je apparaten. Plex, Jellyfin, Emby en Stremio voeg je toe in de app.", addServer:"Server toevoegen", editServer:"Server wijzigen",
         type:"Type", name:"Naam", m3uUrl:"M3U-URL", epgUrl:"EPG-URL (XMLTV)", optional:"optioneel", server:"Server", username:"Gebruikersnaam", unchanged:"ongewijzigd", hls:"Live als HLS (.m3u8)",
@@ -144,14 +144,14 @@ const tr = t({
         smart:"Slim", manual:"%d titels", noCollections:"Nog geen collecties.", deleteCollection:"Collectie %s verwijderen?", title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
         forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.",
         profiles:"Profielen", profHelp:"Profielen beheer je in de app; ze staan op al je apparaten.", kids:"Kinderprofiel", main:"Hoofdaccount", noProfiles:"Nog geen profielen. Open Bingr op een apparaat om te beginnen.",
-        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal 15 apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen",
+        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen",
         linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", rename:"Naam wijzigen", devName:"Naam van het apparaat", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
         account:"Account", changePw:"Wachtwoord wijzigen", signOut:"Uitloggen", delete:"Account verwijderen",
         delConfirm:"Je Bingr-account verwijderen? Al je apparaten worden uitgelogd en je profielen op de server worden gewist. Dit kan niet ongedaan worden gemaakt.",
         resetSent:"We hebben je een e-mail gestuurd om je wachtwoord te wijzigen. Na het wijzigen word je op al je apparaten uitgelogd.", justNow:"zojuist", minAgo:"%d min geleden", yesterday:"gisteren", waiting:"Even geduld…",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
         resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
-  en: { watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
+  en: { docTitle:"My Bingr", tooLarge:"Too large to save.", loadFailed:"Couldn't load this. Refresh the page to try again.", watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
         historyTitle:"Watch history (7 days)", historyHelp:"What was watched per profile and device", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
         servers:"Servers and playlists", serversHelp:"Changes reach all your devices within a few minutes. Add Plex, Jellyfin, Emby and Stremio in the app.", addServer:"Add server", editServer:"Edit server",
         type:"Type", name:"Name", m3uUrl:"M3U URL", epgUrl:"EPG URL (XMLTV)", optional:"optional", server:"Server", username:"Username", unchanged:"unchanged", hls:"Live as HLS (.m3u8)",
@@ -163,7 +163,7 @@ const tr = t({
         smart:"Smart", manual:"%d titles", noCollections:"No collections yet.", deleteCollection:"Delete collection %s?", title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
         forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.",
         profiles:"Profiles", profHelp:"You manage profiles in the app; they're on all your devices.", kids:"Kids profile", main:"Main account", noProfiles:"No profiles yet. Open Bingr on a device to get started.",
-        devices:"Devices", count:"%d of %d devices", devHelp:"Up to 15 devices. Removing a device signs it out automatically.", linkTv:"Link a TV",
+        devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV",
         linked:"Linked", lastUsed:"last used", remove:"Remove", rename:"Rename", devName:"Device name", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
         account:"Account", changePw:"Change password", signOut:"Sign out", delete:"Delete account",
         delConfirm:"Delete your Bingr account? All your devices will be signed out and your profiles on the server will be erased. This can't be undone.",
@@ -250,6 +250,7 @@ async function loadProfiles() {
 async function loadDevices() {
   const j = await call("list_devices");
   $("count").textContent = tr("count").replace("%d", j.devices.length).replace("%d", j.limit);
+  document.querySelectorAll(".lim").forEach((el) => { el.textContent = j.limit; });
   $("list").innerHTML = j.devices.length ? j.devices.map((d) => `
     <div class="dev"><div class="ic">${devIcon(d.platform)}</div>
       <div class="info"><div class="nm">${esc(d.name || platLabel(d.platform))}</div>

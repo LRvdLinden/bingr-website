@@ -104,17 +104,20 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
       const fpS = document.getElementById("fp"), ftS = document.getElementById("ft");
       fpS.innerHTML = [["all", T.all], ...P.map(([k, l, c, full]) => [k, full || l])].map(([k, l]) => `<option value="${k}"${k === fp ? " selected" : ""}>${l}</option>`).join("");
       ftS.innerHTML = [["all", T.all], ["new", T.new], ["improved", T.improved], ["fixed", T.fixed]].map(([k, l]) => `<option value="${k}"${k === ft ? " selected" : ""}>${l}</option>`).join("");
-      fpS.onchange = () => { fp = fpS.value; render(); };
-      ftS.onchange = () => { ft = ftS.value; render(); };
+      // keuze in de URL bewaren (?p=…&t=…), zodat een gefilterde lijst te delen is
+      const keep = () => { try { const u = new URL(location.href); fp === "all" ? u.searchParams.delete("p") : u.searchParams.set("p", fp); ft === "all" ? u.searchParams.delete("t") : u.searchParams.set("t", ft); history.replaceState(null, "", u); } catch (x) {} };
+      fpS.onchange = () => { fp = fpS.value; keep(); render(); };
+      ftS.onchange = () => { ft = ftS.value; keep(); render(); };
       let first = true;
       const html = data.map((e) => {
-        const items = e.items.filter((i) => fp === "all" || i.platforms.includes(fp));
+        // zelfde regel als de badges: vóór TIZEN_FROM telt een punt voor alle zes apps ook voor Samsung TV
+        const items = e.items.filter((i) => fp === "all" || eff(i.platforms || [], e.build).includes(fp));
         const types = ft === "all" ? ["new", "improved", "fixed"] : [ft];
         if (!items.some((i) => types.includes(i.type))) return "";
         const groups = types.map((t) => {
           const rows = items.filter((i) => i.type === t);
           if (!rows.length) return "";
-          return `<div class="grp ${t}"><h3>${T[t]}</h3><ul>` + rows.map((i) => `<li>${esc(i[lang] || i.nl)}${plats(i.platforms, e.build)}</li>`).join("") + "</ul></div>";
+          return `<div class="grp ${t}"><h3>${T[t]}</h3><ul>` + rows.map((i) => `<li>${esc(i[lang] || i.nl)}${plats(i.platforms || [], e.build)}</li>`).join("") + "</ul></div>";
         }).join("");
         const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
         return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div><div>${groups}</div></section>`;

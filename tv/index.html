@@ -25,8 +25,8 @@
       <button id="authBtn" class="btn" type="submit"></button>
     </form>
     <div class="links">
-      <div><a id="forgot" data-t="forgot"></a></div>
-      <div style="margin-top:14px"><span id="switchText"></span> <a id="switchMode"></a></div>
+      <div><a id="forgot" href="#" role="button" data-t="forgot"></a></div>
+      <div style="margin-top:14px"><span id="switchText"></span> <a id="switchMode" href="#" role="button"></a></div>
     </div>
   </section>
 
@@ -63,7 +63,7 @@
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
-  nl: { signIn:"Inloggen", signUp:"Account maken", authIntro:"Log in met je Bingr-account om je tv te koppelen.", email:"E-mailadres", password:"Wachtwoord",
+  nl: { docTitle:"Tv koppelen · Bingr", signIn:"Inloggen", signUp:"Account maken", authIntro:"Log in met je Bingr-account om je tv te koppelen.", email:"E-mailadres", password:"Wachtwoord",
         show:"Tonen", hide:"Verbergen", forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.", haveAcc:"Heb je al een account?", signInNow:"Log in.",
         linkTitle:"Tv koppelen", signedInAs:"Ingelogd als", notYou:"Niet jij?", enterCode:"Voer de code in die op je tv staat:", linkBtn:"Koppelen",
         doneTitle:"Je tv is ingelogd", doneText:"%s is nu ingelogd met je Bingr-account. Kies op je tv wie er kijkt en veel kijkplezier!",
@@ -71,7 +71,7 @@ const tr = t({
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", exists:"Er bestaat al een account met dit e-mailadres.",
         badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
         noCode:"Vul de code van je tv in.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
-  en: { signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV.", email:"Email", password:"Password",
+  en: { docTitle:"Link a TV · Bingr", signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV.", email:"Email", password:"Password",
         show:"Show", hide:"Hide", forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.", haveAcc:"Already have an account?", signInNow:"Sign in.",
         linkTitle:"Link your TV", signedInAs:"Signed in as", notYou:"Not you?", enterCode:"Enter the code shown on your TV:", linkBtn:"Link",
         doneTitle:"Your TV is signed in", doneText:"%s is now signed in with your Bingr account. Pick who's watching on your TV and enjoy!",

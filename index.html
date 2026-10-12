@@ -530,12 +530,13 @@ const EN = {
  "foot.disc":"Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc."
 };
 const TICK_EN = {"Beeld-in-beeld":"Picture in Picture","11 talen":"11 languages","MAC-portal":"MAC portal","Terugkijken":"Catch-up","Kinderprofiel":"Kids profile","Herinneringen":"Reminders"};
-const NL = {};
+const NL = {}, NL_TITLE = document.title;
 document.querySelectorAll('[data-i18n]').forEach(el => { NL[el.dataset.i18n] = el.innerHTML; });
 function setLang(l){
   const d = l === 'en' ? EN : NL;
   document.querySelectorAll('[data-i18n]').forEach(el => { const v = d[el.dataset.i18n]; if (v) el.innerHTML = v; });
   document.documentElement.lang = l;
+  document.title = l === 'en' ? 'Bingr: your IPTV on all your Apple devices' : NL_TITLE;
   document.querySelectorAll('img[data-loc]').forEach(im => { im.src = im.getAttribute('src').replace(/\/(nl|en)\//, '/' + l + '/'); });
   document.querySelectorAll('.ticker .marquee span').forEach(el => { const k = el.dataset.nl || (el.dataset.nl = el.textContent); el.textContent = l === 'en' ? (TICK_EN[k] || k) : k; });
   document.querySelectorAll('.lang button').forEach(b => b.classList.toggle('on', b.dataset.lang === l));

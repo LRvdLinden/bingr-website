@@ -85,6 +85,7 @@ window.BingrConsole = (function () {
     $("sfSave").onclick = async () => {
       const k = s ? kind : $("sfKind").value;
       const name = $("sfName").value.trim();
+      let newPw = "";
       if (!name) { $("sfErr").textContent = tr("nameMissing"); return; }
       const o = s ? { ...s } : { id: uuid(), kind: k, avatar: { symbol: "tv", colorIndex: Math.floor(Math.random() * 8) }, m3uURL: "", epgURL: "", serverURL: "", username: "", macAddress: "", preferHLS: false, secrets: {} };
       o.name = name;
@@ -93,26 +94,47 @@ window.BingrConsole = (function () {
         if (k === KINDS.m3u) { o.m3uURL = val("sfM3u"); o.epgURL = val("sfEpg"); if (!/^https?:\/\//i.test(o.m3uURL)) { $("sfErr").textContent = tr("urlMissing"); return; } }
         else if (k === KINDS.xtream) {
           o.serverURL = val("sfServer"); o.username = val("sfUser"); o.preferHLS = $("sfHls").checked;
-          const pw = $("sfPass").value; if (pw) o.secrets = { ...(o.secrets || {}), password: pw };
-          if (!o.serverURL || !o.username || (!s && !pw)) { $("sfErr").textContent = tr("fieldsMissing"); return; }
+          newPw = $("sfPass").value; if (newPw) o.secrets = { ...(o.secrets || {}), password: newPw };
+          if (!o.serverURL || !o.username || (!s && !newPw)) { $("sfErr").textContent = tr("fieldsMissing"); return; }
         } else { o.serverURL = val("sfServer"); o.macAddress = val("sfMac"); if (!o.serverURL || !o.macAddress) { $("sfErr").textContent = tr("fieldsMissing"); return; } }
       }
       o.updatedAt = now();
-      const list = s ? sources.map((x) => (x.id === s.id ? o : x)) : [...sources, o];
-      const main = $("sfMain").checked ? o.id : (mainSourceID && String(mainSourceID).toLowerCase() !== String(o.id).toLowerCase() ? mainSourceID : (list.find((x) => !x.deleted) || {}).id || null);
-      await save(list, main); f.classList.add("hidden");
+      const makeMain = $("sfMain").checked;
+      // op de nieuwste serverlijst toepassen: alleen de velden uit dit formulier, de rest (ook van andere apparaten) blijft staan
+      const ok = await save((fresh, curMain) => {
+        const cur = s ? fresh.find((x) => same(x.id, s.id)) : null;
+        // bestaande bron: alleen de formuliervelden; secrets van de server houden, alleen een nieuw wachtwoord erin
+        const item = cur && !cur.deleted ? Object.assign({}, cur, pick(o), { secrets: newPw ? { ...(cur.secrets || {}), password: newPw } : (cur.secrets || {}) }) : o;
+        const list = cur ? fresh.map((x) => (same(x.id, s.id) ? item : x)) : [...fresh, item];
+        const main = makeMain ? item.id : (curMain && !same(curMain, item.id) ? curMain : (list.find((x) => !x.deleted) || {}).id || null);
+        return { list, main };
+      });
+      if (ok) f.classList.add("hidden");
     };
     if (s) $("sfDel").onclick = async () => {
       if (!confirm(tr("deleteServerConfirm").replace("%s", s.name))) return;
-      const tomb = { id: s.id, deleted: true, deletedAt: now(), updatedAt: now() };
-      const list = sources.map((x) => (x.id === s.id ? tomb : x));
-      const main = String(mainSourceID || "").toLowerCase() === String(s.id).toLowerCase() ? ((list.find((x) => !x.deleted) || {}).id || null) : mainSourceID;
-      await save(list, main); f.classList.add("hidden");
+      const t = now(), tomb = { id: s.id, deleted: true, deletedAt: t, updatedAt: t };
+      const ok = await save((fresh, curMain) => {
+        const list = fresh.some((x) => same(x.id, s.id)) ? fresh.map((x) => (same(x.id, s.id) ? tomb : x)) : [...fresh, tomb];
+        const main = same(curMain, s.id) ? ((list.find((x) => !x.deleted) || {}).id || null) : curMain;
+        return { list, main };
+      });
+      if (ok) f.classList.add("hidden");
     };
   }
-  async function save(list, main) {
-    try { await call("put_sources", { sources: list, mainSourceID: main }); await loadSources(); $("srcMsg").innerHTML = `<span class="ok">${tr("savedSync")}</span>`; }
-    catch (e) { $("srcMsg").textContent = tr("generic"); }
+  const same = (a, b) => a != null && b != null && String(a).toLowerCase() === String(b).toLowerCase();
+  // velden die het formulier wijzigt (onbekende velden, apple/android-blok, catchupOffsets en andere secrets blijven staan)
+  const pick = (o) => { const out = {}; ["name", "m3uURL", "epgURL", "serverURL", "username", "macAddress", "preferHLS", "updatedAt"].forEach((k) => { if (k in o) out[k] = o[k]; }); return out; };
+  // altijd eerst de nieuwste lijst ophalen (een app kan intussen iets gewijzigd hebben), dan de wijziging toepassen
+  async function save(mutate) {
+    $("srcMsg").textContent = "";
+    try {
+      const j = await call("get_sources");
+      const { list, main } = mutate(j.sources || [], j.mainSourceID || null);
+      await call("put_sources", { sources: list, mainSourceID: main });
+      await loadSources(); $("srcMsg").innerHTML = `<span class="ok">${tr("savedSync")}</span>`;
+      return true;
+    } catch (e) { $("srcMsg").textContent = e.message === "too_large" ? tr("tooLarge") : tr("generic"); return false; }
   }
 
   // ---- collecties: per profiel (build 54). Sectie = {version:2, profiles:{<id>:{items,updatedAt}}, items:[oud], migratedAt, updatedAt}
@@ -128,7 +150,8 @@ window.BingrConsole = (function () {
   function normalize(data, profiles) {
     const d = Object.assign({}, data || {});
     d.profiles = Object.assign({}, d.profiles || {});
-    if (!(d.version >= 2)) {
+    // gemigreerd = version >= 2, of er is al een object profiles (zoals iOS; docs/ACCOUNT.md build 60)
+    if (!(d.version >= 2) && !(data && data.profiles && typeof data.profiles === "object")) {
       for (const p of profiles) {
         const cur = (d.profiles[p.id] && d.profiles[p.id].items) || [];
         const have = new Set(cur.map((c) => c.id));
@@ -200,7 +223,8 @@ window.BingrConsole = (function () {
   async function loadAll() {
     $("addSource").onclick = () => openSource(null);
     $("colAdd").onclick = addSmart;
-    await Promise.all([loadStreams(), loadHistory(), loadSources(), loadCollections()].map((p) => p.catch(() => {})));
+    const fail = (id) => (e) => { if (e && e.message === "signed_out") return; $(id).innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; };
+    await Promise.all([loadStreams().catch(fail("streams")), loadHistory().catch(fail("history")), loadSources().catch(fail("sources")), loadCollections().catch(fail("collections"))]);
     clearInterval(timer); timer = setInterval(() => { if (!document.hidden) loadStreams().catch(() => {}); }, 30000);
   }
   return { loadAll };

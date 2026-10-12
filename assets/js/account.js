@@ -7,6 +7,7 @@
   const $ = (id) => document.getElementById(id);
   function t(dict) {
     document.documentElement.lang = lang;
+    if (dict[lang].docTitle) document.title = dict[lang].docTitle;
     document.querySelectorAll("[data-t]").forEach((el) => { const v = dict[lang][el.dataset.t]; if (v != null) el.innerHTML = v; });
     document.querySelectorAll("[data-ph]").forEach((el) => { const v = dict[lang][el.dataset.ph]; if (v != null) el.placeholder = v; });
     const sw = $("langSwitch");
@@ -20,5 +21,7 @@
     });
   }
   function busy(btn, on, label) { btn.disabled = on; if (label) btn.textContent = label; }
+  // links die als knop werken (href="#" voor het toetsenbord): niet naar boven springen
+  document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest('a[href="#"][role="button"]'); if (a) e.preventDefault(); });
   window.Bingr = { sb, lang, params, $, t, pwToggles, busy, cfg };
 })();
