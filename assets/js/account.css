@@ -1,0 +1,33 @@
+:root{--red:#E50914;--sec:#b3b3b3;--card:#141414}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{background:#000;color:#fff;font-family:Inter,-apple-system,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;
+  background:radial-gradient(1100px 600px at 50% -10%,#e5091433,transparent 60%),#000}
+a{color:#fff}
+header{max-width:1100px;margin:0 auto;padding:22px 24px;display:flex;justify-content:space-between;align-items:center}
+.logo{font-weight:900;font-size:28px;text-decoration:none;position:relative;padding-bottom:4px;letter-spacing:.02em}
+.logo::after{content:"";position:absolute;left:4%;right:4%;bottom:0;height:3px;border-radius:3px;background:var(--red)}
+.lang{color:var(--sec);font-size:14px;text-decoration:none;border:1px solid #ffffff33;border-radius:6px;padding:6px 10px}
+main{display:flex;justify-content:center;padding:24px 16px 80px}
+.card{width:100%;max-width:450px;background:#000000b3;border-radius:10px;padding:48px 40px 40px;border:1px solid #ffffff14}
+@media (max-width:520px){.card{padding:32px 20px;background:transparent;border:none}}
+h1{font-size:32px;font-weight:800;margin-bottom:10px}
+p{color:#d4d4d4;font-size:16px;line-height:1.55}
+.muted{color:var(--sec);font-size:14px}
+label{display:block;margin-top:16px}
+input{width:100%;font:inherit;font-size:16px;color:#fff;background:#333;border:1px solid transparent;border-radius:6px;padding:16px 14px;outline:none}
+input:focus{border-color:#fff;background:#3c3c3c}
+input.code{text-transform:uppercase;letter-spacing:.35em;text-align:center;font-size:26px;font-weight:800}
+.pw{position:relative}.pw button{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--sec);font:inherit;font-size:14px;cursor:pointer}
+.btn{display:block;width:100%;margin-top:24px;padding:15px;border:0;border-radius:6px;background:var(--red);color:#fff;font:inherit;font-size:17px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.6;cursor:default}
+.btn.ghost{background:#ffffff1f}
+.err{color:#ff7a45;font-size:14px;margin-top:14px;min-height:1px}
+.ok{color:#46D369}
+.links{margin-top:22px;color:var(--sec);font-size:15px}
+.links a{color:#fff;font-weight:600;text-decoration:none;cursor:pointer}
+.links a:hover{text-decoration:underline}
+.done{text-align:center}.done .big{font-size:56px;margin-bottom:12px}
+.hidden{display:none!important}
+footer{text-align:center;color:#737373;font-size:13px;padding:0 16px 30px}
+footer a{color:#737373}

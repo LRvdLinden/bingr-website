@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tv koppelen · Bingr</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/js/account.css">
+</head>
+<body>
+<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
+<main><div class="card">
+
+  <!-- 1. inloggen / account maken -->
+  <section id="auth">
+    <h1 id="authTitle" data-t="signIn"></h1>
+    <p class="muted" data-t="authIntro"></p>
+    <form id="authForm" novalidate>
+      <label><input id="email" type="email" autocomplete="email" data-ph="email" required></label>
+      <label class="pw"><input id="password" type="password" autocomplete="current-password" data-ph="password" required><button type="button"></button></label>
+      <div id="authErr" class="err"></div>
+      <button id="authBtn" class="btn" type="submit"></button>
+    </form>
+    <div class="links">
+      <div><a id="forgot" data-t="forgot"></a></div>
+      <div style="margin-top:14px"><span id="switchText"></span> <a id="switchMode"></a></div>
+    </div>
+  </section>
+
+  <!-- 2. code invoeren en koppelen -->
+  <section id="link" class="hidden">
+    <h1 data-t="linkTitle"></h1>
+    <p class="muted"><span data-t="signedInAs"></span> <b id="who"></b> · <a id="signOut" href="#" data-t="notYou"></a></p>
+    <form id="linkForm" novalidate>
+      <label><p data-t="enterCode" style="margin:18px 0 10px"></p><input id="code" class="code" maxlength="7" autocomplete="one-time-code" inputmode="text" placeholder="K7Q-4MX"></label>
+      <div id="linkErr" class="err"></div>
+      <button id="linkBtn" class="btn" type="submit" data-t="linkBtn"></button>
+    </form>
+  </section>
+
+  <!-- 3. klaar -->
+  <section id="done" class="done hidden">
+    <div class="big">✓</div>
+    <h1 data-t="doneTitle"></h1>
+    <p id="doneText"></p>
+  </section>
+
+  <!-- bevestig e-mail -->
+  <section id="confirm" class="done hidden">
+    <div class="big">✉︎</div>
+    <h1 data-t="confirmTitle"></h1>
+    <p data-t="confirmText"></p>
+  </section>
+</div></main>
+<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/config.js"></script>
+<script src="../assets/js/account.js"></script>
+<script>
+const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
+const tr = t({
+  nl: { signIn:"Inloggen", signUp:"Account maken", authIntro:"Log in met je Bingr-account om je tv te koppelen.", email:"E-mailadres", password:"Wachtwoord",
+        show:"Tonen", hide:"Verbergen", forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.", haveAcc:"Heb je al een account?", signInNow:"Log in.",
+        linkTitle:"Tv koppelen", signedInAs:"Ingelogd als", notYou:"Niet jij?", enterCode:"Voer de code in die op je tv staat:", linkBtn:"Koppelen",
+        doneTitle:"Je tv is ingelogd", doneText:"%s is nu ingelogd met je Bingr-account. Kies op je tv wie er kijkt en veel kijkplezier!",
+        confirmTitle:"Bevestig je e-mailadres", confirmText:"We hebben je een e-mail gestuurd. Klik op de link daarin; daarna kom je hier terug om je tv te koppelen.",
+        badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", exists:"Er bestaat al een account met dit e-mailadres.",
+        badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
+        noCode:"Vul de code van je tv in.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
+  en: { signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV.", email:"Email", password:"Password",
+        show:"Show", hide:"Hide", forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.", haveAcc:"Already have an account?", signInNow:"Sign in.",
+        linkTitle:"Link your TV", signedInAs:"Signed in as", notYou:"Not you?", enterCode:"Enter the code shown on your TV:", linkBtn:"Link",
+        doneTitle:"Your TV is signed in", doneText:"%s is now signed in with your Bingr account. Pick who's watching on your TV and enjoy!",
+        confirmTitle:"Confirm your email", confirmText:"We sent you an email. Click the link in it; you'll come back here to link your TV.",
+        badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", exists:"An account with this email already exists.",
+        badEmail:"Enter a valid email address.", shortPw:"Password must be at least 6 characters.", badCode:"That code is invalid or has expired. Check your TV for the new code.",
+        noCode:"Enter the code from your TV.", generic:"Something went wrong. Please try again.", resetSent:"If an account exists, you'll receive an email to reset your password.", waiting:"One moment…" }
+});
+pwToggles(tr);
+let mode = "signin";
+const fmt = (c) => { c = c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6); return c.length > 3 ? c.slice(0, 3) + "-" + c.slice(3) : c; };
+$("code").value = fmt(params.get("code") || "");
+$("code").addEventListener("input", (e) => { e.target.value = fmt(e.target.value); });
+
+function setMode(m) {
+  mode = m;
+  $("authTitle").textContent = tr(m === "signin" ? "signIn" : "signUp");
+  $("authBtn").textContent = tr(m === "signin" ? "signIn" : "signUp");
+  $("switchText").textContent = tr(m === "signin" ? "newTo" : "haveAcc");
+  $("switchMode").textContent = tr(m === "signin" ? "signUpNow" : "signInNow");
+  $("password").autocomplete = m === "signin" ? "current-password" : "new-password";
+  $("authErr").textContent = "";
+}
+$("switchMode").onclick = () => setMode(mode === "signin" ? "signup" : "signin");
+setMode(params.get("mode") === "signup" ? "signup" : "signin");
+
+function show(id) { ["auth", "link", "done", "confirm"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+function errText(e) {
+  const c = (e && (e.code || e.error_code)) || "", m = ((e && e.message) || "").toLowerCase();
+  if (c === "invalid_credentials" || m.includes("invalid login")) return tr("badCreds");
+  if (c === "email_not_confirmed" || m.includes("not confirmed")) return tr("notConfirmed");
+  if (c === "user_already_exists" || m.includes("already registered")) return tr("exists");
+  if (c === "weak_password") return tr("shortPw");
+  return tr("generic");
+}
+async function refresh() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { $("who").textContent = data.session.user.email; show("link"); if ($("code").value.length === 7) $("linkBtn").focus(); else $("code").focus(); }
+  else show("auth");
+}
+$("authForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const email = $("email").value.trim(), password = $("password").value;
+  if (!/^\S+@\S+\.\S+$/.test(email)) return ($("authErr").textContent = tr("badEmail"));
+  if (password.length < 6) return ($("authErr").textContent = tr("shortPw"));
+  busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
+  try {
+    if (mode === "signin") {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    } else {
+      const back = location.origin + location.pathname + "?code=" + encodeURIComponent($("code").value.replace("-", ""));
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang }, emailRedirectTo: back } });
+      if (error) throw error;
+      if (data.user && data.user.identities && data.user.identities.length === 0) throw { code: "user_already_exists" };
+      if (!data.session) { show("confirm"); return; }
+    }
+    await refresh();
+  } catch (err) { $("authErr").textContent = errText(err); }
+  finally { busy($("authBtn"), false, tr(mode === "signin" ? "signIn" : "signUp")); }
+};
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $("authErr").textContent = tr("badEmail"); $("email").focus(); return; }
+  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
+  $("authErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
+};
+$("signOut").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); show("auth"); };
+$("linkForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  if (code.length !== 6) return ($("linkErr").textContent = tr("noCode"));
+  busy($("linkBtn"), true, tr("waiting")); $("linkErr").textContent = "";
+  try {
+    const { data: s } = await sb.auth.getSession();
+    const r = await fetch(cfg.url + "/functions/v1/device-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + s.session.access_token },
+      body: JSON.stringify({ action: "approve", code })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) { await sb.auth.signOut(); show("auth"); return; }
+    if (!r.ok || !j.ok) throw new Error(j.error || "x");
+    $("doneText").textContent = tr("doneText").replace("%s", j.device || "TV");
+    show("done");
+  } catch (err) { $("linkErr").textContent = err.message === "invalid_code" ? tr("badCode") : tr("generic"); }
+  finally { busy($("linkBtn"), false, tr("linkBtn")); }
+};
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") refresh(); });
+refresh();
+</script>
+</body>
+</html>

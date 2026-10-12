@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nieuw wachtwoord · Bingr</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/js/account.css">
+</head>
+<body>
+<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
+<main><div class="card">
+  <section id="form" class="hidden">
+    <h1 data-t="title"></h1>
+    <p class="muted"><span data-t="forAcc"></span> <b id="who"></b></p>
+    <form id="pwForm" novalidate>
+      <label class="pw"><input id="pw1" type="password" autocomplete="new-password" data-ph="newPw"><button type="button"></button></label>
+      <label class="pw"><input id="pw2" type="password" autocomplete="new-password" data-ph="repeatPw"><button type="button"></button></label>
+      <div id="err" class="err"></div>
+      <button id="saveBtn" class="btn" type="submit" data-t="save"></button>
+    </form>
+  </section>
+  <section id="done" class="done hidden"><div class="big">✓</div><h1 data-t="doneTitle"></h1><p data-t="doneText"></p></section>
+  <section id="invalid" class="done hidden"><div class="big">⌛</div><h1 data-t="invalidTitle"></h1><p data-t="invalidText"></p></section>
+  <section id="loading" class="done"><p class="muted" data-t="waiting"></p></section>
+</div></main>
+<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/config.js"></script>
+<script src="../assets/js/account.js"></script>
+<script>
+const { sb, $, t, pwToggles, busy } = Bingr;
+const tr = t({
+  nl: { title:"Nieuw wachtwoord", forAcc:"Voor", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
+        doneTitle:"Wachtwoord gewijzigd", doneText:"Log nu in de Bingr-app in met je nieuwe wachtwoord.", invalidTitle:"Link verlopen",
+        invalidText:"Deze link is ongeldig of al gebruikt. Vraag in de Bingr-app via <b>Wachtwoord vergeten?</b> een nieuwe aan.",
+        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", waiting:"Even geduld…" },
+  en: { title:"New password", forAcc:"For", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
+        doneTitle:"Password changed", doneText:"Now sign in to the Bingr app with your new password.", invalidTitle:"Link expired",
+        invalidText:"This link is invalid or has already been used. Request a new one in the Bingr app with <b>Forgot password?</b>",
+        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", waiting:"One moment…" }
+});
+pwToggles(tr);
+function show(id) { ["form", "done", "invalid", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+let shown = false;
+async function check() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { shown = true; $("who").textContent = data.session.user.email; show("form"); $("pw1").focus(); }
+}
+sb.auth.onAuthStateChange((ev) => { if (ev === "PASSWORD_RECOVERY" || ev === "SIGNED_IN") check(); });
+check().then(() => setTimeout(() => { if (!shown) show("invalid"); }, 2500));
+$("pwForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const a = $("pw1").value, b = $("pw2").value;
+  if (a.length < 6) return ($("err").textContent = tr("shortPw"));
+  if (a !== b) return ($("err").textContent = tr("mismatch"));
+  busy($("saveBtn"), true, tr("waiting"));
+  const { error } = await sb.auth.updateUser({ password: a });
+  busy($("saveBtn"), false, tr("save"));
+  if (error) { $("err").textContent = (error.code === "same_password") ? tr("generic") : tr("generic"); return; }
+  await sb.auth.signOut();
+  show("done");
+};
+</script>
+</body>
+</html>
