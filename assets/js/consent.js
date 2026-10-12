@@ -45,7 +45,7 @@
     if (document.getElementById("bingr-cookie-btn")) return;
     var st = document.createElement("style");
     st.textContent = "#bingr-cookie-btn{position:fixed;left:16px;bottom:16px;z-index:9998;width:44px;height:44px;border-radius:50%;border:1px solid #ffffff2a;background:#141414e6;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px #0008;transition:transform .2s,background .2s;padding:0}" +
-      "#bingr-cookie-btn:hover{transform:scale(1.08);background:#1f1f1f}#bingr-cookie-btn svg{width:24px;height:24px}";
+      "#bingr-cookie-btn:hover{transform:scale(1.08);background:#1f1f1f}#bingr-cookie-btn svg{width:24px;height:24px}@media (max-width:560px){#bingr-cookie-btn{width:38px;height:38px;left:12px;bottom:12px;opacity:.85}#bingr-cookie-btn svg{width:20px;height:20px}}";
     document.head.appendChild(st);
     var b = document.createElement("button"); b.id = "bingr-cookie-btn"; b.type = "button";
     b.title = nl ? "Cookie-instellingen" : "Cookie settings"; b.setAttribute("aria-label", b.title);
