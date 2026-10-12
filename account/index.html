@@ -12,6 +12,8 @@
 .me{display:flex;align-items:center;gap:16px;margin-bottom:6px}
 .me .av{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:30px;background:linear-gradient(135deg,#E50914,#7A0008);flex:none;overflow:hidden}
 h2{font-size:20px;font-weight:800;margin:34px 0 4px}
+.colprof{display:flex;align-items:center;gap:10px;margin-top:12px;color:var(--sec,#aaa);font-size:14px}
+.colprof select{background:#1b1b1b;border:1px solid #ffffff2a;color:#fff;border-radius:8px;padding:8px 12px;font:inherit}
 .profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:18px;margin-top:16px}
 .pf{text-align:center}
 .pf .pic{width:84px;height:84px;margin:0 auto 8px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:38px}
@@ -86,8 +88,9 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 
     <h2 data-t="collectionsTitle"></h2>
     <p class="muted" data-t="collectionsHelp"></p>
+    <label id="colProfileWrap" class="colprof" style="display:none"><span data-t="colFor"></span><select id="colProfile"></select></label>
     <div id="collections" style="margin-top:8px"></div>
-    <div class="form">
+    <div class="form" id="colForm">
       <h3 data-t="newSmart"></h3>
       <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
       <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
@@ -122,7 +125,7 @@ const tr = t({
         portal:"Portal-URL", mac:"MAC-adres", makeMain:"Hoofdserver", save:"Opslaan", cancel:"Annuleren", deleteServer:"Server verwijderen", deleteServerConfirm:"%s verwijderen van al je apparaten?",
         appOnly:"Deze server beheer je in de app (er is een login nodig).", mainSrv:"Hoofdserver", edit:"Wijzigen", noSources:"Nog geen servers.", nameMissing:"Vul een naam in.", urlMissing:"Vul een geldige URL in.",
         fieldsMissing:"Vul alle velden in.", savedSync:"Opgeslagen — verschijnt binnen een paar minuten op je apparaten.",
-        collectionsTitle:"Collecties", collectionsHelp:"Eigen rijen op het startscherm. Losse titels voeg je toe in de app; slimme collecties vullen zichzelf op zoekwoord.", newSmart:"Nieuwe slimme collectie",
+        collectionsTitle:"Collecties", collectionsHelp:"Elk profiel heeft zijn eigen collecties: eigen rijen op het startscherm. Losse titels voeg je toe in de app; slimme collecties vullen zichzelf op zoekwoord.", newSmart:"Nieuwe slimme collectie", colFor:"Profiel",
         keywords:"Zoekwoorden", colNamePh:"Bijv. Mijn sport", colQueryPh:"Bijv. sport, voetbal, F1", tChannels:"Zenders", tMovies:"Films", tSeries:"Series", create:"Maken",
         smart:"Slim", manual:"%d titels", noCollections:"Nog geen collecties.", deleteCollection:"Collectie %s verwijderen?", title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
         forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.",
@@ -141,7 +144,7 @@ const tr = t({
         portal:"Portal URL", mac:"MAC address", makeMain:"Main server", save:"Save", cancel:"Cancel", deleteServer:"Delete server", deleteServerConfirm:"Delete %s from all your devices?",
         appOnly:"Manage this server in the app (it needs a sign-in).", mainSrv:"Main server", edit:"Edit", noSources:"No servers yet.", nameMissing:"Enter a name.", urlMissing:"Enter a valid URL.",
         fieldsMissing:"Fill in all fields.", savedSync:"Saved — shows up on your devices within a few minutes.",
-        collectionsTitle:"Collections", collectionsHelp:"Your own rows on the home screen. Add individual titles in the app; smart collections fill themselves by keyword.", newSmart:"New smart collection",
+        collectionsTitle:"Collections", collectionsHelp:"Every profile has its own collections: your own rows on the home screen. Add individual titles in the app; smart collections fill themselves by keyword.", newSmart:"New smart collection", colFor:"Profile",
         keywords:"Keywords", colNamePh:"E.g. My sports", colQueryPh:"E.g. sports, football, F1", tChannels:"Channels", tMovies:"Movies", tSeries:"Series", create:"Create",
         smart:"Smart", manual:"%d titles", noCollections:"No collections yet.", deleteCollection:"Delete collection %s?", title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
         forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.",

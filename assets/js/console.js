@@ -115,39 +115,85 @@ window.BingrConsole = (function () {
     catch (e) { $("srcMsg").textContent = tr("generic"); }
   }
 
-  // ---- collecties
-  async function loadCollections() {
+  // ---- collecties: per profiel (build 54). Sectie = {version:2, profiles:{<id>:{items,updatedAt}}, items:[oud], migratedAt, updatedAt}
+  let colSec = {}, colProfiles = [], colProfile = null;
+  const newest = (a, b) => ((a && a.updatedAt) || "") >= ((b && b.updatedAt) || "") ? a : b;
+  function mergeItems(x, y) {
+    const m = new Map();
+    for (const c of [...(x || []), ...(y || [])]) { if (c && c.id) m.set(c.id, m.has(c.id) ? newest(m.get(c.id), c) : c); }
+    const cut = Date.now() - 90 * 864e5;
+    return [...m.values()].filter((c) => !(c.deleted && Date.parse(c.deletedAt || c.updatedAt || 0) < cut));
+  }
+  // zelfde migratie als de apps: oude account-brede lijst naar elk profiel, met dezelfde id/order/updatedAt
+  function normalize(data, profiles) {
+    const d = Object.assign({}, data || {});
+    d.profiles = Object.assign({}, d.profiles || {});
+    if (!(d.version >= 2)) {
+      for (const p of profiles) {
+        const cur = (d.profiles[p.id] && d.profiles[p.id].items) || [];
+        const have = new Set(cur.map((c) => c.id));
+        const items = cur.concat((d.items || []).filter((c) => !have.has(c.id)));
+        d.profiles[p.id] = { items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() };
+      }
+      d.version = 2; d.migratedAt = now();
+    }
+    return d;
+  }
+  async function fetchCollections() {
     const j = await call("get_state", { sections: ["collections"] });
     const sec = j.sections && j.sections.collections;
-    collections = (sec && sec.data && sec.data.items) || [];
+    return normalize(sec && sec.data, colProfiles);
+  }
+  async function loadCollections() {
+    const { data } = await sb.from("account_data").select("profiles").maybeSingle();
+    colProfiles = ((data && data.profiles) || []).filter((p) => p && !p.deleted && p.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    colSec = await fetchCollections();
+    if (!colProfiles.some((p) => p.id === colProfile)) colProfile = colProfiles.length ? colProfiles[0].id : null;
+    $("colProfile").innerHTML = colProfiles.map((p) => `<option value="${esc(p.id)}"${p.id === colProfile ? " selected" : ""}>${esc(p.name || "")}</option>`).join("");
+    $("colProfile").onchange = () => { colProfile = $("colProfile").value; renderCollections(); };
+    $("colProfileWrap").style.display = colProfiles.length > 1 ? "" : "none";
+    $("colForm").style.display = colProfile ? "" : "none";
     renderCollections();
   }
+  const bucket = () => ((colSec.profiles || {})[colProfile] || { items: [] }).items || [];
   function renderCollections() {
-    const act = collections.filter((c) => !c.deleted).sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (!colProfile) { $("collections").innerHTML = `<p class="muted">${tr("noProfiles")}</p>`; return; }
+    const act = bucket().filter((c) => !c.deleted).sort((a, b) => (a.order || 0) - (b.order || 0));
     $("collections").innerHTML = act.length ? act.map((c) => `
-      <div class="dev"><div class="ic" style="font-size:20px">${c.kind === "smart" ? "✨" : "📚"}</div>
+      <div class="dev"><div class="ic">${c.kind === "smart" ? icSmart : icList}</div>
         <div class="info"><div class="nm">${esc(c.name)}</div>
           <div class="meta">${c.kind === "smart" ? tr("smart") + ": " + esc(c.query || "") : tr("manual").replace("%d", (c.items || []).length)}</div></div>
         <button class="rm" data-cren="${esc(c.id)}">${tr("rename")}</button><button class="rm" data-cdel="${esc(c.id)}">${tr("remove")}</button></div>`).join("") : `<p class="muted">${tr("noCollections")}</p>`;
     document.querySelectorAll("[data-cren]").forEach((b) => b.onclick = async () => {
-      const c = collections.find((x) => x.id === b.dataset.cren); const n = prompt(tr("name"), c.name);
-      if (!n || !n.trim()) return; c.name = n.trim(); c.updatedAt = now(); await saveCollections();
+      const c = bucket().find((x) => x.id === b.dataset.cren); const n = prompt(tr("name"), c.name);
+      if (!n || !n.trim()) return; await saveChange(Object.assign({}, c, { name: n.trim(), updatedAt: now() }));
     });
     document.querySelectorAll("[data-cdel]").forEach((b) => b.onclick = async () => {
-      const c = collections.find((x) => x.id === b.dataset.cdel); if (!confirm(tr("deleteCollection").replace("%s", c.name))) return;
-      collections = collections.map((x) => (x.id === c.id ? { id: c.id, deleted: true, deletedAt: now(), updatedAt: now() } : x)); await saveCollections();
+      const c = bucket().find((x) => x.id === b.dataset.cdel); if (!confirm(tr("deleteCollection").replace("%s", c.name))) return;
+      const t = now(); await saveChange({ id: c.id, deleted: true, deletedAt: t, updatedAt: t });
     });
   }
+  const icSmart = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.8 4.9L19 9.7l-4.9 1.8L12 16.5l-1.8-4.9L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>`;
+  const icList = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>`;
   async function addSmart() {
     const name = $("colName").value.trim(), q = $("colQuery").value.trim();
     if (!name || !q) { $("colMsg").textContent = tr("fieldsMissing"); return; }
     const types = ["channel", "movie", "series"].filter((t) => $("colT_" + t).checked);
-    collections.push({ id: uuid(), name, kind: "smart", query: q, types: types.length ? types : ["channel", "movie", "series"], image: { symbol: "sparkle", colorIndex: Math.floor(Math.random() * 8) }, order: collections.length, updatedAt: now() });
-    $("colName").value = ""; $("colQuery").value = ""; await saveCollections();
+    const order = bucket().filter((c) => !c.deleted).length;
+    await saveChange({ id: uuid(), name, kind: "smart", query: q, types: types.length ? types : ["channel", "movie", "series"], image: { symbol: "sparkle", colorIndex: Math.floor(Math.random() * 8) }, order, updatedAt: now() });
+    $("colName").value = ""; $("colQuery").value = "";
   }
-  async function saveCollections() {
-    try { await call("put_state", { section: "collections", data: { items: collections, updatedAt: now() } }); renderCollections(); $("colMsg").innerHTML = `<span class="ok">${tr("savedSync")}</span>`; }
-    catch (e) { $("colMsg").textContent = tr("generic"); }
+  // altijd eerst de nieuwste versie ophalen en alleen de lijst van dit profiel aanpassen; de rest blijft precies staan
+  async function saveChange(item) {
+    try {
+      const fresh = await fetchCollections();
+      const b = (fresh.profiles[colProfile] && fresh.profiles[colProfile].items) || [];
+      const items = mergeItems(b, [item]);
+      fresh.profiles[colProfile] = { items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() };
+      fresh.updatedAt = now();
+      await call("put_state", { section: "collections", data: fresh });
+      colSec = fresh; renderCollections(); $("colMsg").innerHTML = `<span class="ok">${tr("savedSync")}</span>`;
+    } catch (e) { $("colMsg").textContent = tr("generic"); }
   }
 
   let timer = null;
