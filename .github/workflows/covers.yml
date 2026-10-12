@@ -1,0 +1,50 @@
+name: Covers
+
+# Haalt echte covers (TMDB) op, maakt de screenshots (NL + EN) met de mockups uit de app-repo
+# (LRvdLinden/iptv-ios-appletv) en werkt de site bij. Daarna gaat de site meteen online.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * 1'          # elke maandag verse covers
+
+permissions:
+  contents: write
+
+jobs:
+  covers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: site
+      - uses: actions/checkout@v5
+        with:
+          repository: LRvdLinden/iptv-ios-appletv
+          path: app
+      - name: Benodigdheden
+        run: |
+          pip install pillow playwright
+          python3 -m playwright install --with-deps chromium
+      - name: Covers ophalen (TMDB)
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY || secrets.TMDB_ACCESS_TOKEN }}
+        run: python3 app/tools/fetch_covers.py
+      - name: Screenshots en site bijwerken
+        run: |
+          python3 app/tools/make_screenshots.py app
+          python3 app/tools/sync_website.py --site site
+      - name: Vastleggen
+        working-directory: site
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet && { echo "geen wijzigingen"; exit 0; }
+          git commit -m "Covers en screenshots bijgewerkt"
+          git push origin HEAD:main
+
+  deploy:
+    needs: covers
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
