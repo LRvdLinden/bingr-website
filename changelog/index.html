@@ -8,18 +8,25 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/js/account.css">
 <style>
-main{display:block;max-width:820px;margin:0 auto;padding:30px 24px 80px}
+main{display:block;max-width:860px;margin:0 auto;padding:30px 24px 80px}
 h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
-.filters{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 10px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
 .filters button{background:#ffffff14;border:1px solid #ffffff22;color:#ddd;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
 .filters button.on{background:#fff;color:#000;border-color:#fff}
-.rel{display:grid;grid-template-columns:150px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid #ffffff14}
-@media (max-width:560px){.rel{grid-template-columns:1fr;gap:6px}}
+.flabel{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:20px}
+.rel{display:grid;grid-template-columns:150px 1fr;gap:18px;padding:26px 0;border-bottom:1px solid #ffffff14}
+@media (max-width:600px){.rel{grid-template-columns:1fr;gap:8px}}
 .rel .v{font-weight:800;font-size:18px;white-space:nowrap}.rel .b{color:#e5e5e5;font-weight:600;font-size:15px;margin-top:2px}.rel .d{color:var(--sec);font-size:13px;margin-top:2px}
-.rel ul{margin:0;padding-left:18px}.rel li{color:#d4d4d4;font-size:16px;line-height:1.55;margin:3px 0}
-.tags{margin-bottom:6px}.tag{display:inline-block;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;margin-right:5px;background:#ffffff1a;color:#ddd}
-.tag.android{background:#3ddc8433;color:#7ff0b0}.tag.apple{background:#ffffff26}.tag.web{background:#e5091433;color:#ff8a8f}
-.latest{display:inline-block;margin-top:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;vertical-align:3px}
+.latest{display:inline-block;margin-top:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px}
+.grp+.grp{margin-top:16px}
+.gh{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:6px;padding:3px 9px;margin-bottom:6px}
+.gh.new{background:#46d36926;color:#6ee68a}.gh.improved{background:#3b82f626;color:#8fb8ff}.gh.fixed{background:#f59e0b26;color:#ffc56b}
+.it{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.it .tx{flex:1;color:#e2e2e2;font-size:16px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.chip{font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;background:#ffffff14;color:#cfcfcf;white-space:nowrap}
+.chip.apple{background:#ffffff1f;color:#fff}.chip.android{background:#3ddc8426;color:#7ff0b0}.chip.web{background:#e5091426;color:#ff8a8f}.chip.all{background:#ffffff10;color:#bdbdbd}
+.empty{color:var(--sec);padding:30px 0}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
@@ -28,31 +35,62 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 <main>
   <h1>Changelog</h1>
   <p class="muted" data-t="intro"></p>
-  <div class="filters" id="filters"></div>
+  <div class="flabel" data-t="fPlatform"></div>
+  <div class="filters" id="fp"></div>
+  <div class="flabel" data-t="fType"></div>
+  <div class="filters" id="ft"></div>
   <div id="list"></div>
 </main>
 <footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
 <script>
 (function () {
   let lang = "nl"; try { lang = (localStorage.getItem("bingr.lang") || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en"; } catch (e) {}
-  const T = { nl: { intro: "Wat er nieuw is in elke versie van Bingr. Het buildnummer loopt gelijk over alle apparaten.", all: "Alles", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Nieuwste", version: "Versie" },
-              en: { intro: "What's new in every version of Bingr. The build number is the same across all devices.", all: "All", apple: "iPhone, iPad, Apple TV & Mac", android: "Android", web: "Website", latest: "Latest", version: "Version" } }[lang];
-  const tagName = { apple: "Apple", android: "Android", web: "Web" };
+  const T = {
+    nl: { intro: "Wat er nieuw, verbeterd en opgelost is in elke versie van Bingr, per apparaat. Het buildnummer loopt gelijk over alle apparaten.",
+          fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", latest: "Nieuwste", version: "Versie",
+          new: "Nieuw", improved: "Verbeterd", fixed: "Opgelost", empty: "Geen wijzigingen voor deze keuze." },
+    en: { intro: "What's new, improved and fixed in every version of Bingr, per device. The build number is the same across all devices.",
+          fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", latest: "Latest", version: "Version",
+          new: "New", improved: "Improved", fixed: "Fixed", empty: "No changes for this selection." }
+  }[lang];
+  const P = [["ios","iOS","apple"],["ipados","iPadOS","apple"],["tvos","tvOS","apple"],["macos","macOS","apple"],["android","Android","android"],["androidtv","Android TV","android"],["web","Web","web"]];
+  const PL = Object.fromEntries(P.map(([k, l, c]) => [k, { l, c }]));
+  const APPS = ["ios","ipados","tvos","macos","android","androidtv"];
+  const ICON = { new: "✨", improved: "⚡", fixed: "🛠" };
   document.documentElement.lang = lang;
-  document.querySelector('[data-t="intro"]').textContent = T.intro;
+  document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = T[el.dataset.t] || el.textContent; });
   const sw = document.getElementById("langSwitch"); sw.textContent = lang === "nl" ? "English" : "Nederlands";
   sw.onclick = (e) => { e.preventDefault(); try { localStorage.setItem("bingr.lang", lang === "nl" ? "en" : "nl"); } catch (x) {} location.reload(); };
-  let filter = new URLSearchParams(location.search).get("p") || "all";
+  const q = new URLSearchParams(location.search);
+  let fp = q.get("p") || "all", ft = q.get("t") || "all";
+  if (fp === "apple") fp = "ios";
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
   fetch("../assets/changelog.json", { cache: "no-cache" }).then((r) => r.json()).then((data) => {
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
+    // oud formaat (nl/en-lijsten per build) ook nog kunnen tonen
+    data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
+    function chips(pl) {
+      if (APPS.every((p) => pl.includes(p))) return `<span class="chip all">${T.allApps}</span>` + (pl.includes("web") ? `<span class="chip web">Web</span>` : "");
+      return P.filter(([k]) => pl.includes(k)).map(([k, l, c]) => `<span class="chip ${c}">${l}</span>`).join("");
+    }
     function render() {
-      document.getElementById("filters").innerHTML = ["all", "apple", "android", "web"].map((f) => `<button data-f="${f}" class="${f === filter ? "on" : ""}">${T[f]}</button>`).join("");
-      document.querySelectorAll("#filters button").forEach((b) => b.onclick = () => { filter = b.dataset.f; render(); });
-      document.getElementById("list").innerHTML = data.filter((e) => filter === "all" || e.platforms.includes(filter)).map((e, i) => `
-        <div class="rel"><div><div class="v">${T.version} ${e.version || "1.0.0"}</div><div class="b">Build ${e.build}</div>
-          <div class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</div>${i === 0 ? `<span class="latest">${T.latest}</span>` : ""}</div>
-          <div><div class="tags">${e.platforms.map((p) => `<span class="tag ${p}">${tagName[p]}</span>`).join("")}</div>
-          <ul>${e[lang].map((x) => `<li>${x}</li>`).join("")}</ul></div></div>`).join("");
+      document.getElementById("fp").innerHTML = [["all", T.all], ...P.map(([k, l]) => [k, l])].map(([k, l]) => `<button data-p="${k}" class="${k === fp ? "on" : ""}">${l}</button>`).join("");
+      document.getElementById("ft").innerHTML = [["all", T.all], ["new", ICON.new + " " + T.new], ["improved", ICON.improved + " " + T.improved], ["fixed", ICON.fixed + " " + T.fixed]].map(([k, l]) => `<button data-t2="${k}" class="${k === ft ? "on" : ""}">${l}</button>`).join("");
+      document.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { fp = b.dataset.p; render(); });
+      document.querySelectorAll("[data-t2]").forEach((b) => b.onclick = () => { ft = b.dataset.t2; render(); });
+      let first = true;
+      const html = data.map((e) => {
+        const items = e.items.filter((i) => (fp === "all" || i.platforms.includes(fp)) && (ft === "all" || i.type === ft));
+        if (!items.length) return "";
+        const groups = ["new", "improved", "fixed"].map((t) => {
+          const rows = items.filter((i) => i.type === t);
+          return rows.length ? `<div class="grp"><div class="gh ${t}">${ICON[t]} ${T[t]}</div>` + rows.map((i) => `<div class="it"><div class="tx">${esc(i[lang] || i.nl)}<div class="chips">${chips(i.platforms)}</div></div></div>`).join("") + "</div>" : "";
+        }).join("");
+        const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
+        return `<div class="rel"><div><div class="v">${T.version} ${e.version || "1.0.0"}</div><div class="b">Build ${e.build}</div>
+          <div class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</div>${top}</div><div>${groups}</div></div>`;
+      }).join("");
+      document.getElementById("list").innerHTML = html || `<p class="empty">${T.empty}</p>`;
     }
     render();
   });
