@@ -43,17 +43,21 @@ jobs:
           common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ssl:verify-certificate no; set ftp:passive-mode true"
           # eerst expliciete FTPS (versleuteld), daarna gewone FTP als de server geen TLS kent
           USER_OK=""; base=""; SERVER_OK=""
+          # de FTP-server reageert soms even niet: tot 4 pogingen met een pauze
+          for attempt in 1 2 3 4; do
+          [ "$attempt" -gt 1 ] && { echo "Nieuwe poging $attempt over 45 s…"; sleep 45; }
           for srv in "$FTP_SERVER" "ftp.bingr.online" "bingr.online"; do
           for mode in "set ftp:ssl-force true; set ftp:ssl-protect-data true" "set ftp:ssl-allow false"; do
             for u in "$FTP_USERNAME" "${FTP_USERNAME_ALT:-}"; do
               [ -z "$u" ] && continue
               echo "Proberen: gebruiker '${u}', modus: ${mode}"
               if lftp -e "$common; $mode; open -u \"$u\",\"$FTP_PASSWORD\" \"$srv\"; cls -1 > /tmp/root.txt; bye" 2>/tmp/err.txt; then
-                USER_OK="$u"; base="$common; $mode"; SERVER_OK="$srv"; break 3
+                USER_OK="$u"; base="$common; $mode"; SERVER_OK="$srv"; break 4
               fi
               msg=$(sed 's/PASS .*/PASS ***/' /tmp/err.txt | tr '\n' ' ' | tail -c 300)
               echo "::warning::Mislukt (${srv}, gebruiker ${u%%@*}…, ${mode%%;*}): ${msg:-geen melding}"
             done
+          done
           done
           done
           [ -n "$USER_OK" ] || { echo "::error::Inloggen op de FTP-server mislukt met de opgegeven gebruikersnamen."; exit 1; }
