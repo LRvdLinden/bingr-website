@@ -18,10 +18,12 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 @media (max-width:600px){.rel{grid-template-columns:1fr;gap:8px}}
 .rel .v{font-weight:800;font-size:18px;white-space:nowrap}.rel .b{color:#e5e5e5;font-weight:600;font-size:15px;margin-top:2px}.rel .d{color:var(--sec);font-size:13px;margin-top:2px}
 .latest{display:inline-block;margin-top:8px;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px}
-.grp+.grp{margin-top:16px}
-.gh{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:6px;padding:3px 9px;margin-bottom:6px}
+.os{margin-top:4px}.os+.os{margin-top:22px;padding-top:18px;border-top:1px solid #ffffff10}
+.osh{font-size:15px;font-weight:800;color:#fff;margin-bottom:8px}
+.grp+.grp{margin-top:12px}
+.gh{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:6px;padding:3px 9px;margin-bottom:6px}
 .gh.new{background:#46d36926;color:#6ee68a}.gh.improved{background:#3b82f626;color:#8fb8ff}.gh.fixed{background:#f59e0b26;color:#ffc56b}
-.it{display:flex;gap:10px;align-items:flex-start;padding:7px 0}
+.it{display:flex;gap:10px;align-items:flex-start;padding:5px 0 5px 14px;position:relative}.it::before{content:"";position:absolute;left:2px;top:15px;width:5px;height:5px;border-radius:50%;background:#777}
 .it .tx{flex:1;color:#e2e2e2;font-size:16px;line-height:1.5}
 .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
 .chip{font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;background:#ffffff14;color:#cfcfcf;white-space:nowrap}
@@ -47,16 +49,16 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   let lang = "nl"; try { lang = (localStorage.getItem("bingr.lang") || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en"; } catch (e) {}
   const T = {
     nl: { intro: "Wat er nieuw, verbeterd en opgelost is in elke versie van Bingr, per apparaat. Het buildnummer loopt gelijk over alle apparaten.",
-          fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", latest: "Nieuwste", version: "Versie",
+          fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", allAppsWeb: "Alle apps en de website", and: "en", latest: "Nieuwste", version: "Versie",
           new: "Nieuw", improved: "Verbeterd", fixed: "Opgelost", empty: "Geen wijzigingen voor deze keuze." },
     en: { intro: "What's new, improved and fixed in every version of Bingr, per device. The build number is the same across all devices.",
-          fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", latest: "Latest", version: "Version",
+          fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", allAppsWeb: "All apps and the website", and: "and", latest: "Latest", version: "Version",
           new: "New", improved: "Improved", fixed: "Fixed", empty: "No changes for this selection." }
   }[lang];
   const P = [["ios","iOS","apple"],["ipados","iPadOS","apple"],["tvos","tvOS","apple"],["macos","macOS","apple"],["android","Android","android"],["androidtv","Android TV","android"],["web","Web","web"]];
   const PL = Object.fromEntries(P.map(([k, l, c]) => [k, { l, c }]));
   const APPS = ["ios","ipados","tvos","macos","android","androidtv"];
-  const ICON = { new: "✨", improved: "⚡", fixed: "🛠" };
+  
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = T[el.dataset.t] || el.textContent; });
   const sw = document.getElementById("langSwitch"); sw.textContent = lang === "nl" ? "English" : "Nederlands";
@@ -69,23 +71,44 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
     // oud formaat (nl/en-lijsten per build) ook nog kunnen tonen
     data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
+    const ORDER = ["ios","ipados","tvos","macos","android","androidtv","web"];
+    const setKey = (pl) => ORDER.filter((p) => pl.includes(p)).join(",");
+    function setLabel(pl) {
+      const all = APPS.every((p) => pl.includes(p));
+      if (all) return pl.includes("web") ? T.allAppsWeb : T.allApps;
+      const names = ORDER.filter((p) => pl.includes(p)).map((p) => PL[p].l);
+      return names.length > 1 ? names.slice(0, -1).join(", ") + " " + T.and + " " + names[names.length - 1] : names[0];
+    }
+    function setRank(pl) {
+      if (APPS.every((p) => pl.includes(p))) return 0;
+      return 1 + Math.min(...ORDER.map((p, i) => (pl.includes(p) ? i : 99))) * 10 + pl.length * 0.1;
+    }
     function chips(pl) {
       if (APPS.every((p) => pl.includes(p))) return `<span class="chip all">${T.allApps}</span>` + (pl.includes("web") ? `<span class="chip web">Web</span>` : "");
       return P.filter(([k]) => pl.includes(k)).map(([k, l, c]) => `<span class="chip ${c}">${l}</span>`).join("");
     }
     function render() {
       document.getElementById("fp").innerHTML = [["all", T.all], ...P.map(([k, l]) => [k, l])].map(([k, l]) => `<button data-p="${k}" class="${k === fp ? "on" : ""}">${l}</button>`).join("");
-      document.getElementById("ft").innerHTML = [["all", T.all], ["new", ICON.new + " " + T.new], ["improved", ICON.improved + " " + T.improved], ["fixed", ICON.fixed + " " + T.fixed]].map(([k, l]) => `<button data-t2="${k}" class="${k === ft ? "on" : ""}">${l}</button>`).join("");
+      document.getElementById("ft").innerHTML = [["all", T.all], ["new", T.new], ["improved", T.improved], ["fixed", T.fixed]].map(([k, l]) => `<button data-t2="${k}" class="${k === ft ? "on" : ""}">${l}</button>`).join("");
       document.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { fp = b.dataset.p; render(); });
       document.querySelectorAll("[data-t2]").forEach((b) => b.onclick = () => { ft = b.dataset.t2; render(); });
       let first = true;
       const html = data.map((e) => {
         const items = e.items.filter((i) => (fp === "all" || i.platforms.includes(fp)) && (ft === "all" || i.type === ft));
         if (!items.length) return "";
-        const groups = ["new", "improved", "fixed"].map((t) => {
-          const rows = items.filter((i) => i.type === t);
-          return rows.length ? `<div class="grp"><div class="gh ${t}">${ICON[t]} ${T[t]}</div>` + rows.map((i) => `<div class="it"><div class="tx">${esc(i[lang] || i.nl)}<div class="chips">${chips(i.platforms)}</div></div></div>`).join("") + "</div>" : "";
-        }).join("");
+        // per apparaatsoort (dezelfde set platforms), daarbinnen Nieuw / Verbeterd / Opgelost
+        const sets = [];
+        for (const i of items) {
+          const key = setKey(i.platforms);
+          let g = sets.find((x) => x.key === key);
+          if (!g) { g = { key, label: setLabel(i.platforms), rank: setRank(i.platforms), items: [] }; sets.push(g); }
+          g.items.push(i);
+        }
+        sets.sort((a, b) => a.rank - b.rank);
+        const groups = sets.map((g) => `<div class="os"><div class="osh">${g.label}</div>` + ["new", "improved", "fixed"].map((t) => {
+          const rows = g.items.filter((i) => i.type === t);
+          return rows.length ? `<div class="grp"><div class="gh ${t}">${T[t]}</div>` + rows.map((i) => `<div class="it"><div class="tx">${esc(i[lang] || i.nl)}</div></div>`).join("") + "</div>" : "";
+        }).join("") + "</div>").join("");
         const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
         return `<div class="rel"><div><div class="v">${T.version} ${e.version || "1.0.0"}</div><div class="b">Build ${e.build}</div>
           <div class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</div>${top}</div><div>${groups}</div></div>`;
