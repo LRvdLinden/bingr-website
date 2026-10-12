@@ -10,7 +10,12 @@
 <style>
 main{display:block;max-width:1180px;margin:0 auto;padding:30px 24px 80px}
 h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
-.filters{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}
+.fbar{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 4px}
+.fsel{display:flex;flex-direction:column;gap:6px;min-width:190px}
+.fsel span{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.fsel select{appearance:none;-webkit-appearance:none;background:#1b1b1b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23bbb' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid #ffffff2a;color:#fff;border-radius:8px;padding:10px 36px 10px 12px;font:inherit;font-size:15px;cursor:pointer}
+.fsel select:focus{outline:2px solid #e50914;outline-offset:1px}
+@media (max-width:520px){.fsel{flex:1;min-width:0}}
 .filters button{display:inline-flex;align-items:center;gap:6px;background:#ffffff14;border:1px solid #ffffff22;color:#ddd;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
 .filters button svg{width:16px;height:16px}
 .filters button.on{background:#fff;color:#000;border-color:#fff}
@@ -19,17 +24,14 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 .rh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .rh .v{font-weight:800;font-size:22px}.rh .b{color:#e5e5e5;font-weight:600;font-size:16px}.rh .d{color:var(--sec);font-size:14px}
 .latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;align-self:center}
-.cols{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:14px;align-items:start}
-@media (max-width:860px){.cols{grid-template-columns:1fr}}
-.col{background:#141414;border:1px solid #ffffff12;border-radius:12px;padding:16px 16px 10px;min-width:0}
-.col h3{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
-.col h3 .n{font-size:12px;color:var(--sec);font-weight:600;letter-spacing:0}
-.col.new h3{color:#6ee68a}.col.improved h3{color:#8fb8ff}.col.fixed h3{color:#ffc56b}
-.col.new{border-top:3px solid #46d369}.col.improved{border-top:3px solid #3b82f6}.col.fixed{border-top:3px solid #f59e0b}
-.it{padding:9px 0;border-top:1px solid #ffffff0d}.it:first-of-type{border-top:0}
-.it .tx{color:#e2e2e2;font-size:15px;line-height:1.45}
-.pl{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.pi{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px 2px 4px;background:#ffffff12;color:#d0d0d0}
+.grp{margin-top:14px}.grp:first-of-type{margin-top:0}
+.grp h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
+.grp.new h3{color:#6ee68a}.grp.improved h3{color:#8fb8ff}.grp.fixed h3{color:#ffc56b}
+.grp ul{list-style:none;margin:0;padding:0}
+.grp li{position:relative;padding:5px 0 5px 18px;color:#e2e2e2;font-size:15px;line-height:1.5}
+.grp li::before{content:"";position:absolute;left:3px;top:13px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35}
+.pl{display:inline}.pl .pi{margin-left:6px;vertical-align:2px}
+.pi{display:inline-flex;white-space:nowrap;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px 2px 4px;background:#ffffff12;color:#d0d0d0}
 .pi svg{width:14px;height:14px}
 .pi.and{background:#3ddc841f;color:#8ef0bd}.pi.web{background:#e509141f;color:#ff9da1}.pi.all{background:#ffffff0d;color:#a9a9a9}
 .none{color:#666;font-size:14px;padding:4px 0 8px}
@@ -42,10 +44,10 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 <main>
   <h1>Changelog</h1>
   <p class="muted" data-t="intro"></p>
-  <div class="flabel" data-t="fPlatform"></div>
-  <div class="filters" id="fp"></div>
-  <div class="flabel" data-t="fType"></div>
-  <div class="filters" id="ft"></div>
+  <div class="fbar">
+    <label class="fsel"><span data-t="fPlatform"></span><select id="fp"></select></label>
+    <label class="fsel"><span data-t="fType"></span><select id="ft"></select></label>
+  </div>
   <div id="list"></div>
 </main>
 <footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
@@ -86,30 +88,29 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
     let rest = pl;
     if (APPS.every((p) => pl.includes(p))) { out.push(`<span class="pi all" title="${T.allApps}">${IC.all}${T.allApps}</span>`); rest = pl.filter((p) => !APPS.includes(p)); }
     for (const [k, l, c] of P) if (rest.includes(k)) out.push(`<span class="pi ${c}" title="${l}">${IC[k]}${l}</span>`);
-    return `<div class="pl">${out.join("")}</div>`;
+    return `<span class="pl">${out.join("")}</span>`;
   }
   fetch("../assets/changelog.json", { cache: "no-cache" }).then((r) => r.json()).then((data) => {
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
     data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
     function render() {
-      document.getElementById("fp").innerHTML = [["all", T.all, ""], ...P.map(([k, l]) => [k, l, IC[k]])].map(([k, l, ic]) => `<button data-p="${k}" class="${k === fp ? "on" : ""}">${ic}${l}</button>`).join("");
-      document.getElementById("ft").innerHTML = [["all", T.all], ["new", T.new], ["improved", T.improved], ["fixed", T.fixed]].map(([k, l]) => `<button data-t2="${k}" class="${k === ft ? "on" : ""}">${l}</button>`).join("");
-      document.querySelectorAll("[data-p]").forEach((b) => b.onclick = () => { fp = b.dataset.p; render(); });
-      document.querySelectorAll("[data-t2]").forEach((b) => b.onclick = () => { ft = b.dataset.t2; render(); });
+      const fpS = document.getElementById("fp"), ftS = document.getElementById("ft");
+      fpS.innerHTML = [["all", T.all], ...P.map(([k, l]) => [k, l])].map(([k, l]) => `<option value="${k}"${k === fp ? " selected" : ""}>${l}</option>`).join("");
+      ftS.innerHTML = [["all", T.all], ["new", T.new], ["improved", T.improved], ["fixed", T.fixed]].map(([k, l]) => `<option value="${k}"${k === ft ? " selected" : ""}>${l}</option>`).join("");
+      fpS.onchange = () => { fp = fpS.value; render(); };
+      ftS.onchange = () => { ft = ftS.value; render(); };
       let first = true;
       const html = data.map((e) => {
         const items = e.items.filter((i) => fp === "all" || i.platforms.includes(fp));
         const types = ft === "all" ? ["new", "improved", "fixed"] : [ft];
         if (!items.some((i) => types.includes(i.type))) return "";
-        const used = types.filter((t) => items.some((i) => i.type === t));
-        const cols = used.map((t) => {
+        const groups = types.map((t) => {
           const rows = items.filter((i) => i.type === t);
-          return `<div class="col ${t}"><h3>${T[t]}<span class="n">${rows.length || ""}</span></h3>` +
-            (rows.length ? rows.map((i) => `<div class="it"><div class="tx">${esc(i[lang] || i.nl)}</div>${plats(i.platforms)}</div>`).join("") : `<div class="none">${T.none}</div>`) + "</div>";
+          if (!rows.length) return "";
+          return `<div class="grp ${t}"><h3>${T[t]}</h3><ul>` + rows.map((i) => `<li>${esc(i[lang] || i.nl)}${plats(i.platforms)}</li>`).join("") + "</ul></div>";
         }).join("");
         const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
-        return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div>
-          <div class="cols" style="--n:${used.length}">${cols}</div></section>`;
+        return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div>${groups}</section>`;
       }).join("");
       document.getElementById("list").innerHTML = html || `<p class="empty">${T.empty}</p>`;
     }
