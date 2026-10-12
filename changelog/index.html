@@ -20,10 +20,12 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 .filters button svg{width:16px;height:16px}
 .filters button.on{background:#fff;color:#000;border-color:#fff}
 .flabel{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:20px}
-.rel{padding:30px 0;border-bottom:1px solid #ffffff14}
-.rh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.rel{padding:30px 0;border-bottom:1px solid #ffffff14;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px}
+.rh{display:flex;flex-direction:column;align-items:flex-start;gap:4px;position:sticky;top:20px;align-self:start}
+@media (max-width:700px){.rel{grid-template-columns:1fr;gap:14px}.rh{position:static;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 12px}}
 .rh .v{font-weight:800;font-size:22px}.rh .b{color:#e5e5e5;font-weight:600;font-size:16px}.rh .d{color:var(--sec);font-size:14px}
-.latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;align-self:center}
+.latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;margin-top:6px}
+@media (max-width:700px){.latest{margin-top:0;align-self:center}}
 .grp{margin-top:14px}.grp:first-of-type{margin-top:0}
 .grp h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
 .grp.new h3{color:#6ee68a}.grp.improved h3{color:#8fb8ff}.grp.fixed h3{color:#ffc56b}
@@ -110,7 +112,7 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
           return `<div class="grp ${t}"><h3>${T[t]}</h3><ul>` + rows.map((i) => `<li>${esc(i[lang] || i.nl)}${plats(i.platforms)}</li>`).join("") + "</ul></div>";
         }).join("");
         const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
-        return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div>${groups}</section>`;
+        return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div><div>${groups}</div></section>`;
       }).join("");
       document.getElementById("list").innerHTML = html || `<p class="empty">${T.empty}</p>`;
     }
