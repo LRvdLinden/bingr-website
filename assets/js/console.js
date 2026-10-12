@@ -22,7 +22,7 @@ window.BingrConsole = (function () {
     $("streams").innerHTML = j.streams.length ? j.streams.map((s) => `
       <div class="dev"><div class="ic">${devIcon(s.platform)}</div>
         <div class="info"><div class="nm">${esc(s.title || "—")}</div>
-          <div class="meta">${esc(s.device_name || platLabel(s.platform))} · ${esc(s.profile_name || "")} · ${tr("watchingFor").replace("%s", dur(Date.now() - Date.parse(s.started_at)))}${s.signed_in_at ? " · " + tr("signedInSince").replace("%s", new Date(s.signed_in_at).toLocaleDateString(loc, { day: "numeric", month: "short" }) + " " + fmtTime(new Date(s.signed_in_at))) : ""}</div></div>
+          <div class="meta who">${profileAvatar(s.profile_id, s.profile_name)}<span>${esc(s.profile_name || "")} · ${esc(s.device_name || platLabel(s.platform))} · ${tr("watchingFor").replace("%s", dur(Date.now() - Date.parse(s.started_at)))}${s.signed_in_at ? " · " + tr("signedInSince").replace("%s", new Date(s.signed_in_at).toLocaleDateString(loc, { day: "numeric", month: "short" }) + " " + fmtTime(new Date(s.signed_in_at))) : ""}</span></div></div>
         <span class="live">LIVE</span></div>`).join("") : `<p class="muted">${tr("nobodyWatching")}</p>`;
   }
   // ---- kijkgeschiedenis
@@ -32,7 +32,7 @@ window.BingrConsole = (function () {
     const groups = {};
     for (const e of j.entries) { const k = new Date(e.started_at).toDateString(); (groups[k] = groups[k] || []).push(e); }
     $("history").innerHTML = Object.keys(groups).map((k) => `<h3 class="day">${dayLabel(k)}</h3>` + groups[k].map((e) => `
-      <div class="hrow"><div class="ht">${fmtTime(new Date(e.started_at))}</div>
+      <div class="hrow"><div class="ht">${fmtTime(new Date(e.started_at))}</div>${profileAvatar(e.profile_id, e.profile_name)}
         <div class="info"><div class="nm">${esc(e.title || "—")}</div>
           <div class="meta">${esc(e.profile_name || "")} · ${esc(e.device_name || platLabel(e.platform))} · ${tr("minutes").replace("%d", e.minutes)}</div></div></div>`).join("")).join("");
   }
@@ -162,8 +162,8 @@ window.BingrConsole = (function () {
     $("collections").innerHTML = act.length ? act.map((c) => `
       <div class="dev"><div class="ic">${c.kind === "smart" ? icSmart : icList}</div>
         <div class="info"><div class="nm">${esc(c.name)}</div>
-          <div class="meta">${c.kind === "smart" ? tr("smart") + ": " + esc(c.query || "") : tr("manual").replace("%d", (c.items || []).length)}</div></div>
-        <button class="rm" data-cren="${esc(c.id)}">${tr("rename")}</button><button class="rm" data-cdel="${esc(c.id)}">${tr("remove")}</button></div>`).join("") : `<p class="muted">${tr("noCollections")}</p>`;
+          <div class="meta">${c.kind === "smart" ? tr("smart") + ": " + esc(c.query || "") : tr("manual").replace("%d", (c.items || []).length)}</div>
+          <div class="acts"><button class="rm" data-cren="${esc(c.id)}">${tr("rename")}</button><button class="rm" data-cdel="${esc(c.id)}">${tr("remove")}</button></div></div></div>`).join("") : `<p class="muted">${tr("noCollections")}</p>`;
     document.querySelectorAll("[data-cren]").forEach((b) => b.onclick = async () => {
       const c = bucket().find((x) => x.id === b.dataset.cren); const n = prompt(tr("name"), c.name);
       if (!n || !n.trim()) return; await saveChange(Object.assign({}, c, { name: n.trim(), updatedAt: now() }));

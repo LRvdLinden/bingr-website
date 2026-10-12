@@ -23,8 +23,13 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .row .btn{width:auto;margin-top:0;padding:12px 18px;font-size:15px}
 .dev .ic{color:#fff}
-.dev .rm+.rm{margin-left:6px}
-@media (max-width:520px){.dev{flex-wrap:wrap}.dev .info{flex-basis:calc(100% - 60px)}.dev .rm{margin-left:58px}.dev .rm+.rm{margin-left:6px}}
+.dev{align-items:flex-start}.dev .nm{white-space:normal}
+.dev .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pav{width:30px;height:30px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:15px;flex:none;color:#fff;font-weight:700}
+.pav img{width:100%;height:100%;object-fit:cover}
+.hrow .pav{margin-top:1px}
+.hrow .info{flex:1;min-width:0}.hrow .nm{font-weight:700;font-size:15px}.hrow .meta{color:var(--sec);font-size:13px;line-height:1.5}
+.who{display:flex;align-items:center;gap:8px}
 .live{background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:4px;padding:2px 7px;flex:none}
 .history .day{font-size:15px;color:#fff;margin:18px 0 4px;text-transform:capitalize}
 .hrow{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #ffffff10}.hrow .ht{color:var(--sec);font-size:14px;width:48px;flex:none;padding-top:2px}
@@ -76,8 +81,13 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
     <p class="muted" id="streamCount"></p>
     <div id="streams" style="margin-top:8px"></div>
 
-    <h2 data-t="historyTitle"></h2>
-    <div id="history" class="history"></div>
+    <button type="button" class="fold" id="histFold" aria-expanded="false" aria-controls="histBody">
+      <span><span class="ft" data-t="historyTitle"></span><span class="fs" data-t="historyHelp"></span></span>
+      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="histBody" class="foldbody">
+      <div id="history" class="history"></div>
+    </div>
 
     <h2 data-t="servers"></h2>
     <p class="muted" data-t="serversHelp"></p>
@@ -86,17 +96,21 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
     <div id="srcForm" class="form hidden"></div>
     <div id="srcMsg" class="err"></div>
 
-    <h2 data-t="collectionsTitle"></h2>
-    <p class="muted" data-t="collectionsHelp"></p>
-    <label id="colProfileWrap" class="colprof" style="display:none"><span data-t="colFor"></span><select id="colProfile"></select></label>
-    <div id="collections" style="margin-top:8px"></div>
-    <div class="form" id="colForm">
-      <h3 data-t="newSmart"></h3>
-      <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
-      <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
-      <div class="chks"><label class="chk"><input type="checkbox" id="colT_channel" checked> <span data-t="tChannels"></span></label><label class="chk"><input type="checkbox" id="colT_movie" checked> <span data-t="tMovies"></span></label><label class="chk"><input type="checkbox" id="colT_series" checked> <span data-t="tSeries"></span></label></div>
-      <div class="row"><button class="btn" id="colAdd" data-t="create"></button></div>
-      <div id="colMsg" class="err"></div>
+    <button type="button" class="fold" id="colFold" aria-expanded="false" aria-controls="colBody">
+      <span><span class="ft" data-t="collectionsTitle"></span><span class="fs" data-t="collectionsHelp"></span></span>
+      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="colBody" class="foldbody">
+      <label id="colProfileWrap" class="colprof" style="display:none"><span data-t="colFor"></span><select id="colProfile"></select></label>
+      <div id="collections" style="margin-top:8px"></div>
+      <div class="form" id="colForm">
+        <h3 data-t="newSmart"></h3>
+        <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
+        <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
+        <div class="chks"><label class="chk"><input type="checkbox" id="colT_channel" checked> <span data-t="tChannels"></span></label><label class="chk"><input type="checkbox" id="colT_movie" checked> <span data-t="tMovies"></span></label><label class="chk"><input type="checkbox" id="colT_series" checked> <span data-t="tSeries"></span></label></div>
+        <div class="row"><button class="btn" id="colAdd" data-t="create"></button></div>
+        <div id="colMsg" class="err"></div>
+      </div>
     </div>
 
     <h2 data-t="account"></h2>
@@ -119,7 +133,7 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
   nl: { watching:"Nu aan het kijken", watchingCount:"%d van %d schermen kijken nu", watchingFor:"kijkt al %s", signedInSince:"ingelogd sinds %s", nobodyWatching:"Er kijkt nu niemand.",
-        historyTitle:"Kijkgeschiedenis (7 dagen)", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
+        historyTitle:"Kijkgeschiedenis (7 dagen)", historyHelp:"Wat er per profiel en apparaat is bekeken", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
         servers:"Servers en afspeellijsten", serversHelp:"Wijzigingen staan binnen een paar minuten op al je apparaten. Plex, Jellyfin, Emby en Stremio voeg je toe in de app.", addServer:"Server toevoegen", editServer:"Server wijzigen",
         type:"Type", name:"Naam", m3uUrl:"M3U-URL", epgUrl:"EPG-URL (XMLTV)", optional:"optioneel", server:"Server", username:"Gebruikersnaam", unchanged:"ongewijzigd", hls:"Live als HLS (.m3u8)",
         portal:"Portal-URL", mac:"MAC-adres", makeMain:"Hoofdserver", save:"Opslaan", cancel:"Annuleren", deleteServer:"Server verwijderen", deleteServerConfirm:"%s verwijderen van al je apparaten?",
@@ -138,7 +152,7 @@ const tr = t({
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
         resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
   en: { watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
-        historyTitle:"Watch history (7 days)", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
+        historyTitle:"Watch history (7 days)", historyHelp:"What was watched per profile and device", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
         servers:"Servers and playlists", serversHelp:"Changes reach all your devices within a few minutes. Add Plex, Jellyfin, Emby and Stremio in the app.", addServer:"Add server", editServer:"Edit server",
         type:"Type", name:"Name", m3uUrl:"M3U URL", epgUrl:"EPG URL (XMLTV)", optional:"optional", server:"Server", username:"Username", unchanged:"unchanged", hls:"Live as HLS (.m3u8)",
         portal:"Portal URL", mac:"MAC address", makeMain:"Main server", save:"Save", cancel:"Cancel", deleteServer:"Delete server", deleteServerConfirm:"Delete %s from all your devices?",
@@ -200,9 +214,23 @@ async function call(action, extra) {
   if (r.status === 401) { await sb.auth.signOut(); throw new Error("signed_out"); }
   const j = await r.json(); if (!r.ok) throw new Error(j.error || "x"); return j;
 }
+// Kleine ronde profielfoto (Nu kijken, kijkgeschiedenis): op profile_id, anders op naam, anders eerste letter
+const PROF = { list: [], photo: {} };
+function profileAvatar(id, name) {
+  const p = PROF.list.find((x) => id && x.id === id) || PROF.list.find((x) => name && (x.name || "").toLowerCase() === String(name).toLowerCase());
+  if (!p) {
+    const n = String(name || "?"), h = [...n].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7), pal = PAL[h % PAL.length];
+    return `<span class="pav" style="background:linear-gradient(135deg,${pal[0]},${pal[1]})">${esc(n.trim().charAt(0).toUpperCase() || "?")}</span>`;
+  }
+  if (PROF.photo[p.id]) return `<span class="pav" data-pid="${esc(p.id)}"><img src="${PROF.photo[p.id]}" alt=""></span>`;
+  const av = p.avatar || {}, sym = av.symbol || "tv", pal = PAL[((av.colorIndex || 0) % PAL.length + PAL.length) % PAL.length];
+  const inner = sym.startsWith("kid") ? `<img src="../assets/img/${esc(sym)}.png" alt="">` : (av.emoji && !/^[a-z.]+$/.test(av.emoji) ? esc(av.emoji) : (SYM[sym] || "📺"));
+  return `<span class="pav" data-pid="${esc(p.id)}" style="background:linear-gradient(135deg,${pal[0]},${pal[1]})">${inner}</span>`;
+}
 async function loadProfiles() {
   const { data } = await sb.from("account_data").select("profiles").maybeSingle();
   const list = ((data && data.profiles) || []).filter((p) => p && !p.deleted).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  PROF.list = list;
   if (!list.length) { $("profiles").innerHTML = `<p class="muted" style="grid-column:1/-1">${tr("noProfiles")}</p>`; return; }
   $("profiles").innerHTML = list.map((p, i) => {
     const av = p.avatar || {}, sym = av.symbol || "tv", pal = PAL[((av.colorIndex || 0) % PAL.length + PAL.length) % PAL.length];
@@ -213,7 +241,10 @@ async function loadProfiles() {
   list.forEach(async (p, i) => {
     if (!p.photo || !p.photo.path) return;
     const { data: blob } = await sb.storage.from("avatars").download(p.photo.path);
-    if (blob) $("pic" + i).innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
+    if (!blob) return;
+    const u = URL.createObjectURL(blob); PROF.photo[p.id] = u;
+    $("pic" + i).innerHTML = `<img src="${u}" alt="">`;
+    document.querySelectorAll('.pav[data-pid="' + CSS.escape(p.id) + '"]').forEach((el) => { el.style.background = ""; el.innerHTML = `<img src="${u}" alt="">`; });
   });
 }
 async function loadDevices() {
@@ -222,9 +253,8 @@ async function loadDevices() {
   $("list").innerHTML = j.devices.length ? j.devices.map((d) => `
     <div class="dev"><div class="ic">${devIcon(d.platform)}</div>
       <div class="info"><div class="nm">${esc(d.name || platLabel(d.platform))}</div>
-        <div class="meta">${esc(platLabel(d.platform))} · ${tr("linked")} ${new Date(d.created_at).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })} · ${tr("lastUsed")} ${rel(d.last_seen_at)}</div></div>
-      <button class="rm rn" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("rename")}</button>
-      <button class="rm del" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("remove")}</button></div>`).join("")
+        <div class="meta">${esc(platLabel(d.platform))} · ${tr("linked")} ${new Date(d.created_at).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })} · ${tr("lastUsed")} ${rel(d.last_seen_at)}</div>
+        <div class="acts"><button class="rm rn" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("rename")}</button><button class="rm del" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("remove")}</button></div></div></div>`).join("")
     : `<p class="muted">${tr("none")}</p>`;
   document.querySelectorAll(".rn").forEach((b) => b.onclick = async () => {
     const name = prompt(tr("devName"), b.dataset.name);
@@ -266,13 +296,13 @@ $("resetPw").onclick = async () => {
   await sb.auth.resetPasswordForEmail(data.session.user.email, { redirectTo: location.origin + "/reset/" });
   $("accErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
 };
-// Apparaten in- en uitklappen (keuze onthouden in deze browser)
-(function () {
-  const b = $("devFold"), body = $("devBody");
-  let open = false; try { open = localStorage.getItem("bingr.devicesOpen") === "1"; } catch (e) {}
-  const set = (o) => { b.setAttribute("aria-expanded", o ? "true" : "false"); body.classList.toggle("open", o); try { localStorage.setItem("bingr.devicesOpen", o ? "1" : "0"); } catch (e) {} };
+// Apparaten, kijkgeschiedenis en collecties: standaard dicht, keuze onthouden in deze browser
+[["devFold", "devBody", "bingr.devicesOpen"], ["histFold", "histBody", "bingr.historyOpen"], ["colFold", "colBody", "bingr.collectionsOpen"]].forEach(function (f) {
+  const b = $(f[0]), body = $(f[1]);
+  let open = false; try { open = localStorage.getItem(f[2]) === "1"; } catch (e) {}
+  const set = (o) => { b.setAttribute("aria-expanded", o ? "true" : "false"); body.classList.toggle("open", o); try { localStorage.setItem(f[2], o ? "1" : "0"); } catch (e) {} };
   set(open); b.onclick = () => set(b.getAttribute("aria-expanded") !== "true");
-})();
+});
 $("signOut").onclick = async () => { await sb.auth.signOut(); BingrAvatar.clear(); show("auth"); };
 $("delete").onclick = async () => {
   if (!confirm(tr("delConfirm"))) return;
