@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../assets/js/account.css">
 <style>
 .me{display:flex;align-items:center;gap:16px;margin-bottom:6px}
-.me .av{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:24px;background:linear-gradient(135deg,#E50914,#7A0008);flex:none}
+.me .av{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:30px;background:linear-gradient(135deg,#E50914,#7A0008);flex:none;overflow:hidden}
 h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 .profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:18px;margin-top:16px}
 .pf{text-align:center}
@@ -65,6 +65,7 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js"></script>
+<script src="../assets/js/userbtn.js" data-base="../"></script>
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -150,7 +151,8 @@ async function load() {
   const { data } = await sb.auth.getSession();
   if (!data.session) return show("auth");
   const email = data.session.user.email || "";
-  $("who").textContent = email; $("ini").textContent = email.charAt(0).toUpperCase(); show("acc"); $("accErr").textContent = "";
+  $("who").textContent = email; BingrAvatar.paint($("ini"), email); show("acc"); $("accErr").textContent = "";
+  BingrAvatar.refresh(data.session, () => BingrAvatar.paint($("ini"), email));
   try { await Promise.all([loadProfiles(), loadDevices()]); }
   catch (e) { if (e.message === "signed_out") show("auth"); else $("accErr").textContent = tr("generic"); }
 }
@@ -173,10 +175,10 @@ $("resetPw").onclick = async () => {
   await sb.auth.resetPasswordForEmail(data.session.user.email, { redirectTo: location.origin + "/reset/" });
   $("accErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
 };
-$("signOut").onclick = async () => { await sb.auth.signOut(); show("auth"); };
+$("signOut").onclick = async () => { await sb.auth.signOut(); BingrAvatar.clear(); show("auth"); };
 $("delete").onclick = async () => {
   if (!confirm(tr("delConfirm"))) return;
-  try { await call("delete_account"); await sb.auth.signOut(); show("auth"); } catch (e) { $("accErr").textContent = tr("generic"); }
+  try { await call("delete_account"); await sb.auth.signOut(); BingrAvatar.clear(); show("auth"); } catch (e) { $("accErr").textContent = tr("generic"); }
 };
 load();
 </script>
