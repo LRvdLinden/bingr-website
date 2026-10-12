@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../assets/js/account.css">
 </head>
 <body>
-<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
+<header><a class="logo" href="../index.html">BINGR</a><span style="display:flex;align-items:center;gap:12px"><a id="langSwitch" class="lang" href="#">English</a><span data-userbtn style="display:inline-flex"></span></span></header>
 <main><div class="card">
   <section id="form" class="hidden">
     <h1 data-t="title"></h1>
@@ -65,5 +65,6 @@ $("pwForm").onsubmit = async (e) => {
   show("done");
 };
 </script>
+<script src="../assets/js/userbtn.js" data-base="../"></script>
 </body>
 </html>
