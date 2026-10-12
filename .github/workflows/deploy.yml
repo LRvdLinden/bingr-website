@@ -75,7 +75,7 @@ jobs:
           TARGET="${TARGET:-.}"
           echo "::notice::Uploaden naar map: $TARGET (hoofdmap bevat: $(tr '\n' ' ' < /tmp/root.txt | head -c 200))"
 
-          lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md ./ \"$TARGET\"; bye"
+          lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
           echo "::notice::Website bijgewerkt op bingr.online"
 
       - name: Controleren of de site online staat
