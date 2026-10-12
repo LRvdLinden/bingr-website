@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account · Bingr</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/js/account.css">
+</head>
+<body>
+<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
+<main><div class="card wide">
+  <section id="auth" class="hidden">
+    <h1 data-t="signIn"></h1>
+    <p class="muted" data-t="intro"></p>
+    <form id="authForm" novalidate>
+      <label><input id="email" type="email" autocomplete="email" data-ph="email"></label>
+      <label class="pw"><input id="password" type="password" autocomplete="current-password" data-ph="password"><button type="button"></button></label>
+      <div id="authErr" class="err"></div>
+      <button id="authBtn" class="btn" type="submit" data-t="signIn"></button>
+    </form>
+    <div class="links"><a id="forgot" data-t="forgot"></a></div>
+  </section>
+  <section id="acc" class="hidden">
+    <h1 data-t="devices"></h1>
+    <p class="muted"><span data-t="signedInAs"></span> <b id="who"></b> · <a id="signOut" href="#" data-t="signOut"></a></p>
+    <p id="count" style="margin:18px 0 4px;font-weight:700"></p>
+    <p class="muted" data-t="devHelp"></p>
+    <div id="list" style="margin-top:8px"></div>
+    <div id="accErr" class="err"></div>
+    <button id="reload" class="btn ghost" data-t="refresh"></button>
+  </section>
+  <section id="loading" class="done"><p class="muted" data-t="waiting"></p></section>
+</div></main>
+<footer>© 2026 Bingr · <a href="../tv/">bingr.online/tv</a> · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/config.js"></script>
+<script src="../assets/js/account.js"></script>
+<script>
+const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
+const tr = t({
+  nl: { signIn:"Inloggen", intro:"Log in om de apparaten van je Bingr-account te beheren.", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
+        forgot:"Wachtwoord vergeten?", devices:"Apparaten", signedInAs:"Ingelogd als", signOut:"Uitloggen", count:"%d van %d apparaten",
+        devHelp:"Je account werkt op maximaal 10 apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.",
+        linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
+        refresh:"Vernieuwen", justNow:"zojuist", minAgo:"%d min geleden", yesterday:"gisteren", waiting:"Even geduld…",
+        badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.",
+        badEmail:"Vul een geldig e-mailadres in.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
+  en: { signIn:"Sign In", intro:"Sign in to manage the devices on your Bingr account.", email:"Email", password:"Password", show:"Show", hide:"Hide",
+        forgot:"Forgot password?", devices:"Devices", signedInAs:"Signed in as", signOut:"Sign out", count:"%d of %d devices",
+        devHelp:"Your account works on up to 10 devices. Removing a device signs it out automatically.",
+        linked:"Linked", lastUsed:"last used", remove:"Remove", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
+        refresh:"Refresh", justNow:"just now", minAgo:"%d min ago", yesterday:"yesterday", waiting:"One moment…",
+        badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", generic:"Something went wrong. Please try again.",
+        badEmail:"Enter a valid email address.", resetSent:"If an account exists, you'll receive an email to reset your password." }
+});
+pwToggles(tr);
+const loc = lang === "nl" ? "nl-NL" : "en-GB";
+const icons = { "iPhone":"📱", "iPad":"📲", "Apple TV":"📺", "Mac":"💻", "Android":"📱", "Android tablet":"📲", "Android TV":"📺", "Fire TV":"📺" };
+function show(id) { ["auth", "acc", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+function rel(iso) {
+  const d = new Date(iso), m = Math.round((Date.now() - d) / 60000);
+  if (m < 1) return tr("justNow"); if (m < 60) return tr("minAgo").replace("%d", m);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (d >= today) return d.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
+  if (d >= new Date(today - 864e5)) return tr("yesterday");
+  return d.toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" });
+}
+const esc = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+async function call(action, extra) {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) throw new Error("signed_out");
+  const r = await fetch(cfg.url + "/functions/v1/device-auth", { method: "POST",
+    headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token },
+    body: JSON.stringify(Object.assign({ action }, extra || {})) });
+  if (r.status === 401) { await sb.auth.signOut(); throw new Error("signed_out"); }
+  const j = await r.json(); if (!r.ok) throw new Error(j.error || "x"); return j;
+}
+async function load() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) return show("auth");
+  $("who").textContent = data.session.user.email; show("acc"); $("accErr").textContent = "";
+  try {
+    const j = await call("list_devices");
+    $("count").textContent = tr("count").replace("%d", j.devices.length).replace("%d", j.limit);
+    $("list").innerHTML = j.devices.length ? j.devices.map((d) => `
+      <div class="dev"><div class="ic">${icons[d.platform] || "📺"}</div>
+        <div class="info"><div class="nm">${esc(d.name || d.platform)}</div>
+          <div class="meta">${esc(d.platform)} · ${tr("linked")} ${new Date(d.created_at).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })} · ${tr("lastUsed")} ${rel(d.last_seen_at)}</div></div>
+        <button class="rm" data-id="${esc(d.device_id)}" data-name="${esc(d.name || d.platform)}">${tr("remove")}</button></div>`).join("")
+      : `<p class="muted">${tr("none")}</p>`;
+    document.querySelectorAll(".rm").forEach((b) => b.onclick = async () => {
+      if (!confirm(tr("confirm").replace("%s", b.dataset.name))) return;
+      b.disabled = true;
+      try { await call("remove_device", { device_id: b.dataset.id }); load(); } catch (e) { $("accErr").textContent = tr("generic"); b.disabled = false; }
+    });
+  } catch (e) { if (e.message === "signed_out") show("auth"); else $("accErr").textContent = tr("generic"); }
+}
+$("authForm").onsubmit = async (e) => {
+  e.preventDefault();
+  busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  busy($("authBtn"), false, tr("signIn"));
+  if (error) { $("authErr").textContent = error.code === "email_not_confirmed" ? tr("notConfirmed") : error.code === "invalid_credentials" ? tr("badCreds") : tr("generic"); return; }
+  load();
+};
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $("authErr").textContent = tr("badEmail"); return; }
+  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
+  $("authErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
+};
+$("signOut").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); show("auth"); };
+$("reload").onclick = load;
+load();
+</script>
+</body>
+</html>

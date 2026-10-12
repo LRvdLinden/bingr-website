@@ -31,3 +31,13 @@ input.code{text-transform:uppercase;letter-spacing:.35em;text-align:center;font-
 .hidden{display:none!important}
 footer{text-align:center;color:#737373;font-size:13px;padding:0 16px 30px}
 footer a{color:#737373}
+.dev{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid #ffffff14}
+.dev:last-child{border-bottom:0}
+.dev .ic{width:44px;height:44px;border-radius:10px;background:#ffffff14;display:grid;place-items:center;font-size:22px;flex:none}
+.dev .info{flex:1;min-width:0}
+.dev .nm{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dev .meta{color:var(--sec);font-size:13px;line-height:1.5}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.rm{background:none;border:1px solid #ffffff33;color:#fff;border-radius:6px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;flex:none}
+.rm:hover{border-color:#fff}
+.card.wide{max-width:560px}
