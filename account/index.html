@@ -23,6 +23,13 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 .dev .ic{color:#fff}
 .dev .rm+.rm{margin-left:6px}
 @media (max-width:520px){.dev{flex-wrap:wrap}.dev .info{flex-basis:calc(100% - 60px)}.dev .rm{margin-left:58px}.dev .rm+.rm{margin-left:6px}}
+.live{background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:4px;padding:2px 7px;flex:none}
+.history .day{font-size:15px;color:#fff;margin:18px 0 4px;text-transform:capitalize}
+.hrow{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #ffffff10}.hrow .ht{color:var(--sec);font-size:14px;width:48px;flex:none;padding-top:2px}
+.form{background:#ffffff0d;border:1px solid #ffffff1a;border-radius:10px;padding:18px;margin-top:14px}.form h3{font-size:16px;margin-bottom:6px}
+.form label{display:block;margin-top:12px;font-size:13px;color:var(--sec)}.form label input,.form select{margin-top:6px}
+.form select{width:100%;font:inherit;font-size:16px;color:#fff;background:#333;border:1px solid transparent;border-radius:6px;padding:14px}
+.form .chk{display:flex;align-items:center;gap:8px;color:#ddd;font-size:15px}.form .chk input{width:auto;margin:0}.chks{display:flex;gap:18px;flex-wrap:wrap}
 .btn.danger{background:none;border:1px solid #ff4d4d66;color:#ff8080}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
@@ -54,6 +61,32 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
     <div id="list" style="margin-top:8px"></div>
     <div class="row"><a class="btn ghost" href="../tv/" data-t="linkTv"></a></div>
 
+    <h2 data-t="watching"></h2>
+    <p class="muted" id="streamCount"></p>
+    <div id="streams" style="margin-top:8px"></div>
+
+    <h2 data-t="historyTitle"></h2>
+    <div id="history" class="history"></div>
+
+    <h2 data-t="servers"></h2>
+    <p class="muted" data-t="serversHelp"></p>
+    <div id="sources" style="margin-top:8px"></div>
+    <div class="row"><button class="btn ghost" id="addSource" data-t="addServer"></button></div>
+    <div id="srcForm" class="form hidden"></div>
+    <div id="srcMsg" class="err"></div>
+
+    <h2 data-t="collectionsTitle"></h2>
+    <p class="muted" data-t="collectionsHelp"></p>
+    <div id="collections" style="margin-top:8px"></div>
+    <div class="form">
+      <h3 data-t="newSmart"></h3>
+      <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
+      <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
+      <div class="chks"><label class="chk"><input type="checkbox" id="colT_channel" checked> <span data-t="tChannels"></span></label><label class="chk"><input type="checkbox" id="colT_movie" checked> <span data-t="tMovies"></span></label><label class="chk"><input type="checkbox" id="colT_series" checked> <span data-t="tSeries"></span></label></div>
+      <div class="row"><button class="btn" id="colAdd" data-t="create"></button></div>
+      <div id="colMsg" class="err"></div>
+    </div>
+
     <h2 data-t="account"></h2>
     <div class="row">
       <button class="btn ghost" id="resetPw" data-t="changePw"></button>
@@ -69,23 +102,42 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
+<script src="../assets/js/console.js"></script>
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
-  nl: { title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
+  nl: { watching:"Nu aan het kijken", watchingCount:"%d van %d schermen kijken nu", watchingFor:"kijkt al %s", signedInSince:"ingelogd sinds %s", nobodyWatching:"Er kijkt nu niemand.",
+        historyTitle:"Kijkgeschiedenis (7 dagen)", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
+        servers:"Servers en afspeellijsten", serversHelp:"Wijzigingen staan binnen een paar minuten op al je apparaten. Plex, Jellyfin, Emby en Stremio voeg je toe in de app.", addServer:"Server toevoegen", editServer:"Server wijzigen",
+        type:"Type", name:"Naam", m3uUrl:"M3U-URL", epgUrl:"EPG-URL (XMLTV)", optional:"optioneel", server:"Server", username:"Gebruikersnaam", unchanged:"ongewijzigd", hls:"Live als HLS (.m3u8)",
+        portal:"Portal-URL", mac:"MAC-adres", makeMain:"Hoofdserver", save:"Opslaan", cancel:"Annuleren", deleteServer:"Server verwijderen", deleteServerConfirm:"%s verwijderen van al je apparaten?",
+        appOnly:"Deze server beheer je in de app (er is een login nodig).", mainSrv:"Hoofdserver", edit:"Wijzigen", noSources:"Nog geen servers.", nameMissing:"Vul een naam in.", urlMissing:"Vul een geldige URL in.",
+        fieldsMissing:"Vul alle velden in.", savedSync:"Opgeslagen — verschijnt binnen een paar minuten op je apparaten.",
+        collectionsTitle:"Collecties", collectionsHelp:"Eigen rijen op het startscherm. Losse titels voeg je toe in de app; slimme collecties vullen zichzelf op zoekwoord.", newSmart:"Nieuwe slimme collectie",
+        keywords:"Zoekwoorden", colNamePh:"Bijv. Mijn sport", colQueryPh:"Bijv. sport, voetbal, F1", tChannels:"Zenders", tMovies:"Films", tSeries:"Series", create:"Maken",
+        smart:"Slim", manual:"%d titels", noCollections:"Nog geen collecties.", deleteCollection:"Collectie %s verwijderen?", title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
         forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.",
         profiles:"Profielen", profHelp:"Profielen beheer je in de app; ze staan op al je apparaten.", kids:"Kinderprofiel", main:"Hoofdaccount", noProfiles:"Nog geen profielen. Open Bingr op een apparaat om te beginnen.",
-        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen",
+        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal 15 apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen",
         linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", rename:"Naam wijzigen", devName:"Naam van het apparaat", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
         account:"Account", changePw:"Wachtwoord wijzigen", signOut:"Uitloggen", delete:"Account verwijderen",
         delConfirm:"Je Bingr-account verwijderen? Al je apparaten worden uitgelogd en je profielen op de server worden gewist. Dit kan niet ongedaan worden gemaakt.",
         resetSent:"We hebben je een e-mail gestuurd om je wachtwoord te wijzigen.", justNow:"zojuist", minAgo:"%d min geleden", yesterday:"gisteren", waiting:"Even geduld…",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
         resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
-  en: { title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
+  en: { watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
+        historyTitle:"Watch history (7 days)", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
+        servers:"Servers and playlists", serversHelp:"Changes reach all your devices within a few minutes. Add Plex, Jellyfin, Emby and Stremio in the app.", addServer:"Add server", editServer:"Edit server",
+        type:"Type", name:"Name", m3uUrl:"M3U URL", epgUrl:"EPG URL (XMLTV)", optional:"optional", server:"Server", username:"Username", unchanged:"unchanged", hls:"Live as HLS (.m3u8)",
+        portal:"Portal URL", mac:"MAC address", makeMain:"Main server", save:"Save", cancel:"Cancel", deleteServer:"Delete server", deleteServerConfirm:"Delete %s from all your devices?",
+        appOnly:"Manage this server in the app (it needs a sign-in).", mainSrv:"Main server", edit:"Edit", noSources:"No servers yet.", nameMissing:"Enter a name.", urlMissing:"Enter a valid URL.",
+        fieldsMissing:"Fill in all fields.", savedSync:"Saved — shows up on your devices within a few minutes.",
+        collectionsTitle:"Collections", collectionsHelp:"Your own rows on the home screen. Add individual titles in the app; smart collections fill themselves by keyword.", newSmart:"New smart collection",
+        keywords:"Keywords", colNamePh:"E.g. My sports", colQueryPh:"E.g. sports, football, F1", tChannels:"Channels", tMovies:"Movies", tSeries:"Series", create:"Create",
+        smart:"Smart", manual:"%d titles", noCollections:"No collections yet.", deleteCollection:"Delete collection %s?", title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
         forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.",
         profiles:"Profiles", profHelp:"You manage profiles in the app; they're on all your devices.", kids:"Kids profile", main:"Main account", noProfiles:"No profiles yet. Open Bingr on a device to get started.",
-        devices:"Devices", count:"%d of %d devices", devHelp:"Removing a device signs it out automatically.", linkTv:"Link a TV",
+        devices:"Devices", count:"%d of %d devices", devHelp:"Up to 15 devices. Removing a device signs it out automatically.", linkTv:"Link a TV",
         linked:"Linked", lastUsed:"last used", remove:"Remove", rename:"Rename", devName:"Device name", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
         account:"Account", changePw:"Change password", signOut:"Sign out", delete:"Delete account",
         delConfirm:"Delete your Bingr account? All your devices will be signed out and your profiles on the server will be erased. This can't be undone.",
@@ -176,7 +228,7 @@ async function load() {
   const email = data.session.user.email || "";
   $("who").textContent = email; BingrAvatar.paint($("ini"), email); show("acc"); $("accErr").textContent = "";
   BingrAvatar.refresh(data.session, () => BingrAvatar.paint($("ini"), email));
-  try { await Promise.all([loadProfiles(), loadDevices()]); }
+  try { await Promise.all([loadProfiles(), loadDevices()]); BingrConsole.loadAll(); }
   catch (e) { if (e.message === "signed_out") show("auth"); else $("accErr").textContent = tr("generic"); }
 }
 $("authForm").onsubmit = async (e) => {
