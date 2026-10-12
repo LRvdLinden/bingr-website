@@ -36,12 +36,27 @@
     document.head.appendChild(st);
     var d = document.createElement("div"); d.id = "bingr-consent"; d.setAttribute("role", "dialog"); d.setAttribute("aria-live", "polite");
     d.innerHTML = "<h4>" + T.t + "</h4><p>" + T.p + ' <a href="' + base + 'privacy.html#cookies">' + T.m + '</a></p><div class="b"><button class="y">' + T.a + '</button><button class="n">' + T.r + "</button></div>";
-    d.querySelector(".y").onclick = function () { save("all"); fonts(); d.remove(); };
-    d.querySelector(".n").onclick = function () { save("necessary"); d.remove(); };
+    d.querySelector(".y").onclick = function () { save("all"); fonts(); d.remove(); showBubble(true); };
+    d.querySelector(".n").onclick = function () { save("necessary"); d.remove(); showBubble(true); };
     (document.body || document.documentElement).appendChild(d);
   }
-  window.BingrConsent = { open: function () { var x = document.getElementById("bingr-consent"); if (x) x.remove(); banner(); }, get: read };
+  // cookie-bolletje links onderin (zodra er een keuze is): tik = melding opnieuw
+  function bubble() {
+    if (document.getElementById("bingr-cookie-btn")) return;
+    var st = document.createElement("style");
+    st.textContent = "#bingr-cookie-btn{position:fixed;left:16px;bottom:16px;z-index:9998;width:44px;height:44px;border-radius:50%;border:1px solid #ffffff2a;background:#141414e6;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 20px #0008;transition:transform .2s,background .2s;padding:0}" +
+      "#bingr-cookie-btn:hover{transform:scale(1.08);background:#1f1f1f}#bingr-cookie-btn svg{width:24px;height:24px}";
+    document.head.appendChild(st);
+    var b = document.createElement("button"); b.id = "bingr-cookie-btn"; b.type = "button";
+    b.title = nl ? "Cookie-instellingen" : "Cookie settings"; b.setAttribute("aria-label", b.title);
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.3A9 9 0 1 1 11.7 3a3 3 0 0 0 3.8 3.8 3 3 0 0 0 3.7 3.7 3 3 0 0 0 1.8 1.8z"/><circle cx="8.5" cy="10.5" r="1" fill="currentColor"/><circle cx="12" cy="15.5" r="1" fill="currentColor"/><circle cx="16" cy="14" r="1" fill="currentColor"/><circle cx="8" cy="15" r=".6" fill="currentColor"/></svg>';
+    b.onclick = function () { window.BingrConsent.open(); };
+    (document.body || document.documentElement).appendChild(b);
+  }
+  function showBubble(on) { var b = document.getElementById("bingr-cookie-btn"); if (on) bubble(); else if (b) b.remove(); }
+  window.BingrConsent = { open: function () { var x = document.getElementById("bingr-consent"); if (x) x.remove(); showBubble(false); banner(); }, get: read };
   var c = read();
   if (c && c.choice === "all") fonts();
-  if (!c) { if (document.body) banner(); else document.addEventListener("DOMContentLoaded", banner); }
+  function start() { if (c) bubble(); else banner(); }
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
 })();
