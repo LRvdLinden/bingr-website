@@ -171,8 +171,12 @@ const icons = {
   "Android tablet": SV('<rect x="4" y="9" width="40" height="30" rx="4"/><circle cx="24" cy="13" r="1.2" fill="currentColor"/>'),
   "Android TV": SV('<rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/>'),
   "Google TV": SV('<rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/><circle cx="24" cy="21" r="5"/>'),
-  "Fire TV": SV('<rect x="6" y="20" width="26" height="9" rx="3"/><path d="M32 22.5h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M12 24.5h8"/>'),
+  "Fire TV": SV('<rect x="6" y="20" width="26" height="9" rx="3"/><path d="M32 22.5h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M12 24.5h8"/>'),  // Samsung TV-app (Tizen, build 55) meldt zich met platform "tizen"
+  "tizen": SV('<rect x="3" y="8" width="42" height="26" rx="2"/><path d="M3 30h42M13 34l-3 7M35 34l3 7"/>'),
 };
+const isTizen = (p) => /^(tizen|samsung tv)$/i.test(p || "");
+const devIcon = (p) => icons[isTizen(p) ? "tizen" : p] || icons["Android TV"];
+const platLabel = (p) => isTizen(p) ? "Samsung TV" : (p || "");
 // zelfde iconen en kleuren als de apps (iOS-symboolnaam → emoji, kleurindex → verloop)
 const SYM = { tv:"📺", globe:"🌐", sportscourt:"⚽", crown:"👑", flame:"🔥", film:"🎬", popcorn:"🍿", star:"⭐", gamecontroller:"🎮", "moon.stars":"🌙", bolt:"⚡", heart:"❤️",
   "waveform.path.ecg":"🎧", hare:"🐰", forward:"🚀", sparkle:"🌈", link:"🔗", "bubble.left":"💬", wifi:"📶", umbrella:"☂️", play:"▶️", "book.closed":"📕", person:"🧸", paintbrush:"🎭" };
@@ -216,11 +220,11 @@ async function loadDevices() {
   const j = await call("list_devices");
   $("count").textContent = tr("count").replace("%d", j.devices.length).replace("%d", j.limit);
   $("list").innerHTML = j.devices.length ? j.devices.map((d) => `
-    <div class="dev"><div class="ic">${icons[d.platform] || icons["Android TV"]}</div>
-      <div class="info"><div class="nm">${esc(d.name || d.platform)}</div>
-        <div class="meta">${esc(d.platform)} · ${tr("linked")} ${new Date(d.created_at).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })} · ${tr("lastUsed")} ${rel(d.last_seen_at)}</div></div>
-      <button class="rm rn" data-id="${esc(d.device_id)}" data-name="${esc(d.name || d.platform)}">${tr("rename")}</button>
-      <button class="rm del" data-id="${esc(d.device_id)}" data-name="${esc(d.name || d.platform)}">${tr("remove")}</button></div>`).join("")
+    <div class="dev"><div class="ic">${devIcon(d.platform)}</div>
+      <div class="info"><div class="nm">${esc(d.name || platLabel(d.platform))}</div>
+        <div class="meta">${esc(platLabel(d.platform))} · ${tr("linked")} ${new Date(d.created_at).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" })} · ${tr("lastUsed")} ${rel(d.last_seen_at)}</div></div>
+      <button class="rm rn" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("rename")}</button>
+      <button class="rm del" data-id="${esc(d.device_id)}" data-name="${esc(d.name || platLabel(d.platform))}">${tr("remove")}</button></div>`).join("")
     : `<p class="muted">${tr("none")}</p>`;
   document.querySelectorAll(".rn").forEach((b) => b.onclick = async () => {
     const name = prompt(tr("devName"), b.dataset.name);

@@ -19,6 +19,7 @@ main{max-width:820px;margin:0 auto;padding:50px 24px 80px}
 h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;line-height:1.1;margin-bottom:10px}
 h2{font-size:22px;margin:34px 0 8px}
 p,li{color:#d4d4d4;font-size:17px}
+code{background:#1f1f1f;border-radius:5px;padding:1px 6px;font-size:15px}
 ul{padding-left:22px;margin-top:6px}
 .muted{color:var(--sec);font-size:15px}
 .box{background:#141414;border:1px solid #ffffff1a;border-radius:16px;padding:24px;margin-top:24px}
@@ -50,6 +51,15 @@ footer div{max-width:820px;margin:0 auto;padding:26px 24px}
 <h2 id="trakt">Trakt en ondertitels koppelen</h2>
 <p>Ga met het hoofdaccount naar <b>Mijn Bingr</b> en kies Trakt of OpenSubtitles. Bij Trakt krijg je een code die je invoert op trakt.tv/activate.</p>
 <p>Daarna gaat alles vanzelf: wat je in Bingr kijkt wordt vanaf 80% als gezien doorgegeven, en wat je op Trakt of in een andere app keek krijgt in Bingr een vinkje. In de speler zie je kort of Trakt meekijkt; in Mijn Bingr zie je wanneer er voor het laatst is gesynchroniseerd. Ook zonder Trakt houdt Bingr per profiel zelf bij wat je hebt gezien.</p>
+<h2 id="samsung">Bingr installeren op een Samsung TV</h2>
+<p>Bingr voor Samsung TV (Tizen) staat niet in de Samsung-winkel. Je installeert de app zelf als <b>.wgt</b>-bestand, net als de APK op Android. Het bestand staat bij de <a href="https://github.com/LRvdLinden/bingr-android/releases/latest">nieuwste release op GitHub</a>, naast de APK. De volledige uitleg staat in de <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">installatiehandleiding</a>.</p>
+<ul>
+<li><b>Developer Mode aanzetten:</b> open op je tv <b>Apps</b>, toets met de afstandsbediening <b>1 2 3 4 5</b> in, zet <b>Developer mode</b> aan en vul het IP-adres in van de computer waarmee je installeert. Start de tv daarna opnieuw op.</li>
+<li><b>Certificaat:</b> maak in Tizen Studio met de Certificate Manager een <b>Samsung-certificaat</b> (auteur- en distributeurcertificaat) en voeg daarbij de DUID van je tv toe. Zonder dat certificaat weigert de tv de app.</li>
+<li><b>Installeren:</b> verbind met <code>sdb connect &lt;ip-van-je-tv&gt;</code>, onderteken het .wgt-bestand met je certificaatprofiel en installeer het met <code>tizen install</code>. Bingr staat daarna tussen je apps.</li>
+<li><b>Updaten:</b> installeer de nieuwe .wgt over de oude heen. Gebruik je hetzelfde certificaat, dan blijven je login, profielen en instellingen bewaard. Met een ander certificaat moet je de oude app eerst verwijderen en opnieuw inloggen.</li>
+</ul>
+<p class="muted" style="margin-top:12px">Developer Mode staat alleen open voor het IP-adres dat je hebt ingevuld. Na een update van de tv-software moet je Developer Mode soms opnieuw aanzetten.</p>
 <h2>Synchroniseren tussen apparaten</h2>
 <p>Log op al je apparaten in met dezelfde Apple ID en zet iCloud aan. Je server, profielen, Mijn lijst en voortgang verschijnen dan vanzelf. Op Apple TV met meerdere gebruikers heeft iedere gebruiker zijn eigen Bingr.</p>
 <div class="box"><p><b>Let op:</b> Bingr is een speler en levert zelf geen zenders, films of series. Voor vragen over je abonnement of zenderaanbod neem je contact op met je eigen aanbieder.</p></div>

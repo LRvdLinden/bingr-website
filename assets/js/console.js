@@ -1,5 +1,5 @@
 // Mijn Bingr op de website: nu aan het kijken, kijkgeschiedenis (7 dagen), servers en collecties beheren.
-// Gebruikt call() (device-auth), tr(), esc(), icons, loc en $ uit account/index.html.
+// Gebruikt call() (device-auth), tr(), esc(), icons, devIcon, platLabel, loc en $ uit account/index.html.
 window.BingrConsole = (function () {
   const KINDS = { m3u: "M3U / M3U8", xtream: "Xtream Codes", stalker: "Stalker / MAC-portal" };
   const EDITABLE = Object.values(KINDS);
@@ -20,9 +20,9 @@ window.BingrConsole = (function () {
     const j = await call("list_streams");
     $("streamCount").textContent = tr("watchingCount").replace("%d", j.streams.length).replace("%d", j.limit);
     $("streams").innerHTML = j.streams.length ? j.streams.map((s) => `
-      <div class="dev"><div class="ic">${icons[s.platform] || icons["Android TV"]}</div>
+      <div class="dev"><div class="ic">${devIcon(s.platform)}</div>
         <div class="info"><div class="nm">${esc(s.title || "—")}</div>
-          <div class="meta">${esc(s.device_name || s.platform || "")} · ${esc(s.profile_name || "")} · ${tr("watchingFor").replace("%s", dur(Date.now() - Date.parse(s.started_at)))}${s.signed_in_at ? " · " + tr("signedInSince").replace("%s", new Date(s.signed_in_at).toLocaleDateString(loc, { day: "numeric", month: "short" }) + " " + fmtTime(new Date(s.signed_in_at))) : ""}</div></div>
+          <div class="meta">${esc(s.device_name || platLabel(s.platform))} · ${esc(s.profile_name || "")} · ${tr("watchingFor").replace("%s", dur(Date.now() - Date.parse(s.started_at)))}${s.signed_in_at ? " · " + tr("signedInSince").replace("%s", new Date(s.signed_in_at).toLocaleDateString(loc, { day: "numeric", month: "short" }) + " " + fmtTime(new Date(s.signed_in_at))) : ""}</div></div>
         <span class="live">LIVE</span></div>`).join("") : `<p class="muted">${tr("nobodyWatching")}</p>`;
   }
   // ---- kijkgeschiedenis
@@ -34,7 +34,7 @@ window.BingrConsole = (function () {
     $("history").innerHTML = Object.keys(groups).map((k) => `<h3 class="day">${dayLabel(k)}</h3>` + groups[k].map((e) => `
       <div class="hrow"><div class="ht">${fmtTime(new Date(e.started_at))}</div>
         <div class="info"><div class="nm">${esc(e.title || "—")}</div>
-          <div class="meta">${esc(e.profile_name || "")} · ${esc(e.device_name || e.platform || "")} · ${tr("minutes").replace("%d", e.minutes)}</div></div></div>`).join("")).join("");
+          <div class="meta">${esc(e.profile_name || "")} · ${esc(e.device_name || platLabel(e.platform))} · ${tr("minutes").replace("%d", e.minutes)}</div></div></div>`).join("")).join("");
   }
 
   // ---- servers (webconsole)
