@@ -701,11 +701,12 @@
 
   // MARK: Trakt en OpenSubtitles (horen bij het hoofdprofiel; tokens gedeeld via de state-section `connections`)
 
-  function ago(ms) {
+  /** "Trakt bijgewerkt om 22:15", of "Bijgewerkt" als het minder dan een minuut geleden is (niet "… om Bijgewerkt"). */
+  function syncedText(ms) {
     if (!ms) return '';
     var min = Math.round((Date.now() - ms) / 60000);
     if (min < 1) return L('Up to date');
-    return B.fmtTime(ms);
+    return L('Trakt synced %@', B.fmtTime(ms));
   }
   /** Rij met de Trakt-status (Mijn Bingr): gekoppeld + laatst bijgewerkt; klikken = nu synchroniseren of koppelen. */
   S.traktStatusRow = function (sec) {
@@ -715,7 +716,7 @@
       return S.stRow(sec, 'Trakt', B.connections.trakt() ? L('Main account') : L('Not linked'), null, { lead: traktLogo() });
     }
     if (!T.isLoggedIn()) return S.stRow(sec, 'Trakt', L('Not linked'), function () { S.traktSheet(); }, { lead: traktLogo() });
-    var v = T.isSyncing() ? L('Syncing…') : (T.lastSync() ? L('Trakt synced %@', ago(T.lastSync())) : T.username());
+    var v = T.isSyncing() ? L('Syncing…') : (T.lastSync() ? syncedText(T.lastSync()) : T.username());
     return S.stRow(sec, 'Trakt', v, function () { S.traktSheet(); }, { lead: traktLogo(), sub: T.username() });
   };
   function traktLogo() { return h('img.st-logo', { src: '../assets/img/trakt.svg', alt: '' }); }
@@ -729,7 +730,7 @@
     function drawLinked() {
       U.clear(body);
       body.appendChild(h('div.trakt-head', [traktLogo(), h('div', [h('div.trakt-user', T.username() || 'Trakt'),
-        h('div.muted.small', T.isSyncing() ? L('Syncing…') : (T.lastSync() ? L('Trakt synced %@', ago(T.lastSync())) : ''))])]));
+        h('div.muted.small', T.isSyncing() ? L('Syncing…') : (T.lastSync() ? syncedText(T.lastSync()) : ''))])]));
       body.appendChild(h('p.muted.small', L("What you watch in Bingr is scrobbled automatically. What you've watched on Trakt (or in another app) is checked off here.")));
       body.appendChild(h('div.dlg-buttons', [
         U.button(L('Sync now'), function () { T.refresh(true).then(drawLinked); drawLinked(); }, { icon: 'refresh', primary: true }),
