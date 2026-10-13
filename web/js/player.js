@@ -907,15 +907,20 @@
       if (isCatchup()) return item.subtitle + ' · ' + item.title;
       return item.subtitle ? item.title + ' · ' + item.subtitle : item.title;
     }
+    // build 68: bij een aflevering de serie meesturen (statistieken: series en afleveringen tellen)
+    function streamExtra() {
+      if (item.type !== 'episode') return null;
+      return { series_id: item.seriesID || (ctx.series && ctx.series.id) || null, series_title: (ctx.series && ctx.series.title) || item.title || null };
+    }
     function streamStart() {
-      return A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id).then(function (r) {
+      return A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r) {
         if (closed) return true;
         if (r.limit) { showLimit(r); return false; }
         clearInterval(pingTimer);
         pingTimer = setInterval(function () {
           if (closed) { clearInterval(pingTimer); return; }
           A.streamPing(streamTitle()).then(function (alive) {
-            if (alive === false && !closed) A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id).then(function (r2) { if (r2.limit && !closed) { stopEngine(false); showLimit(r2); } });
+            if (alive === false && !closed) A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r2) { if (r2.limit && !closed) { stopEngine(false); showLimit(r2); } });
           });
         }, 30000);
         return true;

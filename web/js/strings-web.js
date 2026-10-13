@@ -11,6 +11,8 @@
     'Add to favorites': 'Aan favorieten toevoegen',
     'Age limit': 'Leeftijdsgrens',
     'Back': 'Terug',
+    'All profiles': 'Alle profielen',
+    'Statistics': 'Statistieken',
     'Browser': 'Browser',
     'Categories': 'Categorieën',
     'Channels': 'Zenders',

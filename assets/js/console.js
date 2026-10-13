@@ -1,4 +1,4 @@
-// Mijn Bingr op de website: nu aan het kijken, kijkgeschiedenis (7 dagen), servers en collecties beheren.
+// Mijn Bingr op de website: nu aan het kijken, kijkgeschiedenis (7 dagen), statistieken, servers en collecties beheren.
 // Gebruikt call() (device-auth), tr(), esc(), icons, devIcon, platLabel, loc en $ uit account/index.html.
 window.BingrConsole = (function () {
   const KINDS = { m3u: "M3U / M3U8", xtream: "Xtream Codes", stalker: "Stalker / MAC-portal" };
@@ -219,10 +219,19 @@ window.BingrConsole = (function () {
     } catch (e) { $("colMsg").textContent = tr("generic"); }
   }
 
+  // ---- statistieken (build 68): hoofdaccount, alle profielen + filter per profiel
+  let stats = null;
+  function loadStats() {
+    if (stats) { stats.setProfiles(PROF.list); stats.reload(); return; }
+    stats = BingrStats.mount($("stats"), { call, lang: loc === "nl-NL" ? "nl" : "en", profiles: PROF.list, filter: true,
+      avatar: (p) => profileAvatar(p.id, p.name) });
+  }
+
   let timer = null;
   async function loadAll() {
     $("addSource").onclick = () => openSource(null);
     $("colAdd").onclick = addSmart;
+    try { loadStats(); } catch (e) { $("stats").innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; }
     const fail = (id) => (e) => { if (e && e.message === "signed_out") return; $(id).innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; };
     await Promise.all([loadStreams().catch(fail("streams")), loadHistory().catch(fail("history")), loadSources().catch(fail("sources")), loadCollections().catch(fail("collections"))]);
     clearInterval(timer); timer = setInterval(() => { if (!document.hidden) loadStreams().catch(() => {}); }, 30000);

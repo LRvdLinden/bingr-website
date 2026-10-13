@@ -396,11 +396,17 @@
       };
     });
   }
-  A.streamStart = function (profileId, profileName, title, kind, contentId) {
-    return authed({
+  /** Tijdzone van de browser (build 68: op welke dag de kijktijd in de statistieken valt). */
+  A.timeZone = function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Amsterdam'; } catch (e) { return 'Europe/Amsterdam'; } };
+  /** extra (build 68): {series_id, series_title} bij een aflevering. */
+  A.streamStart = function (profileId, profileName, title, kind, contentId, extra) {
+    var body = {
       action: 'stream_start', device_id: A.deviceId(), profile_id: profileId, profile_name: profileName,
-      title: title, kind: kind, content_id: contentId
-    }).then(function (r) {
+      title: title, kind: kind, content_id: contentId, tz: A.timeZone()
+    };
+    if (extra && extra.series_id) body.series_id = String(extra.series_id);
+    if (extra && extra.series_title) body.series_title = String(extra.series_title);
+    return authed(body).then(function (r) {
       if (!r) return { failed: true };
       var j = r.json || {};
       if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 6, streams: parseStreams(j.streams) };

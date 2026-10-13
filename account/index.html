@@ -90,6 +90,12 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
       <div id="history" class="history"></div>
     </div>
 
+    <button type="button" class="fold" id="statFold" aria-expanded="false" aria-controls="statBody">
+      <span><span class="ft" data-t="statsTitle"></span><span class="fs" data-t="statsHelp"></span></span>
+      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div id="statBody" class="foldbody"><div id="stats"></div></div>
+
     <h2 data-t="servers"></h2>
     <p class="muted" data-t="serversHelp"></p>
     <div id="sources" style="margin-top:8px"></div>
@@ -129,12 +135,13 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
-<script src="../assets/js/console.js"></script>
+<script src="../assets/js/stats.js?v=68"></script>
+<script src="../assets/js/console.js?v=68"></script>
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
   nl: { docTitle:"Mijn Bingr", tooLarge:"Te groot om op te slaan.", loadFailed:"Laden mislukt. Ververs de pagina om het opnieuw te proberen.", watching:"Nu aan het kijken", watchingCount:"%d van %d schermen kijken nu", watchingFor:"kijkt al %s", signedInSince:"ingelogd sinds %s", nobodyWatching:"Er kijkt nu niemand.",
-        historyTitle:"Kijkgeschiedenis (7 dagen)", historyHelp:"Wat er per profiel en apparaat is bekeken", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
+        historyTitle:"Kijkgeschiedenis (7 dagen)", historyHelp:"Wat er per profiel en apparaat is bekeken", statsTitle:"Statistieken", statsHelp:"Hoeveel er per profiel wordt gekeken: per dag, maand of jaar, met je meest gekeken titels", noHistory:"Nog niets bekeken in de afgelopen 7 dagen.", today:"Vandaag", minutes:"%d min", hours:"%d u %m min",
         servers:"Servers en afspeellijsten", serversHelp:"Wijzigingen staan binnen een paar minuten op al je apparaten. Plex, Jellyfin, Emby en Stremio voeg je toe in de app.", addServer:"Server toevoegen", editServer:"Server wijzigen",
         type:"Type", name:"Naam", m3uUrl:"M3U-URL", epgUrl:"EPG-URL (XMLTV)", optional:"optioneel", server:"Server", username:"Gebruikersnaam", unchanged:"ongewijzigd", hls:"Live als HLS (.m3u8)",
         portal:"Portal-URL", mac:"MAC-adres", makeMain:"Hoofdserver", save:"Opslaan", cancel:"Annuleren", deleteServer:"Server verwijderen", deleteServerConfirm:"%s verwijderen van al je apparaten?",
@@ -153,7 +160,7 @@ const tr = t({
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
         resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
   en: { docTitle:"My Bingr", tooLarge:"Too large to save.", loadFailed:"Couldn't load this. Refresh the page to try again.", watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
-        historyTitle:"Watch history (7 days)", historyHelp:"What was watched per profile and device", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
+        historyTitle:"Watch history (7 days)", historyHelp:"What was watched per profile and device", statsTitle:"Statistics", statsHelp:"How much each profile watches: per day, month or year, with your most watched titles", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
         servers:"Servers and playlists", serversHelp:"Changes reach all your devices within a few minutes. Add Plex, Jellyfin, Emby and Stremio in the app.", addServer:"Add server", editServer:"Edit server",
         type:"Type", name:"Name", m3uUrl:"M3U URL", epgUrl:"EPG URL (XMLTV)", optional:"optional", server:"Server", username:"Username", unchanged:"unchanged", hls:"Live as HLS (.m3u8)",
         portal:"Portal URL", mac:"MAC address", makeMain:"Main server", save:"Save", cancel:"Cancel", deleteServer:"Delete server", deleteServerConfirm:"Delete %s from all your devices?",
@@ -301,8 +308,8 @@ $("resetPw").onclick = async () => {
   await sb.auth.resetPasswordForEmail(data.session.user.email, { redirectTo: location.origin + "/reset/" });
   $("accErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
 };
-// Apparaten, kijkgeschiedenis en collecties: standaard dicht, keuze onthouden in deze browser
-[["devFold", "devBody", "bingr.devicesOpen"], ["histFold", "histBody", "bingr.historyOpen"], ["colFold", "colBody", "bingr.collectionsOpen"]].forEach(function (f) {
+// Apparaten, kijkgeschiedenis, statistieken en collecties: standaard dicht, keuze onthouden in deze browser
+[["devFold", "devBody", "bingr.devicesOpen"], ["histFold", "histBody", "bingr.historyOpen"], ["statFold", "statBody", "bingr.statsOpen"], ["colFold", "colBody", "bingr.collectionsOpen"]].forEach(function (f) {
   const b = $(f[0]), body = $(f[1]);
   let open = false; try { open = localStorage.getItem(f[2]) === "1"; } catch (e) {}
   const set = (o) => { b.setAttribute("aria-expanded", o ? "true" : "false"); body.classList.toggle("open", o); try { localStorage.setItem(f[2], o ? "1" : "0"); } catch (e) {} };

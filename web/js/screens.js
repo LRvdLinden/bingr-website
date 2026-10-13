@@ -1122,6 +1122,30 @@
     return pg;
   };
 
+  // MARK: Statistieken (build 68): hoofdprofiel ziet alle profielen met een filter, andere profielen alleen zichzelf
+
+  S.pages.stats = function () {
+    var prof = B.app.profile;
+    var box = h('div.stats-box');
+    var back = h('a.st-back', { href: '#/settings' }, [U.icon('chevron', 'st-back-ic'), L('Settings')]);
+    var el = h('div.page.settings.stats-page', [h('div.page-head', [back, h('h1', L('Statistics'))]), box]);
+    var pg = { el: el, title: L('Statistics') };
+    function call(action, body) {
+      return A.authed(Object.assign({ action: action }, body || {})).then(function (r) {
+        if (!r) throw new Error('offline');
+        if (!r.ok) throw new Error(r.errorCode || 'error');
+        return r.json;
+      });
+    }
+    var main = D.isMain(prof);
+    var view = window.BingrStats ? window.BingrStats.mount(box, {
+      call: call, lang: B.lang === 'nl' ? 'nl' : 'en', profiles: D.profiles, filter: main, profileId: main ? null : prof.id,
+      avatar: function (p) { return S.avatar(p, 'tiny'); }
+    }) : null;
+    pg.destroy = function () { if (view) view.destroy(); };
+    return pg;
+  };
+
   // MARK: Instellingen
 
   S.pages.settings = function () {
@@ -1147,6 +1171,7 @@
       var sec = section(L('Account'));
       row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
       row(sec, L('My Bingr'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
+      row(sec, L('Statistics'), main ? L('All profiles') : prof.name, function () { location.hash = '#/stats'; }, { icon: 'chart' });
       row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
 
       sec = section(L('Profile'));
