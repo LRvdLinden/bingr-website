@@ -33,7 +33,9 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .hidden { display: none !important; }
 
 /* logo, spinner, knoppen */
-.logo { color: var(--accent); font-weight: 900; font-size: 28px; letter-spacing: .02em; line-height: 1; text-shadow: 0 2px 10px #0006; }
+/* logo zoals BingrLogo in de apps: witte, zware afgeronde letters met een streep in de accentkleur eronder */
+.logo { display: inline-flex; flex-direction: column; align-items: stretch; color: #fff; font-family: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif; font-weight: 900; font-size: 28px; letter-spacing: .02em; line-height: 1; text-decoration: none; filter: drop-shadow(0 0 .15em #00000080); }
+.logo::after { content: ""; display: block; height: max(2px, .09em); margin: .1em .04em 0; border-radius: 99px; background: var(--accent); }
 .logo.big { font-size: 56px; }
 .spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #ffffff26; border-top-color: var(--accent); animation: spin .8s linear infinite; flex: none; }
 .btn .spinner { width: 20px; height: 20px; border-width: 2px; border-top-color: #fff; }
