@@ -89,7 +89,23 @@
     warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/>',
     chUp: '<path d="M6 15l6-6 6 6"/>',
     chDown: '<path d="M6 9l6 6 6-6"/>',
-    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'
+    flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.8 0 3.4-.5 4.8-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+    checkCircle: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.8 2.8L16 10"/>',
+    checkCircleFill: '<circle cx="12" cy="12" r="9.5" fill="currentColor" stroke="none"/><path d="M8 12.5l2.8 2.8L16 10" stroke="#000" stroke-width="2.4"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+    stack: '<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M6 5h12M8 2h8"/>',
+    stackAdd: '<rect x="3" y="8" width="18" height="13" rx="2"/><path d="M6 5h12M12 11.5v6M9 14.5h6"/>',
+    sparkle: '<path d="M12 3l1.8 4.9L19 9.7l-4.9 1.8L12 16.5l-1.8-4.9L5 9.7l5.2-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    more: '<circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/>',
+    history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5V12l3 2"/>',
+    minus: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+    camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    rows: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="11" width="18" height="5" rx="1.5"/><path d="M3 20h18"/>',
+    heart: '<path d="M12 20s-7-4.4-9-8.6C1.5 8.2 3.5 5 6.7 5c2 0 3.4 1.1 4.3 2.4h2C13.9 6.1 15.3 5 17.3 5c3.2 0 5.2 3.2 3.7 6.4-2 4.2-9 8.6-9 8.6z"/>'
   };
   U.icon = function (name, cls) {
     var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -248,6 +264,132 @@
     dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }] });
     setTimeout(function () { input.focus(); }, 40);
     return dlg;
+  };
+
+  /**
+   * Menu met acties (zoals het contextmenu in de apps): items [{icon, label, fn, danger} | 'sep'].
+   * at = element (menu eronder) of {x, y}. Op de telefoon als blad van onderen.
+   */
+  U.menu = function (at, items, title) {
+    items = items.filter(Boolean);
+    if (!items.length) return null;
+    if (U.isPhone()) {
+      var list = h('div.opts', { role: 'menu' });
+      var dlg;
+      items.forEach(function (it) {
+        if (it === 'sep') return;
+        var b = h('button.opt.menu-opt' + (it.danger ? '.danger' : ''), { type: 'button', role: 'menuitem' }, [h('span.opt-l.row-l', [it.icon ? U.icon(it.icon) : null, h('span', it.label)])]);
+        b.addEventListener('click', function () { dlg.close(); if (it.fn) it.fn(); });
+        list.appendChild(b);
+      });
+      dlg = U.modal({ title: title || '', body: list, cls: 'choose' });
+      return dlg;
+    }
+    var menu = h('div.menu', { role: 'menu' });
+    var prev = document.activeElement;
+    var veil = h('div.menu-veil');
+    function close() { veil.remove(); menu.remove(); document.removeEventListener('keydown', onKey, true); try { if (prev && prev.focus) prev.focus({ preventScroll: true }); } catch (e) { /* stil */ } }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        var all = Array.prototype.slice.call(menu.querySelectorAll('.menu-it'));
+        var i = all.indexOf(document.activeElement);
+        var n = e.key === 'ArrowDown' ? (i + 1) % all.length : (i - 1 + all.length) % all.length;
+        if (all[n]) all[n].focus();
+      }
+    }
+    if (title) menu.appendChild(h('div.menu-title', title));
+    items.forEach(function (it) {
+      if (it === 'sep') { menu.appendChild(h('div.menu-sep')); return; }
+      var b = h('button.menu-it' + (it.danger ? '.danger' : ''), { type: 'button', role: 'menuitem' }, [it.icon ? U.icon(it.icon) : null, h('span', it.label)]);
+      b.addEventListener('click', function (e) { e.stopPropagation(); close(); if (it.fn) it.fn(); });
+      menu.appendChild(b);
+    });
+    veil.addEventListener('click', close);
+    veil.addEventListener('contextmenu', function (e) { e.preventDefault(); close(); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(veil);
+    document.body.appendChild(menu);
+    var x, y;
+    if (at && at.getBoundingClientRect) { var r = at.getBoundingClientRect(); x = r.left; y = r.bottom + 6; }
+    else { x = (at && at.x) || 0; y = (at && at.y) || 0; }
+    var mw = menu.offsetWidth, mh = menu.offsetHeight;
+    x = Math.max(8, Math.min(x, window.innerWidth - mw - 8));
+    if (y + mh > window.innerHeight - 8) y = Math.max(8, y - mh - (at && at.getBoundingClientRect ? at.getBoundingClientRect().height + 12 : 0));
+    menu.style.left = x + 'px'; menu.style.top = y + 'px';
+    var f = menu.querySelector('.menu-it');
+    if (f) f.focus({ preventScroll: true });
+    return { close: close };
+  };
+
+  /**
+   * Contextmenu op een element: rechtermuisknop, de menutoets/Shift+F10 en lang indrukken op aanraakschermen.
+   * build() geeft de items terug (pas op het moment zelf, zodat ze kloppen).
+   */
+  U.onMenu = function (el, build, title) {
+    function open(at) { var items = build(); if (items && items.length) U.menu(at, items, typeof title === 'function' ? title() : title); }
+    el.addEventListener('contextmenu', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      // via het toetsenbord (geen muispositie): onder het element
+      open(e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : el);
+    });
+    var timer = null, fired = false, sx = 0, sy = 0;
+    el.addEventListener('touchstart', function (e) {
+      fired = false;
+      var t = e.touches[0]; sx = t.clientX; sy = t.clientY;
+      clearTimeout(timer);
+      timer = setTimeout(function () { fired = true; if (navigator.vibrate) { try { navigator.vibrate(10); } catch (x) { /* stil */ } } open(el); }, 550);
+    }, { passive: true });
+    el.addEventListener('touchmove', function (e) { var t = e.touches[0]; if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) clearTimeout(timer); }, { passive: true });
+    el.addEventListener('touchend', function (e) { clearTimeout(timer); if (fired) { e.preventDefault(); } }, { passive: false });
+    el.addEventListener('touchcancel', function () { clearTimeout(timer); });
+    el.addEventListener('click', function (e) { if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; } }, true);
+    el.classList.add('has-menu');
+    return open;
+  };
+
+  /** Invoervenster: velden [{key, label, value, type, placeholder}] → onSave(values) (mag een Promise teruggeven). */
+  U.form = function (title, fields, onSave, opts) {
+    opts = opts || {};
+    var inputs = {};
+    var msg = h('div.login-err');
+    var body = h('div.field-dlg.form-dlg', fields.map(function (f) {
+      var inp = h('input', { type: f.type || 'text', value: f.value || '', placeholder: f.placeholder || f.label || '', 'aria-label': f.label || f.placeholder || '', autocomplete: f.autocomplete || 'off' });
+      inputs[f.key] = inp;
+      return h('label.form-row', [f.label ? h('span.form-label', f.label) : null, inp]);
+    }).concat([opts.note ? h('p.muted.small.form-note', opts.note) : null, msg]));
+    var dlg = U.modal({ title: title, body: body, buttons: [] });
+    var save = U.button(opts.saveLabel || L('Save'), function () { submit(); }, { primary: true });
+    dlg.el.appendChild(h('div.dlg-buttons', [save, U.button(L('Cancel'), function () { dlg.close(); })]));
+    function submit() {
+      var vals = {};
+      Object.keys(inputs).forEach(function (k) { vals[k] = inputs[k].value; });
+      msg.textContent = '';
+      var r;
+      try { r = onSave(vals); } catch (e) { msg.textContent = e.message; return; }
+      if (r === false) return;
+      if (r && r.then) {
+        save.disabled = true;
+        r.then(function (res) { if (res !== false) dlg.close(); else save.disabled = false; }, function (e) { save.disabled = false; msg.textContent = (e && e.message) || L('Something went wrong. Please try again.'); });
+      } else dlg.close();
+    }
+    Object.keys(inputs).forEach(function (k) { inputs[k].addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(); } }); });
+    return dlg;
+  };
+
+  /** Bevestigen: U.confirm(titel, tekst, knoptekst, fn, {danger}). */
+  U.confirm = function (title, text, label, fn, opts) {
+    opts = opts || {};
+    return U.modal({ title: title, text: text, buttons: [{ label: label, fn: fn, primary: !opts.danger, danger: !!opts.danger }, { label: L('Cancel'), primary: false }] });
+  };
+
+  /** Nieuwe pincode kiezen (twee keer invoeren); onDone(pin). */
+  U.choosePIN = function (onDone, avatar) {
+    var first = null;
+    U.askPIN(L('Choose a 4-digit PIN'), function (x) { first = x; return true; }, function () {
+      U.askPIN(L('Enter the PIN again'), function (x) { return x === first; }, function () { onDone(first); }, avatar);
+    }, avatar);
   };
 
   // MARK: rijen (horizontaal scrollen met pijlen op de computer)

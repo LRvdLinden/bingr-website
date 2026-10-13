@@ -571,7 +571,8 @@
     var s = B.has(tab, key) ? tab[key] : key;
     var args = Array.prototype.slice.call(arguments, 1);
     var i = 0;
-    return s.replace(/%(@|d|\.?\d*f|lld|ld|s)/g, function (m) {
+    return s.replace(/%(%|@|d|\.?\d*f|lld|ld|s)/g, function (m) {
+      if (m === '%%') return '%';
       var v = args[i++];
       return v == null ? m : String(v);
     });

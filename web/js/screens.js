@@ -9,7 +9,7 @@
   var U = B.ui, D = B.data, A = B.account, Lib = B.lib, PC = B.parental;
   var h = U.h, R = U.router;
   var L = function () { return B.L.apply(null, arguments); };
-  var S = B.screens = { pages: {} };
+  var S = B.screens = { pages: {}, navOwner: {} };
 
   // MARK: inloggen
 
@@ -221,9 +221,16 @@
 
   S.profiles = function (onPick) {
     var grid = h('div.pf-grid');
+    // profielen beheren kan alleen vanuit het hoofdprofiel (zoals canAdmin op iOS): eerst de pincode daarvan
+    var manage = U.button(L('Manage profiles'), function () {
+      var m = D.mainProfile();
+      if (!m) return;
+      var go = function () { history.replaceState(null, '', location.pathname + location.search + '#/profiles'); onPick(m); };
+      var pin = D.pinFor(m);
+      if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, go, S.avatar(m, 'pinav')); else go();
+    }, { cls: 'ghost pf-manage' });
     var el = h('div.profiles-screen', [h('header.login-top', [h('a.logo', { href: '../' }, 'BINGR')]),
-      h('div.pf-wrap', [h('h1.pf-title', L("Who's watching?")), grid,
-        h('a.btn.ghost.pf-manage', { href: '../account/' }, L('Manage profiles'))])]);
+      h('div.pf-wrap', [h('h1.pf-title', L("Who's watching?")), grid, manage])]);
     function draw() {
       U.clear(grid);
       D.profiles.forEach(function (p) {
@@ -255,24 +262,35 @@
     return t ? h('div.lang-strip', t) : null;
   }
   S.titleLink = function (type, x) { return R.link(['title', type, x.id]); };
+  /** Film bekeken (lokaal of op Trakt), zoals Playables.isWatched op iOS. */
+  S.movieWatched = function (m) { return D.isWatched(m.id) || B.trakt.isMovieWatched(m); };
+  /** Aantal bekeken afleveringen van een serie (Trakt of lokaal, het hoogste). */
+  S.seriesWatchedCount = function (s) { return Math.max(B.trakt.watchedCount(s), D.watchedCount(s.id)); };
   function posterCard(x, type, opts) {
     opts = opts || {};
     var isShow = type === 'series';
     var pr = opts.progress;
-    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': x.title + (x.year ? ' (' + x.year + ')' : '') }, [
+    var watched = !isShow && !pr && S.movieWatched(x);
+    var wc = isShow ? S.seriesWatchedCount(x) : 0;
+    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': x.title + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : '') }, [
       h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, isShow),
+        watched ? h('div.card-watched', { title: L('Watched') }, [U.icon('check')]) : null,
+        wc > 0 ? h('div.card-badge', L('%d WATCHED', wc)) : null,
         pr ? h('div.card-progress', [h('div', { style: { width: Math.round(B.clamp(pr, 0, 1) * 100) + '%' } })]) : null]),
       h('div.card-title', x.title)
     ]);
+    if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, opts); }, x.title);
     return card;
   }
   S.posterCard = posterCard;
   function top10Card(x, type, i) {
-    return h('a.card.top10', { href: S.titleLink(type, x), 'aria-label': (i + 1) + '. ' + x.title }, [
+    var card = h('a.card.top10', { href: S.titleLink(type, x), 'aria-label': (i + 1) + '. ' + x.title }, [
       h('div.top10-num', String(i + 1)), h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, type === 'series')])]);
+    if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, {}); }, x.title);
+    return card;
   }
   function pct(p) { return Math.round(B.clamp((Date.now() - p.start) / (p.end - p.start), 0, 1) * 100) + '%'; }
-  function channelCard(ch, list) {
+  function channelCard(ch, list, opts) {
     var nn = Lib.nowNext(ch);
     var b = h('button.ccard', { type: 'button', 'aria-label': ch.name }, [
       h('div.ccard-logo', [U.img(ch.logo, 'logo', ch.name)]),
@@ -280,6 +298,7 @@
         nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
     ]);
     b.addEventListener('click', function () { B.player.playChannel(ch, list || [ch]); });
+    if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, ch.name);
     return b;
   }
   S.channelCard = channelCard;
@@ -290,7 +309,9 @@
 
   // MARK: hoofdscherm (navigatie bovenaan of onderaan, pagina's via de router)
 
-  var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'], ['mylist', 'My List', 'bookmark']];
+  // [sleutel, tekst, icoon, waar]: 'top' = alleen bovenin (computer), 'tab' = alleen in de onderbalk (telefoon)
+  var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
+    ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
 
   S.main = function () {
     var content = h('main.content', { id: 'content', tabindex: '-1' });
@@ -302,8 +323,8 @@
     var hidden = D.shared('hiddenTabs', []) || [];
     NAV.forEach(function (n) {
       if (hidden.indexOf(n[0]) >= 0) return;
-      links.appendChild(h('a.top-link', { href: '#/' + n[0], 'data-k': n[0] }, L(n[1])));
-      tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
+      if (n[3] !== 'tab') links.appendChild(h('a.top-link', { href: '#/' + n[0], 'data-k': n[0] }, L(n[1])));
+      if (n[3] !== 'top') tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
     });
     var el = h('div.app', [header, content, tabs]);
     var page = null, pageKey = null, scrolls = {};
@@ -330,9 +351,10 @@
       page = S.pages[key](r);
       content.appendChild(page.el);
       el.setAttribute('data-page', key);
+      var navKey = S.navOwner[key] || key;
       [links, tabs].forEach(function (box) {
         Array.prototype.forEach.call(box.children, function (a) {
-          var on = a.getAttribute('data-k') === key;
+          var on = a.getAttribute('data-k') === navKey || (box === tabs && key === 'mylist' && a.getAttribute('data-k') === 'mybingr');
           a.classList.toggle('active', on);
           if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
@@ -361,7 +383,9 @@
       B.on('loading', function () { if (page && page.onLoading) page.onLoading(); }),
       B.on('profileData', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); }),
       B.on('epg', function () { if (page && page.onEpg) soon('epg', function () { if (page && page.onEpg) page.onEpg(); }, 300); }),
-      B.on('profiles', drawProf)
+      B.on('profiles', drawProf),
+      B.on('collections', function () { if (page && page.onCollections) soon('coll', function () { if (page && page.onCollections) page.onCollections(); }, 150); }),
+      B.on('trakt', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); })
     ];
     R.handlers = [render];
     var screen = {
@@ -398,8 +422,10 @@
     }
     if (menu.children.length) menu.appendChild(h('div.menu-sep'));
     item('users', L('Switch profile'), function () { B.app.switchProfile(); });
+    if (D.isMain(cur)) item('edit', L('Manage profiles'), null, '#/profiles');
+    item('user', L('My Bingr'), null, '#/mybingr');
     item('gear', L('Settings'), null, '#/settings');
-    item('account', L('My Bingr'), null, '../account/');
+    item('account', L('Account and devices'), null, '../account/');
     menu.appendChild(h('div.menu-sep'));
     item('logout', L('Sign out'), function () { confirmSignOut(); });
     var r = anchor.getBoundingClientRect();
@@ -510,17 +536,18 @@
     function continueRow() {
       var lib = Lib.lib, cards = [];
       var byTitle = Lib.memo('seriesByTitle', function () { var m = {}; lib.series.forEach(function (s) { if (!m[s.title]) m[s.title] = s; }); return m; });
-      var seen = {};
+      var seen = {}, seriesKeys = {};
       D.progressList().forEach(function (pe) {
-        if (cards.length >= 20) return;
         var hit = lib.byId[pe.key];
-        if (hit && hit.type === 'movie') cards.push(posterCard(hit.item, 'movie', { progress: pe.e.fraction }));
+        if (hit && hit.type === 'movie') { if (cards.length < 20) cards.push({ x: hit.item, type: 'movie', p: pe.e.fraction, keys: [pe.key] }); }
         else if (!hit) {
           var s = byTitle[pe.e.title];
-          if (s && !seen[s.id]) { seen[s.id] = true; cards.push(posterCard(s, 'series', { progress: pe.e.fraction })); }
+          if (!s) return;
+          (seriesKeys[s.id] = seriesKeys[s.id] || []).push(pe.key);
+          if (!seen[s.id] && cards.length < 20) { seen[s.id] = true; cards.push({ x: s, type: 'series', p: pe.e.fraction, keys: seriesKeys[s.id] }); }
         }
       });
-      return U.row(L('Continue watching'), cards);
+      return U.row(L('Continue watching'), cards.map(function (c) { return posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); }));
     }
     function myListRow() {
       var cards = myListItems().slice(0, 40).map(function (hit) { return posterCard(hit.item, hit.type); });
@@ -538,11 +565,23 @@
       chans = chans.slice(0, 24);
       return U.row(L('Live now'), chans.map(function (c) { return channelCard(c, chans); }), 'live', '#/live');
     }
+    var forYouRecs = null, forYouAsked = false;
+    function forYouRow() {
+      if (!forYouAsked && B.trakt.isLoggedIn()) {
+        forYouAsked = true;
+        Promise.all([B.trakt.recommendations(false), B.trakt.recommendations(true)]).then(function (r) {
+          forYouRecs = { movies: r[0], series: r[1] };
+          if (el.parentNode) refreshRows(['foryou']);
+        });
+      }
+      var items = S.forYou(forYouRecs);
+      return U.row(L('For you'), items.map(function (hit) { return posterCard(hit.item, hit.type); }));
+    }
     function builders() {
       var lib = Lib.lib;
       var kids = B.app.profile && B.app.profile.kids;
       var b = {
-        'continue': continueRow, 'mylist': myListRow, 'live': liveRow,
+        'continue': continueRow, 'mylist': myListRow, 'live': liveRow, 'foryou': forYouRow,
         'top10': function () {
           return [U.row(kids ? L('Top 10 kids series') : L('Top 10 series today'), Lib.top10(lib.series).map(function (s, i) { return top10Card(s, 'series', i); }), 'top10row'),
             U.row(kids ? L('Top 10 kids movies') : L('Top 10 movies today'), Lib.top10(lib.movies).map(function (m, i) { return top10Card(m, 'movie', i); }), 'top10row')];
@@ -559,26 +598,13 @@
         }
       };
       D.collectionsFor(B.app.profile.id).forEach(function (c) {
-        b['collection:' + c.id] = function () {
-          var items = Lib.collectionItems(c, 40);
-          var chans = items.filter(function (x) { return x.type === 'channel'; }).map(function (x) { return x.item; });
-          return U.row(c.name, items.map(function (x) { return itemCard(x, chans); }), chans.length === items.length ? 'live' : null);
-        };
+        b['collection:' + c.id] = function () { return S.collectionRow(c); };
       });
       return b;
     }
     function order(b) {
-      var colls = Object.keys(b).filter(function (k) { return k.indexOf('collection:') === 0; });
-      var o = ['continue', 'mylist', 'top10', 'live', 'recent'].concat(colls).concat(['categories']);
-      var layout = D.homeLayout();
-      if (layout) {
-        var known = {};
-        o = [];
-        layout.forEach(function (r) { if (r && r.key && b[r.key]) { known[r.key] = true; if (r.visible !== false) o.push(r.key); } });
-        colls.forEach(function (k) { if (!known[k]) o.push(k); });
-        if (!known.categories && o.indexOf('categories') < 0) o.push('categories');
-      }
-      return o;
+      var colls = D.collectionsFor(B.app.profile.id);
+      return S.effectiveHomeLayout(D.homeLayout(), colls).filter(function (r) { return r.visible && b[r.key]; }).map(function (r) { return r.key; });
     }
     var blocks = {};
     function render() {
@@ -617,7 +643,13 @@
     }
     pg.refresh = render;
     pg.onLoading = function () { if (el.querySelector('.state')) render(); };
-    pg.onData = function () { refreshRows(['continue', 'mylist', 'live']); };
+    var layoutKey = JSON.stringify(D.homeLayout());
+    pg.onData = function () {
+      var lk = JSON.stringify(D.homeLayout());
+      if (lk !== layoutKey) { layoutKey = lk; render(); return; }
+      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories'; }));
+    };
+    pg.onCollections = function () { render(); };
     pg.onEpg = function () { refreshRows(['live']); };
     render();
     return pg;
@@ -666,6 +698,11 @@
           var top = Lib.top10(all);
           if (top.length >= 5) rows.appendChild(U.row(L(isMovie ? 'Top 10 movies today' : 'Top 10 series today'), top.map(function (x, i) { return top10Card(x, type, i); }), 'top10row'));
           if (isMovie) { var rec = Lib.recent(all, 30); if (rec.length) rows.appendChild(U.row(L('Recently added'), rec.map(function (m) { return posterCard(m, 'movie'); }))); }
+          // eigen collecties: alleen de films of series daaruit (zoals collectionRow op iOS)
+          D.collectionsFor(B.app.profile.id).forEach(function (c) {
+            var row = S.collectionRow(c, type);
+            if (row) rows.appendChild(row);
+          });
           // rijen per categorie in stukjes (veel categorieën): de rest als je verder scrolt
           var gi = 0;
           var more = h('div.grid-more');
@@ -695,6 +732,7 @@
       }
       pg.refresh = render;
       pg.onLoading = function () { if (el.querySelector('.state')) render(); };
+      pg.onCollections = function () { if (!group) { var y = window.scrollY; render(); window.scrollTo(0, y); } };
       pg.destroy = function () { if (grid && grid.destroy) grid.destroy(); };
       render();
       return pg;
@@ -770,6 +808,10 @@
       if (D.setList('favorites').some(function (k) { return k.split('|')[0] === src; })) out.push({ key: '★', label: L('Favorites') });
       if (D.setList('recentChannels').some(function (k) { return k.split('|')[0] === src; })) out.push({ key: '⟲', label: L('Recent') });
       out.push({ key: '*', label: L('All channels') });
+      // eigen collecties met zenders (zoals in de apps)
+      D.collectionsFor(B.app.profile.id).forEach(function (c) {
+        if (S.collectionChannels(c).length) out.push({ key: 'collection:' + c.id, label: c.name, coll: true });
+      });
       lib.channelGroups.forEach(function (g) { out.push({ key: g, label: g }); });
       return out;
     }
@@ -788,6 +830,10 @@
       if (key === '★') return fromKeys(D.setList('favorites'));
       if (key === '⟲') return fromKeys(D.setList('recentChannels'));
       if (key === '*' || !key) return lib.channels;
+      if (key.indexOf('collection:') === 0) {
+        var c = D.collectionById(B.app.profile.id, key.slice(11));
+        if (c) return S.collectionChannels(c);
+      }
       return Lib.byGroup('channel')[key] || [];
     }
     function favKey(ch) { return D.key(src, ch.id); }
@@ -803,6 +849,10 @@
           nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
       ]);
       main.addEventListener('click', function () { B.player.playChannel(ch, currentList); });
+      U.onMenu(main, function () {
+        var coll = group && group.indexOf('collection:') === 0 ? D.collectionById(B.app.profile.id, group.slice(11)) : null;
+        return S.cardMenu(ch, 'channel', { collection: coll });
+      }, ch.name);
       var gb = U.button('', function () { select(ch, true); }, { icon: 'guide', cls: 'icon-only lv-gbtn', title: L('TV guide') });
       row.appendChild(main); row.appendChild(gb);
       row._ch = ch;
@@ -825,7 +875,8 @@
       var fav = D.inSet('favorites', favKey(ch));
       var btns = h('div.lv-g-btns', [
         U.button(L('Watch live'), function () { B.player.playChannel(ch, currentList); }, { primary: true, icon: 'play' }),
-        U.button(fav ? L('Favorite') : L('Add to favorites'), function () { D.toggleSet('favorites', favKey(ch)); fillGuide(box, ch); refreshList(); }, { icon: fav ? 'starFill' : 'star' })
+        U.button(fav ? L('Favorite') : L('Add to favorites'), function () { D.toggleSet('favorites', favKey(ch)); fillGuide(box, ch); refreshList(); }, { icon: fav ? 'starFill' : 'star' }),
+        U.button('', function () { S.addToCollection({ type: 'channel', id: ch.id }, ch.name); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
       ]);
       if (nn.now && Lib.canCatchup(ch, nn.now)) btns.appendChild(U.button(L('From the start'), function () { B.player.playCatchup(ch, nn.now, currentList); }, { icon: 'replay' }));
       box.appendChild(h('div.lv-g-head', [h('div.lv-g-logo', [U.img(ch.logo, 'logo', ch.name)]), h('div', [h('h2', ch.name), h('div.muted', ch.group || '')])]));
@@ -898,6 +949,7 @@
     pg.onLoading = function () { if (el.querySelector('.state')) render(); };
     pg.onEpg = function () { refreshList(); drawGuide(); };
     pg.onData = function () { refreshList(); };
+    pg.onCollections = function () { render(); };
     var tick = setInterval(function () { if (document.hidden) return; refreshList(); drawGuide(); }, 60000);
     pg.destroy = function () { clearInterval(tick); if (grid && grid.destroy) grid.destroy(); };
     render();
@@ -912,7 +964,7 @@
     var el = h('div.page.detail');
     var pg = { el: el };
     var x = null, episodes = [], season = null, currentEp = null, versions = [];
-    var buttons, epsEl, seasonSel, trailerBtnSlot, meta, langEl, plot;
+    var buttons, epsEl, seasonSel, trailerBtnSlot, meta, langEl, plot, watchLine, seasonToggle;
     var stremio = Lib.source && Lib.source.kind === 'Stremio';
     var isShow = type === 'series';
     var listKey = null;
@@ -954,6 +1006,10 @@
     }
     function playEpisode(ep) { B.player.playVOD(B.player.episodeItem(ep, x), { episodes: episodes, series: x }); }
     function epWatched(ep) { return D.isWatched(ep.id) || D.isWatched(D.episodeKey(ep.seriesID, ep.season, ep.number)) || B.trakt.isEpisodeWatched(x, ep.season, ep.number); }
+    function setEpWatched(list, on) {
+      D.setEpisodesWatched(list, on);
+      if (B.trakt.isLoggedIn()) B.trakt.setEpisodesWatched(x, list.map(function (e) { return { season: e.season, number: e.number }; }), on);
+    }
     function pickCurrent() {
       var best = null, bestAt = 0;
       episodes.forEach(function (e) { var p = D.progress(e.id); if (p && p.updated > bestAt) { best = e; bestAt = p.updated; } });
@@ -984,7 +1040,17 @@
 
     function listButton() {
       var on = D.inSet('myList', listKey);
-      return U.button(L('My List'), function () { D.toggleSet('myList', listKey); drawButtons(); }, { icon: on ? 'check' : 'plus', cls: on ? 'on' : null, title: on ? L('Remove from My List') : L('Add to My List') });
+      return U.button(L('My List'), function () { S.toggleMyList(x, type); drawButtons(); }, { icon: on ? 'check' : 'plus', cls: on ? 'on' : null, title: on ? L('Remove from My List') : L('Add to My List') });
+    }
+    function collectionButton() {
+      var item = { type: type, id: x.id };
+      var inAny = D.collectionsFor(B.app.profile.id).some(function (c) { return c.kind !== 'smart' && D.collectionHas(c, item); });
+      return U.button(L('Collection'), function () { S.addToCollection(item, x.title); }, { icon: inAny ? 'stack' : 'stackAdd', cls: inAny ? 'on' : null, title: L('Add to collection…') });
+    }
+    function watchedButton() {
+      var w = S.movieWatched(x);
+      return U.button(L('Watched'), function () { S.setMovieWatched(x, !w); drawButtons(); },
+        { icon: w ? 'checkCircleFill' : 'checkCircle', cls: w ? 'on' : null, title: w ? L('Mark as unwatched') : L('Mark as watched') });
     }
     function drawButtons() {
       U.clear(buttons);
@@ -1005,6 +1071,8 @@
       buttons.appendChild(trailerBtnSlot);
       if (versions.length) buttons.appendChild(U.button(L('Other language'), chooseVersion, { icon: 'globe' }));
       buttons.appendChild(listButton());
+      if (type === 'movie') buttons.appendChild(watchedButton());
+      buttons.appendChild(collectionButton());
       if (type === 'movie') {
         var p2 = D.progress(x.id);
         if (p2 && p2.fraction > 0.02) buttons.appendChild(h('div.dt-progress', [h('div.card-progress.inline', [h('div', { style: { width: Math.round(p2.fraction * 100) + '%' } })]),
@@ -1018,10 +1086,27 @@
       seasonSel.style.display = '';
       ss.forEach(function (sn) { var o = h('option', { value: String(sn) }, L('Season %d', sn)); if (sn === season) o.selected = true; seasonSel.appendChild(o); });
     }
+    function pctWatched(list) { if (!list.length) return 0; var n = 0; list.forEach(function (e) { if (epWatched(e)) n++; }); return n / list.length; }
     function drawEpisodes() {
       U.clear(epsEl);
       var target = null;
-      episodes.filter(function (e) { return e.season === season; }).forEach(function (e) {
+      var inSeason = episodes.filter(function (e) { return e.season === season; });
+      // hoeveel van de serie (en van dit seizoen) je al gezien hebt, en het hele seizoen in één keer afvinken
+      U.clear(watchLine);
+      var fAll = pctWatched(episodes), fSeason = pctWatched(inSeason);
+      if (fAll > 0) {
+        watchLine.appendChild(h('div.dt-watchline', [h('span.muted.small', L('%d%% of the series watched', Math.round(fAll * 100))),
+          h('div.card-progress.inline', [h('div', { style: { width: Math.round(fAll * 100) + '%' } })])]));
+        if (seasons().length > 1 && fSeason > 0) watchLine.appendChild(h('div.dt-watchline', [h('span.muted.small', L('Season %d · %d%% watched', season, Math.round(fSeason * 100))),
+          h('div.card-progress.inline', [h('div', { style: { width: Math.round(fSeason * 100) + '%' } })])]));
+      }
+      U.clear(seasonToggle);
+      if (inSeason.length) {
+        var all = fSeason >= 1;
+        seasonToggle.appendChild(U.button('', function () { setEpWatched(inSeason, !all); }, { icon: all ? 'checkCircleFill' : 'checkCircle',
+          cls: 'icon-only dt-season-check' + (all ? ' on' : ''), title: all ? L('Mark as unwatched') : L('Mark as watched') }));
+      }
+      inSeason.forEach(function (e) {
         var p = D.progress(e.id);
         var watched = epWatched(e);
         var pc = p ? Math.round(p.fraction * 100) : (watched ? 100 : 0);
@@ -1035,8 +1120,14 @@
             e.plot ? h('div.ep-plot.muted', e.plot) : null])
         ]);
         card.addEventListener('click', function () { currentEp = e; playEpisode(e); });
+        var toggle = U.button('', function () { setEpWatched([e], !watched); }, { icon: watched ? 'checkCircleFill' : 'checkCircle',
+          cls: 'icon-only ep-check' + (watched ? ' on' : ''), title: watched ? L('Mark as unwatched') : L('Mark as watched') });
+        U.onMenu(card, function () {
+          return [{ icon: watched ? 'eyeOff' : 'checkCircle', label: watched ? L('Mark as unwatched') : L('Mark as watched'), fn: function () { setEpWatched([e], !watched); } },
+            p ? { icon: 'close', label: L('Remove from Continue watching'), fn: function () { D.clearProgress(e.id); } } : null];
+        }, title);
         if (currentEp === e) target = card;
-        epsEl.appendChild(card);
+        epsEl.appendChild(h('div.ep-wrap', [card, toggle]));
       });
       return target;
     }
@@ -1090,7 +1181,9 @@
           drawEpisodes(); drawButtons(); loadTrailer();
         });
         epsEl = h('div.dt-eps');
-        el.appendChild(h('section.dt-episodes', [h('div.dt-eps-head', [h('h2.dt-eps-title', L('Episodes')), seasonSel]), epsEl]));
+        watchLine = h('div.dt-watch');
+        seasonToggle = h('span.dt-season-tg');
+        el.appendChild(h('section.dt-episodes', [h('div.dt-eps-head', [h('h2.dt-eps-title', L('Episodes')), seasonSel, seasonToggle]), watchLine, epsEl]));
       }
       metaText();
       drawLang();
@@ -1117,6 +1210,7 @@
         window.scrollTo(0, y);
       }
     };
+    pg.onCollections = function () { if (x) drawButtons(); };
     pg.destroy = function () { alive = false; };
     build();
     return pg;
@@ -1148,21 +1242,39 @@
 
   // MARK: Instellingen
 
+  /** Rij in een lijst met instellingen (ook gebruikt door Mijn Bingr en de beheerschermen). */
+  S.stRow = function (sec, label, value, fn, opts) {
+    opts = opts || {};
+    var r = fn ? (opts.href ? h('a.st-row' + (opts.danger ? '.danger' : ''), { href: opts.href }) : h('button.st-row' + (opts.danger ? '.danger' : ''), { type: 'button' })) : h('div.st-row.info');
+    if (opts.lead) r.appendChild(opts.lead);
+    else if (opts.icon) r.appendChild(U.icon(opts.icon, 'st-ic'));
+    r.appendChild(opts.sub ? h('span.st-label', [h('span', label), h('span.st-sub', opts.sub)]) : h('span.st-label', label));
+    if (value != null) r.appendChild(value instanceof Node ? value : h('span.st-value', value));
+    if (fn) {
+      if (opts.toggle == null) r.appendChild(U.icon('chevron', 'st-chev'));
+      if (fn !== true) r.addEventListener('click', function (e) { if (!opts.href) e.preventDefault(); fn(e); });
+    }
+    if (opts.toggle != null) {
+      r.classList.add('st-toggle');
+      r.setAttribute('role', 'switch'); r.setAttribute('aria-checked', opts.toggle ? 'true' : 'false');
+      r.appendChild(h('span.switch' + (opts.toggle ? '.on' : ''), [h('i')]));
+    }
+    sec.appendChild(r);
+    return r;
+  };
+  S.stSection = function (list, t, foot) {
+    var s = h('section.st-sec', [t ? h('h2.st-head', t) : h('h2.st-head.hidden')]);
+    list.appendChild(s);
+    if (foot) list.appendChild(h('p.st-foot', foot));
+    return s;
+  };
+
   S.pages.settings = function () {
     var list = h('div.st-list');
     var el = h('div.page.settings', [h('div.page-head', [h('h1', L('Settings'))]), list]);
     var pg = { el: el, title: L('Settings') };
-    function section(t) { var s = h('section.st-sec', [h('h2.st-head', t)]); list.appendChild(s); return s; }
-    function row(sec, label, value, fn, opts) {
-      opts = opts || {};
-      var r = fn ? h('button.st-row' + (opts.danger ? '.danger' : ''), { type: 'button' }) : h('div.st-row.info');
-      if (opts.icon) r.appendChild(U.icon(opts.icon, 'st-ic'));
-      r.appendChild(h('span.st-label', label));
-      if (value != null) r.appendChild(h('span.st-value', value));
-      if (fn) { r.appendChild(U.icon('chevron', 'st-chev')); r.addEventListener('click', fn); }
-      sec.appendChild(r);
-      return r;
-    }
+    function section(t, foot) { return S.stSection(list, t, foot); }
+    var row = S.stRow;
     function onOff(v) { return v ? L('On') : L('Off'); }
     function render() {
       U.clear(list);
@@ -1170,11 +1282,11 @@
       var main = D.isMain(prof);
       var sec = section(L('Account'));
       row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
-      row(sec, L('My Bingr'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
+      row(sec, L('Account and devices'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
       row(sec, L('Statistics'), main ? L('All profiles') : prof.name, function () { location.hash = '#/stats'; }, { icon: 'chart' });
       row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
 
-      sec = section(L('Profile'));
+      sec = section(L('Profile'), main ? null : L('Profiles are managed in the main account.'));
       var pRow = row(sec, L('Switch profile'), prof.name, function () { B.app.switchProfile(); });
       pRow.insertBefore(S.avatar(prof, 'tiny'), pRow.firstChild);
       var accent = D.accentKey(prof);
@@ -1187,13 +1299,42 @@
         });
       });
       aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
+      if (main) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users' });
+      row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
+      row(sec, L('Collections'), String(D.collectionsFor(prof.id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
+      row(sec, L('Watch history'), null, function () { location.hash = '#/history'; }, { icon: 'history' });
 
-      sec = section(L('Server'));
+      S.connectionsSection(list, render);
+
+      if (main) {
+        sec = section(L('Interface'));
+        var start = String(D.shared('startScreen', 'home') || 'home');
+        var starts = [['home', L('Home')], ['live', L('Live TV')], ['movies', L('Movies')], ['series', L('Series')]];
+        var startLabel = L('Home');
+        starts.forEach(function (x) { if (x[0] === start) startLabel = x[1]; });
+        row(sec, L('Start screen'), startLabel, function () {
+          U.choose(L('Start screen'), starts.map(function (x) { return { value: x[0], label: x[1] }; }), start, function (v) { D.setShared('startScreen', v); render(); });
+        });
+        var hiddenTabs = (D.shared('hiddenTabs', []) || []).slice();
+        [['live', L('Show Live TV')], ['movies', L('Show Movies')], ['series', L('Show Series')]].forEach(function (t) {
+          var on = hiddenTabs.indexOf(t[0]) < 0;
+          row(sec, t[1], null, function () {
+            var next = hiddenTabs.filter(function (k) { return k !== t[0]; });
+            if (on) next.push(t[0]);
+            D.setShared('hiddenTabs', next);
+            if (next.indexOf(String(D.shared('startScreen', 'home'))) >= 0) D.setShared('startScreen', 'home');
+            B.app.rebuildNav();
+          }, { toggle: on });
+        });
+      }
+
+      sec = section(L('Server'), main ? null : L('The server and all settings are managed in the main account.'));
       var src = Lib.source;
       row(sec, L('Active server'), src ? src.name : L('None'), function () { if (!D.sources.length) { U.toast(L('No servers yet')); return; } chooseServer(); });
       row(sec, L('Refresh now'), null, function () { if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); } }, { icon: 'refresh' });
+      if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
 
-      sec = section(L('Audio & subtitles'));
+      sec = section(L('Audio & subtitles'), L('These choices apply to this profile only.'));
       var CLg = B.clang;
       var langOpts = ['nl', 'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'tr', 'ar', 'hi'];
       function pv(key, sharedKey) { var v = D.profilePref(key); return v != null ? v : String(D.shared(sharedKey, '') || ''); }
@@ -1219,12 +1360,11 @@
         });
       });
       var OS = B.opensubtitles;
-      row(sec, 'OpenSubtitles', OS.isLoggedIn() ? OS.username() : L('Not linked'), null);
       if (OS.isLoggedIn()) {
         var osl = OS.defaultLanguage();
         var oslabel = '';
         OS.languages.forEach(function (l) { if (l[0].slice(0, 2) === osl.slice(0, 2)) oslabel = l[1]; });
-        row(sec, L('Default subtitle language'), oslabel || L('All'), function () {
+        row(sec, L('Default subtitle language') + ' (OpenSubtitles)', oslabel || L('All'), function () {
           U.choose(L('Default subtitle language'), [{ value: '', label: L('All') }].concat(OS.languages.map(function (l) { return { value: l[0], label: l[1] }; })), osl, function (v) {
             D.setShared('openSubtitlesLanguage', v); D.setProfilePref('subtitleLanguage', v); render();
           });
@@ -1242,13 +1382,20 @@
         });
       });
 
-      sec = section(L('Parental lock'));
-      var pcOn = B.bool(D.shared('parentalControl', false)) === true;
       var mainPin = D.pinFor(D.mainProfile());
-      row(sec, L('Parental lock'), onOff(pcOn), main ? function () {
+      sec = section(L('Parental lock'), main ? (mainPin ? null : L('Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).')) : null);
+      var pcOn = B.bool(D.shared('parentalControl', false)) === true;
+      function withPin(go) { if (mainPin) U.askPIN(L('Enter PIN'), function (x) { return x === mainPin; }, go); else go(); }
+      row(sec, L('Lock adult content with this PIN'), main ? null : onOff(pcOn), main ? function () {
         var go = function () { D.setShared('parentalControl', !pcOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); };
-        if (mainPin && pcOn) U.askPIN(L('Enter PIN'), function (x) { return x === mainPin; }, go); else go();
-      } : null, { icon: 'lock' });
+        if (pcOn) withPin(go); else go();
+      } : null, main ? { toggle: pcOn, icon: 'lock' } : { icon: 'lock' });
+      if (main && pcOn) {
+        var autoOn = B.bool(D.shared('parentalAutoLockAdult', true)) !== false;
+        row(sec, L('Lock adult groups automatically'), null, function () {
+          withPin(function () { D.setShared('parentalAutoLockAdult', !autoOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); });
+        }, { toggle: autoOn });
+      }
       if (mainPin) {
         row(sec, PC.isUnlocked() ? L('Lock now') : L('Unlock with PIN'), null, function () {
           if (PC.isUnlocked()) { PC.lock(); render(); return; }
@@ -1259,7 +1406,7 @@
 
       sec = section(L('Keyboard shortcuts'));
       [['Space / K', L('Play / pause')], ['← →', L('10 seconds back / forward')], ['↑ ↓', L('Volume, or another channel during live TV')],
-        ['F', L('Full screen')], ['M', L('Mute')], ['Esc', L('Close the player')], ['/', L('Search')]].forEach(function (k) {
+        ['F', L('Full screen')], ['M', L('Mute')], ['Esc', L('Close the player')], ['/', L('Search')], ['Shift + F10', L('More options for a title or channel')]].forEach(function (k) {
         var r2 = row(sec, k[1], null, null);
         r2.appendChild(h('kbd', k[0]));
       });
@@ -1269,9 +1416,10 @@
       row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Some formats (such as MKV) only play in the app.'), null, null);
     }
     pg.refresh = render;
-    var off = B.on('connections', render);
-    var off2 = B.on('settings', function () { if (el.parentNode) render(); });
-    pg.destroy = function () { off(); off2(); };
+    var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
+      B.on('settings', function () { if (el.parentNode) render(); })];
+    pg.onCollections = render;
+    pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();
     return pg;
   };

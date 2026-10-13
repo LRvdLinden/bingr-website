@@ -68,7 +68,21 @@
     'Works best with servers that use https. Some formats (such as MKV) only play in the app.': 'Werkt het best met servers die https gebruiken. Sommige formaten (zoals MKV) spelen alleen in de app.',
     'Wrong PIN': 'Onjuiste pincode',
     'Your servers use http: they go through Bingr’s server here. See Settings → About.': 'Je servers gebruiken http: hier lopen ze via de server van Bingr. Zie Instellingen → Over.',
-    'no https': 'geen https'
+    'no https': 'geen https',
+    'Account and devices': 'Account en apparaten',
+    'Choose a photo': 'Foto kiezen',
+    'Color': 'Kleur',
+    'Connections': 'Koppelingen',
+    'Deleted': 'Verwijderd',
+    'Enter your username and password.': 'Vul je gebruikersnaam en wachtwoord in.',
+    'Manage servers': 'Servers beheren',
+    'More options for a title or channel': 'Meer opties voor een titel of zender',
+    'Profiles are managed in the main account.': 'Profielen beheer je vanuit het hoofdaccount.',
+    'Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).': 'Stel een pincode in op het hoofdaccount om het kinderslot te beschermen (Profielen beheren → hoofdaccount → Pincode).',
+    'This image can’t be used.': 'Deze afbeelding kan niet worden gebruikt.',
+    'Trakt can’t be reached from the browser right now. Try again later, or sign in to Trakt in the Bingr app.': 'Trakt is nu niet bereikbaar vanuit de browser. Probeer het later opnieuw, of log in bij Trakt in de Bingr-app.',
+    'Trakt is not available right now. Try again later.': 'Trakt is nu niet beschikbaar. Probeer het later opnieuw.',
+    'You can set a PIN after saving the profile.': 'Na het opslaan kun je een pincode instellen.'
   };
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
   all.nl = all.nl || {};

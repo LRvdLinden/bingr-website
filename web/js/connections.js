@@ -197,7 +197,11 @@
         }
         lastErr = new Error('Trakt (' + r.status + ')');
         return next();
-      }, function (e) { lastErr = e; return next(); });
+      }, function (e) {
+        // een netwerk-/CORS-fout in de browser: Trakt staat (nog) niet open voor bingr.online
+        lastErr = e && e.cors ? new Error(L('Trakt can’t be reached from the browser right now. Try again later, or sign in to Trakt in the Bingr app.')) : e;
+        return next();
+      });
     }
     return next();
   };
@@ -313,10 +317,19 @@
   };
 
   var syncing = false;
+  Trakt.isSyncing = function () { return syncing; };
+  /** Laatste geslaagde synchronisatie (ms) in deze browser. */
+  Trakt.lastSync = function () { return B.store.get('trakt.lastSync', 0) || 0; };
+  Trakt.lastError = null;
+  Trakt.watchedCount = function (series) {
+    var i = Trakt.isLoggedIn() ? Trakt.imdbFor(series, true) : null;
+    return i && watchedShows[i] ? Object.keys(watchedShows[i]).length : 0;
+  };
   /** Bekeken films/afleveringen ophalen (alleen als /sync/last_activities iets nieuws meldt, of force). */
   Trakt.refresh = function (force) {
     if (!Trakt.isLoggedIn() || syncing) return Promise.resolve();
     syncing = true;
+    B.emit('traktStatus');
     return get('/sync/last_activities').then(function (act) {
       var all = act && act.all;
       if (!force && all && all === cacheT.activity && (cacheT.movies.length || Object.keys(cacheT.shows).length)) return;
@@ -339,7 +352,9 @@
         saveCache(); loadCache();
         B.emit('trakt');
       });
-    }).catch(function (e) { B.log('trakt', e && e.message); }).then(function () { syncing = false; });
+    }).then(function () { Trakt.lastError = null; B.store.set('trakt.lastSync', Date.now()); },
+      function (e) { Trakt.lastError = (e && e.message) || 'Trakt'; B.log('trakt', e && e.message); })
+      .then(function () { syncing = false; B.emit('traktStatus'); });
   };
 
   /** IMDb-id van een item: eigen id, de index, anders zoeken bij Trakt (zonder login). */
@@ -398,6 +413,68 @@
         });
       });
     }).catch(function () { return 'failed'; });
+  };
+
+  /** Handmatig (on)bekeken bij Trakt (zoals TraktSync.setWatched op iOS): /sync/history of /sync/history/remove. */
+  function markLocal(imdb, isEp, season, episode, on) {
+    if (isEp) {
+      var k = season + '-' + episode;
+      var set = watchedShows[imdb] = watchedShows[imdb] || {};
+      if (on) set[k] = true; else delete set[k];
+      cacheT.shows[imdb] = Object.keys(set);
+    } else {
+      if (on) watchedMovies[imdb] = true; else delete watchedMovies[imdb];
+      cacheT.movies = Object.keys(watchedMovies);
+    }
+  }
+  Trakt.setWatched = function (item, on) {
+    if (!Trakt.isLoggedIn() || !item) return Promise.resolve(false);
+    return resolveImdb(item).then(function (imdb) {
+      if (!imdb) return false;
+      var isEp = item.type === 'episode' && item.season != null && item.episode != null;
+      var body = isEp ? { shows: [{ ids: { imdb: imdb }, seasons: [{ number: item.season, episodes: [{ number: item.episode }] }] }] }
+        : { movies: [{ ids: { imdb: imdb } }] };
+      markLocal(imdb, isEp, item.season, item.episode, on);
+      saveCache(); B.emit('trakt');
+      return post(on ? '/sync/history' : '/sync/history/remove', body).then(function () { return true; }, function () { return false; });
+    }).catch(function () { return false; });
+  };
+  /** Hele seizoen in één keer (episodes: [{season, number}]). */
+  Trakt.setEpisodesWatched = function (series, episodes, on) {
+    if (!Trakt.isLoggedIn() || !series || !episodes.length) return Promise.resolve(false);
+    var item = { type: 'episode', title: series.rawTitle || series.title, year: series.year, imdbID: series.imdbID || null };
+    return resolveImdb(item).then(function (imdb) {
+      if (!imdb) return false;
+      var by = {};
+      episodes.forEach(function (e) { (by[e.season] = by[e.season] || []).push({ number: e.number }); markLocal(imdb, true, e.season, e.number, on); });
+      saveCache(); B.emit('trakt');
+      var seasons = Object.keys(by).map(function (n) { return { number: B.int(n), episodes: by[n] }; });
+      return post(on ? '/sync/history' : '/sync/history/remove', { shows: [{ ids: { imdb: imdb }, seasons: seasons }] })
+        .then(function () { return true; }, function () { return false; });
+    }).catch(function () { return false; });
+  };
+  /** Mijn lijst van het hoofdprofiel volgt de Trakt-watchlist (zoals setWatchlist op iOS). */
+  Trakt.setWatchlist = function (x, isShow, on) {
+    if (!Trakt.isLoggedIn() || !x) return Promise.resolve(false);
+    var item = { type: isShow ? 'episode' : 'movie', title: x.rawTitle || x.title, year: x.year, imdbID: x.imdbID || null };
+    return resolveImdb(item).then(function (imdb) {
+      if (!imdb) return false;
+      var body = {}; body[isShow ? 'shows' : 'movies'] = [{ ids: { imdb: imdb } }];
+      return post(on ? '/sync/watchlist' : '/sync/watchlist/remove', body).then(function () { return true; }, function () { return false; });
+    }).catch(function () { return false; });
+  };
+  /** Persoonlijke aanbevelingen (voor "Voor jou"): [{title, year, imdb}]; leeg bij een fout. */
+  var recCache = {};
+  Trakt.recommendations = function (shows) {
+    if (!Trakt.isLoggedIn()) return Promise.resolve([]);
+    var k = shows ? 's' : 'm', c = recCache[k];
+    if (c && Date.now() - c.at < 3600000) return Promise.resolve(c.list);
+    return get('/recommendations/' + (shows ? 'shows' : 'movies'), [['limit', '40'], ['ignore_collected', 'true']]).then(function (list) {
+      var out = (list || []).map(function (m) { return m && m.title ? { title: m.title, year: m.year || null, imdb: (m.ids && m.ids.imdb) || null } : null; }).filter(Boolean);
+      out.forEach(function (m) { if (m.imdb) indexAdd(m.title, m.year, m.imdb, shows); });
+      recCache[k] = { at: Date.now(), list: out };
+      return out;
+    }, function () { return []; });
   };
 
   // MARK: OpenSubtitles (REST v1, eigen account; API-sleutel van de server)

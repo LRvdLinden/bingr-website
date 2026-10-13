@@ -47,6 +47,7 @@
   D.wipe = function () {
     D.profiles = []; D.sources = []; D.mainSourceID = null; D.settings = null; D.collections = null; D.pins = {};
     pendingSettings = null; B.store.del('settingsPending');
+    pendingCollections = []; B.store.del('collectionsPending');
     save();
     B.store.keys('pstate.').forEach(function (k) { B.store.del(k); });
     B.store.keys('lastChannel.').forEach(function (k) { B.store.del(k); });
@@ -143,6 +144,11 @@
     'forward': '🚀', 'sparkle': '🌈', 'link': '🔗', 'bubble.left': '💬', 'wifi': '📶', 'umbrella': '☂️', 'play': '▶️',
     'book.closed': '📕', 'person': '🧸', 'paintbrush': '🎭'
   };
+  D.symbolEmoji = SF;
+  // dezelfde volgorde als PlaylistAvatar.symbols op iOS; figuurtjes kid01…kid16
+  D.symbols = ['link', 'bubble.left', 'globe', 'hare', 'waveform.path.ecg', 'sportscourt', 'wifi', 'crown', 'flame', 'umbrella', 'play',
+    'heart', 'book.closed', 'person', 'film', 'forward', 'paintbrush', 'sparkle', 'tv', 'popcorn', 'star', 'bolt', 'moon.stars', 'gamecontroller'];
+  D.illustrations = []; for (var ki = 1; ki <= 16; ki++) D.illustrations.push('kid' + (ki < 10 ? '0' : '') + ki);
   D.palettes = [['#E50914', '#7A0008'], ['#2563EB', '#1E1B4B'], ['#10B981', '#064E3B'], ['#F59E0B', '#9A3412'],
     ['#A855F7', '#3B0764'], ['#EC4899', '#831843'], ['#14B8A6', '#0C4A6E'], ['#64748B', '#0F172A']];
   /** Avatar uit het gedeelde formaat: {kind: 'kid'|'emoji', value, colorIndex}. */
@@ -159,7 +165,8 @@
     if (!e) return { kind: 'kid', value: 'kid01', colorIndex: color };
     return { kind: 'emoji', value: e, colorIndex: color };
   };
-  D.isMain = function (p) { return !!(p && p.isMain); };
+  /** Hoofdprofiel zoals in de apps (CloudStore.mainProfileID): het profiel met isMain, anders het eerste. */
+  D.isMain = function (p) { var m = D.mainProfile(); return !!(p && m && lower(p.id) === lower(m.id)); };
   D.mainProfile = function () {
     for (var i = 0; i < D.profiles.length; i++) if (D.profiles[i].isMain) return D.profiles[i];
     return D.profiles[0] || null;
@@ -593,7 +600,11 @@
         D.settings = { data: all.settings.data || {}, updatedAt: all.settings.updatedAt };
         if (pendingSettings) { D.settings.data = applyPending(B.copy(D.settings.data), pendingSettings); uploadSettings(all.settings); }
       } else if (pendingSettings) uploadSettings(null);
+      // collecties: die van de server; eigen wijzigingen die nog niet geüpload zijn gaan erover en worden verstuurd
+      var colBefore = JSON.stringify(D.collections);
       if (all.collections) D.collections = all.collections.data || null;
+      if (pendingCollections.length) { D.collections = applyCollectionChanges(D.collections, pendingCollections); uploadCollections(all.collections ? all.collections.data : null); }
+      if (JSON.stringify(D.collections) !== colBefore) B.emit('collections');
       D.pins = readPins(all);
       save();
       B.emit('settings');
@@ -616,15 +627,22 @@
       var s = parseState(d);
       server = server ? mergeState(server, s) : s;
     });
-    // kijkvoorkeuren (prefs): het geheel met de nieuwste updatedAt wint; een nieuwere lokale versie blijft en gaat mee
-    var prefsNewer = false, localPrefs = P.base && P.base.prefs;
+    // kijkvoorkeuren (prefs), startscherm (homeLayout) en pincode (pin): per onderdeel wint het geheel met de nieuwste
+    // tijd; een nieuwere lokale versie blijft staan en gaat mee
+    var prefsNewer = false, localBase = P.base;
     if (base) {
-      var sp = base.prefs;
-      var lAt = localPrefs ? time(localPrefs.updatedAt) || 0 : 0;
-      var sAt = sp && typeof sp === 'object' ? time(sp.updatedAt) || time(base.prefsUpdatedAt) || 0 : 0;
-      if (localPrefs && lAt > sAt) { base = B.copy(base); base.prefs = localPrefs; prefsNewer = true; }
+      var nb = null;
+      WHOLE.forEach(function (o) {
+        var lAt = localBase ? o.at(localBase) : 0;
+        if (lAt && lAt > o.at(base)) {
+          nb = nb || B.copy(base);
+          o.fields.forEach(function (f) { if (B.has(localBase, f)) nb[f] = B.copy(localBase[f]); else delete nb[f]; });
+          prefsNewer = true;
+        }
+      });
+      if (nb) base = nb;
       P.base = base;
-    } else if (localPrefs) prefsNewer = true;
+    } else if (localBase && WHOLE.some(function (o) { return o.at(localBase) > 0; })) prefsNewer = true;
     if (names.length) P.names = names;
     var srv = server ? normalize(server) : null;
     var merged = normalize(srv ? mergeState(P.st, srv) : P.st);
@@ -643,6 +661,12 @@
       return true;
     });
   }
+  /** Onderdelen van profile.<id> die als geheel samenvoegen (nieuwste tijd wint), met hun tijd. */
+  var WHOLE = [
+    { fields: ['prefs'], at: function (d) { var v = d && d.prefs; return v && typeof v === 'object' ? time(v.updatedAt) || time(d.prefsUpdatedAt) || 0 : 0; } },
+    { fields: ['homeLayout'], at: function (d) { var v = d && d.homeLayout; return v && typeof v === 'object' ? time(v.updatedAt) || 0 : 0; } },
+    { fields: ['pin', 'pinUpdatedAt'], at: function (d) { return d && B.has(d, 'pin') ? time(d.pinUpdatedAt) || 0 : 0; } }
+  ];
   function hasAny(st) {
     var any = Object.keys(st.progress).length || Object.keys(st.history).length;
     SET_FIELDS.forEach(function (f) { if (Object.keys(st.sets[f]).length) any = true; });
@@ -765,7 +789,7 @@
       if (!cur || (time(x.updatedAt) || 0) > (time(cur.updatedAt) || 0)) byId[lower(x.id)] = x;
     });
     return Object.keys(byId).map(function (k) { return byId[k]; }).filter(function (x) { return x.deleted !== true; })
-      .sort(function (a, b) { return (B.int(a.order) || 0) - (B.int(b.order) || 0); });
+      .sort(function (a, b) { return ((B.int(a.order) || 0) - (B.int(b.order) || 0)) || (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0); });
   };
 
   // MARK: intro-markeringen (settings.shared.introMarkers, sleutel "<serverID>:<serieID>", hoofdletterongevoelig)
@@ -800,6 +824,326 @@
     return h && Array.isArray(h.rows) ? h.rows : null;
   };
 
+  /** Startscherm-indeling van het actieve profiel opslaan (homeLayout {rows:[{key, visible}], updatedAt}); onbekende velden blijven. */
+  D.setHomeLayout = function (rows) {
+    if (!P.id) return;
+    P.base = P.base ? B.copy(P.base) : {};
+    var old = (P.base.homeLayout && typeof P.base.homeLayout === 'object') ? P.base.homeLayout : {};
+    P.base.homeLayout = B.assign({}, old, { rows: rows.map(function (r) { return { key: r.key, visible: r.visible !== false }; }), updatedAt: B.iso() });
+    changed(false);
+  };
+
+  // MARK: bekeken (lokaal, per profiel) en geschiedenis wissen
+
+  var watchedCounts = null;
+  B.on('profileData', function () { watchedCounts = null; });
+  /** Aantal lokaal bekeken afleveringen van een serie (sleutels ep:<serie>|s-e), zoals localWatchedCount op iOS. */
+  D.watchedCount = function (seriesId) {
+    if (!P.st) return 0;
+    if (!watchedCounts) {
+      watchedCounts = {};
+      var m = P.st.sets.watched;
+      Object.keys(m).forEach(function (k) {
+        if (!m[k].on || k.indexOf('ep:') !== 0) return;
+        var i = k.lastIndexOf('|');
+        if (i < 3) return;
+        var sid = k.slice(3, i);
+        watchedCounts[sid] = (watchedCounts[sid] || 0) + 1;
+      });
+    }
+    return watchedCounts[seriesId] || 0;
+  };
+  /** Aflevering (on)bekeken: de id van de aflevering én ep:<serie>|s-e (zoals setEpisodeWatched op iOS). */
+  D.setEpisodeWatched = function (ep, on) {
+    if (!P.st || !ep) return;
+    var now = Date.now();
+    [ep.id, D.episodeKey(ep.seriesID, ep.season, ep.number)].forEach(function (k) {
+      if (!k) return;
+      var cur = P.st.sets.watched[k];
+      if (!!(cur && cur.on) !== !!on) P.st.sets.watched[k] = { at: now, on: !!on };
+    });
+    changed(false);
+  };
+  D.setEpisodesWatched = function (eps, on) {
+    if (!P.st) return;
+    var now = Date.now();
+    eps.forEach(function (ep) {
+      [ep.id, D.episodeKey(ep.seriesID, ep.season, ep.number)].forEach(function (k) {
+        var cur = P.st.sets.watched[k];
+        if (!!(cur && cur.on) !== !!on) P.st.sets.watched[k] = { at: now, on: !!on };
+      });
+    });
+    changed(false);
+  };
+  D.removeHistory = function (e) {
+    if (!P.st || !e) return;
+    P.st.history[historyId(e)] = { at: Date.now(), v: null };
+    changed(false);
+  };
+  /** Geschiedenis van deze server wissen (zoals clearHistory(playlist:) op iOS); items zonder server horen erbij. */
+  D.clearHistory = function (sourceId) {
+    if (!P.st) return;
+    var now = Date.now();
+    Object.keys(P.st.history).forEach(function (k) {
+      var v = P.st.history[k].v;
+      if (v && (!v.playlistID || !sourceId || lower(v.playlistID) === lower(sourceId))) P.st.history[k] = { at: now, v: null };
+    });
+    changed(false);
+  };
+
+  // MARK: collecties schrijven (contract build 54: {version:2, profiles:{<id>:{items, updatedAt}}, items:[oud], migratedAt, updatedAt})
+
+  var pendingCollections = B.store.get('collectionsPending', []) || [];   // [{profile, item}] nog niet geüpload
+  function colAt(x) { return (x && (time(x.updatedAt) || time(x.deletedAt))) || 0; }
+  function isMigrated(c) {
+    return !!c && ((B.int(c.version) || 0) >= 2 || c.migrated === true || (c.profiles != null && typeof c.profiles === 'object' && !Array.isArray(c.profiles)));
+  }
+  function bucketKey(d, pid) {
+    var keys = Object.keys(d.profiles || {});
+    for (var i = 0; i < keys.length; i++) if (lower(keys[i]) === lower(pid)) return keys[i];
+    return null;
+  }
+  function newestISO(items) {
+    var best = 0;
+    items.forEach(function (c) { var t = colAt(c); if (t > best) best = t; });
+    return B.iso(best || Date.now());
+  }
+  /** Per id wint de nieuwste updatedAt (ook een tombstone); tombstones ouder dan 90 dagen weg. */
+  function mergeCollectionItems(a, b) {
+    var byId = {}, order = [];
+    (a || []).concat(b || []).forEach(function (c) {
+      if (!c || !c.id) return;
+      var k = lower(c.id), cur = byId[k];
+      if (!cur) { order.push(k); byId[k] = c; } else if (colAt(c) >= colAt(cur)) byId[k] = c;
+    });
+    var cutoff = Date.now() - REMOVED_DAYS * 86400000;
+    return order.map(function (k) { return byId[k]; }).filter(function (c) { return !(c.deleted === true && colAt(c) < cutoff); });
+  }
+  /**
+   * Section in het nieuwe formaat. Nog niet gemigreerd: de oude account-brede lijst gaat (zoals in de apps) naar
+   * elk profiel, met dezelfde id, order en updatedAt. Onbekende velden en emmers van andere profielen blijven staan.
+   */
+  function normalizeCollections(data) {
+    var d;
+    if (Array.isArray(data)) d = { items: B.copy(data) };
+    else d = data && typeof data === 'object' ? B.copy(data) : {};
+    var migrated = isMigrated(d);
+    if (!d.profiles || typeof d.profiles !== 'object' || Array.isArray(d.profiles)) d.profiles = {};
+    if (!migrated) {
+      var legacy = Array.isArray(d.items) ? d.items : [];
+      D.profiles.forEach(function (p) {
+        var k = bucketKey(d, p.id) || p.id;
+        var b = d.profiles[k] && typeof d.profiles[k] === 'object' ? d.profiles[k] : {};
+        var items = mergeCollectionItems(B.copy(legacy), Array.isArray(b.items) ? b.items : []);
+        d.profiles[k] = B.assign({}, b, { items: items, updatedAt: newestISO(items) });
+      });
+      if (!d.migratedAt) d.migratedAt = B.iso();
+    }
+    d.version = Math.max(2, B.int(d.version) || 0);
+    return d;
+  }
+  /** Wijzigingen [{profile, item}] toepassen op section-data (nieuwste updatedAt per collectie wint). */
+  function applyCollectionChanges(data, changes) {
+    var d = normalizeCollections(data);
+    changes.forEach(function (ch) {
+      var k = bucketKey(d, ch.profile) || ch.profile;
+      var b = d.profiles[k] && typeof d.profiles[k] === 'object' ? d.profiles[k] : {};
+      var items = mergeCollectionItems(Array.isArray(b.items) ? b.items : [], [ch.item]);
+      d.profiles[k] = B.assign({}, b, { items: items, updatedAt: newestISO(items) });
+    });
+    d.updatedAt = B.iso();
+    return d;
+  }
+  var colBusy = null;
+  /** Nieuwste versie van de server lezen, eigen wijzigingen erover, en terugzetten. Mislukt: blijft openstaan. */
+  function uploadCollections(serverData) {
+    if (!pendingCollections.length) return Promise.resolve(true);
+    if (colBusy) return colBusy;
+    var sent = pendingCollections.slice();
+    var read = serverData !== undefined ? Promise.resolve({ collections: serverData == null ? null : { data: serverData } }) : A.getState(['collections']);
+    colBusy = read.then(function (all) {
+      if (!all) return false;
+      var d = applyCollectionChanges(all.collections ? all.collections.data : null, sent);
+      return A.putState('collections', d).then(function (at) {
+        if (at == null) return false;
+        pendingCollections = pendingCollections.filter(function (x) { return sent.indexOf(x) < 0; });
+        B.store.set('collectionsPending', pendingCollections);
+        D.collections = pendingCollections.length ? applyCollectionChanges(d, pendingCollections) : d;
+        save();
+        B.emit('collections');
+        return true;
+      });
+    }).catch(function () { return false; }).then(function (ok) {
+      colBusy = null;
+      if (ok && pendingCollections.length) return uploadCollections();
+      return ok;
+    });
+    return colBusy;
+  }
+  /** Collecties van een profiel wijzigen (volledige objecten met id en updatedAt): lokaal meteen, dan naar de server. */
+  D.saveCollections = function (profileId, items) {
+    var changes = items.map(function (it) { return { profile: profileId, item: it }; });
+    pendingCollections = pendingCollections.concat(changes);
+    B.store.set('collectionsPending', pendingCollections);
+    D.collections = applyCollectionChanges(D.collections, changes);
+    save();
+    B.emit('collections');
+    return uploadCollections();
+  };
+  /** Ruw object van een collectie (met onbekende velden), ook een tombstone. */
+  function rawCollection(profileId, id) {
+    var d = normalizeCollections(D.collections);
+    var k = bucketKey(d, profileId);
+    var items = (k && d.profiles[k] && d.profiles[k].items) || [];
+    for (var i = 0; i < items.length; i++) if (items[i] && lower(items[i].id) === lower(id)) return B.copy(items[i]);
+    return null;
+  }
+  D.collectionById = function (profileId, id) {
+    var list = D.collectionsFor(profileId);
+    for (var i = 0; i < list.length; i++) if (lower(list[i].id) === lower(id)) return list[i];
+    return null;
+  };
+  /** Nieuw of gewijzigd (zoals collectionJSON op iOS): velden van het formulier over het bestaande object heen. */
+  D.upsertCollection = function (profileId, c) {
+    var base = c.id ? rawCollection(profileId, c.id) : null;
+    var o = B.assign({}, base || {}, c);
+    if (!o.id) o.id = B.uuid().toUpperCase();
+    if (!base || base.deleted === true) {
+      var max = -1;
+      D.collectionsFor(profileId).forEach(function (x) { var n = B.int(x.order); if (n != null && n > max) max = n; });
+      o.order = max + 1;
+    }
+    o.kind = o.kind === 'smart' ? 'smart' : 'manual';
+    if (o.kind === 'manual') { o.query = ''; o.items = (o.items || []).map(function (x) { return { type: x.type, id: String(x.id) }; }); }
+    else o.items = [];
+    if (!Array.isArray(o.types) || !o.types.length) o.types = ['channel', 'movie', 'series'];
+    if (!o.group) delete o.group;
+    if (!o.sourceID) delete o.sourceID;
+    if (!o.image || typeof o.image !== 'object') o.image = { symbol: 'star', colorIndex: 0 };
+    delete o.deleted; delete o.deletedAt;
+    o.updatedAt = B.iso();
+    return D.saveCollections(profileId, [o]).then(function () { return o; });
+  };
+  /** Verwijderen = tombstone met lege items (zoals deleteCollection op iOS). */
+  D.deleteCollection = function (profileId, id) {
+    var base = rawCollection(profileId, id) || { id: id };
+    var now = B.iso();
+    var o = B.assign(base, { deleted: true, deletedAt: now, updatedAt: now, items: [] });
+    return D.saveCollections(profileId, [o]);
+  };
+  /** Nieuwe volgorde (ids van boven naar beneden); alleen gewijzigde krijgen een nieuwe tijd. */
+  D.reorderCollections = function (profileId, ids) {
+    var now = B.iso(), out = [];
+    ids.forEach(function (id, n) {
+      var c = rawCollection(profileId, id);
+      if (!c || c.deleted === true || B.int(c.order) === n) return;
+      c.order = n; c.updatedAt = now;
+      out.push(c);
+    });
+    return out.length ? D.saveCollections(profileId, out) : Promise.resolve(true);
+  };
+  D.collectionHas = function (c, item) {
+    return (c.items || []).some(function (x) { return x && x.type === item.type && String(x.id) === String(item.id); });
+  };
+  /** Item in een handmatige collectie zetten of eruit halen. */
+  D.toggleInCollection = function (profileId, id, item) {
+    var c = rawCollection(profileId, id);
+    if (!c || c.deleted === true || c.kind === 'smart') return Promise.resolve(false);
+    var has = D.collectionHas(c, item);
+    c.items = has ? (c.items || []).filter(function (x) { return !(x && x.type === item.type && String(x.id) === String(item.id)); })
+      : (c.items || []).concat([{ type: item.type, id: String(item.id) }]);
+    c.updatedAt = B.iso();
+    return D.saveCollections(profileId, [c]).then(function () { return !has; });
+  };
+
+  // MARK: profielen beheren (alleen het hoofdprofiel; account_data.profiles, zelfde velden als ProfileSync op iOS)
+
+  var PRIVATE = ['pin', 'pinCode', 'pin_code', 'photoData', 'customPhoto'];
+  /** Profiel toevoegen of wijzigen: nieuwste lijst lezen, alleen dit profiel vervangen (onbekende velden blijven), updatedAt = nu. */
+  D.saveProfile = function (prof) {
+    return A.readProfiles().then(function (list) {
+      if (list == null) throw new Error(L('No internet connection.'));
+      list = list.slice();
+      var idx = -1;
+      for (var i = 0; i < list.length; i++) if (list[i] && lower(list[i].id) === lower(prof.id)) { idx = i; break; }
+      var base = idx >= 0 && list[idx].deleted !== true ? list[idx] : null;
+      var o = B.assign({}, base || {}, prof);
+      PRIVATE.forEach(function (k) { delete o[k]; });
+      delete o.deleted; delete o.deletedAt;
+      if (!base) {
+        o.isMain = false;
+        o.order = list.filter(function (x) { return x && x.deleted !== true; }).length;
+        if (!B.has(o, 'photo')) o.photo = null;
+        if (!B.has(o, 'kids')) o.kids = false;
+        if (!B.has(o, 'ageLimit')) o.ageLimit = null;
+      }
+      o.updatedAt = B.iso();
+      if (idx >= 0) list[idx] = o; else list.push(o);
+      return A.writeProfiles(list).then(function (ok) {
+        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
+        applyProfiles(list);
+        return o;
+      });
+    });
+  };
+  /** Profiel verwijderen: tombstone {id, deleted, deletedAt, updatedAt}; het hoofdprofiel blijft altijd bestaan. */
+  D.deleteProfile = function (id) {
+    var p = D.profileById(id);
+    if (!p || D.isMain(p)) return Promise.reject(new Error(L('Something went wrong. Please try again.')));
+    return A.readProfiles().then(function (list) {
+      if (list == null) throw new Error(L('No internet connection.'));
+      var now = B.iso(), photo = null;
+      list = list.map(function (o) {
+        if (!o || lower(o.id) !== lower(id)) return o;
+        photo = o.photo && o.photo.path;
+        return { id: o.id, deleted: true, deletedAt: now, updatedAt: now };
+      });
+      return A.writeProfiles(list).then(function (ok) {
+        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
+        if (photo && A.deletePhoto) A.deletePhoto(photo);
+        delete D.pins[lower(id)];
+        B.store.del(pkey(id));
+        applyProfiles(list);
+      });
+    });
+  };
+  /** Eigen foto (JPEG-blob) of null = weg. In de lijst alleen {path, updated} (build 40). */
+  D.setProfilePhoto = function (id, blob) {
+    var p = D.profileById(id);
+    if (!blob) {
+      var path = p && p.photo && p.photo.path;
+      if (path && A.deletePhoto) A.deletePhoto(path);
+      return D.saveProfile({ id: id, photo: null });
+    }
+    return A.uploadPhoto(id, blob).then(function (path) {
+      return D.saveProfile({ id: id, photo: { path: path, updated: B.iso() } });
+    });
+  };
+  /** Pincode van een profiel zetten of wissen (profile.<id>: pin + pinUpdatedAt; het geheel met de nieuwste tijd wint). */
+  D.setPin = function (profileId, pin) {
+    var now = B.iso(), lid = lower(profileId);
+    pin = pin ? String(pin) : null;
+    if (pin) D.pins[lid] = pin; else delete D.pins[lid];
+    save();
+    B.emit('profiles');
+    if (P.id && lower(P.id) === lid) {
+      P.base = P.base ? B.copy(P.base) : {};
+      P.base.pin = pin; P.base.pinUpdatedAt = now;
+      changed(false);
+      return D.flush();
+    }
+    var name = 'profile.' + profileId;
+    return A.getState([name]).then(function (all) {
+      if (!all) throw new Error(L('No internet connection.'));
+      var key = Object.keys(all).filter(function (n) { return lower(n) === lower(name); })[0] || name;
+      var d = all[key] && all[key].data && typeof all[key].data === 'object' ? B.copy(all[key].data) : {};
+      d.pin = pin; d.pinUpdatedAt = now; d.updatedAt = now;
+      return A.putState(key, d).then(function (at) { if (at == null) throw new Error(L('Something went wrong. Please try again.')); });
+    });
+  };
+
   // test- en debug-hulp
   D._parseState = parseState; D._toJSON = toJSON; D._merge = mergeState; D._normalize = normalize;
+  D._normalizeCollections = normalizeCollections; D._applyCollectionChanges = applyCollectionChanges; D._mergeActive = mergeActive;
+  D._P = P;
 })();

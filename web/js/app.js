@@ -223,6 +223,8 @@
     show(main);
     main.start();
   }
+  /** Tabbladen aan/uit (settings.shared.hiddenTabs): de navigatie opnieuw opbouwen, op dezelfde pagina. */
+  app.rebuildNav = function () { rebuild(); };
   B.on('settings', function () {
     var before = B.lang;
     B.setLanguage(D.shared('appLanguage', '') || '');

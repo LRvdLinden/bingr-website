@@ -541,7 +541,7 @@
 
   /** Opgevouwen titel (kleine letters, zonder accenten), één keer per item berekend. */
   function folded(x, field) {
-    var k = field === 'name' ? '_fn' : '_ft';
+    var k = field === 'name' ? '_fn' : field === 'group' ? '_fg' : '_ft';
     return x[k] != null ? x[k] : (x[k] = B.fold(x[field]));
   }
   Lib.search = function (q, limit) {
@@ -568,6 +568,8 @@
     var key = 'coll:' + c.id + '|' + (c.updatedAt || '') + '|' + limit + '|' + (Lib.source ? Lib.source.id : '');
     return Lib.memo(key, function () { return collectionItems(c, limit); });
   };
+  /** Zonder cache (voorbeeld in het formulier). */
+  Lib.resolveCollection = function (c, limit) { return collectionItems(c, limit || 200); };
   function collectionItems(c, limit) {
     var lib = Lib.lib, out = [];
     var src = Lib.source ? String(Lib.source.id).toLowerCase() : '';
@@ -575,22 +577,24 @@
     if (c.kind === 'smart') {
       var words = String(c.query || '').split(',').map(function (w) { return B.fold(w).trim(); }).filter(Boolean);
       if (!words.length) return [];
-      var types = Array.isArray(c.types) && c.types.length ? c.types : ['channel', 'movie', 'series'];
+      var types = Array.isArray(c.types) ? c.types : ['channel', 'movie', 'series'];
       var pools = [['channel', lib.channels, 'name'], ['movie', lib.movies, 'title'], ['series', lib.series, 'title']];
+      // zoals CollectionResolver op iOS: een zoekwoord in de titel óf de categorie; per soort hooguit `limit`
       pools.forEach(function (p) {
         if (types.indexOf(p[0]) < 0) return;
         var pool = c.group ? (Lib.byGroup(p[0])[c.group] || []) : p[1];
-        for (var i = 0; i < pool.length && out.length < limit; i++) {
+        var n = 0;
+        for (var i = 0; i < pool.length && n < limit; i++) {
           var x = pool[i];
-          var t = folded(x, p[2]);
-          for (var w = 0; w < words.length; w++) if (t.indexOf(words[w]) >= 0) { out.push({ type: p[0], item: x }); break; }
+          var t = folded(x, p[2]), g = folded(x, 'group');
+          for (var w = 0; w < words.length; w++) if (t.indexOf(words[w]) >= 0 || g.indexOf(words[w]) >= 0) { out.push({ type: p[0], item: x }); n++; break; }
         }
       });
       return out;
     }
     (c.items || []).forEach(function (it) {
       var hit = it && lib.byId[it.id];
-      if (hit && out.length < limit) out.push(hit);
+      if (hit && (!it.type || hit.type === it.type) && out.length < limit) out.push(hit);
     });
     return out;
   }

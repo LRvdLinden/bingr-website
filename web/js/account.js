@@ -349,6 +349,33 @@
     }, function () { return null; });
   };
 
+  /** Pad van een profielfoto in de bucket (zelfde als AccountService.photoPath op iOS): <user-id>/<profiel-id>.jpg */
+  A.photoPath = function (profileId) { var uid = A.userId(); return uid ? uid + '/' + profileId + '.jpg' : null; };
+  function photoObjectURL(path) {
+    var parts = String(path).split('/');
+    if (!parts.length || parts.some(function (x) { return !x || x === '.' || x === '..'; })) return null;
+    return B.config.supabaseUrl + '/storage/v1/object/avatars/' + parts.map(encodeURIComponent).join('/');
+  }
+  /** Foto uploaden of vervangen (x-upsert); geeft het pad terug. */
+  A.uploadPhoto = function (profileId, blob) {
+    var path = A.photoPath(profileId), url = path && photoObjectURL(path);
+    if (!url) return Promise.reject(generic());
+    return A.validAccessToken().then(function (token) {
+      return B.http(url, { method: 'POST', body: blob, timeout: 30000,
+        headers: { 'apikey': B.config.supabaseKey, 'Authorization': 'Bearer ' + token, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' } });
+    }).then(function (r) {
+      if (r.status < 200 || r.status >= 300) throw generic();
+      return path;
+    });
+  };
+  A.deletePhoto = function (path) {
+    var url = photoObjectURL(path);
+    if (!url) return Promise.resolve();
+    return A.validAccessToken().then(function (token) {
+      return B.http(url, { method: 'DELETE', timeout: 20000, headers: { 'apikey': B.config.supabaseKey, 'Authorization': 'Bearer ' + token } });
+    }).catch(B.noop);
+  };
+
   // MARK: servers en state-onderdelen
 
   A.getSources = function () {
