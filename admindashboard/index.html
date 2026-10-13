@@ -27,6 +27,7 @@
       <button role="tab" data-tab="overview" aria-selected="true">Overzicht</button>
       <button role="tab" data-tab="users">Gebruikers</button>
       <button role="tab" data-tab="messages">Berichten</button>
+      <button role="tab" data-tab="status">Status</button>
     </nav>
     <button id="logout" class="link">Uitloggen</button>
   </header>
@@ -84,6 +85,19 @@
         </div>
       </div>
       <div class="panel"><h2>Geplaatste berichten</h2><div id="annList" class="ann-list"></div></div>
+    </section>
+
+    <section id="tab-status" class="tab hidden">
+      <div class="row-head"><h1>Status</h1>
+        <div class="head-btns"><a class="btn ghost small" href="../status/" target="_blank" rel="noopener">Openbare pagina</a>
+          <button id="stAdd" class="btn ghost small">Monitor toevoegen</button><button id="stRun" class="btn small">Nu controleren</button></div></div>
+      <div id="stBanner" class="st-banner"></div>
+      <div id="stInfo" class="kpis st-kpis"></div>
+      <div class="grid2">
+        <div class="panel"><h2>Actieve apparaten</h2><p class="sub">Per platform, gezien in de laatste 15 minuten (alleen hier, niet openbaar)</p><div id="stDevices" class="hbars"></div></div>
+        <div class="panel"><h2>Storingen</h2><p class="sub">Laatste 90 dagen, met oorzaak</p><div id="stIncidents" class="st-inc"></div></div>
+      </div>
+      <div id="stGroups"></div>
     </section>
   </main>
 </div>

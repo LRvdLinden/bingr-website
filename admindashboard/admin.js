@@ -55,6 +55,9 @@
     too_soon: "Er is net al een reset-mail gestuurd. Probeer het over een minuut opnieuw.", reset_failed: "De reset-mail kon niet worden verstuurd.",
     smtp_not_configured: "E-mail is niet ingesteld op de server.", text_missing: "Vul een Nederlandse titel en tekst in.",
     bad_expires_at: "De verloopdatum moet in de toekomst liggen.",
+    status_not_configured: "De statusmonitor is nog niet ingesteld (Backend-workflow draaien).", bad_url: "Vul een geldig http(s)-adres in (geen intern adres).",
+    bad_interval: "Kies een geldig interval.", name_missing: "Vul een Nederlandse naam in.", bad_group: "Kies een groep.",
+    builtin: "Een standaardmonitor kun je niet verwijderen; zet hem uit.", forbidden: "De statusfunctie weigerde de aanvraag.",
   };
   const errText = (e) => ERR[e.code] || ERR.server_error;
 
@@ -97,7 +100,7 @@
     document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
     document.querySelectorAll(".tab").forEach((s) => s.classList.toggle("hidden", s.id !== `tab-${name}`));
     try { sessionStorage.setItem(KEY + ".tab", name); } catch { /* */ }
-    if (!loaded[name]) { loaded[name] = true; ({ overview: loadStats, users: loadUsers, messages: loadAnnouncements })[name](); }
+    if (!loaded[name]) { loaded[name] = true; ({ overview: loadStats, users: loadUsers, messages: loadAnnouncements, status: loadStatus })[name](); }
   }
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 
@@ -106,7 +109,7 @@
     Object.keys(loaded).forEach((k) => delete loaded[k]);
     let tab = "overview";
     try { tab = sessionStorage.getItem(KEY + ".tab") || tab; } catch { /* */ }
-    showTab(["overview", "users", "messages"].includes(tab) ? tab : "overview");
+    showTab(["overview", "users", "messages", "status"].includes(tab) ? tab : "overview");
   }
 
   // ---- overzicht ----
@@ -358,6 +361,162 @@
         try { await sendMails(id, a.email_total); } finally { sending = false; loadAnnouncements(); }
       };
     });
+  }
+
+
+  // ---- status ----
+  const ST = { up: "Werkt", degraded: "Verminderd", down: "Storing" };
+  const GRP = { server: "Server", website: "Website", apps: "Apps" };
+  const KIND = { http: "Website (URL)", auth: "Supabase Auth", db: "Database", fn: "Edge Function", storage: "Opslag", smtp: "SMTP",
+    tls: "TLS-certificaat", gh_asset: "GitHub-release", gh_workflow: "GitHub-build", devices: "Informatie" };
+  const pctTxt = (v) => (v == null ? "—" : `${v.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}%`);
+  const durTxt = (s) => { const m = Math.round((s || 0) / 60); if (m < 1) return "< 1 min"; if (m < 60) return `${m} min`; const h = Math.floor(m / 60); return `${h} uur${m % 60 ? ` ${m % 60} min` : ""}`; };
+  let stData = null;
+  $("stRun").onclick = async () => {
+    $("stRun").disabled = true; $("stRun").textContent = "Bezig…";
+    try {
+      const r = await call("status", { op: "run" });
+      if (r.busy) toast("Er loopt al een controle; probeer het over een minuut opnieuw.", true);
+      else toast(`${r.checked} gecontroleerd: ${r.up} werkt, ${r.degraded} verminderd, ${r.down} storing.`, r.down > 0);
+      await loadStatus();
+    } catch (e) { if (e.code !== "auth") toast(errText(e), true); }
+    finally { $("stRun").disabled = false; $("stRun").textContent = "Nu controleren"; }
+  };
+  $("stAdd").onclick = () => editMonitor(null);
+  async function loadStatus() {
+    let d;
+    try { d = await call("status", { op: "overview" }); } catch (e) { if (e.code !== "auth") { toast(errText(e), true); $("stGroups").innerHTML = `<p class="empty">${esc(errText(e))}</p>`; } return; }
+    stData = d;
+    const all = d.groups.flatMap((g) => g.monitors);
+    const name = (id) => all.find((m) => m.id === id)?.name?.nl || id;
+    const ov = d.overall || { state: "up", down: [], degraded: [] };
+    $("stBanner").className = `st-banner ${ov.state}`;
+    $("stBanner").innerHTML = `<span class="st-dot ${ov.state}"></span><div><b>${ov.state === "down" ? `Storing bij ${esc(ov.down.map(name).join(", "))}`
+      : ov.state === "degraded" ? `Verminderd: ${esc(ov.degraded.map(name).join(", "))}` : "Alle systemen werken"}</b>
+      <span class="sub">Bijgewerkt ${esc(fmtDateTime(d.generated_at))}</span></div>`;
+    const cron = d.scheduler?.cron;
+    const lastRun = d.scheduler?.last_run_at;
+    const openInc = (d.incidents || []).filter((i) => !i.ended_at).length;
+    const info = [
+      ["Planning", cron ? (cron.active ? "Actief" : "Uit") : "Geen", cron ? `pg_cron ${esc(cron.schedule)}${cron.last_run ? ` · ${esc(cron.last_run.status)} ${esc(ago(cron.last_run.start))}` : ""}` : "pg_cron niet gevonden", cron?.active ? "ok" : "bad"],
+      ["Laatste controle", lastRun ? ago(lastRun) : "nooit", d.scheduler?.last_source ? `door ${esc({ cron: "planning", admin: "beheer", deploy: "deploy" }[d.scheduler.last_source] || d.scheduler.last_source)}` : "", lastRun && Date.now() - Date.parse(lastRun) < 12 * 60000 ? "ok" : "bad"],
+      ["Alert-e-mail", d.alerts?.email ? "Aan" : "Uit", d.alerts?.email ? `${esc(d.alerts.email)}${d.alerts.smtp ? "" : " · SMTP ontbreekt"}` : "BINGR_ALERT_EMAIL niet ingesteld", d.alerts?.email && d.alerts.smtp ? "ok" : "warn"],
+      ["Open storingen", String(openInc), openInc ? "zie hieronder" : "geen", openInc ? "bad" : "ok"],
+    ];
+    $("stInfo").innerHTML = info.map(([l, v, h, c]) => `<div class="kpi st-${c}"><div class="l">${esc(l)}</div><div class="v sm">${esc(v)}</div><div class="h">${h}</div></div>`).join("");
+    hbars($("stDevices"), (d.devices || []).map((p) => ({ label: esc(pname(p.platform)), n: p.devices })));
+    $("stIncidents").innerHTML = (d.incidents || []).slice(0, 12).map((i) => `<div class="si ${i.ended_at ? "" : "open"}">
+      <div><b>${esc(i.name?.nl || i.monitor_id)}</b>${i.ended_at ? "" : ' <span class="chip bad">loopt nog</span>'}<div class="sub">${esc(i.cause || "onbekende oorzaak")}</div></div>
+      <div class="r"><div>${esc(fmtDateTime(i.started_at))}</div><div class="sub">${esc(durTxt(i.duration_s))}</div></div></div>`).join("") || '<p class="empty">Geen storingen in de laatste 90 dagen.</p>';
+    $("stGroups").innerHTML = d.groups.map((g) => `<div class="panel st-group"><h2>${esc(g.name?.nl || GRP[g.id] || g.id)}</h2>${g.monitors.map((m) => {
+      const st = m.kind === "devices" ? "info" : !m.enabled ? "off" : m.state || "none";
+      const days = (m.days || []).slice(-60);
+      return `<div class="sm-row" data-id="${esc(m.id)}" tabindex="0">
+        <div class="sm-name"><span class="st-dot ${st}"></span><div><b>${esc(m.name.nl)}</b>
+          <div class="sub">${esc(KIND[m.kind] || m.kind)} · elke ${m.interval_min} min${m.public ? "" : ' · <span class="chip">niet openbaar</span>'}${m.enabled ? "" : ' · <span class="chip warn">uit</span>'}</div>
+          ${m.last_error ? `<div class="sub err-line">${esc(m.last_error)}</div>` : ""}</div></div>
+        ${m.kind === "devices" ? `<div class="sm-dev sub">${(d.devices || []).reduce((a, p) => a + p.devices, 0)} apparaten actief (laatste 15 min)</div>` : `
+        <div class="sm-bars">${days.map((x) => `<i class="${x.s}" title="${esc(x.d)}: ${x.u == null ? "geen gegevens" : pctTxt(x.u)}"></i>`).join("")}</div>
+        <div class="sm-num"><b>${esc(pctTxt(m.uptime?.d1))}</b><span class="sub">24 u</span></div>
+        <div class="sm-num"><b>${esc(pctTxt(m.uptime?.d7))}</b><span class="sub">7 d</span></div>
+        <div class="sm-num hide-m"><b>${esc(pctTxt(m.uptime?.d30))}</b><span class="sub">30 d</span></div>
+        <div class="sm-num hide-m"><b>${esc(pctTxt(m.uptime?.d90))}</b><span class="sub">90 d</span></div>
+        <div class="sm-num"><b>${m.ms24 != null ? nf.format(m.ms24) : "—"}</b><span class="sub">ms</span></div>`}
+      </div>`;
+    }).join("")}</div>`).join("");
+    $("stGroups").querySelectorAll(".sm-row").forEach((r) => {
+      const open = () => openMonitor(all.find((m) => m.id === r.dataset.id));
+      r.onclick = open; r.onkeydown = (e) => { if (e.key === "Enter") open(); };
+    });
+  }
+
+  // reactietijd van de laatste 24 uur (inline SVG), punten gekleurd per toestand
+  function lineChart(el, items) {
+    const pts = items.filter((c) => c.ms != null).map((c) => ({ t: Date.parse(c.at), y: c.ms, s: c.state })).sort((a, b) => a.t - b.t);
+    if (pts.length < 2) { el.innerHTML = '<p class="empty">Nog te weinig controles voor een grafiek.</p>'; return; }
+    const W = Math.max(300, Math.round(el.clientWidth || 420)), H = 170, L = 38, R = 6, T = 8, B = 20;
+    const t1 = Date.now(), t0 = t1 - 24 * 3600e3;
+    const max = Math.max(...pts.map((p) => p.y), 1), step = niceStep(max), top = Math.ceil(max / step) * step;
+    const x = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R), y = (v) => T + (H - T - B) - (v / top) * (H - T - B);
+    let g = '<g class="grid axis">';
+    for (let v = 0; v <= top; v += step) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+    for (let h = 0; h <= 24; h += 6) { const tt = t0 + h * 3600e3; g += `<text x="${x(tt)}" y="${H - 5}" text-anchor="middle">${new Date(tt).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}</text>`; }
+    g += "</g>";
+    const path = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.y).toFixed(1)}`).join("");
+    const dots = pts.filter((p) => p.s !== "up").map((p) => `<circle cx="${x(p.t)}" cy="${y(p.y)}" r="3" class="pt ${p.s}"/>`).join("");
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Reactietijd laatste 24 uur">${g}<path d="${path}" class="ln"/>${dots}</svg>`;
+  }
+
+  async function openMonitor(m) {
+    if (!m) return;
+    openDrawer();
+    $("drawerBody").innerHTML = `<h2 id="dTitle">${esc(m.name.nl)}</h2><p class="sub">${esc(m.name.en)} · ${esc(KIND[m.kind] || m.kind)}</p>
+      <dl class="dl">
+        <dt>Toestand</dt><dd>${esc(m.kind === "devices" ? "informatie" : !m.enabled ? "uit" : ST[m.state] || "geen gegevens")}</dd>
+        ${m.target ? `<dt>Doel</dt><dd class="brk">${esc(m.target)}${m.keyword ? ` <span class="sub">trefwoord “${esc(m.keyword)}”</span>` : ""}</dd>` : ""}
+        <dt>Laatst gecontroleerd</dt><dd>${esc(m.checked_at ? fmtDateTime(m.checked_at) : "nooit")}</dd>
+        ${m.last_error ? `<dt>Laatste fout</dt><dd>${esc(m.last_error)}</dd>` : ""}
+        <dt>Uptime</dt><dd>${esc(pctTxt(m.uptime?.d1))} (24 u) · ${esc(pctTxt(m.uptime?.d7))} (7 d) · ${esc(pctTxt(m.uptime?.d30))} (30 d) · ${esc(pctTxt(m.uptime?.d90))} (90 d)</dd>
+      </dl>
+      ${m.kind === "devices" ? "" : `<h3>Reactietijd (24 uur, ms)</h3><div id="stChart" class="chart"><p class="sub">Laden…</p></div>
+      <h3>Laatste controles</h3><div id="stChecks" class="st-checks"><p class="sub">Laden…</p></div>`}
+      <div class="actions"><button id="stEdit" class="btn ghost">Bewerken</button>
+        ${m.kind === "devices" ? "" : '<button id="stOne" class="btn ghost">Deze nu controleren</button>'}</div>`;
+    $("stEdit").onclick = () => editMonitor(m);
+    if (m.kind === "devices") return;
+    $("stOne").onclick = async () => {
+      $("stOne").disabled = true;
+      try { const r = await call("status", { op: "run", monitor_id: m.id }); if (r.busy) toast("Er loopt al een controle.", true); else { const x = (r.results || [])[0]; toast(x ? `${ST[x.state] || x.state}${x.ms != null ? `, ${x.ms} ms` : ""}${x.error ? `: ${x.error}` : ""}` : "Gecontroleerd.", x && !x.ok); } await loadStatus(); openMonitor((stData?.groups || []).flatMap((g) => g.monitors).find((y) => y.id === m.id)); }
+      catch (e) { if (e.code !== "auth") toast(errText(e), true); $("stOne").disabled = false; }
+    };
+    let r;
+    try { r = await call("status", { op: "checks", monitor_id: m.id, limit: 300 }); } catch (e) { if (e.code !== "auth") $("stChecks").innerHTML = `<p class="err">${esc(errText(e))}</p>`; return; }
+    if (!$("stChart")) return;
+    const items = r.items || [];
+    lineChart($("stChart"), items);
+    $("stChecks").innerHTML = items.length ? `<table><thead><tr><th>Tijd</th><th>Toestand</th><th>Code</th><th>ms</th><th>Melding</th></tr></thead><tbody>${
+      items.slice(0, 60).map((c) => `<tr><td>${esc(new Date(c.at).toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" }))}</td>
+        <td><span class="st-dot ${c.state}"></span>${esc(ST[c.state] || c.state)}</td><td>${c.status_code ?? ""}</td><td>${c.ms ?? ""}</td>
+        <td class="brk">${esc(c.error || c.detail || "")}</td></tr>`).join("")}</tbody></table>` : '<p class="empty">Geen controles in de laatste 24 uur.</p>';
+  }
+
+  function editMonitor(m) {
+    const isNew = !m, http = isNew || m.kind === "http", fixedGroup = !isNew && m.builtin;
+    const ints = stData?.intervals || [5, 10, 15, 30, 60, 360, 720, 1440];
+    openDrawer();
+    $("drawerBody").innerHTML = `<h2 id="dTitle">${isNew ? "Monitor toevoegen" : `${esc(m.name.nl)} bewerken`}</h2>
+      ${isNew ? '<p class="sub">Controleert een webadres: antwoord 2xx binnen 10 seconden, en optioneel een woord in de pagina.</p>' : ""}
+      <form id="stForm" novalidate>
+        <label>Naam (Nederlands)<input id="fNl" maxlength="60" value="${esc(m?.name?.nl || "")}" required></label>
+        <label>Naam (Engels)<input id="fEn" maxlength="60" value="${esc(m?.name?.en || "")}"></label>
+        ${fixedGroup ? "" : `<label>Groep<select id="fGrp">${Object.entries(GRP).map(([k, v]) => `<option value="${k}" ${(m?.group || m?.grp || "website") === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>`}
+        ${http ? `<label>Adres<input id="fUrl" type="url" placeholder="https://" value="${esc(m?.target || "")}" required></label>
+        <label>Trefwoord <span class="sub">(optioneel: moet in de pagina staan)</span><input id="fKw" maxlength="100" value="${esc(m?.keyword || "")}"></label>` : ""}
+        <label>Interval<select id="fInt">${ints.map((n) => `<option value="${n}" ${(m?.interval_min || 5) === n ? "selected" : ""}>${n < 60 ? `elke ${n} min` : `elke ${n / 60} uur`}</option>`).join("")}</select></label>
+        ${m?.kind === "devices" ? "" : `<label class="switch"><input id="fPub" type="checkbox" ${m ? (m.public ? "checked" : "") : ""}><span class="track"></span><span>Tonen op de openbare statuspagina</span></label>`}
+        <label class="switch"><input id="fOn" type="checkbox" ${!m || m.enabled ? "checked" : ""}><span class="track"></span><span>Aan</span></label>
+        <div id="fErr" class="err" role="alert"></div>
+        <div class="form-btns"><button class="btn" type="submit">${isNew ? "Toevoegen" : "Opslaan"}</button>
+          ${!isNew && !m.builtin ? '<button id="fDel" class="btn danger" type="button">Verwijderen</button>' : ""}</div>
+        ${!isNew && m.builtin ? '<p class="sub">Standaardmonitor: uitzetten kan, verwijderen niet.</p>' : ""}
+      </form>`;
+    // groepveld bestaat niet in de overzichtsdata van een monitor; die zit in de groep eromheen
+    if (!isNew && $("fGrp")) { const g = (stData?.groups || []).find((x) => x.monitors.some((y) => y.id === m.id)); if (g) $("fGrp").value = g.id; }
+    $("stForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = { op: "monitor_save", id: m?.id || null, name_nl: $("fNl").value.trim(), name_en: $("fEn").value.trim(),
+        grp: $("fGrp") ? $("fGrp").value : undefined, interval_min: Number($("fInt").value),
+        public: $("fPub") ? $("fPub").checked : false, enabled: $("fOn").checked };
+      if (http) { data.target = $("fUrl").value.trim(); data.keyword = $("fKw").value.trim(); }
+      if (!data.name_nl) { $("fErr").textContent = ERR.name_missing; return; }
+      try { await call("status", data); toast(isNew ? "Monitor toegevoegd." : "Monitor opgeslagen."); closeDrawer(); loadStatus(); }
+      catch (err) { if (err.code !== "auth") $("fErr").textContent = errText(err); }
+    };
+    if ($("fDel")) $("fDel").onclick = async () => {
+      if (!confirm(`Monitor "${m.name.nl}" en alle metingen verwijderen?`)) return;
+      try { await call("status", { op: "monitor_delete", id: m.id }); toast("Monitor verwijderd."); closeDrawer(); loadStatus(); }
+      catch (err) { if (err.code !== "auth") $("fErr").textContent = errText(err); }
+    };
   }
 
   preview();

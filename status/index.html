@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Status · Bingr</title>
+<meta name="description" content="Actuele status van Bingr: accounts, server, website en downloads.">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="status.css">
+<script src="../assets/js/consent.js" data-base="../"></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../index.html"><span class="logo">BINGR</span><span class="tag">Status</span></a>
+    <span class="nav"><a href="#" id="langSwitch" class="muted" lang="en">English</a><a href="../index.html" class="muted hide-s">bingr.online</a></span>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="banner" class="banner loading" aria-live="polite">
+    <span class="pulse" aria-hidden="true"></span>
+    <div>
+      <h1 id="bannerTitle" data-t="loading"></h1>
+      <p id="bannerSub" class="muted"></p>
+    </div>
+  </section>
+  <p class="updated muted"><span data-t="updated"></span> <span id="updated">…</span> · <span data-t="refresh"></span></p>
+
+  <div id="groups"></div>
+
+  <section class="incidents">
+    <h2 data-t="incidents"></h2>
+    <div id="incidents"></div>
+  </section>
+
+  <div id="error" class="err hidden" role="alert"></div>
+</main>
+
+<div id="tip" class="tip hidden" role="tooltip"></div>
+
+<footer><div class="wrap">© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="../changelog/">Changelog</a> · <a href="#" onclick="BingrConsent.open();return false"><span data-t="cookies"></span></a></div></footer>
+
+<script src="../assets/config.js"></script>
+<script src="status.js"></script>
+</body>
+</html>
