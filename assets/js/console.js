@@ -146,20 +146,47 @@ window.BingrConsole = (function () {
     const cut = Date.now() - 90 * 864e5;
     return [...m.values()].filter((c) => !(c.deleted && Date.parse(c.deletedAt || c.updatedAt || 0) < cut));
   }
-  // zelfde migratie als de apps: oude account-brede lijst naar elk profiel, met dezelfde id/order/updatedAt
+  // zelfde migratie als de apps (iOS build 74): de oude account-brede lijst gaat alleen naar het hoofdprofiel, met
+  // dezelfde id/order/updatedAt; een profiel ziet nooit de collecties van een ander profiel. Ongewijzigde kopieën
+  // van oude collecties bij andere profielen (van vroegere builds) worden tombstones.
+  const lc = (s) => String(s || "").toLowerCase();
+  const tms = (c) => Date.parse((c && (c.updatedAt || c.deletedAt)) || "") || 0;
+  const mainProfile = (profiles) => profiles.find((p) => p.isMain) || profiles[0] || null;
+  // sleutel van de emmer van een profiel (hoofdletterongevoelig, zoals de apps)
+  const keyFor = (d, pid) => Object.keys(d.profiles || {}).find((k) => lc(k) === lc(pid)) || null;
   function normalize(data, profiles) {
-    const d = Object.assign({}, data || {});
-    d.profiles = Object.assign({}, d.profiles || {});
-    // gemigreerd = version >= 2, of er is al een object profiles (zoals iOS; docs/ACCOUNT.md build 60)
-    if (!(d.version >= 2) && !(data && data.profiles && typeof data.profiles === "object")) {
-      for (const p of profiles) {
-        const cur = (d.profiles[p.id] && d.profiles[p.id].items) || [];
-        const have = new Set(cur.map((c) => c.id));
-        const items = cur.concat((d.items || []).filter((c) => !have.has(c.id)));
-        d.profiles[p.id] = { items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() };
-      }
-      d.version = 2; d.migratedAt = now();
+    const d = Array.isArray(data) ? { items: data.slice() } : Object.assign({}, data || {});
+    const migrated = d.version >= 2 || d.migrated === true || !!(d.profiles && typeof d.profiles === "object" && !Array.isArray(d.profiles));
+    d.profiles = Object.assign({}, d.profiles && !Array.isArray(d.profiles) ? d.profiles : {});
+    const main = mainProfile(profiles);
+    if (!main) return d;
+    const mk = keyFor(d, main.id) || main.id;
+    if (!migrated) {
+      const cur = (d.profiles[mk] && d.profiles[mk].items) || [];
+      const have = new Set(cur.map((c) => lc(c.id)));
+      const items = cur.concat((d.items || []).filter((c) => c && c.id && !have.has(lc(c.id))));
+      d.profiles[mk] = Object.assign({}, d.profiles[mk] || {}, { items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() });
+      d.migratedAt = d.migratedAt || now();
     }
+    // tijdstempels van de oude collecties en die van het hoofdprofiel, per id
+    const stamps = new Map();
+    for (const c of [...(d.items || []), ...((d.profiles[mk] && d.profiles[mk].items) || [])]) {
+      if (c && c.id) { const k = lc(c.id); if (!stamps.has(k)) stamps.set(k, []); stamps.get(k).push(tms(c)); }
+    }
+    const t = now();
+    for (const k of Object.keys(d.profiles)) {
+      if (lc(k) === lc(main.id)) continue;
+      const b = d.profiles[k];
+      if (!b || !Array.isArray(b.items)) continue;
+      let changed = false;
+      const items = b.items.map((c) => {
+        if (!c || !c.id || c.deleted || !(stamps.get(lc(c.id)) || []).some((s) => Math.abs(s - tms(c)) < 1000)) return c;
+        changed = true;
+        return Object.assign({}, c, { deleted: true, deletedAt: t, updatedAt: t, items: [] });
+      });
+      if (changed) d.profiles[k] = Object.assign({}, b, { items });
+    }
+    d.version = Math.max(2, d.version || 0);
     return d;
   }
   async function fetchCollections() {
@@ -178,7 +205,7 @@ window.BingrConsole = (function () {
     $("colForm").style.display = colProfile ? "" : "none";
     renderCollections();
   }
-  const bucket = () => ((colSec.profiles || {})[colProfile] || { items: [] }).items || [];
+  const bucket = () => { const k = keyFor(colSec, colProfile); return ((k && colSec.profiles[k]) || { items: [] }).items || []; };
   function renderCollections() {
     if (!colProfile) { $("collections").innerHTML = `<p class="muted">${tr("noProfiles")}</p>`; return; }
     const act = bucket().filter((c) => !c.deleted).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -210,9 +237,10 @@ window.BingrConsole = (function () {
   async function saveChange(item) {
     try {
       const fresh = await fetchCollections();
-      const b = (fresh.profiles[colProfile] && fresh.profiles[colProfile].items) || [];
+      const k = keyFor(fresh, colProfile) || colProfile;
+      const b = (fresh.profiles[k] && fresh.profiles[k].items) || [];
       const items = mergeItems(b, [item]);
-      fresh.profiles[colProfile] = { items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() };
+      fresh.profiles[k] = { ...(fresh.profiles[k] || {}), items, updatedAt: items.reduce((t, c) => (c.updatedAt > t ? c.updatedAt : t), "") || now() };
       fresh.updatedAt = now();
       await call("put_state", { section: "collections", data: fresh });
       colSec = fresh; renderCollections(); $("colMsg").innerHTML = `<span class="ok">${tr("savedSync")}</span>`;

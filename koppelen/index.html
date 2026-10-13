@@ -176,7 +176,7 @@ $("forgot").onclick = async () => {
   await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
   $("authErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
 };
-$("signOut").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); show("auth"); };
+$("signOut").onclick = async (e) => { e.preventDefault(); await sb.auth.signOut({ scope: "local" }).catch(() => {}); show("auth"); };
 $("linkForm").onsubmit = async (e) => {
   e.preventDefault();
   const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
@@ -190,7 +190,7 @@ $("linkForm").onsubmit = async (e) => {
       body: JSON.stringify({ action: "approve", code })
     });
     const j = await r.json().catch(() => ({}));
-    if (r.status === 401) { await sb.auth.signOut(); show("auth"); return; }
+    if (r.status === 401) { await sb.auth.signOut({ scope: "local" }).catch(() => {}); show("auth"); return; }
     if (!r.ok || !j.ok) throw new Error(j.error || "x");
     $("doneText").textContent = tr("doneText").replace("%s", j.device || "TV");
     show("done");

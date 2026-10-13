@@ -652,6 +652,9 @@ html.playing #bingr-cookie-btn { display: none; }
 .card-watched { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; box-shadow: 0 2px 6px #0008; }
 .card-watched .ic { width: 14px; height: 14px; stroke-width: 3; }
 .card-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: 3px 7px; border-radius: 4px; background: #000000b3; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Voor jou: label Serie/Film linksboven (zoals iOS build 74); het aantal bekeken eronder */
+.card-badge.card-kind { max-width: calc(100% - 40px); }
+.card-badge.card-badge-below { top: 30px; }
 .menu-title { padding: 6px 16px 8px; font-size: 13px; font-weight: 700; color: var(--sec); max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
 .menu-it.danger, .menu-it.danger .ic, .opt.danger, .opt.danger .ic { color: #ff8080; }
 .opt.menu-opt { justify-content: flex-start; }
@@ -812,6 +815,7 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
 
 @media (max-width: 699px), (pointer: coarse) and (max-device-width: 599px) {
   .card-badge { font-size: 9px; padding: 2px 5px; }
+  .card-badge.card-badge-below { top: 24px; }
   .card-watched { width: 18px; height: 18px; top: 4px; right: 4px; }
   .card-watched .ic { width: 11px; height: 11px; }
   .mb-head { padding-top: 16px; gap: 12px; }

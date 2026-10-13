@@ -33,27 +33,102 @@
     return !!v.canPlayType('application/vnd.apple.mpegurl') && (iOS || safari);
   }
   function extOf(url) { var m = /\.([a-z0-9]{2,5})$/i.exec(String(url).split(/[?#]/)[0]); return m ? m[1].toLowerCase() : ''; }
-  var UNSUPPORTED = { mkv: 1, avi: 1, wmv: 1, flv: 1, divx: 1, xvid: 1, rmvb: 1, '3gp': 1 };
+  /** Safari (macOS, iOS, iPadOS; ook andere browsers op iOS, die de engine van Safari gebruiken). */
+  function isSafariEngine() {
+    var ua = navigator.userAgent;
+    var iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    return iOS || /^((?!chrome|chromium|android|crios|fxios|edg|opr).)*safari/i.test(ua);
+  }
+  B.isSafariEngine = isSafariEngine;
+  // nooit in een browser (geen enkele browser kent deze containers)
+  var UNSUPPORTED = { avi: 1, wmv: 1, flv: 1, divx: 1, xvid: 1, rmvb: 1, '3gp': 1 };
+  // MKV: Chrome, Edge en nieuwere Firefox spelen het met H.264/VP9/AV1 en AAC/Opus/MP3; Safari nooit
+  var MATROSKA = { mkv: 1 };
 
   function unsupportedError(ext) { var e = new Error(L('This format (%@) doesn’t play in the browser. Watch in the app.', ext.toUpperCase())); e.unsupported = ext; return e; }
+  function safariMkvError(ext) {
+    var e = new Error(L('Safari can’t play %@ files. Watch in the Bingr app, or use Chrome, Edge or Firefox.', ext.toUpperCase()));
+    e.unsupported = ext;
+    return e;
+  }
+  function isBackendURL(url) { return String(url || '').indexOf(B.config.supabaseUrl) === 0; }
 
-  /** Volgorde van pogingen voor een URL: [{how: 'hls'|'mpegts'|'direct', url}]. */
+  /**
+   * Volgorde van pogingen voor een URL: [{how: 'hls'|'mpegts'|'direct', url, proxy?}]. Films en afleveringen (niet
+   * live) van een https-server krijgen daarna dezelfde poging via de proxy: Xtream-servers sturen /movie/ en /series/
+   * vaak door naar een http-adres (dat blokkeert de browser op een https-pagina) of naar een host zonder geldig
+   * certificaat; de proxy volgt die doorverwijzing zelf.
+   */
   B.playPlan = function (url, live, forceTry) {
     var ext = extOf(url);
     if (UNSUPPORTED[ext] && !forceTry) return { error: unsupportedError(ext) };
+    if (MATROSKA[ext] && !forceTry && isSafariEngine()) return { error: safariMkvError(ext) };
     var variant = /\.ts$/i.test(String(url).split('?')[0]) && /\/(live|timeshift)\//i.test(url) ? url.replace(/\.ts(\?|$)/i, '.m3u8$1') : null;
-    if (ext === 'm3u8' || ext === 'm3u') return { steps: [{ how: 'hls', url: url }] };
-    if (/^(mp4|m4v|webm|mov|ogv|ogg|mp3|aac|m4a)$/.test(ext) || UNSUPPORTED[ext]) return { steps: [{ how: 'direct', url: url }] };
-    if (ext === 'ts' || ext === 'mpegts') {
+    var plan;
+    if (ext === 'm3u8' || ext === 'm3u') plan = { steps: [{ how: 'hls', url: url }] };
+    else if (/^(mp4|m4v|webm|mov|ogv|ogg|mp3|aac|m4a|mkv)$/.test(ext) || UNSUPPORTED[ext]) plan = { steps: [{ how: 'direct', url: url }] };
+    else if (ext === 'ts' || ext === 'mpegts') {
       var s = [];
       if (variant) s.push({ how: 'hls', url: variant });
       s.push({ how: 'mpegts', url: url });
       if (!variant) s.push({ how: 'hls', url: url });
-      return { steps: s };
+      plan = { steps: s };
     }
     // geen extensie (veel IPTV-livestreams, Plex/Jellyfin-transcode met query)
-    if (/m3u8/i.test(url)) return { steps: [{ how: 'hls', url: url }] };
-    return { steps: live ? [{ how: 'hls', url: url }, { how: 'mpegts', url: url }, { how: 'direct', url: url }] : [{ how: 'direct', url: url }, { how: 'hls', url: url }] };
+    else if (/m3u8/i.test(url)) plan = { steps: [{ how: 'hls', url: url }] };
+    else plan = { steps: live ? [{ how: 'hls', url: url }, { how: 'mpegts', url: url }, { how: 'direct', url: url }] : [{ how: 'direct', url: url }, { how: 'hls', url: url }] };
+    if (!live && /^https:/i.test(url) && !B.isProxied(url) && !isBackendURL(url)) {
+      var extra = [];
+      plan.steps.forEach(function (st) { if (st.how === 'direct') extra.push({ how: 'direct', url: st.url, proxy: true }); });
+      plan.steps = plan.steps.concat(extra);
+    }
+    return plan;
+  };
+
+  /**
+   * Waarom speelt een film of aflevering niet? Vraagt via de proxy de eerste bytes op (Range 0-15): een fout van de
+   * server (404, 403, 5xx) of een bestand dat er is maar waarvan de browser het beeld of geluid niet kan afspelen
+   * (vaak HEVC/H.265, AC3/E-AC3 of DTS). Geeft een Error met een duidelijke tekst, of null.
+   */
+  B.diagnoseVOD = function (url, codecPossible) {
+    url = String(url || '');
+    if (!/^https?:/i.test(url) || isBackendURL(url)) return Promise.resolve(null);
+    return B.ensureProxyToken().then(function () {
+      var pu = B.proxyGetURL(url);
+      if (!pu) return null;
+      var ctl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
+      return fetch(pu, { headers: { Range: 'bytes=0-15' }, signal: ctl ? ctl.signal : undefined }).then(function (r) {
+        return r.arrayBuffer().then(function (buf) {
+          clearTimeout(timer);
+          var e;
+          if (r.status >= 400) {
+            if (r.status === 404 || r.status === 410) e = new Error(L('The server can’t find this video (error %d). Try again later or watch in the app.', r.status));
+            else if (r.status === 401 || r.status === 403) e = new Error(L('The server refused this video (error %d). Check your subscription, or watch in the app.', r.status));
+            else e = new Error(L('The server isn’t responding to this video right now (error %d). Try again later.', r.status));
+            e.server = r.status;
+            return e;
+          }
+          var b = new Uint8Array(buf), kind = '';
+          var ct = (r.headers.get('content-type') || '').toLowerCase();
+          if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) kind = 'MKV';
+          else if (b.length >= 8 && b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) kind = 'MP4';
+          else if (b.length >= 1 && b[0] === 0x47) kind = 'TS';
+          else if (b.length >= 4 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) kind = 'AVI';
+          else if (/html|json|text/.test(ct)) {
+            e = new Error(L('The server sent a page instead of a video. Your subscription may have expired, or the server is busy. Try again later or watch in the app.'));
+            e.server = r.status;
+            return e;
+          }
+          if (codecPossible === false) return null;
+          var ext = (extOf(url) || '').toUpperCase();
+          e = new Error(L('Your browser can’t play the picture or sound of this video (%@). This is often HEVC (H.265) video or AC3/DTS audio. Watch in the Bingr app.', kind || ext || '?'));
+          e.unsupported = (kind || ext || '?').toLowerCase();
+          e.codec = true;
+          return e;
+        });
+      }, function () { clearTimeout(timer); return null; });
+    }, function () { return null; });
   };
 
   // MARK: hls.js-lader met de proxy als terugval (geen CORS)
@@ -149,7 +224,8 @@
     this.reset();
     this.how = step.how;
     return new Promise(function (resolve, reject) {
-      var done = false, timer = setTimeout(function () { fail(new Error('timeout')); }, opts.live ? 20000 : 25000);
+      // via de proxy komt een film in stukken van 8 MB: wat meer tijd voor het eerste beeld
+      var done = false, timer = setTimeout(function () { fail(new Error('timeout')); }, opts.live ? 20000 : (step.orig ? 45000 : 25000));
       function ok() {
         if (done) return; done = true; clearTimeout(timer);
         v.removeEventListener('canplay', ok); v.removeEventListener('loadeddata', ok);
@@ -226,10 +302,10 @@
       if (self.stopped) return Promise.reject(new Error('stopped'));
       if (i >= plan.steps.length) return Promise.reject(lastErr || new Error('fail'));
       var step = plan.steps[i++];
-      if (B.mustProxy(step.url)) {
+      if (step.proxy || B.mustProxy(step.url)) {
         return B.ensureProxyToken().then(function () {
           var pu = B.proxyGetURL(step.url);
-          if (!pu) { lastErr = new Error('proxy_token'); return next(); }
+          if (!pu) { lastErr = lastErr || new Error('proxy_token'); return next(); }
           return run({ how: step.how, url: pu, orig: step.url });
         });
       }
@@ -237,6 +313,7 @@
     }
     function run(step) {
       B.log('afspelen via ' + step.how + (step.orig ? ' (proxy)' : ''), String(step.orig || step.url).replace(/\/\/[^/]+/, '//…'));
+      self.lastStep = step;
       return self.attempt(step, opts).then(function () {
         self.started = true;
         if (opts.onReady) { try { opts.onReady(); } catch (e) { B.log('onReady', e); } }
@@ -536,7 +613,22 @@
           autoSubtitles();
         }, 1500);
         setTimeout(function () { if (!closed && engine === my && !audioChosen) applyTrackPrefs(); }, 5000);
+        if (!isLive()) setTimeout(function () { if (!closed && engine === my) mediaHint(my); }, 6000);
       });
+    }
+
+    /**
+     * Beeld zonder geluid of geluid zonder beeld (MKV/MP4 met AC3/DTS-audio of HEVC-video in een browser die dat niet
+     * kent): de browser speelt dan stil verder; een korte melding zegt waarom.
+     */
+    function mediaHint(my) {
+      var v = video;
+      if (!my.playing || v.currentTime < 2) return;
+      var noPicture = v.videoWidth === 0 && (typeof v.webkitVideoDecodedByteCount !== 'number' || v.webkitVideoDecodedByteCount === 0);
+      var noSound = (typeof v.webkitAudioDecodedByteCount === 'number' && v.webkitAudioDecodedByteCount === 0 && v.webkitVideoDecodedByteCount > 0) ||
+        v.mozHasAudio === false;
+      if (noPicture) U.toast(L('No picture? The video in this file (often HEVC/H.265) can’t be played by your browser. Watch in the Bingr app.'), 7000);
+      else if (noSound) U.toast(L('No sound? The audio in this file (often AC3 or DTS) can’t be played by your browser. Watch in the Bingr app.'), 7000);
     }
 
     // MARK: taal
@@ -651,6 +743,20 @@
         });
         return;
       }
+      // film of aflevering: uitzoeken waarom (fout van de server, of beeld/geluid dat de browser niet kent)
+      if (!isLive() && !isCatchup() && !(e && (e.server || e.codec)) && engine) {
+        var last = engine.lastStep, g2 = startGen;
+        var orig = last ? (last.orig || last.url) : null;
+        if (orig && !/^(timeout|stopped)$/.test(String(e && e.message))) {
+          spinner.style.display = 'flex';
+          B.diagnoseVOD(orig, !/MEDIA_ERR_2|proxy_token/.test(String(e && e.message))).then(function (d) {
+            if (closed || g2 !== startGen) return;
+            spinner.style.display = 'none';
+            showError(d || e);
+          });
+          return;
+        }
+      }
       showError(e);
     }
     function showError(e) {
@@ -658,14 +764,16 @@
       if (engine) engine.stop();
       spinner.style.display = 'none';
       U.clear(errorBox);
-      var insecure = e && e.insecure, unsup = e && e.unsupported;
+      var insecure = e && e.insecure, unsup = e && e.unsupported, server = e && e.server;
       errorBox.appendChild(U.icon(insecure ? 'lock' : 'warn', 'pl-err-ic'));
       errorBox.appendChild(h('h2', insecure ? L('Not available in the browser') : unsup ? L('Not available in the browser') : L("Can't play this")));
-      var msg = insecure || unsup ? e.message : (isLive() ? L('This channel is not available right now.') : L('This title could not be loaded.'));
+      var msg = insecure || unsup || server ? e.message : (isLive() ? L('This channel is not available right now.') : L('This title could not be loaded.'));
       errorBox.appendChild(h('p', msg));
-      if (!insecure && !unsup) errorBox.appendChild(h('p.muted.small', L('Some servers block playback in the browser. If it works in the app, watch it there.')));
+      if (!insecure && !unsup && !server) errorBox.appendChild(h('p.muted.small', L('Some servers block playback in the browser. If it works in the app, watch it there.')));
       var row = h('div.dlg-buttons');
-      if (unsup) row.appendChild(U.button(L('Try anyway'), function () { forceTry = true; attempts = 0; start(ctx.resume || 0); }, { primary: true }));
+      // "Toch proberen" alleen als er nog niets geprobeerd is (formaat vooraf afgewezen), niet na een codecfout
+      if (unsup && !e.codec) row.appendChild(U.button(L('Try anyway'), function () { forceTry = true; attempts = 0; start(ctx.resume || 0); }, { primary: true }));
+      else if (unsup) row.appendChild(U.button(L('Try again'), function () { attempts = 0; start(ctx.resume || 0); }));
       else if (!insecure) row.appendChild(U.button(L('Try again'), function () { attempts = 0; triedBackup = false; start(engine && !isLive() ? engine.time() : (ctx.resume || 0)); }, { primary: true }));
       if (isLive() && item.channel && !insecure) row.appendChild(U.button(L('Other source'), chooseBackup, { icon: 'layers' }));
       row.appendChild(U.button(L('Close'), function () { close(); }));

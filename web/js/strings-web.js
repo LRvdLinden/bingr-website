@@ -46,7 +46,7 @@
     'Previous channel': 'Vorige zender',
     'Remove from My List': 'Uit Mijn lijst halen',
     'Reset password': 'Wachtwoord opnieuw instellen',
-    'Servers on http go through Bingr’s server, because browsers block http on a secure page. Some formats (such as MKV) only play in the app.': 'Servers op http lopen via de server van Bingr, omdat browsers http op een beveiligde pagina blokkeren. Sommige formaten (zoals MKV) spelen alleen in de app.',
+    'Servers on http go through Bingr’s server, because browsers block http on a secure page. MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app.': 'Servers op http lopen via de server van Bingr, omdat browsers http op een beveiligde pagina blokkeren. MKV speelt in Chrome, Edge en Firefox als de browser het beeld en geluid erin kent; AVI, en MKV in Safari, spelen alleen in de app.',
     'Search for channels, movies and series': 'Zoek naar zenders, films en series',
     'Season': 'Seizoen',
     'Send reset link': 'Stuur resetlink',
@@ -57,6 +57,7 @@
     'This kind of server is not supported in the browser yet.': 'Dit soort server werkt nog niet in de browser.',
     'This server doesn’t use a secure connection (https), so it doesn’t work in the browser. Watch in the app.': 'Deze server gebruikt geen beveiligde verbinding (https) en werkt daarom niet in de browser. Kijk in de app.',
     'This title is not in the library of this server.': 'Deze titel staat niet in de bibliotheek van deze server.',
+    'MOVIE': 'FILM',
     'Trailer': 'Trailer',
     'Trailer season %d': 'Trailer seizoen %d',
     'Try anyway': 'Toch proberen',
@@ -82,6 +83,14 @@
     'This image can’t be used.': 'Deze afbeelding kan niet worden gebruikt.',
     'Trakt can’t be reached from the browser right now. Try again later, or sign in to Trakt in the Bingr app.': 'Trakt is nu niet bereikbaar vanuit de browser. Probeer het later opnieuw, of log in bij Trakt in de Bingr-app.',
     'Trakt is not available right now. Try again later.': 'Trakt is nu niet beschikbaar. Probeer het later opnieuw.',
+    'Safari can’t play %@ files. Watch in the Bingr app, or use Chrome, Edge or Firefox.': 'Safari kan geen %@-bestanden afspelen. Kijk in de Bingr-app, of gebruik Chrome, Edge of Firefox.',
+    'The server can’t find this video (error %d). Try again later or watch in the app.': 'De server kan deze video niet vinden (fout %d). Probeer het later opnieuw of kijk in de app.',
+    'The server refused this video (error %d). Check your subscription, or watch in the app.': 'De server weigert deze video (fout %d). Controleer je abonnement, of kijk in de app.',
+    'The server isn’t responding to this video right now (error %d). Try again later.': 'De server reageert nu niet op deze video (fout %d). Probeer het later opnieuw.',
+    'The server sent a page instead of a video. Your subscription may have expired, or the server is busy. Try again later or watch in the app.': 'De server stuurde een pagina in plaats van een video. Misschien is je abonnement verlopen of is de server druk. Probeer het later opnieuw of kijk in de app.',
+    'Your browser can’t play the picture or sound of this video (%@). This is often HEVC (H.265) video or AC3/DTS audio. Watch in the Bingr app.': 'Je browser kan het beeld of geluid van deze video (%@) niet afspelen. Vaak is dat HEVC-beeld (H.265) of AC3/DTS-geluid. Kijk in de Bingr-app.',
+    'No picture? The video in this file (often HEVC/H.265) can’t be played by your browser. Watch in the Bingr app.': 'Geen beeld? Je browser kan het beeld in dit bestand (vaak HEVC/H.265) niet afspelen. Kijk in de Bingr-app.',
+    'No sound? The audio in this file (often AC3 or DTS) can’t be played by your browser. Watch in the Bingr app.': 'Geen geluid? Je browser kan het geluid in dit bestand (vaak AC3 of DTS) niet afspelen. Kijk in de Bingr-app.',
     'You can set a PIN after saving the profile.': 'Na het opslaan kun je een pincode instellen.'
   };
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};

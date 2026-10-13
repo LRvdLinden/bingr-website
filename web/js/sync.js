@@ -770,18 +770,58 @@
 
   // MARK: collecties (section `collections`, version 2: per profiel)
 
-  /** Collecties van een profiel (zonder tombstones), op volgorde. Ouder formaat: de oude lijst voor iedereen. */
+  /** Is dit het hoofdprofiel (hoofdletterongevoelig)? */
+  function isMainId(profileId) { var m = D.mainProfile(); return !!(m && profileId && lower(m.id) === lower(profileId)); }
+  /** Items van één profiel-emmer (alle sleutels die hoofdletterongevoelig gelijk zijn). */
+  function bucketItems(c, profileId) {
+    var list = [];
+    if (!c || !c.profiles || typeof c.profiles !== 'object' || Array.isArray(c.profiles)) return list;
+    Object.keys(c.profiles).forEach(function (k) {
+      if (lower(k) !== lower(profileId)) return;
+      var b = c.profiles[k];
+      list = list.concat((b && Array.isArray(b.items) ? b.items : Array.isArray(b) ? b : []));
+    });
+    return list;
+  }
+  /**
+   * Tijdstempels van de oude collecties (build 51–53, zonder profiel) en van die van het hoofdprofiel, per id
+   * (zoals legacyStamps in StateSync op iOS, build 74): web-build 69–73 en iOS-build 54–73 kopieerden de oude
+   * collecties naar élk profiel. Zo'n ongewijzigde kopie bij een ander profiel (zelfde id, updatedAt binnen 1 s)
+   * hoort niet bij dat profiel.
+   */
+  function legacyStamps(c) {
+    var st = {};
+    function add(x) { if (x && x.id) { var t = colAt(x); (st[lower(x.id)] = st[lower(x.id)] || []).push(t); } }
+    if (c && Array.isArray(c.items)) c.items.forEach(add);
+    var m = D.mainProfile();
+    if (m) bucketItems(c, m.id).forEach(add);
+    return st;
+  }
+  function isLegacyCopy(x, stamps) {
+    if (!x || !x.id || x.deleted === true) return false;
+    var list = stamps[lower(x.id)], t = colAt(x);
+    if (!list) return false;
+    for (var i = 0; i < list.length; i++) if (Math.abs(list[i] - t) < 1000) return true;
+    return false;
+  }
+
+  /**
+   * Collecties van een profiel (zonder tombstones), op volgorde. Alleen de eigen emmer: een profiel ziet nooit de
+   * collecties van een ander profiel. Oud formaat (zonder profiel) hoort alleen bij het hoofdprofiel (iOS build 74).
+   */
   D.collectionsFor = function (profileId) {
     var c = D.collections;
-    if (!c || typeof c !== 'object') return [];
+    if (!c || typeof c !== 'object' || !profileId) return [];
+    if (Array.isArray(c)) c = { items: c };
     var list = null;
-    // gemigreerd (contract): `version >= 2`, of `migrated: true` (vroege build 54), of er is al een object `profiles`
-    var migrated = (B.int(c.version) || 0) >= 2 || c.migrated === true || (c.profiles && typeof c.profiles === 'object' && !Array.isArray(c.profiles));
-    if (migrated && c.profiles && typeof c.profiles === 'object') {
-      var keys = Object.keys(c.profiles).filter(function (k) { return lower(k) === lower(profileId); });
-      list = [];
-      keys.forEach(function (k) { list = list.concat((c.profiles[k] && c.profiles[k].items) || []); });
-    } else list = Array.isArray(c.items) ? c.items : [];
+    var main = isMainId(profileId);
+    if (isMigrated(c)) {
+      list = bucketItems(c, profileId);
+      if (!main) { var stamps = legacyStamps(c); list = list.filter(function (x) { return !isLegacyCopy(x, stamps); }); }
+    } else {
+      // nog niet gemigreerd: de oude lijst alleen voor het hoofdprofiel, plus wat al in de eigen emmer staat
+      list = bucketItems(c, profileId).concat(main && Array.isArray(c.items) ? c.items : []);
+    }
     var byId = {};
     list.forEach(function (x) {
       if (!x || !x.id) return;
@@ -920,8 +960,10 @@
     return order.map(function (k) { return byId[k]; }).filter(function (c) { return !(c.deleted === true && colAt(c) < cutoff); });
   }
   /**
-   * Section in het nieuwe formaat. Nog niet gemigreerd: de oude account-brede lijst gaat (zoals in de apps) naar
-   * elk profiel, met dezelfde id, order en updatedAt. Onbekende velden en emmers van andere profielen blijven staan.
+   * Section in het nieuwe formaat (zoals mergeCollections op iOS, build 74). Nog niet gemigreerd: de oude
+   * account-brede lijst gaat alleen naar het hoofdprofiel, met dezelfde id, order en updatedAt. Ongewijzigde kopieën
+   * van oude collecties bij andere profielen (van build 54–73) worden tombstones, zodat ze overal verdwijnen.
+   * Onbekende velden en de top-level `items` blijven staan.
    */
   function normalizeCollections(data) {
     var d;
@@ -929,17 +971,34 @@
     else d = data && typeof data === 'object' ? B.copy(data) : {};
     var migrated = isMigrated(d);
     if (!d.profiles || typeof d.profiles !== 'object' || Array.isArray(d.profiles)) d.profiles = {};
-    if (!migrated) {
+    var main = D.mainProfile();
+    if (!migrated && main) {
       var legacy = Array.isArray(d.items) ? d.items : [];
-      D.profiles.forEach(function (p) {
-        var k = bucketKey(d, p.id) || p.id;
-        var b = d.profiles[k] && typeof d.profiles[k] === 'object' ? d.profiles[k] : {};
-        var items = mergeCollectionItems(B.copy(legacy), Array.isArray(b.items) ? b.items : []);
-        d.profiles[k] = B.assign({}, b, { items: items, updatedAt: newestISO(items) });
-      });
+      var k = bucketKey(d, main.id) || main.id;
+      var b = d.profiles[k] && typeof d.profiles[k] === 'object' ? d.profiles[k] : {};
+      var items = mergeCollectionItems(Array.isArray(b.items) ? b.items : [], []);
+      var have = {};
+      items.forEach(function (x) { have[lower(x.id)] = true; });
+      legacy.forEach(function (x) { if (x && x.id && !have[lower(x.id)]) { items.push(B.copy(x)); have[lower(x.id)] = true; } });
+      d.profiles[k] = B.assign({}, b, { items: items, updatedAt: newestISO(items) });
       if (!d.migratedAt) d.migratedAt = B.iso();
     }
-    d.version = Math.max(2, B.int(d.version) || 0);
+    if (main) {
+      var stamps = legacyStamps(d), now = B.iso();
+      Object.keys(d.profiles).forEach(function (key) {
+        if (lower(key) === lower(main.id)) return;
+        var bk = d.profiles[key];
+        if (!bk || typeof bk !== 'object' || !Array.isArray(bk.items)) return;
+        var changedAny = false;
+        var list = bk.items.map(function (x) {
+          if (!isLegacyCopy(x, stamps)) return x;
+          changedAny = true;
+          return B.assign({}, x, { deleted: true, deletedAt: now, updatedAt: now, items: [] });
+        });
+        if (changedAny) d.profiles[key] = B.assign({}, bk, { items: list, updatedAt: newestISO(list) });
+      });
+    }
+    if (migrated || main) d.version = Math.max(2, B.int(d.version) || 0);
     return d;
   }
   /** Wijzigingen [{profile, item}] toepassen op section-data (nieuwste updatedAt per collectie wint). */
