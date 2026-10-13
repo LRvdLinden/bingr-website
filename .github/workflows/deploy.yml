@@ -44,6 +44,11 @@ jobs:
           # eerst expliciete FTPS (versleuteld), daarna gewone FTP als de server geen TLS kent
           USER_OK=""; base=""; SERVER_OK=""
           # de FTP-server reageert soms even niet: tot 4 pogingen met een pauze
+          # spaties/regeleinden rond de secrets weghalen; wachtwoord via LFTP_PASSWORD (tekens als , " ; # breken anders lftp)
+          trim(){ printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
+          FTP_SERVER=$(trim "${FTP_SERVER:-}"); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
+          export LFTP_PASSWORD="$FTP_PASSWORD"
+          echo "::notice::FTP: gebruikersnaam ${#FTP_USERNAME} tekens, wachtwoord ${#FTP_PASSWORD} tekens"
           for attempt in 1 2 3 4; do
           [ "$attempt" -gt 1 ] && { echo "Nieuwe poging $attempt over 45 s…"; sleep 45; }
           for srv in "$FTP_SERVER" "ftp.bingr.online" "bingr.online"; do
@@ -51,7 +56,7 @@ jobs:
             for u in "$FTP_USERNAME" "${FTP_USERNAME_ALT:-}"; do
               [ -z "$u" ] && continue
               echo "Proberen: gebruiker '${u}', modus: ${mode}"
-              if lftp -e "$common; $mode; open -u \"$u\",\"$FTP_PASSWORD\" \"$srv\"; cls -1 > /tmp/root.txt; bye" 2>/tmp/err.txt; then
+              if lftp -e "$common; $mode; open --env-password -u \"$u\" \"$srv\"; cls -1 > /tmp/root.txt; bye" 2>/tmp/err.txt; then
                 USER_OK="$u"; base="$common; $mode"; SERVER_OK="$srv"; break 4
               fi
               msg=$(sed 's/PASS .*/PASS ***/' /tmp/err.txt | tr '\n' ' ' | tail -c 300)
@@ -72,7 +77,7 @@ jobs:
             for d in public_html httpdocs www htdocs domains/bingr.online/public_html; do
               top="${d%%/*}"
               if grep -qx "/\?$top/\?" /tmp/root.txt; then
-                if [ "$d" = "$top" ] || lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; cls -1 $d/ ; bye" >/dev/null 2>&1; then
+                if [ "$d" = "$top" ] || lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 $d/ ; bye" >/dev/null 2>&1; then
                   TARGET="$d"; break
                 fi
               fi
@@ -83,18 +88,18 @@ jobs:
 
           # eenmalige opruiming: builds 62 kwamen per ongeluk in web/ terecht (dan staat er web/web/ en web/changelog/).
           # Alleen in dat geval web/ weghalen; de mirror hieronder zet de echte webspeler er meteen weer neer.
-          if [ "$TARGET" = "." ] && lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; cls -1 web/web/ ; bye" >/dev/null 2>&1 \
-             && lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; cls -1 web/changelog/ ; bye" >/dev/null 2>&1; then
+          if [ "$TARGET" = "." ] && lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 web/web/ ; bye" >/dev/null 2>&1 \
+             && lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 web/changelog/ ; bye" >/dev/null 2>&1; then
             echo "::warning::Verkeerde kopie van de site in web/ gevonden; die wordt opgeruimd en opnieuw geüpload."
-            lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; rm -r -f web; bye" || true
+            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; rm -r -f web; bye" || true
           fi
           # het beheer-dashboard staat nu op beheer.bingr.online (privé-repo bingr-beheer): de oude kopie in admindashboard/ weghalen,
           # alleen als die map er nog is (de mirror hieronder verwijdert niets)
-          if lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; cls -1 \"$TARGET/admindashboard/\" ; bye" >/dev/null 2>&1; then
-            lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; rm -r -f \"$TARGET/admindashboard\"; bye" \
+          if lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 \"$TARGET/admindashboard/\" ; bye" >/dev/null 2>&1; then
+            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; rm -r -f \"$TARGET/admindashboard\"; bye" \
               && echo "::notice::Oude map admindashboard/ van de server verwijderd" || echo "::warning::Oude map admindashboard/ kon niet worden verwijderd"
           fi
-          lftp -e "$base; open -u \"$USER_OK\",\"$FTP_PASSWORD\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
+          lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
           echo "::notice::Website bijgewerkt op bingr.online"
 
       - name: Controleren of de site online staat
