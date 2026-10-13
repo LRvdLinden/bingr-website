@@ -13,8 +13,21 @@
 
   // MARK: inloggen
 
+  // Achtergrond zoals AuthBackdrop in de apps: gedimde, licht vervaagde en gekantelde collage van covers uit je bibliotheek
+  function loginBackdrop() {
+    var bg = h('div.login-bg');
+    var posters = (B.store.get('splashPosters', []) || []).filter(function (u) { return /^https?:/.test(u); });
+    if (posters.length) {
+      var w = window.innerWidth || 1280, cols = Math.max(4, Math.round(w / 110)), rows = Math.ceil((window.innerHeight || 800) * 1.4 / (w * 1.35 / cols * 1.5)) + 2;
+      var grid = h('div.login-collage', { style: 'grid-template-columns:repeat(' + cols + ',1fr)' });
+      for (var i = 0; i < cols * rows; i++) grid.appendChild(h('div.lc', [U.img(posters[i % posters.length], 'lc-img')]));
+      bg.appendChild(grid);
+      bg.classList.add('has-posters');
+    }
+    return bg;
+  }
   function loginShell(card) {
-    return h('div.login', [h('div.login-bg'), h('header.login-top', [h('a.logo', { href: '../' }, 'BINGR')]), card]);
+    return h('div.login', [loginBackdrop(), h('header.login-top', [h('a.logo', { href: '../' }, 'BINGR')]), card]);
   }
 
   /** Inlogscherm: telefoon → e-mailformulier; tablet en computer → QR-code met "Inloggen met e-mail" ernaast. */
@@ -34,24 +47,24 @@
     }
     function showQR() {
       U.clear(holder);
+      // zelfde opbouw als op Apple TV (AuthView.tvLayout): links inloggen met je telefoon, midden OF, rechts e-mail
       var qrBox = h('div.qr-box', [U.spinner()]);
-      var code = h('div.qr-code', '···-···');
-      var err = h('div.login-err', { role: 'alert' });
-      var left = h('div.login-left', [
-        h('h1', L('Sign in with your phone')),
-        h('p.muted', L("Scan the QR code with your phone's camera")),
+      var code = h('div.qr-code', '–––-–––');
+      var err = h('span.tv-wait-text', L('Waiting for confirmation…'));
+      var left = h('div.tv-phone', [
+        h('h1.tv-title', L('Sign in with your phone')),
+        h('p.tv-sub', L("Scan the QR code with your phone's camera")),
         qrBox,
-        h('p.login-orgo', [L('Or go to'), ' ', h('a', { href: '../koppelen/', target: '_blank', rel: 'noopener' }, 'bingr.online/koppelen'), ' ', L('and enter this code:')]),
+        h('p.tv-orgo', [L('Or go to'), ' ', h('a', { href: '../koppelen/', target: '_blank', rel: 'noopener' }, 'bingr.online/koppelen'), ' ', L('and enter this code:')]),
         code,
-        h('div.login-wait', [U.spinner(), h('span', L('Waiting for confirmation…'))]),
-        err
+        h('div.tv-wait', [U.spinner(), err])
       ]);
-      var right = h('div.login-right', [
-        h('div.login-ortext', L('OR')),
-        U.button(L('Sign in with email'), function () { showEmail(true); }, { cls: 'wide', icon: 'user' }),
-        h('p.muted.small', L('Open Bingr on your phone (My Bingr → Account → Link a TV) or scan the code to sign in here.'))
+      var orCol = h('div.tv-or', [h('i'), h('b', L('OR')), h('i')]);
+      var right = h('div.tv-mail', [
+        U.icon('mail', 'tv-mail-ic'),
+        U.button(L('Sign in with email'), function () { showEmail(true); }, { cls: 'primary tv-mail-btn' })
       ]);
-      holder.appendChild(h('div.login-card.qr', [left, h('div.login-divider'), right]));
+      holder.appendChild(h('div.tv-login', [left, orCol, right]));
       function drawQR(url) {
         U.clear(qrBox);
         if (!url) { qrBox.appendChild(U.spinner()); return; }
@@ -70,7 +83,7 @@
       }
       flow = A.runTvFlow({
         onCode: function (c) { code.textContent = c ? A.displayCode(c.code) : '···-···'; drawQR(c ? c.url : null); },
-        onError: function (m) { err.textContent = m || ''; }
+        onError: function (m) { err.textContent = m || L('Waiting for confirmation…'); err.classList.toggle('bad', !!m); }
       });
       flow.promise.then(finish);
     }
@@ -1134,6 +1147,7 @@
         });
       });
       aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
+      row(sec, L('Intro sound'), onOff(B.app.tuneEnabled()), function () { B.app.setTune(!B.app.tuneEnabled()); render(); });
 
       sec = section(L('Server'));
       var src = Lib.source;

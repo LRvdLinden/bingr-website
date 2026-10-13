@@ -27,7 +27,52 @@
    */
   var PAL = [['#E50914', '#7A0008'], ['#2563EB', '#1E1B4B'], ['#10B981', '#064E3B'], ['#F59E0B', '#9A3412'], ['#A855F7', '#3B0764'], ['#EC4899', '#831843'], ['#14B8A6', '#0C4A6E'], ['#64748B', '#0F172A']];
   function seeded(seed) { var st = seed >>> 0; return function () { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; }; }
-  function introSplash(animated) {
+  // Intromuziek (zelfde tune als de apps, Shared/Resources/bingr_tune.m4a). Uit te zetten in Instellingen.
+  var tune = null;
+  function tuneEnabled() { return B.store.get('introSound', true) !== false; }
+  function makeTune() {
+    var a = new Audio();
+    var canM4a = a.canPlayType('audio/mp4; codecs="mp4a.40.2"');
+    a.src = canM4a ? 'assets/bingr_tune.m4a?v=1' : 'assets/bingr_tune.mp3?v=1';
+    a.preload = 'auto'; a.volume = 1;
+    return a;
+  }
+  /** Probeert de tune af te spelen; geeft een Promise die faalt als de browser geluid zonder tik weigert. */
+  function playTune() {
+    if (!tuneEnabled()) return Promise.resolve();
+    tune = tune || makeTune();
+    try { tune.currentTime = 0; } catch (e) { /* stil */ }
+    var p = tune.play();
+    return p && p.then ? p : Promise.resolve();
+  }
+  /** Mag deze browser geluid afspelen zonder tik? (Chrome/Edge na eerder bezoek vaak wel, Safari nooit.) */
+  function canAutoplay() {
+    if (!tuneEnabled()) return Promise.resolve(true);
+    try { if (navigator.userActivation && navigator.userActivation.hasBeenActive) return Promise.resolve(true); } catch (e) { /* stil */ }
+    // test met een stil geluidje: hoorbaar afspelen valt onder dezelfde regel als de tune, maar je hoort niets
+    var t = new Audio('data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==');
+    return new Promise(function (res) {
+      var p; try { p = t.play(); } catch (e) { res(false); return; }
+      if (!p || !p.then) { res(!t.paused); return; }
+      p.then(function () { t.pause(); res(true); }, function () { res(false); });
+    });
+  }
+  /** Startscherm als de browser het geluid blokkeert: één tik en de intro speelt mét tune. */
+  function tapToStart() {
+    return new Promise(function (res) {
+      var touch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      var btn = h('button.sp-start', { type: 'button', 'aria-label': L(touch ? 'Tap to start Bingr' : 'Click to start Bingr') }, [
+        h('div.sp-letters', 'BINGR'), h('div.sp-line'),
+        h('span.sp-play', [U.icon('play')]), h('span.sp-hint', L(touch ? 'Tap to start Bingr' : 'Click to start Bingr'))]);
+      var scr = { el: h('div.splash.sp.sp-gate', [btn]), isSplash: true };
+      function go() { document.removeEventListener('keydown', key); playTune().catch(B.noop); res(true); }
+      function key(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }
+      btn.addEventListener('click', go);
+      document.addEventListener('keydown', key);
+      show(scr);
+    });
+  }
+  function introSplash(animated, tuneStarted) {
     var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* stil */ }
     var anim = animated && !reduce;
     var kids = [];
@@ -51,6 +96,7 @@
     kids.push(h('div.sp-word', [h('div.sp-letters', letters), h('div.sp-shine', 'BINGR'), h('div.sp-line')]));
     var scr = { el: h('div.splash.sp' + (anim ? '.sp-anim' : '.sp-static'), kids), isSplash: true };
     scr.done = new Promise(function (res) { setTimeout(res, anim ? 3000 : 0); });
+    if (animated && !tuneStarted) { tune = tune || makeTune(); setTimeout(function () { playTune().catch(B.noop); }, 100); }
     return scr;
   }
   // tussenscherm tijdens laden: houdt de intro staan als die nog in beeld is, anders de naam zonder animatie
@@ -66,6 +112,8 @@
     } catch (e) { /* stil */ }
   });
 
+  app.tuneEnabled = tuneEnabled;
+  app.setTune = function (on) { B.store.set('introSound', !!on); if (!on && tune) { try { tune.pause(); } catch (e) { /* stil */ } } };
   app.applyAccent = function (key) {
     var k = key || D.accentKey(app.profile);
     var c = D.accents[k] || D.accents.red;
@@ -99,14 +147,23 @@
     B.setLanguage(D.shared('appLanguage', '') || '');
     document.documentElement.style.setProperty('--accent', D.accents[B.store.get('lastAccent', 'red')] || D.accents.red);
     root = document.getElementById('app');
-    var intro = introSplash(true);
-    show(intro);
+    // intro met tune; weigert de browser geluid zonder tik, dan eerst een startscherm (één keer per tabblad)
+    var gated = false; try { gated = sessionStorage.getItem('bingr.web.started') === '1'; } catch (e) { /* stil */ }
+    var introReady = canAutoplay().then(function (ok) {
+      if (ok || gated || !tuneEnabled()) return;
+      return tapToStart();
+    }).then(function (tapped) {
+      try { sessionStorage.setItem('bingr.web.started', '1'); } catch (e) { /* stil */ }
+      var intro = introSplash(true, tapped === true);
+      show(intro);
+      return intro.done;
+    });
     B.on('signedOut', function () { B.clearProxyToken(); toLogin(); });
     B.on('sessionInvalid', function () { A.revokedSignOut(); });
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
     document.addEventListener('keydown', globalKeys);
-    Promise.all([withTimeout(loadBuild(), 2500), A.init(), intro.done]).then(function (r) {
+    Promise.all([withTimeout(loadBuild(), 2500), A.init(), introReady]).then(function (r) {
       if (r[1]) {
         afterLogin(false);
         A.refresh().then(function (res) { if (res === 'invalid') toLogin(); });

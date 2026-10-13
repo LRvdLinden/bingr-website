@@ -85,7 +85,7 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .linkbtn .ic { width: 18px; height: 18px; }
 
 /* inloggen */
-.login { min-height: 100vh; position: relative; display: flex; flex-direction: column; align-items: center; padding: 0 16px 48px; }
+.login { min-height: 100vh; position: relative; z-index: 0; isolation: isolate; display: flex; flex-direction: column; align-items: center; padding: 0 16px 48px; }
 .login-bg { position: fixed; inset: 0; z-index: -1; background:
   radial-gradient(1200px 600px at 15% -10%, #e5091455, transparent 60%),
   radial-gradient(900px 600px at 110% 110%, #7a000855, transparent 60%),
@@ -586,3 +586,47 @@ html.playing #bingr-cookie-btn { display: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }
 }
+
+/* achtergrond met covers (AuthBackdrop in de apps) */
+.login-bg.has-posters { background: #000; overflow: hidden; }
+.login-collage { position: absolute; left: -18%; top: -18%; width: 136%; height: 136%; display: grid; gap: 6px; transform: rotate(-8deg); filter: blur(3px); opacity: .5; }
+.login-collage .lc { aspect-ratio: 2 / 3; border-radius: 4px; overflow: hidden; background: #1a1a1a; }
+.login-collage .lc-img, .login-collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.login-bg.has-posters::before { content: ""; position: absolute; inset: 0; z-index: 1; background: radial-gradient(70% 70% at 50% 0%, #e5091461, transparent 70%), linear-gradient(180deg, #000000bf, #00000066, #000000eb); }
+.login-bg.has-posters::after { display: none; }
+
+/* QR-inloggen zoals op Apple TV (AuthView.tvLayout) */
+.tv-login { width: 100%; max-width: 1280px; min-height: calc(100vh - 120px); display: flex; align-items: center; gap: clamp(28px, 4vw, 70px); padding: 10px 8px 40px; }
+.tv-phone, .tv-mail { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.tv-phone { gap: clamp(12px, 1.6vw, 22px); }
+.tv-title { font-size: clamp(28px, 3vw, 44px); font-weight: 800; color: #fff; margin: 0; }
+.tv-sub { font-size: clamp(16px, 1.7vw, 26px); color: var(--sec); margin: 0; }
+.tv-phone .qr-box { width: clamp(220px, 21vw, 300px); height: clamp(220px, 21vw, 300px); margin: 0; border-radius: 16px; padding: 16px; box-shadow: none; }
+.tv-orgo { font-size: clamp(16px, 1.7vw, 26px); color: var(--sec); margin: 0; max-width: 640px; }
+.tv-orgo a { color: #fff; font-weight: 700; text-decoration: none; }
+.tv-phone .qr-code { font: 900 clamp(38px, 4.4vw, 64px)/1.15 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; color: #fff; margin: 0; padding: 8px 30px; border-radius: 12px; background: #1c1c1cd9; }
+.tv-wait { display: flex; align-items: center; gap: 14px; font-size: clamp(15px, 1.6vw, 24px); color: var(--sec); }
+.tv-wait .spinner { width: 24px; height: 24px; border-width: 3px; }
+.tv-wait-text.bad { color: #ff9a62; }
+.tv-or { display: flex; flex-direction: column; align-items: center; gap: 24px; flex: none; }
+.tv-or i { width: 2px; height: clamp(140px, 16vw, 230px); background: #ffffff40; }
+.tv-or b { font-size: clamp(20px, 2vw, 30px); font-weight: 800; color: var(--sec); }
+.tv-mail { gap: 30px; }
+.tv-mail-ic { width: clamp(52px, 4.5vw, 64px); height: clamp(52px, 4.5vw, 64px); color: var(--sec); }
+.tv-mail-btn { width: min(100%, 520px); height: 64px; font-size: 20px; font-weight: 700; border-radius: 8px; }
+@media (max-width: 900px) {
+  .tv-login { flex-direction: column; min-height: 0; gap: 26px; padding-top: 0; }
+  .tv-or { flex-direction: row; width: 100%; max-width: 520px; }
+  .tv-or i { width: auto; height: 2px; flex: 1; }
+  .tv-mail { width: 100%; }
+}
+
+/* startscherm als de browser geluid zonder tik weigert */
+.sp-gate { display: flex; align-items: center; justify-content: center; }
+.sp-start { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0; padding: 30px; border-radius: 20px; }
+.sp-start:focus-visible { outline: 2px solid #fff; outline-offset: 6px; }
+.sp-start .sp-play { margin-top: 44px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; box-shadow: 0 10px 40px #0009; animation: spBreathe 1.8s ease-in-out infinite; }
+.sp-start .sp-play svg { width: 38px; height: 38px; margin-left: 4px; fill: currentColor; }
+.sp-start .sp-hint { margin-top: 18px; color: var(--sec); font-size: 17px; font-weight: 600; }
+.sp-start:hover .sp-play { transform: scale(1.06); }
+@keyframes spBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
