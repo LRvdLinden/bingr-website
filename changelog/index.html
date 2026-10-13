@@ -38,6 +38,16 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 .pi.and{background:#3ddc841f;color:#8ef0bd}.pi.tz{background:#1f4fff24;color:#a8bcff}.pi.web{background:#e509141f;color:#ff9da1}.pi.srv{background:#f59e0b1f;color:#ffc56b}.pi.all{background:#ffffff0d;color:#a9a9a9}
 .none{color:#666;font-size:14px;padding:4px 0 8px}
 .empty{color:var(--sec);padding:30px 0}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:40px;align-items:start}
+#cur{position:sticky;top:20px;background:#141414;border:1px solid #ffffff14;border-radius:14px;padding:18px 18px 8px;margin-top:30px}
+#cur h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sec);margin:0 0 10px}
+.cv{text-decoration:none;display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid #ffffff0d}.cv:first-of-type{border-top:0}
+.cv svg{width:20px;height:20px;flex:none;color:#fff;opacity:.85}
+.cv .cn{flex:1;min-width:0;font-weight:700;font-size:14px;color:#fff}
+.cv .cb{font-size:13px;color:var(--sec);white-space:nowrap;text-align:right;line-height:1.35}.cv .cb b{color:#fff;font-weight:700}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr);gap:0}#cur{order:-1;position:static;margin-top:22px;padding:14px 14px 4px}
+ #cur .cvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));column-gap:18px}.cv:nth-of-type(2){border-top:0}}
+@media (max-width:520px){#cur .cvs{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px}.cv{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:9px;row-gap:1px;align-items:start}.cv svg{grid-row:span 2;margin-top:2px}.cv .cn{font-size:13px}.cv .cb{font-size:12px;text-align:left;white-space:normal}.cv .cb br{display:none}.cv .cb .cd{display:none}}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
@@ -50,7 +60,7 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
     <label class="fsel"><span data-t="fPlatform"></span><select id="fp"></select></label>
     <label class="fsel"><span data-t="fType"></span><select id="ft"></select></label>
   </div>
-  <div id="list"></div>
+  <div class="layout"><div id="list"></div><aside id="cur" aria-labelledby="curTitle"></aside></div>
 </main>
 <footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
 <script>
@@ -58,10 +68,10 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   let lang = "nl"; try { lang = (localStorage.getItem("bingr.lang") || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en"; } catch (e) {}
   const T = {
     nl: { intro: "Wat er nieuw, verbeterd en opgelost is in elke versie van Bingr, met per punt de apparaten waarvoor het geldt. Het buildnummer loopt gelijk over alle apparaten.",
-          fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", latest: "Nieuwste", version: "Versie",
+          fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", latest: "Nieuwste", version: "Versie", current: "Nieuwste versie per apparaat",
           new: "Nieuw", improved: "Verbeterd", fixed: "Opgelost", none: "Niets", empty: "Geen wijzigingen voor deze keuze." },
     en: { intro: "What's new, improved and fixed in every version of Bingr, with the devices each item applies to. The build number is the same across all devices.",
-          fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", latest: "Latest", version: "Version",
+          fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", latest: "Latest", version: "Version", current: "Latest version per device",
           new: "New", improved: "Improved", fixed: "Fixed", none: "Nothing", empty: "No changes for this selection." }
   }[lang];
   const S = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -101,6 +111,21 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   fetch("../assets/changelog.json", { cache: "no-cache" }).then((r) => r.json()).then((data) => {
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
     data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
+    // Nieuwste versie per apparaat: de apps gaan elke build samen mee (nieuwste build; Samsung TV pas vanaf TIZEN_FROM),
+    // de website en de server tonen de laatste build waarin ze veranderd zijn.
+    (function () {
+      const fmt = (e) => new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" });
+      const rows = P.map(([k, l]) => {
+        let e = null;
+        if (APPS.includes(k)) e = data.find((x) => k !== "tizen" || x.build >= TIZEN_FROM);
+        else e = data.find((x) => x.items.some((i) => (i.platforms || []).includes(k)));
+        if (!e) return "";
+        return `<a class="cv" href="?p=${k}" data-cp="${k}">${IC[k]}<span class="cn">${esc(l)}</span><span class="cb">${esc(e.version || "1.0.0")} · <b>Build ${e.build}</b><br><span class="cd">${fmt(e)}</span></span></a>`;
+      }).join("");
+      const box = document.getElementById("cur");
+      box.innerHTML = `<h2 id="curTitle">${T.current}</h2><div class="cvs">${rows}</div>`;
+      box.querySelectorAll("[data-cp]").forEach((x) => x.onclick = (ev) => { ev.preventDefault(); fp = x.dataset.cp; const sel = document.getElementById("fp"); if (sel) sel.value = fp; try { keep(); } catch (e) {} render(); document.getElementById("list").scrollIntoView({ behavior: "smooth", block: "start" }); });
+    })();
     function render() {
       const fpS = document.getElementById("fp"), ftS = document.getElementById("ft");
       fpS.innerHTML = [["all", T.all], ...P.map(([k, l, c, full]) => [k, full || l])].map(([k, l]) => `<option value="${k}"${k === fp ? " selected" : ""}>${l}</option>`).join("");

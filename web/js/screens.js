@@ -41,7 +41,7 @@
         h('h1', L('Sign in with your phone')),
         h('p.muted', L("Scan the QR code with your phone's camera")),
         qrBox,
-        h('p.login-orgo', [L('Or go to'), ' ', h('a', { href: '../tv/', target: '_blank', rel: 'noopener' }, 'bingr.online/tv'), ' ', L('and enter this code:')]),
+        h('p.login-orgo', [L('Or go to'), ' ', h('a', { href: '../koppelen/', target: '_blank', rel: 'noopener' }, 'bingr.online/koppelen'), ' ', L('and enter this code:')]),
         code,
         h('div.login-wait', [U.spinner(), h('span', L('Waiting for confirmation…'))]),
         err

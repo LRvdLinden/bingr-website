@@ -1,4 +1,4 @@
-// Gedeelde helpers voor bingr.online/tv en /reset (Supabase-accounts).
+// Gedeelde helpers voor bingr.online/koppelen en /reset (Supabase-accounts).
 (function () {
   const params = new URLSearchParams(location.search);
   const lang = (params.get("lang") || localStorage.getItem("bingr.lang") || navigator.language || "en").toLowerCase().startsWith("nl") ? "nl" : "en";
