@@ -38,7 +38,11 @@
   function loadBuild() {
     return fetch('../assets/changelog.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
       var max = 0;
-      (Array.isArray(list) ? list : []).forEach(function (e) { var b = B.int(e && e.build); if (b > max) max = b; });
+      // elk platform heeft zijn eigen build: de webspeler neemt de nieuwste build met een punt voor de website ('web')
+      (Array.isArray(list) ? list : []).forEach(function (e) {
+        var web = e && e.items && e.items.some(function (i) { return (i.platforms || []).indexOf('web') >= 0; });
+        var b = B.int(e && e.build); if (web && b > max) max = b;
+      });
       if (max) B.config.build = String(max);
     }).catch(B.noop);
   }

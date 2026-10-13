@@ -126,14 +126,12 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   fetch("../assets/changelog.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json()).then((data) => {
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
     data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
-    // Nieuwste versie per apparaat: de apps gaan elke build samen mee (nieuwste build; Samsung TV pas vanaf TIZEN_FROM),
-    // de website en de server tonen de laatste build waarin ze veranderd zijn.
+    // Nieuwste versie per apparaat: per platform de laatste build waarin het veranderd is.
     (function () {
       const fmt = (e) => new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "short", year: "numeric" });
       const rows = P.map(([k, l]) => {
-        let e = null;
-        if (APPS.includes(k)) e = data.find((x) => k !== "tizen" || x.build >= TIZEN_FROM);
-        else e = data.find((x) => x.items.some((i) => (i.platforms || []).includes(k)));
+        // elk platform heeft zijn eigen build: de nieuwste build met een punt voor dit platform
+        const e = data.find((x) => x.items.some((i) => eff(i.platforms || [], x.build).includes(k)));
         if (!e) return "";
         return `<a class="cv" href="?p=${k}" data-cp="${k}">${IC[k]}<span class="cn">${esc(l)}</span><span class="cb">${esc(e.version || "1.0.0")} · <b>Build ${e.build}</b><br><span class="cd">${fmt(e)}</span></span></a>`;
       }).join("");
