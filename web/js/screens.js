@@ -222,7 +222,7 @@
           p.kids ? h('div.pf-kids', L('Kids')) : null
         ]);
         tile.addEventListener('click', function () {
-          if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { onPick(p); });
+          if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { onPick(p); }, S.avatar(p, 'pinav'));
           else onPick(p);
         });
         grid.appendChild(tile);
@@ -431,8 +431,7 @@
   function chooseServer() {
     var src = Lib.source;
     U.choose(L('Active server'), D.sources.map(function (s) {
-      var ins = B.isInsecure(B.normalizedServer(s.serverURL || s.m3uURL || ''));
-      return { value: s.id, label: s.name, sub: s.kind + (ins && !B.media.isMediaServer(s.kind) ? ' · ' + L('no https') : '') };
+      return { value: s.id, label: s.name, sub: s.kind };
     }), src ? src.id : null, function (id) {
       var s2 = D.sourceById(id);
       if (!s2) return;
@@ -1214,7 +1213,7 @@
 
       sec = section(L('About'));
       row(sec, 'Bingr ' + B.config.version + (B.config.build ? ' (build ' + B.config.build + ')' : ''), L('Browser') + ' · ' + A.deviceDisplayName(), null);
-      row(sec, L('Works best with servers that use https. Some formats (such as MKV) only play in the app.'), null, null);
+      row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Some formats (such as MKV) only play in the app.'), null, null);
     }
     pg.refresh = render;
     var off = B.on('connections', render);

@@ -389,6 +389,11 @@
     Lib.episodeCache = {};
     Lib.stalker = null;
     if (!src) { Lib.raw = { channels: [], movies: [], series: [], epg: {} }; Lib.applyFilters(); return Promise.resolve(); }
+    // eenmalige uitleg: een http-server loopt in de browser via de server van Bingr
+    if (B.isInsecure(src.serverURL || src.m3uURL || '') && !B.store.get('httpNoteShown', false) && B.ui && B.ui.toast) {
+      B.store.set('httpNoteShown', true);
+      setTimeout(function () { B.ui.toast(L('Your servers use http: they go through Bingr’s server here. See Settings → About.'), 7000); }, 1200);
+    }
     Lib.loading = true;
     B.emit('loading');
     return B.idb.get('lib:' + src.id).then(function (cached) {

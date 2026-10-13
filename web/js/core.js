@@ -1,9 +1,9 @@
 /*
  * Bingr in de browser (bingr.online/web): basis (opslag, netwerk, tijd, hashes, titels opschonen, vertalingen).
  * Overgenomen van de Samsung TV-app (tizen/js/core.js) en aangepast voor de browser:
- * - alleen https (een pagina op https mag geen http laden; zie B.http);
- * - IPTV-servers sturen meestal geen CORS-headers: eerst direct, en bij een CORS-/netwerkfout via de
- *   Edge Function `web-proxy` van de backend (alleen GET, alleen hosts uit je eigen servers);
+ * - een pagina op https mag niets van http laden (mixed content): http-servers gaan altijd via de Edge Function
+ *   `web-proxy` van de backend (alleen GET, alleen hosts uit je eigen servers), ook video en afbeeldingen;
+ * - https-servers sturen vaak geen CORS-headers: eerst direct, en bij een CORS-/netwerkfout via de proxy;
  * - lokale opslag met het voorvoegsel `bingr.web.` (de rest van bingr.online gebruikt `bingr.`).
  */
 (function () {
@@ -283,13 +283,13 @@
     }
   };
 
-  // MARK: netwerk (alleen https; direct, en bij een CORS-/netwerkfout via de backend-proxy)
+  // MARK: netwerk (http altijd via de backend-proxy; https direct, en bij een CORS-/netwerkfout via de proxy)
 
   function NetError(msg, offline) { this.message = msg; this.offline = !!offline; }
   NetError.prototype = Object.create(Error.prototype);
   B.NetError = NetError;
 
-  /** Melding als een server of stream geen https gebruikt (de pagina staat op https, de browser blokkeert http). */
+  /** Melding als iets op http niet via de proxy kan (alleen GET gaat via de proxy; de browser blokkeert http). */
   B.insecureMessage = function () {
     return B.L('This server doesn’t use a secure connection (https), so it doesn’t work in the browser. Watch in the app.');
   };
@@ -370,15 +370,74 @@
   B.needsProxy = function (url) { return !!proxyHosts[hostOf(url)]; };
   B.markProxy = function (url) { rememberProxy(hostOf(url)); };
 
+  // MARK: proxy-token en GET-URL's (voor <video>, hls.js, Safari's eigen HLS-speler en afbeeldingen)
+
+  /** Kort geldig token van de proxy (6 uur); na het inloggen opgehaald en ruim voor het verloopt ververst. */
+  var ptoken = null, ptokenP = null, ptokenTimer = null;
+  B.ensureProxyToken = function () {
+    if (ptoken && ptoken.exp - Date.now() > 30 * 60000) return Promise.resolve(ptoken.token);
+    if (ptokenP) return ptokenP;
+    var A = B.account;
+    if (!A || !A.validAccessToken) return Promise.resolve(null);
+    ptokenP = A.validAccessToken().then(function (jwt) {
+      return fetch(B.config.supabaseUrl + '/functions/v1/web-proxy', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + jwt, 'apikey': B.config.supabaseKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'token' })
+      }).then(function (r) { return r.json(); });
+    }).then(function (j) {
+      ptokenP = null;
+      var exp = j && j.token ? Date.parse(j.expires_at) : NaN;
+      if (!j || !j.token || !isFinite(exp)) return ptoken ? ptoken.token : null;
+      ptoken = { token: j.token, exp: exp };
+      clearTimeout(ptokenTimer);
+      ptokenTimer = setTimeout(function () { B.ensureProxyToken(); }, Math.max(60000, exp - Date.now() - 45 * 60000));
+      return ptoken.token;
+    }, function () { ptokenP = null; return ptoken ? ptoken.token : null; });
+    return ptokenP;
+  };
+  B.clearProxyToken = function () { ptoken = null; clearTimeout(ptokenTimer); };
+  function b64url(s) {
+    return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  /** GET-URL van de proxy voor url (null zolang er geen token is). */
+  B.proxyGetURL = function (url) {
+    if (!ptoken || ptoken.exp < Date.now()) return null;
+    return B.config.supabaseUrl + '/functions/v1/web-proxy?u=' + b64url(String(url)) + '&t=' + encodeURIComponent(ptoken.token);
+  };
+  /** Host van een van je eigen servers (serverURL, m3uURL, epgURL)? */
+  B.isSourceHost = function (url) {
+    var hst = hostOf(String(url || '')), list = (B.data && B.data.sources) || [];
+    if (!hst) return false;
+    for (var i = 0; i < list.length; i++) {
+      var s = list[i] || {};
+      var f = [s.serverURL, s.m3uURL, s.epgURL];
+      for (var j = 0; j < f.length; j++) if (f[j] && hostOf(B.normalizedServer(f[j])) === hst) return true;
+    }
+    return false;
+  };
+  B.isProxied = function (url) { return String(url || '').indexOf(B.config.supabaseUrl + '/functions/v1/web-proxy') === 0; };
+  /**
+   * Moet deze media-URL via de GET-vorm van de proxy? Alleen http (mixed content). https gaat direct: <video> en
+   * Safari's eigen HLS-speler hebben geen CORS nodig, en hls.js valt zelf terug op de proxy (makeLoader).
+   */
+  B.mustProxy = function (url) {
+    url = String(url || '');
+    return !B.isProxied(url) && !isBackend(url) && B.isInsecure(url);
+  };
+
   /**
    * http(url, {method, headers, body, timeout, binary, noProxy}) → Promise<{status, text, json, buffer}>.
-   * http:// → fout met e.insecure (en de https-melding). Netwerkfout of time-out → NetError (offline = true).
+   * http:// gaat altijd via de proxy (alleen GET; anders een fout met e.insecure). Netwerkfout of time-out → NetError.
    */
   B.http = function (url, opt) {
     opt = opt || {};
     url = String(url || '');
-    if (B.isInsecure(url)) return Promise.reject(B.insecureError());
     var method = (opt.method || 'GET').toUpperCase();
+    if (B.isInsecure(url)) {
+      if (method !== 'GET' || opt.noProxy) return Promise.reject(B.insecureError());
+      return B.proxyFetch(url, opt);
+    }
     var canProxy = method === 'GET' && !opt.noProxy && !isBackend(url) && /^https:/i.test(url);
     if (canProxy && proxyHosts[hostOf(url)]) return B.proxyFetch(url, opt);
     return xhr(url, opt).catch(function (e) {

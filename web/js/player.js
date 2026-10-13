@@ -1,7 +1,8 @@
 /*
  * Bingr web: speler. HTML5-video met hls.js (HLS, met de backend-proxy als de server geen CORS stuurt), native HLS in
  * Safari/iOS, MP4/WebM direct, MPEG-TS live via mpegts.js (Xtream: eerst de .m3u8-variant, zoals de Chromecast-fix op
- * Android). Verder zoals de andere apps: hervatten, voortgang, audio- en ondertitelsporen, automatische ondertitels,
+ * Android). Streams van http-servers (en https-servers zonder CORS) gaan via de GET-vorm van de proxy
+ * (…/web-proxy?u=…&t=…); die herschrijft HLS-afspeellijsten, zodat ook segmenten via de proxy lopen. Verder zoals de andere apps: hervatten, voortgang, audio- en ondertitelsporen, automatische ondertitels,
  * intro overslaan, volgende aflevering met aftellen, stream_start/ping/stop (max. 6), beeld-in-beeld en volledig scherm.
  */
 (function () {
@@ -78,8 +79,7 @@
       var self = this;
       this.context = context; this.callbacks = callbacks; this.done = false;
       var url = context.url;
-      if (B.isInsecure(url)) { B.player.lastInsecure = true; callbacks.onError({ code: 0, text: 'insecure' }, context, null, this._stats); return; }
-      if (B.needsProxy(url)) { this.viaProxy(context, config, callbacks); return; }
+      if (B.isInsecure(url) || B.needsProxy(url)) { this.viaProxy(context, config, callbacks); return; }
       // eerste poging zonder eigen herhalingen: bij een CORS-fout meteen via de proxy
       var cfg = B.assign({}, config);
       if (config.loadPolicy) cfg.loadPolicy = B.assign({}, config.loadPolicy, { errorRetry: null });
@@ -87,7 +87,7 @@
       this.inner.load(context, cfg, {
         onSuccess: callbacks.onSuccess, onProgress: callbacks.onProgress, onAbort: callbacks.onAbort, onTimeout: callbacks.onTimeout,
         onError: function (err, ctx, nd, st) {
-          if (err && err.code === 0 && !self.done && /^https:/i.test(url)) {
+          if (err && err.code === 0 && !self.done && /^https:/i.test(url) && !B.isProxied(url)) {
             if (self.inner) { self.inner.destroy(); self.inner = null; }
             self.viaProxy(context, config, callbacks);
             return;
@@ -215,12 +215,28 @@
     var plan = B.playPlan(url, opts.live, opts.forceTry);
     if (plan.error) return Promise.reject(plan.error);
     var i = 0, lastErr = null;
-    B.player.lastInsecure = false;
+    var proxied = plan.steps.some(function (st) { return B.mustProxy(st.url); });
+    if (proxied) {
+      // via de proxy: een doorlopende .ts-stream loopt tegen de tijdslimiet van de proxy aan; als er een HLS-variant
+      // is (Xtream live/terugkijken), alleen die
+      var hasHls = plan.steps.some(function (st) { return st.how === 'hls'; });
+      if (hasHls) plan.steps = plan.steps.filter(function (st) { return st.how !== 'mpegts' || !/\/(live|timeshift)\//i.test(st.url); });
+    }
     function next() {
       if (self.stopped) return Promise.reject(new Error('stopped'));
-      if (i >= plan.steps.length) return Promise.reject(B.player.lastInsecure ? B.insecureError() : (lastErr || new Error('fail')));
+      if (i >= plan.steps.length) return Promise.reject(lastErr || new Error('fail'));
       var step = plan.steps[i++];
-      B.log('afspelen via ' + step.how, step.url.replace(/\/\/[^/]+/, '//…'));
+      if (B.mustProxy(step.url)) {
+        return B.ensureProxyToken().then(function () {
+          var pu = B.proxyGetURL(step.url);
+          if (!pu) { lastErr = new Error('proxy_token'); return next(); }
+          return run({ how: step.how, url: pu, orig: step.url });
+        });
+      }
+      return run(step);
+    }
+    function run(step) {
+      B.log('afspelen via ' + step.how + (step.orig ? ' (proxy)' : ''), String(step.orig || step.url).replace(/\/\/[^/]+/, '//…'));
       return self.attempt(step, opts).then(function () {
         self.started = true;
         if (opts.onReady) { try { opts.onReady(); } catch (e) { B.log('onReady', e); } }
@@ -403,7 +419,9 @@
     function mediaSession() {
       if (!('mediaSession' in navigator) || !window.MediaMetadata) return;
       try {
-        var art = item.artwork ? [{ src: String(item.artwork).replace(/^http:/, 'https:'), sizes: '512x512' }] : [];
+        var aw = item.artwork ? String(item.artwork) : '';
+        if (B.isInsecure(aw)) aw = B.proxyGetURL(aw) || '';
+        var art = aw ? [{ src: aw, sizes: '512x512' }] : [];
         navigator.mediaSession.metadata = new MediaMetadata({ title: isLive() && item.channel ? item.channel.name : item.title, artist: item.subtitle || 'Bingr', album: 'Bingr', artwork: art });
         var ms = navigator.mediaSession;
         ms.setActionHandler('play', function () { if (engine) engine.play(); });
@@ -627,7 +645,6 @@
       if (isLive() && item.channel && !triedBackup) {
         triedBackup = true;
         Lib.backupChannels(item.channel).then(function (hits) {
-          hits = hits.filter(function (x) { return !B.isInsecure(x.url); });
           if (!hits.length || closed) { showError(e); return; }
           U.toast(L('Trying another source…'));
           Lib.resolveBackup(hits[0]).then(function (u) { attempts = 1; return openURL(u, 0, startGen); }).catch(function (e3) { showError(e3); });
@@ -661,7 +678,7 @@
       if (!item.channel) return;
       Lib.backupChannels(item.channel).then(function (hits) {
         if (!hits.length) { U.toast(L('No other source found for this channel.')); return; }
-        U.choose(L('Other source'), hits.map(function (x, i) { return { value: i, label: x.source.name + ' · ' + x.name, sub: B.isInsecure(x.url) ? L('no https') : null }; }), null, function (i) {
+        U.choose(L('Other source'), hits.map(function (x, i) { return { value: i, label: x.source.name + ' · ' + x.name, sub: null }; }), null, function (i) {
           spinner.style.display = 'flex';
           errorBox.style.display = 'none';
           Lib.resolveBackup(hits[i]).then(function (u) { attempts = 1; return openURL(u, 0, startGen); }).catch(function (e) { showError(e); });

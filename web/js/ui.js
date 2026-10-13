@@ -117,13 +117,31 @@
   U.spinner = function () { return h('div.spinner', { role: 'status', 'aria-label': L('Loading…') }); };
   U.logo = function () { return h('div.logo', 'BINGR'); };
 
-  /** Afbeelding met terugval op een tekstvlak (http wordt https: de pagina staat op https). */
+  /**
+   * Afbeelding met terugval op een tekstvlak. http mag niet op een https-pagina: eerst dezelfde URL op https
+   * (de meeste beeldbanken kunnen dat), lukt dat niet, dan via de proxy (alleen hosts van je eigen servers).
+   */
   U.img = function (url, cls, alt) {
     var wrap = h('div.imgbox' + (cls ? '.' + cls : ''));
-    var u = url ? String(url).replace(/^http:\/\//i, 'https://') : '';
+    var orig = url ? String(url).trim() : '';
+    var http = B.isInsecure(orig);
+    // afbeeldingen van je eigen http-server: meteen via de proxy (die server kent geen https)
+    var direct = http && B.isSourceHost(orig) ? B.proxyGetURL(orig) : null;
+    var u = direct || (http ? orig.replace(/^http:\/\//i, 'https://') : orig);
+    var viaProxy = !!direct;
     if (!u) { wrap.classList.add('noimg'); if (alt) wrap.appendChild(h('span.alt', alt)); return wrap; }
     var im = h('img', { src: u, alt: alt || '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' });
-    im.onerror = function () { if (im.parentNode) im.parentNode.removeChild(im); wrap.classList.add('noimg'); if (alt) wrap.appendChild(h('span.alt', alt)); };
+    function giveUp() { if (im.parentNode) im.parentNode.removeChild(im); wrap.classList.add('noimg'); if (alt) wrap.appendChild(h('span.alt', alt)); }
+    im.onerror = function () {
+      if (http && !viaProxy) {
+        viaProxy = true;
+        var p = B.proxyGetURL(orig);
+        if (p) { im.src = p; return; }
+        B.ensureProxyToken().then(function () { var p2 = B.proxyGetURL(orig); if (p2) im.src = p2; else giveUp(); });
+        return;
+      }
+      giveUp();
+    };
     im.onload = function () { wrap.classList.add('loaded'); };
     wrap.appendChild(im);
     return wrap;
@@ -198,7 +216,8 @@
   };
 
   /** Pincode vragen (4 cijfers); check(pin) → true als hij klopt. */
-  U.askPIN = function (title, check, onOK) {
+  /** Pincode vragen; avatar (optioneel) = element dat boven de stippen staat (rond, zoals in de apps). */
+  U.askPIN = function (title, check, onOK, avatar) {
     var val = '';
     var dots = h('div.pin-dots');
     var err = h('div.pin-err');
@@ -224,7 +243,7 @@
       pad.appendChild(b);
     });
     draw();
-    dlg = U.modal({ title: title, body: h('div.pin', [input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }] });
+    dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }] });
     setTimeout(function () { input.focus(); }, 40);
     return dlg;
   };

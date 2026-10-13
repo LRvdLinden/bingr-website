@@ -51,7 +51,7 @@
     document.documentElement.style.setProperty('--accent', D.accents[B.store.get('lastAccent', 'red')] || D.accents.red);
     root = document.getElementById('app');
     show(splash());
-    B.on('signedOut', function () { toLogin(); });
+    B.on('signedOut', function () { B.clearProxyToken(); toLogin(); });
     B.on('sessionInvalid', function () { A.revokedSignOut(); });
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
@@ -81,6 +81,8 @@
     var reg = (fresh || !A.isRegistered()) ? A.registerDevice() : Promise.resolve('ok');
     reg.then(function (r) {
       if (r && r.limit) { showLimit(r); return; }
+      // token voor de proxy (http-servers, video en afbeeldingen via bingr's server); ververst zichzelf
+      B.ensureProxyToken();
       A.fetchConfig().then(function (ok) { if (ok) B.emit('config'); });
       var haveCache = D.profiles.length > 0;
       var sync = Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function (x) { D.migrateAccent(); return x; });
@@ -121,7 +123,7 @@
   };
   app.pickProfileWithPin = function (p) {
     var pin = D.pinFor(p);
-    if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { pickProfile(p); });
+    if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
     else pickProfile(p);
   };
 
@@ -211,6 +213,7 @@
   function onVisibility() {
     if (document.hidden) { D.flush(); return; }
     if (Date.now() - lastCheck > 60000) deviceCheck();
+    if (A.isSignedIn && A.isSignedIn()) B.ensureProxyToken();
   }
 
   /** Overal: "/" = zoeken, Esc sluit een venster. */

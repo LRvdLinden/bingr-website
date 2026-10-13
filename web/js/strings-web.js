@@ -44,6 +44,7 @@
     'Previous channel': 'Vorige zender',
     'Remove from My List': 'Uit Mijn lijst halen',
     'Reset password': 'Wachtwoord opnieuw instellen',
+    'Servers on http go through Bingr’s server, because browsers block http on a secure page. Some formats (such as MKV) only play in the app.': 'Servers op http lopen via de server van Bingr, omdat browsers http op een beveiligde pagina blokkeren. Sommige formaten (zoals MKV) spelen alleen in de app.',
     'Search for channels, movies and series': 'Zoek naar zenders, films en series',
     'Season': 'Seizoen',
     'Send reset link': 'Stuur resetlink',
@@ -64,6 +65,7 @@
     'Watched': 'Bekeken',
     'Works best with servers that use https. Some formats (such as MKV) only play in the app.': 'Werkt het best met servers die https gebruiken. Sommige formaten (zoals MKV) spelen alleen in de app.',
     'Wrong PIN': 'Onjuiste pincode',
+    'Your servers use http: they go through Bingr’s server here. See Settings → About.': 'Je servers gebruiken http: hier lopen ze via de server van Bingr. Zie Instellingen → Over.',
     'no https': 'geen https'
   };
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
