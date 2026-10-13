@@ -489,7 +489,22 @@
           x.plot ? h('p.hero-plot', x.plot) : null,
           h('div.hero-btns', [play, info])
         ]),
-        h('div.hero-poster', [U.img(x.poster, 'poster', x.title)])
+        h('div.hero-poster', [U.img(x.poster, 'poster', x.title)]),
+        // telefoon: grote portretkaart met titel en knoppen erin, zoals HeroBanner (phoneBody) in de iPhone-app
+        h('div.hero-card', [
+          U.img(x.poster, 'hero-card-img', x.title), h('div.hero-card-shade'),
+          h('div.hero-card-info', [
+            h('div.hero-card-title', String(x.title || '').toUpperCase()),
+            meta.length ? h('div.hero-card-tags', meta.join('  ·  ')) : null,
+            h('div.hero-card-btns', [
+              U.button(L('Play'), function () {
+                if (hf.type === 'movie') B.player.playVOD(B.player.movieItem(x));
+                else R.go(S.titleLink('series', x).slice(1));
+              }, { primary: true, icon: 'play' }),
+              h('a.btn.ghost', { href: S.titleLink(hf.type, x) }, [U.icon('info'), h('span', L('Info'))])
+            ])
+          ])
+        ])
       ]);
     }
     function continueRow() {

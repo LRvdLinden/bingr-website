@@ -203,8 +203,6 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .hero-plot { color: #e5e5e5; font-size: 17px; line-height: 1.45; margin-bottom: 22px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 1px 8px #0009; }
 .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
 .hero-btns .btn { min-height: 48px; padding: 0 26px; font-size: 17px; }
-.hero-btns .btn.primary { background: #fff; color: #000; }
-.hero-btns .btn.primary:hover { background: #ffffffbf; filter: none; }
 .hero-poster { position: absolute; right: calc(var(--gutter) + 2vw); bottom: 10vh; width: clamp(180px, 19vw, 300px); z-index: 1; border-radius: 10px; overflow: hidden; box-shadow: 0 30px 80px #000c; transform: rotate(2deg); }
 .hero-poster .imgbox { aspect-ratio: 2/3; }
 .hero-poster img { width: 100%; height: 100%; object-fit: cover; }
@@ -623,3 +621,20 @@ html.playing #bingr-cookie-btn { display: none; }
   .tv-mail { width: 100%; }
 }
 
+/* hero op de telefoon: portretkaart zoals in de iPhone-app (HeroBanner.phoneBody) */
+.hero-card { display: none; }
+@media (max-width: 700px) {
+  .hero { min-height: 0; display: block; padding: 96px 0 26px; text-align: center; }
+  .hero-bg img { filter: blur(50px) saturate(1.2); opacity: .65; transform: scale(1.2); }
+  .hero-shade { background: linear-gradient(180deg, transparent 45%, var(--bg) 100%); }
+  .hero-info { display: none; }
+  .hero-card { display: block; position: relative; z-index: 1; width: min(330px, calc(100vw - 48px)); aspect-ratio: 330 / 470; margin: 0 auto; border-radius: 12px; overflow: hidden; border: 1px solid #ffffff1f; box-shadow: 0 10px 40px #0009; background: #1a1a1a; }
+  .hero-card .imgbox, .hero-card .hero-card-img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero-card-shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, #000000d9 100%); }
+  .hero-card-info { position: absolute; left: 0; right: 0; bottom: 0; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .hero-card-title { font-size: 28px; font-weight: 900; letter-spacing: .03em; line-height: 1.05; text-shadow: 0 2px 8px #000a; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero-card-tags { font-size: 12px; font-weight: 500; color: #ffffffd9; }
+  .hero-card-btns { display: flex; gap: 10px; width: 100%; }
+  .hero-card-btns .btn { flex: 1; min-height: 42px; padding: 0 12px; font-size: 15px; justify-content: center; }
+}
