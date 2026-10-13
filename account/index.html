@@ -63,6 +63,7 @@ h2{font-size:20px;font-weight:800;margin:34px 0 4px}
 
   <section id="acc" class="hidden">
     <div class="me"><div class="av" id="ini"></div><div><h1 style="margin:0" data-t="title"></h1><div class="muted" id="who"></div></div></div>
+    <div class="row"><a class="btn" href="../web/" data-t="watchWeb" style="text-decoration:none;width:auto;display:inline-flex;align-items:center;justify-content:center"></a></div>
 
     <h2 data-t="profiles"></h2>
     <p class="muted" data-t="profHelp"></p>
@@ -144,7 +145,7 @@ const tr = t({
         smart:"Slim", manual:"%d titels", noCollections:"Nog geen collecties.", deleteCollection:"Collectie %s verwijderen?", title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
         forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.",
         profiles:"Profielen", profHelp:"Profielen beheer je in de app; ze staan op al je apparaten.", kids:"Kinderprofiel", main:"Hoofdaccount", noProfiles:"Nog geen profielen. Open Bingr op een apparaat om te beginnen.",
-        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen",
+        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen", watchWeb:"▶ Kijk in je browser",
         linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", rename:"Naam wijzigen", devName:"Naam van het apparaat", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
         account:"Account", changePw:"Wachtwoord wijzigen", signOut:"Uitloggen", delete:"Account verwijderen",
         delConfirm:"Je Bingr-account verwijderen? Al je apparaten worden uitgelogd en je profielen op de server worden gewist. Dit kan niet ongedaan worden gemaakt.",
@@ -163,7 +164,7 @@ const tr = t({
         smart:"Smart", manual:"%d titles", noCollections:"No collections yet.", deleteCollection:"Delete collection %s?", title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
         forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.",
         profiles:"Profiles", profHelp:"You manage profiles in the app; they're on all your devices.", kids:"Kids profile", main:"Main account", noProfiles:"No profiles yet. Open Bingr on a device to get started.",
-        devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV",
+        devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV", watchWeb:"▶ Watch in your browser",
         linked:"Linked", lastUsed:"last used", remove:"Remove", rename:"Rename", devName:"Device name", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
         account:"Account", changePw:"Change password", signOut:"Sign out", delete:"Delete account",
         delConfirm:"Delete your Bingr account? All your devices will be signed out and your profiles on the server will be erased. This can't be undone.",
@@ -187,10 +188,13 @@ const icons = {
   "Google TV": SV('<rect x="4" y="8" width="40" height="26" rx="3"/><path d="M17 41h14M24 34v7"/><circle cx="24" cy="21" r="5"/>'),
   "Fire TV": SV('<rect x="6" y="20" width="26" height="9" rx="3"/><path d="M32 22.5h5a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-5"/><path d="M12 24.5h8"/>'),  // Samsung TV-app (Tizen, build 55) meldt zich met platform "tizen"
   "tizen": SV('<rect x="3" y="8" width="42" height="26" rx="2"/><path d="M3 30h42M13 34l-3 7M35 34l3 7"/>'),
+  // Bingr in de browser (bingr.online/web, build 62) meldt zich met platform "browser"
+  "browser": SV('<rect x="4" y="7" width="40" height="34" rx="3"/><path d="M4 16h40M10 11.5h.01M15 11.5h.01"/>'),
 };
 const isTizen = (p) => /^(tizen|samsung tv)$/i.test(p || "");
-const devIcon = (p) => icons[isTizen(p) ? "tizen" : p] || icons["Android TV"];
-const platLabel = (p) => isTizen(p) ? "Samsung TV" : (p || "");
+const isBrowser = (p) => /^browser$/i.test(p || "");
+const devIcon = (p) => icons[isTizen(p) ? "tizen" : isBrowser(p) ? "browser" : p] || icons["Android TV"];
+const platLabel = (p) => isTizen(p) ? "Samsung TV" : isBrowser(p) ? "Browser" : (p || "");
 // zelfde iconen en kleuren als de apps (iOS-symboolnaam → emoji, kleurindex → verloop)
 const SYM = { tv:"📺", globe:"🌐", sportscourt:"⚽", crown:"👑", flame:"🔥", film:"🎬", popcorn:"🍿", star:"⭐", gamecontroller:"🎮", "moon.stars":"🌙", bolt:"⚡", heart:"❤️",
   "waveform.path.ecg":"🎧", hare:"🐰", forward:"🚀", sparkle:"🌈", link:"🔗", "bubble.left":"💬", wifi:"📶", umbrella:"☂️", play:"▶️", "book.closed":"📕", person:"🧸", paintbrush:"🎭" };
