@@ -39,6 +39,27 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .btn .spinner { width: 20px; height: 20px; border-width: 2px; border-top-color: #fff; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .splash { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+/* intro (zelfde opbouw als SplashView in de apps) */
+.sp { position: fixed; inset: 0; min-height: 0; background: #000; overflow: hidden; z-index: 50; }
+.sp-cover { position: absolute; top: 0; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; box-shadow: 0 6px 20px #0009; transform: translateY(-110%) rotate(var(--r0)); animation-name: spFall; animation-timing-function: cubic-bezier(.55,0,1,.45); animation-fill-mode: both; }
+.sp-cover .sp-img, .sp-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@keyframes spFall { from { transform: translateY(-110%) rotate(var(--r0)); } to { transform: translateY(calc(100vh + 20vw)) rotate(var(--r1)); } }
+.sp-dim { position: absolute; inset: 0; background: linear-gradient(#0003, #000000f2, #0003); opacity: 0; animation: spDim .5s ease-in-out 1.27s both; }
+@keyframes spDim { to { opacity: 1; } }
+.sp-word { position: relative; z-index: 2; filter: drop-shadow(0 0 20px #000c); }
+.sp-letters, .sp-shine { font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif; font-weight: 900; font-size: clamp(56px, 11vw, 120px); letter-spacing: .02em; line-height: 1; color: #fff; white-space: nowrap; }
+.sp-l { display: inline-block; }
+.sp-anim .sp-l { opacity: 0; transform: translateY(90%) scale(.6); transform-origin: bottom; animation: spLetter .5s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes spLetter { to { opacity: 1; transform: none; } }
+.sp-shine { position: absolute; inset: 0; color: transparent; background: linear-gradient(110deg, transparent 40%, #ffffffe6 50%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 130% 0; -webkit-background-clip: text; background-clip: text; pointer-events: none; }
+.sp-anim .sp-shine { animation: spShine .7s ease-in-out 2.12s both; }
+@keyframes spShine { from { background-position: 130% 0; } to { background-position: -30% 0; } }
+.sp-line { height: .08em; font-size: clamp(56px, 11vw, 120px); width: 3.4em; max-width: 100%; margin: .2em auto 0; border-radius: 99px; background: var(--accent); transform-origin: center; }
+.sp-anim .sp-line { transform: scaleX(0); animation: spLine .5s cubic-bezier(.34,1.56,.64,1) 2.12s both; }
+@keyframes spLine { to { transform: scaleX(1); } }
+.sp-static .sp-word { animation: spPulse 1.6s ease-in-out infinite alternate; }
+@keyframes spPulse { from { opacity: .75; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .sp-static .sp-word { animation: none; } }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 6px; border: 0; cursor: pointer; font-weight: 700; font-size: 15px; background: #ffffff26; color: #fff; transition: background .15s, transform .15s, box-shadow .15s; white-space: nowrap; text-decoration: none; }
 .btn:hover { background: #ffffff3d; }

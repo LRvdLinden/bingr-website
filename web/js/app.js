@@ -13,13 +13,58 @@
 
   function withTimeout(p, ms) { return Promise.race([p, new Promise(function (r) { setTimeout(function () { r(null); }, ms); })]); }
   function show(scr) {
+    if (scr === current) return;
     if (current && current.destroy) { try { current.destroy(); } catch (e) { B.log('destroy', e); } }
     current = scr;
     U.clear(root);
     root.appendChild(scr.el);
     window.scrollTo(0, 0);
   }
-  function splash() { return { el: h('div.splash', [h('div.logo.big', 'BINGR'), U.spinner()]) }; }
+  /*
+   * Intro zoals in de apps (SplashView): covers uit je bibliotheek regenen naar beneden, het beeld wordt donker,
+   * de letters van BINGR springen één voor één omhoog, een glanzende veeg en de rode streep eronder.
+   * Daarna blijft de naam staan tot het volgende scherm klaar is (geen los laadrondje meer).
+   */
+  var PAL = [['#E50914', '#7A0008'], ['#2563EB', '#1E1B4B'], ['#10B981', '#064E3B'], ['#F59E0B', '#9A3412'], ['#A855F7', '#3B0764'], ['#EC4899', '#831843'], ['#14B8A6', '#0C4A6E'], ['#64748B', '#0F172A']];
+  function seeded(seed) { var st = seed >>> 0; return function () { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; }; }
+  function introSplash(animated) {
+    var reduce = false; try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { /* stil */ }
+    var anim = animated && !reduce;
+    var kids = [];
+    if (anim) {
+      var posters = (B.store.get('splashPosters', []) || []).slice();
+      for (var k = posters.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var t = posters[k]; posters[k] = posters[j]; posters[j] = t; }
+      var w = window.innerWidth || 1280, cols = w > 1100 ? 8 : w > 700 ? 6 : 5, per = 3, g = seeded(42), colW = 100 / cols;
+      for (var c = 0; c < cols; c++) for (var row = 0; row < per; row++) {
+        var i = c * per + row, pal = PAL[i % PAL.length], url = posters.length ? posters[i % posters.length] : null;
+        var cw = colW * (0.82 + g() * 0.25);
+        var x = colW * (c + 0.5) + (g() - 0.5) * colW * 0.3;
+        var el = h('div.sp-cover', { style: 'left:' + x + 'vw;width:' + cw + 'vw;margin-left:' + (-cw / 2) + 'vw;'
+          + 'background:linear-gradient(135deg,' + pal[0] + ',' + pal[1] + ');'
+          + 'animation-delay:' + (0.12 + row * 0.32 + g() * 0.35).toFixed(2) + 's;animation-duration:' + (1.15 + g() * 0.55).toFixed(2) + 's;'
+          + '--r0:' + ((g() - 0.5) * 16).toFixed(1) + 'deg;--r1:' + ((g() - 0.5) * 30).toFixed(1) + 'deg' }, url ? [U.img(url, 'sp-img')] : null);
+        kids.push(el);
+      }
+      kids.push(h('div.sp-dim'));
+    }
+    var letters = 'BINGR'.split('').map(function (ch, n) { return h('span.sp-l', { style: 'animation-delay:' + (1.52 + n * 0.09).toFixed(2) + 's' }, ch); });
+    kids.push(h('div.sp-word', [h('div.sp-letters', letters), h('div.sp-shine', 'BINGR'), h('div.sp-line')]));
+    var scr = { el: h('div.splash.sp' + (anim ? '.sp-anim' : '.sp-static'), kids), isSplash: true };
+    scr.done = new Promise(function (res) { setTimeout(res, anim ? 3000 : 0); });
+    return scr;
+  }
+  // tussenscherm tijdens laden: houdt de intro staan als die nog in beeld is, anders de naam zonder animatie
+  function splash() { return current && current.isSplash ? current : introSplash(false); }
+  // covers voor de volgende intro bewaren (zoals SplashPosters in de apps)
+  B.on('library', function () {
+    try {
+      var l = Lib.lib || {}, list = [];
+      (l.movies || []).slice(0, 300).forEach(function (x) { if (x.poster) list.push(x.poster); });
+      (l.series || []).slice(0, 200).forEach(function (x) { if (x.poster) list.push(x.poster); });
+      for (var k = list.length - 1; k > 0; k--) { var j = Math.floor(Math.random() * (k + 1)); var t = list[k]; list[k] = list[j]; list[j] = t; }
+      if (list.length) B.store.set('splashPosters', list.slice(0, 40));
+    } catch (e) { /* stil */ }
+  });
 
   app.applyAccent = function (key) {
     var k = key || D.accentKey(app.profile);
@@ -54,13 +99,14 @@
     B.setLanguage(D.shared('appLanguage', '') || '');
     document.documentElement.style.setProperty('--accent', D.accents[B.store.get('lastAccent', 'red')] || D.accents.red);
     root = document.getElementById('app');
-    show(splash());
+    var intro = introSplash(true);
+    show(intro);
     B.on('signedOut', function () { B.clearProxyToken(); toLogin(); });
     B.on('sessionInvalid', function () { A.revokedSignOut(); });
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
     document.addEventListener('keydown', globalKeys);
-    Promise.all([withTimeout(loadBuild(), 2500), A.init()]).then(function (r) {
+    Promise.all([withTimeout(loadBuild(), 2500), A.init(), intro.done]).then(function (r) {
       if (r[1]) {
         afterLogin(false);
         A.refresh().then(function (res) { if (res === 'invalid') toLogin(); });
