@@ -32,7 +32,7 @@ footer div{max-width:820px;margin:0 auto;padding:26px 24px}
 <header><div><a class="logo" href="index.html">BINGR</a><span style="display:flex;align-items:center;gap:16px"><a href="#" id="langSwitch" class="muted" lang="en">English</a><a href="index.html" class="muted">← bingr.online</a><span data-userbtn style="display:inline-flex"></span></span></div></header>
 <main data-l="nl">
 <h1>Support</h1>
-<p>Hulp nodig met Bingr? Hier vind je de meest gestelde vragen. Staat je antwoord er niet bij, mail dan naar <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
+<p>Hulp nodig met Bingr? Hier vind je de meest gestelde vragen. Bingr installeren of bijwerken? Zie <a href="#installeren">Bingr installeren</a>. Staat je antwoord er niet bij, mail dan naar <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
 <h2 id="account">Inloggen en je tv koppelen</h2>
 <p>Bingr werkt met een Bingr-account. Maak in de app een account met je e-mailadres en een wachtwoord, of log in. Je bestaande profielen worden bij de eerste keer inloggen aan je account gekoppeld en verschijnen ook op je andere apparaten.</p>
 <p>Op <b>Apple TV, Android TV, Google TV, Fire TV en Samsung TV</b> zie je een QR-code en een code als <b>K7Q-4MX</b>. Scan de QR-code met je telefoon, of ga naar <a href="koppelen/">bingr.online/koppelen</a> en vul de code in. Log in en tik op <b>Koppelen</b>: je tv is meteen ingelogd. Liever met de afstandsbediening? Kies <b>Inloggen met e-mail</b>.</p>
@@ -51,15 +51,58 @@ footer div{max-width:820px;margin:0 auto;padding:26px 24px}
 <h2 id="trakt">Trakt en ondertitels koppelen</h2>
 <p>Ga met het hoofdaccount naar <b>Mijn Bingr</b> en kies Trakt of OpenSubtitles. Bij Trakt krijg je een code die je invoert op trakt.tv/activate.</p>
 <p>Daarna gaat alles vanzelf: wat je in Bingr kijkt wordt vanaf 80% als gezien doorgegeven, en wat je op Trakt of in een andere app keek krijgt in Bingr een vinkje. In de speler zie je kort of Trakt meekijkt; in Mijn Bingr zie je wanneer er voor het laatst is gesynchroniseerd. Ook zonder Trakt houdt Bingr per profiel zelf bij wat je hebt gezien.</p>
-<h2 id="samsung">Bingr installeren op een Samsung TV</h2>
-<p>Bingr voor Samsung TV (Tizen) staat niet in de Samsung-winkel. Je installeert de app zelf als <b>.wgt</b>-bestand, net als de APK op Android. Het bestand staat bij de <a href="https://github.com/LRvdLinden/bingr-android/releases/latest">nieuwste release op GitHub</a>, naast de APK. De volledige uitleg staat in de <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">installatiehandleiding</a>.</p>
+<h2 id="installeren">Bingr installeren</h2>
+<p>Alle downloads staan op <a href="index.html#download">bingr.online</a>: de knoppen verwijzen altijd naar de nieuwste versie. De Android-app (één <b>APK</b> voor telefoon, tablet, Android TV, Google TV en Fire TV) en de Samsung TV-app (<b>.wgt</b>) staan niet in de Play Store of de Samsung-winkel; je installeert ze zelf, zoals hieronder uitgelegd. In je browser kijken kan zonder installeren op <a href="web/">bingr.online/web</a>.</p>
+<h2 id="android">Op een Android-telefoon of -tablet</h2>
 <ul>
-<li><b>Developer Mode aanzetten:</b> open op je tv <b>Apps</b>, toets met de afstandsbediening <b>1 2 3 4 5</b> in, zet <b>Developer mode</b> aan en vul het IP-adres in van de computer waarmee je installeert. Start de tv daarna opnieuw op.</li>
-<li><b>Certificaat:</b> maak in Tizen Studio met de Certificate Manager een <b>Samsung-certificaat</b> (auteur- en distributeurcertificaat) en voeg daarbij de DUID van je tv toe. Zonder dat certificaat weigert de tv de app.</li>
-<li><b>Installeren:</b> verbind met <code>sdb connect &lt;ip-van-je-tv&gt;</code> en installeer het .wgt-bestand uit de release met <code>tizen install</code> of via de Device Manager van Tizen Studio. Het stap-voor-stapplan staat in de <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">Tizen-handleiding</a>. Bingr staat daarna tussen je apps.</li>
-<li><b>Updaten:</b> installeer de nieuwe .wgt over de oude heen. Gebruik je hetzelfde certificaat, dan blijven je login, profielen en instellingen bewaard. Met een ander certificaat moet je de oude app eerst verwijderen en opnieuw inloggen.</li>
+<li>Open <a href="index.html#download">bingr.online</a> op je telefoon of tablet en tik op <b>Download voor Android</b>. Het bestand <code>Bingr-…apk</code> wordt gedownload.</li>
+<li>Open het bestand (via de melding, Chrome of de app Bestanden) en kies <b>Installeren</b>.</li>
+<li>Android vraagt één keer of de app waarmee je het bestand opent (Chrome, Bestanden, WhatsApp …) apps mag installeren: zet <b>Toestaan van deze bron</b> aan, ga terug en kies opnieuw <b>Installeren</b>.</li>
+<li>Bingr staat daarna tussen je apps. Log in met je Bingr-account.</li>
 </ul>
-<p class="muted" style="margin-top:12px">Developer Mode staat alleen open voor het IP-adres dat je hebt ingevuld. Na een update van de tv-software moet je Developer Mode soms opnieuw aanzetten.</p>
+<h2 id="androidtv">Op Android TV, Google TV of Fire TV</h2>
+<ul>
+<li>Installeer de gratis app <b>Downloader</b> (van AFTVnews) uit de Play Store of de Amazon Appstore op je tv.</li>
+<li>Sta toe dat Downloader apps installeert:
+<ul>
+<li><b>Fire TV:</b> <b>Instellingen → Mijn Fire TV → Opties voor ontwikkelaars → Apps van onbekende bronnen installeren</b> en zet Downloader aan. Zie je <b>Opties voor ontwikkelaars</b> niet, ga dan naar <b>Mijn Fire TV → Info</b> en klik 7 keer op de naam van je apparaat.</li>
+<li><b>Android TV en Google TV:</b> <b>Instellingen → Apps → Beveiliging en beperkingen → Onbekende bronnen</b> en zet Downloader aan (op sommige tv's: <b>Instellingen → Apparaatvoorkeuren → Beveiliging en beperkingen</b>).</li>
+</ul></li>
+<li>Open Downloader, vul <code>bingr.online</code> in en kies <b>Go</b>. Kies op de website <b>Download voor Android</b>; Downloader downloadt de APK en vraagt of je hem wilt installeren. Kies <b>Installeren</b>.</li>
+<li>Open Bingr en log in met de QR-code of de code via <a href="koppelen/">bingr.online/koppelen</a> (zie <a href="#account">Inloggen en je tv koppelen</a>). Het APK-bestand mag je daarna in Downloader verwijderen.</li>
+</ul>
+<h2 id="samsung">Op een Samsung TV</h2>
+<p>Bingr voor Samsung TV (Tizen) werkt op Samsung-smart-tv's van 2018 en nieuwer. Je installeert het <b>.wgt</b>-bestand vanaf een computer met de ontwikkelaarsmodus van de tv en een eigen Samsung-certificaat. Download het bestand met de knop <b>Download voor Samsung TV (.wgt)</b> onder <a href="index.html#platforms">Kijk Bingr vanaf deze apparaten</a>.</p>
+<p><b>1. Ontwikkelaarsmodus aanzetten op de tv</b></p>
+<ul>
+<li>Zorg dat de tv en je computer op hetzelfde netwerk zitten en zoek het IP-adres van je computer op (macOS: <b>Systeeminstellingen → Netwerk</b>; Windows: <code>ipconfig</code>).</li>
+<li>Open op de tv <b>Apps</b> en toets met de afstandsbediening <b>1 2 3 4 5</b> in (zonder cijfertoetsen: via het nummerblok op het scherm).</li>
+<li>Zet <b>Developer mode</b> op <b>On</b>, vul bij <b>Host PC IP</b> het IP-adres van je computer in en kies <b>OK</b>.</li>
+<li>Zet de tv helemaal uit en weer aan (houd de aan/uit-knop ingedrukt tot hij herstart).</li>
+<li>Zoek het IP-adres van de tv op: <b>Instellingen → Algemeen → Netwerk → Netwerkstatus → IP-instellingen</b>.</li>
+</ul>
+<p><b>2. Tizen Studio en een Samsung-certificaat</b></p>
+<ul>
+<li>Installeer <a href="https://developer.tizen.org/development/tizen-studio/download">Tizen Studio</a> (de versie met IDE).</li>
+<li>Installeer via <b>Tools → Package Manager → Extension SDK</b> de <b>Samsung Certificate Extension</b> en de <b>TV Extensions</b> (de nieuwste).</li>
+<li>Verbind de tv: <b>Tools → Device Manager → Remote Device Manager → +</b>, vul het IP-adres van de tv in (poort 26101) en zet de schakelaar aan. De tv verschijnt in de lijst.</li>
+<li>Open <b>Tools → Certificate Manager → +</b> en kies <b>Samsung → TV</b>. Geef het profiel een naam (bijvoorbeeld <code>bingr</code>), maak een nieuw <b>auteurscertificaat</b> met een wachtwoord dat je goed bewaart, log in met je <b>Samsung-account</b> en maak een nieuw <b>distributeurscertificaat</b> met privilege <b>Public</b>. De <b>DUID</b> van de verbonden tv staat er automatisch in; andere tv's kun je hier toevoegen.</li>
+<li>Maak een back-up van de certificaatbestanden (bijvoorbeeld <code>~/SamsungCertificate/bingr/author.p12</code> en <code>distributor.p12</code>): met een ander auteurscertificaat installeert een update niet meer over de oude versie heen.</li>
+</ul>
+<p><b>3. De app installeren</b></p>
+<ul>
+<li><b>Met Tizen Studio:</b> klik in de <b>Device Manager</b> met de rechtermuisknop op de tv, kies <b>Install app</b> en selecteer het <code>.wgt</code>-bestand.</li>
+<li><b>Met de opdrachtregel</b> (de tools staan in <code>~/tizen-studio/tools</code> en <code>~/tizen-studio/tools/ide/bin</code>): verbind met <code>sdb connect &lt;ip-van-je-tv&gt;</code>, bekijk de naam van de tv met <code>sdb devices</code> en installeer met <code>tizen install -n Bingr-….wgt -t &lt;naam-van-je-tv&gt;</code>.</li>
+<li>Weigert de tv het bestand vanwege het certificaat, onderteken het dan eerst met je eigen profiel: <code>tizen package -t wgt -s bingr -- Bingr-….wgt</code>, en installeer het daarna opnieuw.</li>
+<li>Bingr staat daarna bij <b>Apps</b> op de tv. Log in met de QR-code of via <a href="koppelen/">bingr.online/koppelen</a>.</li>
+</ul>
+<p class="muted" style="margin-top:12px">Developer Mode staat alleen open voor het IP-adres dat je hebt ingevuld en mag na de installatie aan blijven; zet je hem uit, dan blijft de app gewoon werken. Na een update van de tv-software moet je Developer Mode soms opnieuw aanzetten. Nieuwe tv, of is het distributeurscertificaat verlopen? Maak een nieuw distributeurscertificaat met het <b>bestaande</b> auteurscertificaat en voeg de DUID van de tv toe.</p>
+<h2 id="updaten">Bingr bijwerken</h2>
+<ul>
+<li><b>Android, Android TV, Google TV en Fire TV:</b> download de nieuwste APK op dezelfde manier en installeer hem <b>over de oude heen</b>. Je profielen, servers en instellingen blijven bewaard.</li>
+<li><b>Samsung TV:</b> installeer de nieuwe .wgt op dezelfde manier over de oude heen. Met hetzelfde auteurscertificaat blijven je login, profielen en instellingen bewaard. Met een ander certificaat weigert de tv de update; verwijder dan eerst de oude app en log opnieuw in (de tv telt dan als nieuw apparaat).</li>
+<li>Wat er nieuw is per build, lees je in de <a href="changelog/">changelog</a>.</li>
+</ul>
 <h2 id="browser">Kijken in je browser</h2>
 <p>Op <a href="web/">bingr.online/web</a> kijk je Bingr in Chrome, Safari, Edge of Firefox, op je computer, iPad of telefoon. Op een telefoon log je in met e-mail en wachtwoord; op een iPad of computer scan je de QR-code met de Bingr-app op je telefoon (of kies je <i>Inloggen met e-mail</i>). Ben je al ingelogd op bingr.online, dan ben je meteen binnen. Je profielen, servers, Mijn lijst, voortgang en instellingen komen uit je account; de browser telt als apparaat (max. 15) en als scherm (max. 6 tegelijk).</p>
 <ul>
@@ -74,7 +117,7 @@ footer div{max-width:820px;margin:0 auto;padding:26px 24px}
 </main>
 <main data-l="en" hidden>
 <h1>Support</h1>
-<p>Need help with Bingr? Here are the most frequently asked questions. Can't find your answer? Email <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
+<p>Need help with Bingr? Here are the most frequently asked questions. Installing or updating Bingr? See <a href="#installeren-en">Installing Bingr</a>. Can't find your answer? Email <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
 <h2 id="account-en">Signing in and linking your TV</h2>
 <p>Bingr works with a Bingr account. Create an account in the app with your email address and a password, or sign in. Your existing profiles are linked to your account the first time you sign in and also appear on your other devices.</p>
 <p>On <b>Apple TV, Android TV, Google TV, Fire TV and Samsung TV</b> you'll see a QR code and a code like <b>K7Q-4MX</b>. Scan the QR code with your phone, or go to <a href="koppelen/">bingr.online/koppelen</a> and enter the code. Sign in and tap <b>Link</b>: your TV is signed in right away. Prefer the remote? Choose <b>Sign in with email</b>.</p>
@@ -93,15 +136,58 @@ footer div{max-width:820px;margin:0 auto;padding:26px 24px}
 <h2 id="trakt-en">Connecting Trakt and subtitles</h2>
 <p>With the main account, go to <b>My Bingr</b> and choose Trakt or OpenSubtitles. For Trakt you get a code to enter at trakt.tv/activate.</p>
 <p>After that everything happens automatically: what you watch in Bingr is marked as watched from 80%, and what you watched on Trakt or in another app gets a checkmark in Bingr. In the player you briefly see whether Trakt is watching along; in My Bingr you see when it last synced. Even without Trakt, Bingr keeps track of what you've watched per profile.</p>
-<h2 id="samsung-en">Installing Bingr on a Samsung TV</h2>
-<p>Bingr for Samsung TV (Tizen) isn't in the Samsung store. You install the app yourself as a <b>.wgt</b> file, just like the APK on Android. The file is in the <a href="https://github.com/LRvdLinden/bingr-android/releases/latest">latest release on GitHub</a>, next to the APK. The full instructions are in the <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">installation guide</a>.</p>
+<h2 id="installeren-en">Installing Bingr</h2>
+<p>All downloads are on <a href="index.html#download">bingr.online</a>: the buttons always point to the newest version. The Android app (one <b>APK</b> for phone, tablet, Android TV, Google TV and Fire TV) and the Samsung TV app (<b>.wgt</b>) aren't in the Play Store or the Samsung store; you install them yourself, as explained below. You can watch in your browser without installing anything at <a href="web/">bingr.online/web</a>.</p>
+<h2 id="android-en">On an Android phone or tablet</h2>
 <ul>
-<li><b>Turn on Developer Mode:</b> open <b>Apps</b> on your TV, enter <b>1 2 3 4 5</b> with the remote, turn on <b>Developer mode</b> and enter the IP address of the computer you install from. Then restart the TV.</li>
-<li><b>Certificate:</b> in Tizen Studio, create a <b>Samsung certificate</b> (author and distributor certificate) with the Certificate Manager and add your TV's DUID to it. Without that certificate the TV refuses the app.</li>
-<li><b>Install:</b> connect with <code>sdb connect &lt;your-tv-ip&gt;</code> and install the .wgt file from the release with <code>tizen install</code> or via the Device Manager in Tizen Studio. The step-by-step guide is in the <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">Tizen guide</a>. Bingr then appears among your apps.</li>
-<li><b>Updating:</b> install the new .wgt over the old one. If you use the same certificate, your sign-in, profiles and settings are kept. With a different certificate you have to remove the old app first and sign in again.</li>
+<li>Open <a href="index.html#download">bingr.online</a> on your phone or tablet and tap <b>Download for Android</b>. The file <code>Bingr-…apk</code> is downloaded.</li>
+<li>Open the file (from the notification, Chrome or the Files app) and choose <b>Install</b>.</li>
+<li>Android asks once whether the app you open the file with (Chrome, Files, WhatsApp …) may install apps: turn on <b>Allow from this source</b>, go back and choose <b>Install</b> again.</li>
+<li>Bingr then appears among your apps. Sign in with your Bingr account.</li>
 </ul>
-<p class="muted" style="margin-top:12px">Developer Mode is only open to the IP address you entered. After a TV software update you sometimes have to turn Developer Mode on again.</p>
+<h2 id="androidtv-en">On Android TV, Google TV or Fire TV</h2>
+<ul>
+<li>Install the free <b>Downloader</b> app (by AFTVnews) from the Play Store or the Amazon Appstore on your TV.</li>
+<li>Allow Downloader to install apps:
+<ul>
+<li><b>Fire TV:</b> <b>Settings → My Fire TV → Developer options → Install unknown apps</b> and turn on Downloader. Don't see <b>Developer options</b>? Go to <b>My Fire TV → About</b> and click your device name 7 times.</li>
+<li><b>Android TV and Google TV:</b> <b>Settings → Apps → Security &amp; restrictions → Unknown sources</b> and turn on Downloader (on some TVs: <b>Settings → Device Preferences → Security &amp; restrictions</b>).</li>
+</ul></li>
+<li>Open Downloader, enter <code>bingr.online</code> and choose <b>Go</b>. On the website, choose <b>Download for Android</b>; Downloader downloads the APK and asks whether you want to install it. Choose <b>Install</b>.</li>
+<li>Open Bingr and sign in with the QR code or the code at <a href="koppelen/">bingr.online/koppelen</a> (see <a href="#account-en">Signing in and linking your TV</a>). You can delete the APK file in Downloader afterwards.</li>
+</ul>
+<h2 id="samsung-en">On a Samsung TV</h2>
+<p>Bingr for Samsung TV (Tizen) works on Samsung smart TVs from 2018 and newer. You install the <b>.wgt</b> file from a computer using the TV's Developer Mode and your own Samsung certificate. Download the file with the <b>Download for Samsung TV (.wgt)</b> button under <a href="index.html#platforms">Watch Bingr on these devices</a>.</p>
+<p><b>1. Turn on Developer Mode on the TV</b></p>
+<ul>
+<li>Make sure the TV and your computer are on the same network and look up your computer's IP address (macOS: <b>System Settings → Network</b>; Windows: <code>ipconfig</code>).</li>
+<li>Open <b>Apps</b> on the TV and enter <b>1 2 3 4 5</b> with the remote (without number keys: via the on-screen number pad).</li>
+<li>Set <b>Developer mode</b> to <b>On</b>, enter your computer's IP address under <b>Host PC IP</b> and choose <b>OK</b>.</li>
+<li>Turn the TV off completely and on again (hold the power button until it restarts).</li>
+<li>Look up the TV's IP address: <b>Settings → General → Network → Network Status → IP Settings</b>.</li>
+</ul>
+<p><b>2. Tizen Studio and a Samsung certificate</b></p>
+<ul>
+<li>Install <a href="https://developer.tizen.org/development/tizen-studio/download">Tizen Studio</a> (the version with the IDE).</li>
+<li>Via <b>Tools → Package Manager → Extension SDK</b>, install the <b>Samsung Certificate Extension</b> and the <b>TV Extensions</b> (the newest).</li>
+<li>Connect the TV: <b>Tools → Device Manager → Remote Device Manager → +</b>, enter the TV's IP address (port 26101) and turn the switch on. The TV appears in the list.</li>
+<li>Open <b>Tools → Certificate Manager → +</b> and choose <b>Samsung → TV</b>. Name the profile (for example <code>bingr</code>), create a new <b>author certificate</b> with a password you keep safe, sign in with your <b>Samsung account</b> and create a new <b>distributor certificate</b> with privilege <b>Public</b>. The <b>DUID</b> of the connected TV is filled in automatically; you can add other TVs here.</li>
+<li>Back up the certificate files (for example <code>~/SamsungCertificate/bingr/author.p12</code> and <code>distributor.p12</code>): with a different author certificate, an update no longer installs over the old version.</li>
+</ul>
+<p><b>3. Install the app</b></p>
+<ul>
+<li><b>With Tizen Studio:</b> in the <b>Device Manager</b>, right-click the TV, choose <b>Install app</b> and select the <code>.wgt</code> file.</li>
+<li><b>From the command line</b> (the tools are in <code>~/tizen-studio/tools</code> and <code>~/tizen-studio/tools/ide/bin</code>): connect with <code>sdb connect &lt;your-tv-ip&gt;</code>, look up the TV's name with <code>sdb devices</code> and install with <code>tizen install -n Bingr-….wgt -t &lt;your-tv-name&gt;</code>.</li>
+<li>If the TV refuses the file because of the certificate, sign it with your own profile first: <code>tizen package -t wgt -s bingr -- Bingr-….wgt</code>, then install it again.</li>
+<li>Bingr then appears under <b>Apps</b> on the TV. Sign in with the QR code or via <a href="koppelen/">bingr.online/koppelen</a>.</li>
+</ul>
+<p class="muted" style="margin-top:12px">Developer Mode is only open to the IP address you entered and may stay on after installing; if you turn it off, the app keeps working. After a TV software update you sometimes have to turn Developer Mode on again. New TV, or has the distributor certificate expired? Create a new distributor certificate with the <b>existing</b> author certificate and add the TV's DUID.</p>
+<h2 id="updaten-en">Updating Bingr</h2>
+<ul>
+<li><b>Android, Android TV, Google TV and Fire TV:</b> download the newest APK the same way and install it <b>over the old one</b>. Your profiles, servers and settings are kept.</li>
+<li><b>Samsung TV:</b> install the new .wgt the same way over the old one. With the same author certificate, your sign-in, profiles and settings are kept. With a different certificate the TV refuses the update; remove the old app first and sign in again (the TV then counts as a new device).</li>
+<li>See what's new in each build in the <a href="changelog/">changelog</a>.</li>
+</ul>
 <h2 id="browser-en">Watching in your browser</h2>
 <p>At <a href="web/">bingr.online/web</a> you can watch Bingr in Chrome, Safari, Edge or Firefox, on your computer, iPad or phone. On a phone you sign in with email and password; on an iPad or computer you scan the QR code with the Bingr app on your phone (or choose <i>Sign in with email</i>). If you're already signed in on bingr.online, you're in straight away. Your profiles, servers, My List, progress and settings come from your account; the browser counts as a device (max. 15) and as a screen (max. 6 at the same time).</p>
 <ul>

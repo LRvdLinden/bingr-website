@@ -1,20 +1,41 @@
 # bingr.online
 
-De website van **Bingr**, de IPTV-speler voor iPhone, iPad, Apple TV, Mac en Android. Statische HTML (Nederlands en Engels), zonder build-stap: `index.html`, `privacy.html` en `support.html`, met afbeeldingen in `assets/img/nl` en `assets/img/en`.
+De website van **Bingr**, de IPTV-speler met de look & feel van Netflix voor iPhone, iPad, Apple TV, Mac, Android, Android TV / Google TV / Fire TV, Samsung TV en de browser. De site is er in het Nederlands en het Engels.
 
-- App (iOS, iPadOS, tvOS, macOS): [LRvdLinden/iptv-ios-appletv](https://github.com/LRvdLinden/iptv-ios-appletv)
-- Android: [LRvdLinden/bingr-android](https://github.com/LRvdLinden/bingr-android)
+- Apple-apps (iOS, iPadOS, tvOS, macOS): [LRvdLinden/iptv-ios-appletv](https://github.com/LRvdLinden/iptv-ios-appletv)
+- Android, Android TV en Samsung TV: [LRvdLinden/bingr-android](https://github.com/LRvdLinden/bingr-android)
+- Wat er nieuw is per build: [bingr.online/changelog](https://bingr.online/changelog/)
 
-## Online zetten
+## /web: Bingr in je browser
 
-De workflow **Website** uploadt de site via FTPS naar de webserver bij elke push naar `main` (of met de hand via *Actions → Website → Run workflow*). Nodig als repository-secrets (*Settings → Secrets and variables → Actions*): `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`, en optioneel `FTP_USERNAME_ALT` en `FTP_DIR` (vaste doelmap; anders zoekt de workflow zelf `public_html`, `httpdocs`, `www` enz.). Wachtwoorden staan nooit in de repo.
+Op [bingr.online/web](https://bingr.online/web/) kijk je Bingr zonder iets te installeren, in Chrome, Safari, Edge of Firefox, op je computer, iPad of telefoon.
 
-## Covers en screenshots
+- **Inloggen**: op een telefoon met e-mail en wachtwoord; op een iPad of computer scan je de QR-code met de Bingr-app op je telefoon (of kies je *Inloggen met e-mail*). Ben je al ingelogd op bingr.online, dan ben je meteen binnen.
+- **Alles uit je account**: je profielen ("Wie kijkt er?"), servers, Mijn lijst, voortgang, collecties en instellingen komen uit je Bingr-account en synchroniseren met je andere apparaten.
+- **Netflix-look**: Home met billboard en rijen, Live TV met tv-gids, Films en Series met detailpagina's, seizoenen en afleveringen, Zoeken en Mijn Bingr.
+- **Bronnen**: M3U, Xtream Codes, MAC-portal, Plex, Jellyfin, Emby en Stremio.
+- **Formaten**: HLS (.m3u8), MP4/WebM en live MPEG-TS. Plex, Jellyfin en Emby zetten andere formaten zelf om.
+- **Servers zonder CORS**: veel IPTV-servers staan geen browsers toe; Bingr haalt de lijst en streams dan op via een beveiligde doorgeefdienst, alleen voor de servers in je eigen account. Alleen https-servers en -streams werken in de browser.
+- **Sneltoetsen**: spatie (afspelen/pauze), ← → (10 seconden), ↑ ↓ (volume of andere zender), F (volledig scherm), M (geluid), Esc (sluiten) en / (zoeken).
+- De browser telt als apparaat (max. 15 per account) en als scherm (max. 6 tegelijk).
 
-De workflow **Covers** haalt elke maandag echte film- en serieposters op via TMDB (secret `TMDB_API_KEY`), maakt de screenshots opnieuw met de mockups uit de app-repo, werkt de site bij (screenshots, profielfiguurtjes, icoon, versienummer) en zet hem online.
+## /koppelen: je tv koppelen
 
-Lokaal kan dat ook, met beide repo's naast elkaar:
+Op **Apple TV, Android TV, Google TV, Fire TV en Samsung TV** toont Bingr bij het inloggen een QR-code en een code als `K7Q-4MX`. Op [bingr.online/koppelen](https://bingr.online/koppelen/) koppel je die tv aan je account:
 
-```
-python3 iptv-ios-appletv/tools/sync_website.py --site bingr-website [--zip Bingr-website.zip]
-```
+1. Scan de QR-code met je telefoon (de code staat dan al ingevuld), of ga zelf naar bingr.online/koppelen en vul de code in.
+2. Log in met je Bingr-account, of maak er hier een aan (ook *Wachtwoord vergeten?* kan hier).
+3. Tik op **Koppelen**: de tv is meteen ingelogd.
+
+Een verlopen of ongeldige code geeft een duidelijke melding; de tv toont dan vanzelf een nieuwe code. De oude link `bingr.online/tv` stuurt door naar /koppelen, zodat QR-codes van oudere apps blijven werken.
+
+## Functies van de site
+
+- **Home** ([bingr.online](https://bingr.online)): uitleg over Bingr, screenshots per apparaat en de downloadknoppen (App Store, Android-APK en Samsung TV-.wgt; altijd de nieuwste versie).
+- **Mijn Bingr** ([/account](https://bingr.online/account/)): je account op je computer: apparaten bekijken, hernoemen en verwijderen, wie er nu kijkt en de kijkgeschiedenis (hoofdprofiel), servers en collecties beheren.
+- **Support** ([/support.html](https://bingr.online/support.html)): veelgestelde vragen, inloggen en koppelen, en de uitleg om Bingr te installeren en bij te werken op Android, Android TV / Google TV / Fire TV en Samsung TV.
+- **Changelog** ([/changelog](https://bingr.online/changelog/)): wat er nieuw is per build, te filteren per platform.
+- **Status** ([/status](https://bingr.online/status/)): of de diensten van Bingr werken.
+- **Wachtwoord opnieuw instellen** ([/reset](https://bingr.online/reset/)) en **afmelden voor e-mails** ([/unsubscribe](https://bingr.online/unsubscribe/)).
+- **Privacy** ([/privacy.html](https://bingr.online/privacy.html)) en cookie-instellingen.
+- Overal Nederlands en Engels (volgt de taal van je browser, of kies zelf).
