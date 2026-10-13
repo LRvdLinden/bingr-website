@@ -20,12 +20,20 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
 .filters button svg{width:16px;height:16px}
 .filters button.on{background:#fff;color:#000;border-color:#fff}
 .flabel{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:20px}
-.rel{padding:30px 0;border-bottom:1px solid #ffffff14;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px}
-.rh{display:flex;flex-direction:column;align-items:flex-start;gap:4px;position:sticky;top:20px;align-self:start}
-@media (max-width:700px){.rel{grid-template-columns:1fr;gap:14px}.rh{position:static;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 12px}}
-.rh .v{font-weight:800;font-size:22px}.rh .b{color:#e5e5e5;font-weight:600;font-size:16px}.rh .d{color:var(--sec);font-size:14px}
-.latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;margin-top:6px}
-@media (max-width:700px){.latest{margin-top:0;align-self:center}}
+.rel{border-bottom:1px solid #ffffff14}
+.rhead{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:20px 4px;border-radius:10px}
+.rhead:hover .rv b{text-decoration:underline;text-decoration-color:#ffffff40}
+.rhead:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.rv{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.rv .v{font-weight:800;font-size:22px;color:#fff}.rv .b{color:#e5e5e5;font-weight:700;font-size:16px}.rv .d{color:var(--sec);font-size:14px}
+.rsum{grid-column:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rsum .pl .pi{margin-left:0;margin-right:4px}
+.tc{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:3px 7px;background:#ffffff0d}
+.tc.new{color:#6ee68a}.tc.improved{color:#8fb8ff}.tc.fixed{color:#ffc56b}.tc .n{color:#fff;opacity:.75}
+.chev{grid-column:2;grid-row:1 / span 2;color:#fff;transition:transform .2s}.rel.open .chev{transform:rotate(180deg)}
+.rbody{display:none;padding:0 4px 26px}.rel.open .rbody{display:block}
+.rel.open .rsum{display:none}
+.latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;align-self:center}
 .grp{margin-top:14px}.grp:first-of-type{margin-top:0}
 .grp h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
 .grp.new h3{color:#6ee68a}.grp.improved h3{color:#8fb8ff}.grp.fixed h3{color:#ffc56b}
@@ -108,7 +116,7 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
     for (const [k, l, c] of P) if (rest.includes(k)) out.push(`<span class="pi ${c}" title="${l}">${IC[k]}${l}</span>`);
     return `<span class="pl">${out.join("")}</span>`;
   }
-  fetch("../assets/changelog.json", { cache: "no-cache" }).then((r) => r.json()).then((data) => {
+  fetch("../assets/changelog.json?t=" + Date.now(), { cache: "no-store" }).then((r) => r.json()).then((data) => {
     const loc = lang === "nl" ? "nl-NL" : "en-GB";
     data = data.map((e) => e.items ? e : { ...e, items: (e.nl || []).map((nl, i) => ({ type: "new", platforms: e.platforms || [], nl, en: (e.en || [])[i] || nl })) });
     // Nieuwste versie per apparaat: de apps gaan elke build samen mee (nieuwste build; Samsung TV pas vanaf TIZEN_FROM),
@@ -126,7 +134,9 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
       box.innerHTML = `<h2 id="curTitle">${T.current}</h2><div class="cvs">${rows}</div>`;
       box.querySelectorAll("[data-cp]").forEach((x) => x.onclick = (ev) => { ev.preventDefault(); fp = x.dataset.cp; const sel = document.getElementById("fp"); if (sel) sel.value = fp; try { keep(); } catch (e) {} render(); document.getElementById("list").scrollIntoView({ behavior: "smooth", block: "start" }); });
     })();
+    let openSet = null, firstBuild = null; // null = standaard: alleen de nieuwste (zichtbare) build open
     function render() {
+      firstBuild = null;
       const fpS = document.getElementById("fp"), ftS = document.getElementById("ft");
       fpS.innerHTML = [["all", T.all], ...P.map(([k, l, c, full]) => [k, full || l])].map(([k, l]) => `<option value="${k}"${k === fp ? " selected" : ""}>${l}</option>`).join("");
       ftS.innerHTML = [["all", T.all], ["new", T.new], ["improved", T.improved], ["fixed", T.fixed]].map(([k, l]) => `<option value="${k}"${k === ft ? " selected" : ""}>${l}</option>`).join("");
@@ -134,21 +144,33 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
       const keep = () => { try { const u = new URL(location.href); fp === "all" ? u.searchParams.delete("p") : u.searchParams.set("p", fp); ft === "all" ? u.searchParams.delete("t") : u.searchParams.set("t", ft); history.replaceState(null, "", u); } catch (x) {} };
       fpS.onchange = () => { fp = fpS.value; keep(); render(); };
       ftS.onchange = () => { ft = ftS.value; keep(); render(); };
-      let first = true;
       const html = data.map((e) => {
         // zelfde regel als de badges: vóór TIZEN_FROM telt een punt voor alle zes apps ook voor Samsung TV
         const items = e.items.filter((i) => fp === "all" || eff(i.platforms || [], e.build).includes(fp));
         const types = ft === "all" ? ["new", "improved", "fixed"] : [ft];
         if (!items.some((i) => types.includes(i.type))) return "";
+        const shown = items.filter((i) => types.includes(i.type));
         const groups = types.map((t) => {
           const rows = items.filter((i) => i.type === t);
           if (!rows.length) return "";
           return `<div class="grp ${t}"><h3>${T[t]}</h3><ul>` + rows.map((i) => `<li>${esc(i[lang] || i.nl)}${plats(i.platforms || [], e.build)}</li>`).join("") + "</ul></div>";
         }).join("");
-        const top = first ? `<span class="latest">${T.latest}</span>` : ""; first = false;
-        return `<section class="rel"><div class="rh"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</div><div>${groups}</div></section>`;
+        // samenvatting voor de dichte weergave: soorten met aantallen en de apparaten die in deze build voorkomen
+        const counts = types.map((t) => { const n = shown.filter((i) => i.type === t).length; return n ? `<span class="tc ${t}">${T[t]} <span class="n">${n}</span></span>` : ""; }).join("");
+        const all = []; shown.forEach((i) => (i.platforms || []).forEach((p) => { if (!all.includes(p)) all.push(p); }));
+        if (firstBuild === null) firstBuild = e.build;
+        const isOpen = openSet ? openSet.has(e.build) : e.build === firstBuild;
+        const top = e.build === data[0].build ? `<span class="latest">${T.latest}</span>` : "";
+        const chev = '<svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+        return `<section class="rel${isOpen ? " open" : ""}" data-b="${e.build}"><button type="button" class="rhead" aria-expanded="${isOpen}"><span class="rv"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</span><span class="rsum">${counts}${plats(all, e.build)}</span>${chev}</button><div class="rbody">${groups}</div></section>`;
       }).join("");
       document.getElementById("list").innerHTML = html || `<p class="empty">${T.empty}</p>`;
+      document.querySelectorAll(".rel .rhead").forEach((b) => b.onclick = () => {
+        const sec = b.parentNode, n = Number(sec.dataset.b);
+        if (!openSet) { openSet = new Set(); document.querySelectorAll(".rel.open").forEach((x) => openSet.add(Number(x.dataset.b))); }
+        const o = !sec.classList.contains("open"); sec.classList.toggle("open", o); b.setAttribute("aria-expanded", o);
+        o ? openSet.add(n) : openSet.delete(n);
+      });
     }
     render();
   });
