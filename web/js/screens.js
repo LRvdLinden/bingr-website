@@ -1147,7 +1147,6 @@
         });
       });
       aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
-      row(sec, L('Intro sound'), onOff(B.app.tuneEnabled()), function () { B.app.setTune(!B.app.tuneEnabled()); render(); });
 
       sec = section(L('Server'));
       var src = Lib.source;

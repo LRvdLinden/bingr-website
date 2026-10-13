@@ -2,9 +2,6 @@
 (function () {
   'use strict';
   var NL = {
-    'Intro sound': 'Intromuziek',
-    'Tap to start Bingr': 'Tik om Bingr te starten',
-    'Click to start Bingr': 'Klik om Bingr te starten',
     '10 seconds back': '10 seconden terug',
     '10 seconds back / forward': '10 seconden terug / vooruit',
     '10 seconds forward': '10 seconden vooruit',
