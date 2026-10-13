@@ -165,11 +165,13 @@
     tablet: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 18h2',
     laptop: 'M4 5h16v10H4zM2 19h20',
     tv: 'M3 5h18v12H3zM8 21h8',
+    // Apple TV: afgeronde rand met "tv", zoals in de iOS-app
+    appletv: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM9 7.75v7.25a1.75 1.75 0 0 0 1.75 1.75M7 10.5h4M13 10.5l2.5 6.25L18 10.5',
     browser: 'M3 4h18v16H3zM3 9h18M6 6.5h.01M9 6.5h.01'
   };
   S.platformIcon = function (p) {
     var s = String(p || '');
-    var k = /iPhone|^Android$/.test(s) ? 'phone' : /iPad|tablet/i.test(s) ? 'tablet' : /^Mac$/.test(s) ? 'laptop' : /browser/i.test(s) ? 'browser' : 'tv';
+    var k = /^Apple TV$/i.test(s) ? 'appletv' : /iPhone|^Android$/.test(s) ? 'phone' : /iPad|tablet/i.test(s) ? 'tablet' : /^Mac$/.test(s) ? 'laptop' : /browser/i.test(s) ? 'browser' : 'tv';
     var svg = U.icon('tv');
     svg.innerHTML = '<path d="' + DEV_ICONS[k] + '"/>';
     return svg;
