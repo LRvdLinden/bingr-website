@@ -4,88 +4,131 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Changelog · Bingr</title>
+<meta name="description" content="Wat er nieuw, verbeterd en opgelost is in elke build van Bingr, per apparaat.">
+<link rel="canonical" href="https://bingr.online/changelog/">
+<meta property="og:title" content="Changelog · Bingr">
+<meta property="og:description" content="Wat er nieuw, verbeterd en opgelost is in elke build van Bingr, per apparaat.">
+<meta property="og:url" content="https://bingr.online/changelog/">
+<meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/js/account.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=73">
 <style>
-main{display:block;max-width:1180px;margin:0 auto;padding:30px 24px 80px}
-h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-bottom:8px}
-.fbar{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 4px}
-.fsel{display:flex;flex-direction:column;gap:6px;min-width:190px}
-.fsel span{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-.fsel select{appearance:none;-webkit-appearance:none;background:#1b1b1b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23bbb' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;border:1px solid #ffffff2a;color:#fff;border-radius:8px;padding:10px 36px 10px 12px;font:inherit;font-size:15px;cursor:pointer}
-.fsel select:focus{outline:2px solid #e50914;outline-offset:1px}
+/* filters */
+.fbar{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 22px}
+.fsel{display:flex;flex-direction:column;gap:6px;min-width:200px}
+.fsel span{color:var(--sec);font-size:14px;font-weight:600}
+.sub-page .fsel select{padding-top:11px;padding-bottom:11px;font-size:15px}
 @media (max-width:520px){.fsel{flex:1;min-width:0}}
-.filters button{display:inline-flex;align-items:center;gap:6px;background:#ffffff14;border:1px solid #ffffff22;color:#ddd;border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
-.filters button svg{width:16px;height:16px}
-.filters button.on{background:#fff;color:#000;border-color:#fff}
-.flabel{color:var(--sec);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-top:20px}
-.rel{border-bottom:1px solid #ffffff14;position:relative;scroll-margin-top:16px}
-.rhead{padding-right:200px!important}
-.rhead .chev{position:absolute;right:8px;top:30px}
-.cp{position:absolute;z-index:2;top:18px;right:40px;display:inline-flex;align-items:center;gap:6px;background:#ffffff10;border:1px solid #ffffff22;color:#ddd;border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.cp:hover{background:#ffffff1c;color:#fff}.cp:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.cp svg{width:15px;height:15px}.cp.ok{color:#6ee68a;border-color:#6ee68a55}
-.cp .t{display:inline}@media (max-width:600px){.cp .t{display:none}.cp{padding:7px 8px}.rhead{padding-right:90px!important}.rhead .chev{top:26px}}
-.rel.hl{animation:hl 2.4s ease-out}@keyframes hl{0%{background:#e5091422}100%{background:transparent}}
-.rhead{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;align-items:center;padding:20px 4px;border-radius:10px}
-.rhead:hover .rv b{text-decoration:underline;text-decoration-color:#ffffff40}
-.rhead:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* builds: uitklapbaar, zoals de FAQ van de homepage */
+.rel{position:relative;background:var(--s1);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;scroll-margin-top:96px}
+.rel.open{border-color:#ffffff33}
+.rhead{all:unset;box-sizing:border-box;width:100%;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;align-items:center;padding:20px 22px;padding-right:190px!important;border-radius:12px}
+.rhead:hover{background:#ffffff08}
+.rhead:hover .rv .v{text-decoration:underline;text-decoration-color:#ffffff40}
+.rhead:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.rhead .chev{position:absolute;right:22px;top:24px}
+.rel.open .chev{transform:rotate(45deg)}
+.cp{position:absolute;z-index:2;top:17px;right:60px;display:inline-flex;align-items:center;gap:6px;background:#ffffff26;box-shadow:inset 0 0 0 1px #ffffff33;border:0;color:#fff;border-radius:5px;padding:7px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.cp:hover{background:#ffffff38}
+.cp svg{width:15px;height:15px}.cp.ok{color:var(--ok);box-shadow:inset 0 0 0 1px #46d36966}
+.cp .t{display:inline}
+@media (max-width:600px){.cp .t{display:none}.cp{padding:7px 9px;right:52px}.rhead{padding:16px!important;padding-right:96px!important}.rhead .chev{right:16px;top:21px}}
+.rel.hl{animation:hl 2.4s ease-out}@keyframes hl{0%{box-shadow:0 0 0 2px var(--red),0 0 30px #e5091466}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.rel.hl{animation:none;box-shadow:0 0 0 2px var(--red)}}
 .rv{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-.rv .v{font-weight:800;font-size:22px;color:#fff}.rv .b{color:#e5e5e5;font-weight:700;font-size:16px}.rv .d{color:var(--sec);font-size:14px}
+.rv .v{font-weight:800;font-size:21px;letter-spacing:-.015em;color:#fff}.rv .b{color:#e5e5e5;font-weight:700;font-size:16px}.rv .d{color:var(--sec);font-size:14px}
 .rsum{grid-column:1;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .rsum .pl .pi{margin-left:0;margin-right:4px}
-.tc{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:5px;padding:3px 7px;background:#ffffff0d}
-.tc.new{color:#6ee68a}.tc.improved{color:#8fb8ff}.tc.fixed{color:#ffc56b}.tc .n{color:#fff;opacity:.75}
-.chev{grid-column:2;grid-row:1 / span 2;color:#fff;transition:transform .2s}.rel.open .chev{transform:rotate(180deg)}
-.rbody{display:none;padding:0 4px 26px}.rel.open .rbody{display:block}
+.tc{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;border-radius:5px;padding:3px 8px;background:#ffffff0d}
+.tc.new{color:#6ee68a}.tc.improved{color:#8fb8ff}.tc.fixed{color:var(--warn)}.tc .n{color:#fff;opacity:.75}
+.rbody{display:none;padding:0 22px 24px;border-top:1px solid #000}.rel.open .rbody{display:block;padding-top:18px}
 .rel.open .rsum{display:none}
-.latest{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:2px 7px;align-self:center}
-.grp{margin-top:14px}.grp:first-of-type{margin-top:0}
-.grp h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 6px}
-.grp.new h3{color:#6ee68a}.grp.improved h3{color:#8fb8ff}.grp.fixed h3{color:#ffc56b}
+.latest{background:var(--red);color:#fff;font-size:12px;font-weight:700;border-radius:4px;padding:2px 8px;align-self:center}
+.grp{margin-top:16px}.grp:first-child{margin-top:0}
+.grp h3{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:800;margin:0 0 4px}
+.grp h3::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.grp.new h3{color:#6ee68a}.grp.improved h3{color:#8fb8ff}.grp.fixed h3{color:var(--warn)}
 .grp ul{list-style:none;margin:0;padding:0}
-.grp li{position:relative;padding:5px 0 5px 18px;color:#e2e2e2;font-size:15px;line-height:1.5}
-.grp li::before{content:"";position:absolute;left:3px;top:13px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35}
+.grp li{position:relative;padding:6px 0 6px 16px;color:#e2e2e2;font-size:15.5px;line-height:1.55}
+.grp li::before{content:"";position:absolute;left:3px;top:15px;width:5px;height:5px;border-radius:50%;background:#fff;opacity:.3}
 .pl{display:inline}.pl .pi{margin-left:6px;vertical-align:2px}
-.pi{display:inline-flex;white-space:nowrap;align-items:center;gap:4px;font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px 2px 4px;background:#ffffff12;color:#d0d0d0}
+.pi{display:inline-flex;white-space:nowrap;align-items:center;gap:4px;font-size:11.5px;font-weight:700;border-radius:5px;padding:2px 6px 2px 4px;background:#ffffff12;color:#d0d0d0}
 .pi svg{width:14px;height:14px}
 .pi.and{background:#3ddc841f;color:#8ef0bd}.pi.tz{background:#1f4fff24;color:#a8bcff}.pi.web{background:#e509141f;color:#ff9da1}.pi.srv{background:#f59e0b1f;color:#ffc56b}.pi.all{background:#ffffff0d;color:#a9a9a9}
-.none{color:#666;font-size:14px;padding:4px 0 8px}
 .empty{color:var(--sec);padding:30px 0}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:40px;align-items:start}
-#cur{position:sticky;top:20px;background:#141414;border:1px solid #ffffff14;border-radius:14px;padding:18px 18px 8px;margin-top:30px}
-#cur h2{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--sec);margin:0 0 10px}
-.cv{text-decoration:none;display:flex;align-items:center;gap:12px;padding:9px 0;border-top:1px solid #ffffff0d}.cv:first-of-type{border-top:0}
-.cv svg{width:20px;height:20px;flex:none;color:#fff;opacity:.85}
-.cv .cn{flex:1;min-width:0;font-weight:700;font-size:14px;color:#fff}
+
+/* layout met "Nieuwste versie per apparaat" */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:32px;align-items:start}
+#cur{position:sticky;top:96px;padding:20px 20px 10px}
+#cur h2{font-size:17px;font-weight:800;letter-spacing:-.01em;margin:0 0 8px}
+.cv{text-decoration:none;display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.cv:first-of-type{border-top:0}
+.cv:hover .cn{text-decoration:underline;text-decoration-color:#ffffff60}
+.cv svg{width:20px;height:20px;flex:none;color:#fff;opacity:.9}
+.cv .cn{flex:1;min-width:0;font-weight:700;font-size:14.5px;color:#fff}
 .cv .cb{font-size:13px;color:var(--sec);white-space:nowrap;text-align:right;line-height:1.35}.cv .cb b{color:#fff;font-weight:700}
-@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr);gap:0}#cur{order:-1;position:static;margin-top:22px;padding:14px 14px 4px}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr);gap:0}#cur{order:-1;position:static;margin-bottom:22px;padding:16px 16px 6px}
  #cur .cvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));column-gap:18px}.cv:nth-of-type(2){border-top:0}}
 @media (max-width:520px){#cur .cvs{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px}.cv{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:9px;row-gap:1px;align-items:start}.cv svg{grid-row:span 2;margin-top:2px}.cv .cn{font-size:13px}.cv .cb{font-size:12px;text-align:left;white-space:normal}.cv .cb br{display:none}.cv .cb .cd{display:none}}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
-<body>
-<header><a class="logo" href="../index.html">BINGR</a><span style="display:flex;align-items:center;gap:12px"><a id="langSwitch" class="lang" href="#">English</a><span data-userbtn style="display:inline-flex"></span></span></header>
-<main>
-  <h1>Changelog</h1>
-  <p class="muted" data-t="intro"></p>
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap">
+  <header class="phead"><h1 class="ttl">Changelog</h1><p class="sub" data-t="intro"></p></header>
   <div class="fbar">
     <label class="fsel"><span data-t="fPlatform"></span><select id="fp"></select></label>
     <label class="fsel"><span data-t="fType"></span><select id="ft"></select></label>
   </div>
-  <div class="layout"><div id="list"></div><aside id="cur" aria-labelledby="curTitle"></aside></div>
-</main>
-<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="../status/">Status</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
+  <div class="layout"><div id="list"></div><aside id="cur" class="panel" aria-labelledby="curTitle"></aside></div>
+</div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="../support.html">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/" aria-current="page">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=73" data-base="../"></script>
 <script>
 (function () {
-  let lang = "nl"; try { lang = (localStorage.getItem("bingr.lang") || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en"; } catch (e) {}
+  const lang = BingrSite.lang;
   const T = {
-    nl: { intro: "Wat er nieuw, verbeterd en opgelost is in elke versie van Bingr, met per punt de apparaten waarvoor het geldt. Het buildnummer loopt gelijk over alle apparaten.",
+    nl: { intro: "Wat er nieuw, verbeterd en opgelost is in elke versie van Bingr, met per punt de apparaten waarvoor het geldt. De buildnummers lopen door; een apparaat krijgt alleen een nieuwe build als er voor dat apparaat iets verandert.",
           fPlatform: "Apparaat", fType: "Soort", all: "Alles", allApps: "Alle apps", latest: "Nieuwste", version: "Versie", current: "Nieuwste versie per apparaat", copyLink: "Link kopiëren", copied: "Gekopieerd", copyTitle: "Kopieer de link naar build %d",
           new: "Nieuw", improved: "Verbeterd", fixed: "Opgelost", none: "Niets", empty: "Geen wijzigingen voor deze keuze." },
-    en: { intro: "What's new, improved and fixed in every version of Bingr, with the devices each item applies to. The build number is the same across all devices.",
+    en: { intro: "What's new, improved and fixed in every version of Bingr, with the devices each item applies to. Build numbers run in one sequence; a device only gets a new build when something changes for that device.",
           fPlatform: "Device", fType: "Type", all: "All", allApps: "All apps", latest: "Latest", version: "Version", current: "Latest version per device", copyLink: "Copy link", copied: "Copied", copyTitle: "Copy the link to build %d",
           new: "New", improved: "Improved", fixed: "Fixed", none: "Nothing", empty: "No changes for this selection." }
   }[lang];
@@ -110,8 +153,6 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
   const eff = (pl, build) => (build < TIZEN_FROM && APPS.every((p) => p === "tizen" || pl.includes(p)) && !pl.includes("tizen")) ? [...pl, "tizen"] : pl;
   document.documentElement.lang = lang;
   document.querySelectorAll("[data-t]").forEach((el) => { el.textContent = T[el.dataset.t] || el.textContent; });
-  const sw = document.getElementById("langSwitch"); sw.textContent = lang === "nl" ? "English" : "Nederlands";
-  sw.onclick = (e) => { e.preventDefault(); try { localStorage.setItem("bingr.lang", lang === "nl" ? "en" : "nl"); } catch (x) {} location.reload(); };
   const q = new URLSearchParams(location.search);
   let fp = q.get("p") || "all", ft = q.get("t") || "all";
   if (fp === "apple") fp = "ios";
@@ -137,7 +178,7 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
       }).join("");
       const box = document.getElementById("cur");
       box.innerHTML = `<h2 id="curTitle">${T.current}</h2><div class="cvs">${rows}</div>`;
-      box.querySelectorAll("[data-cp]").forEach((x) => x.onclick = (ev) => { ev.preventDefault(); fp = x.dataset.cp; const sel = document.getElementById("fp"); if (sel) sel.value = fp; try { keep(); } catch (e) {} render(); document.getElementById("list").scrollIntoView({ behavior: "smooth", block: "start" }); });
+      box.querySelectorAll("[data-cp]").forEach((x) => x.onclick = (ev) => { ev.preventDefault(); fp = x.dataset.cp; const sel = document.getElementById("fp"); if (sel) sel.value = fp; try { const u = new URL(location.href); u.searchParams.set("p", fp); history.replaceState(null, "", u); } catch (e) {} render(); document.getElementById("list").scrollIntoView({ behavior: "smooth", block: "start" }); });
     })();
     const LINK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>';
     const buildLink = (b) => "https://bingr.online/changelog/#build-" + b;
@@ -185,7 +226,7 @@ h1{font-size:clamp(34px,5vw,48px);font-weight:900;letter-spacing:-.03em;margin-b
         if (firstBuild === null) firstBuild = e.build;
         const isOpen = openSet ? openSet.has(e.build) : e.build === firstBuild;
         const top = e.build === data[0].build ? `<span class="latest">${T.latest}</span>` : "";
-        const chev = '<svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+        const chev = '<span class="plus chev" aria-hidden="true"></span>';
         const cp = `<button type="button" class="cp" data-cp-b="${e.build}" title="${T.copyTitle.replace("%d", e.build)}" aria-label="${T.copyTitle.replace("%d", e.build)}">${LINK}<span class="t">${T.copyLink}</span></button>`;
         return `<section class="rel${isOpen ? " open" : ""}" id="build-${e.build}" data-b="${e.build}">${cp}<button type="button" class="rhead" aria-expanded="${isOpen}"><span class="rv"><span class="v">${T.version} ${e.version || "1.0.0"}</span><span class="b">Build ${e.build}</span><span class="d">${new Date(e.date).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" })}</span>${top}</span><span class="rsum">${counts}${plats(all, e.build)}</span>${chev}</button><div class="rbody">${groups}</div></section>`;
       }).join("");

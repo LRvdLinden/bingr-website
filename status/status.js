@@ -6,10 +6,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  let lang = "nl";
-  try { lang = localStorage.getItem("bingr.lang") || ""; } catch (e) { /* */ }
-  lang = (lang || navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en";
-  document.documentElement.lang = lang;
+  const lang = (window.BingrSite && BingrSite.lang) || "nl";
   const T = {
     nl: {
       loading: "Status laden…", updated: "Laatst bijgewerkt", refresh: "ververst elke minuut", cookies: "Cookie-instellingen",
@@ -37,9 +34,6 @@
     },
   }[lang];
   document.querySelectorAll("[data-t]").forEach((e) => { const v = T[e.dataset.t]; if (typeof v === "string") e.textContent = v; });
-  const sw = $("langSwitch");
-  sw.textContent = lang === "nl" ? "English" : "Nederlands"; sw.lang = lang === "nl" ? "en" : "nl";
-  sw.onclick = (e) => { e.preventDefault(); try { localStorage.setItem("bingr.lang", lang === "nl" ? "en" : "nl"); } catch (x) { /* */ } location.reload(); };
 
   const loc = lang === "nl" ? "nl-NL" : "en-GB";
   function fmtDur(s, l) {

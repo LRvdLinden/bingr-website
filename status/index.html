@@ -5,44 +5,81 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Status · Bingr</title>
 <meta name="description" content="Actuele status van Bingr: accounts, server, website en downloads.">
+<link rel="canonical" href="https://bingr.online/status/">
+<meta property="og:title" content="Status · Bingr">
+<meta property="og:description" content="Actuele status van Bingr: accounts, server, website en downloads.">
+<meta property="og:url" content="https://bingr.online/status/">
+<meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="status.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=73">
+<link rel="stylesheet" href="status.css?v=73">
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
-<body>
-<header class="top">
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
   <div class="wrap">
-    <a class="brand" href="../index.html"><span class="logo">BINGR</span><span class="tag">Status</span></a>
-    <span class="nav"><a href="#" id="langSwitch" class="muted" lang="en">English</a><a href="../index.html" class="muted hide-s">bingr.online</a></span>
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
   </div>
-</header>
-
-<main class="wrap">
+</nav>
+<main><div class="wrap mid">
+  <header class="phead"><h1 class="ttl">Status</h1></header>
   <section id="banner" class="banner loading" aria-live="polite">
     <span class="pulse" aria-hidden="true"></span>
     <div>
-      <h1 id="bannerTitle" data-t="loading"></h1>
+      <h2 id="bannerTitle" data-t="loading"></h2>
       <p id="bannerSub" class="muted"></p>
     </div>
   </section>
-  <p class="updated muted"><span data-t="updated"></span> <span id="updated">…</span> · <span data-t="refresh"></span></p>
+  <p class="updated muted"><span data-t="updated"></span> <span id="updated">…</span>, <span data-t="refresh"></span></p>
 
   <div id="groups"></div>
 
   <section class="incidents">
     <h2 data-t="incidents"></h2>
-    <div id="incidents"></div>
+    <div id="incidents" class="panel"></div>
   </section>
 
   <div id="error" class="err hidden" role="alert"></div>
-</main>
+</div></main>
 
 <div id="tip" class="tip hidden" role="tooltip"></div>
 
-<footer><div class="wrap">© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="../changelog/">Changelog</a> · <a href="#" onclick="BingrConsent.open();return false"><span data-t="cookies"></span></a></div></footer>
-
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="../support.html">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/" aria-current="page">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=73" data-base="../"></script>
 <script src="../assets/config.js"></script>
-<script src="status.js"></script>
+<script src="status.js?v=73"></script>
+<script src="../assets/js/userbtn.js" data-base="../"></script>
 </body>
 </html>

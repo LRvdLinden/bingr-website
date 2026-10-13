@@ -1,27 +1,11 @@
-:root{--red:#E50914;--bg:#000;--card:#141414;--line:#ffffff17;--ink:#fff;--sec:#b3b3b3;--muted:#8c8c8c;
-  --up:#3fcf6a;--deg:#f5a524;--down:#ff3b46;--none:#2b2b2b}
-*{box-sizing:border-box;margin:0;padding:0}
-html{-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5;font-size:15px}
-a{color:#fff}
-a:focus-visible,button:focus-visible,.bars:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:4px}
-.hidden{display:none!important}
-.muted{color:var(--muted)}
-.wrap{max-width:980px;margin:0 auto;padding:0 24px}
-
-.top{border-bottom:1px solid var(--line)}
-.top .wrap{display:flex;justify-content:space-between;align-items:center;padding-top:20px;padding-bottom:20px}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
-.logo{font-weight:900;font-size:26px;position:relative;padding-bottom:4px;letter-spacing:.01em}
-.logo::after{content:"";position:absolute;left:4%;right:4%;bottom:0;height:3px;border-radius:3px;background:var(--red)}
-.tag{font-size:15px;font-weight:600;color:var(--sec)}
-.nav{display:flex;gap:18px;font-size:14px}
-.nav a{text-decoration:none}.nav a:hover{color:#fff}
+:root{--up:#3fcf6a;--deg:#f5a524;--down:#ff3b46;--none:#2b2b2b}
+/* Statuspagina: alleen wat hier hoort; nav, footer, kleuren en letters komen uit assets/css/site.css */
+.bars:focus-visible{outline:3px solid #fff;outline-offset:3px;border-radius:4px}
 
 /* totaalbeeld */
-.banner{display:flex;align-items:center;gap:20px;margin-top:44px;padding:28px 30px;border-radius:14px;background:var(--card);border:1px solid var(--line);position:relative;overflow:hidden}
-.banner::before{content:"";position:absolute;inset:0 auto 0 0;width:5px;background:var(--c,#444)}
-.banner h1{font-size:clamp(24px,4vw,34px);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.banner{display:flex;align-items:center;gap:20px;padding:28px 30px;border-radius:16px;background:var(--s1);border:1px solid var(--line);position:relative;overflow:hidden}
+.banner::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--c,#444)}
+.banner h2{font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.025em;line-height:1.15}
 .banner p{margin-top:4px;font-size:15px}
 .banner.up{--c:var(--up)}.banner.degraded{--c:var(--deg)}.banner.down{--c:var(--down)}
 .pulse{flex:none;width:18px;height:18px;border-radius:50%;background:var(--c,#555);box-shadow:0 0 0 0 var(--c,#555);position:relative}
@@ -31,47 +15,44 @@ a:focus-visible,button:focus-visible,.bars:focus-visible{outline:2px solid #fff;
 .updated{font-size:13px;margin:12px 2px 0}
 
 /* groepen */
-.group{margin-top:40px}
-.group h2,.incidents h2{font-size:20px;font-weight:800;letter-spacing:-.01em;margin-bottom:12px}
-.mons{background:var(--card);border:1px solid var(--line);border-radius:14px}
-.mon{padding:18px 22px 16px;border-top:1px solid var(--line)}
+.group{margin-top:46px}
+.group h2,.incidents h2{font-size:22px;font-weight:800;letter-spacing:-.015em;margin-bottom:14px}
+.mons{background:var(--s1);border:1px solid var(--line);border-radius:16px}
+.mon{padding:20px 24px 18px;border-top:1px solid var(--line)}
 .mon:first-child{border-top:0}
 .mhead{display:flex;align-items:center;gap:10px}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--none)}
 .dot.up{background:var(--up)}.dot.degraded{background:var(--deg)}.dot.down{background:var(--down)}
 .mname{font-weight:700;font-size:16px;flex:1;min-width:0}
 .mstate{font-size:13px;font-weight:600}
-.mstate.up{color:var(--up)}.mstate.degraded{color:var(--deg)}.mstate.down{color:var(--down)}.mstate.none{color:var(--muted)}
+.mstate.up{color:var(--up)}.mstate.degraded{color:var(--deg)}.mstate.down{color:var(--down)}.mstate.none{color:var(--dim)}
 .bars{display:flex;gap:2px;height:34px;margin-top:12px;align-items:stretch}
 .bars i{flex:1;min-width:2px;border-radius:2px;background:var(--none);transition:transform .12s}
 .bars i.up{background:var(--up)}.bars i.degraded{background:var(--deg)}.bars i.down{background:var(--down)}
 .bars i:hover,.bars i.on{transform:scaleY(1.18)}
-.mfoot{display:flex;justify-content:space-between;gap:12px;margin-top:8px;font-size:12px;color:var(--muted)}
+.mfoot{display:flex;justify-content:space-between;gap:12px;margin-top:8px;font-size:12px;color:var(--dim)}
 .mfoot .mid{color:var(--sec);font-variant-numeric:tabular-nums}
 .mfoot .mid b{color:#fff;font-weight:700}
 
 /* storingen */
-.incidents{margin-top:48px;margin-bottom:60px}
+.incidents{margin-top:52px}
+#incidents{padding:6px 24px}
 .inc{display:grid;grid-template-columns:auto 1fr auto;gap:4px 14px;align-items:baseline;padding:14px 0;border-top:1px solid var(--line)}
 .inc:first-child{border-top:0}
 .inc .when{color:var(--sec);font-size:13px;font-variant-numeric:tabular-nums;min-width:120px}
 .inc .what{font-weight:600}
-.inc .dur{font-size:13px;color:var(--muted);text-align:right}
+.inc .dur{font-size:13px;color:var(--dim);text-align:right}
 .inc.open .what::after{content:attr(data-open);margin-left:8px;font-size:12px;font-weight:700;color:var(--down)}
-.none-yet{color:var(--muted);padding:6px 0}
+.none-yet{color:var(--sec);padding:12px 0}
 .err{margin:24px 0;color:#ffb199}
 
-.tip{position:fixed;z-index:50;pointer-events:none;background:#262626;border:1px solid #ffffff26;border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.4;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));box-shadow:0 8px 24px #000a}
+.tip{position:fixed;z-index:60;pointer-events:none;background:#262626;border:1px solid #ffffff26;border-radius:8px;padding:7px 10px;font-size:12px;line-height:1.4;white-space:nowrap;transform:translate(-50%,calc(-100% - 10px));box-shadow:0 8px 24px #000a}
 .tip b{font-size:14px;display:block}
 
-footer{border-top:1px solid var(--line);color:var(--sec);font-size:14px}
-footer .wrap{padding-top:26px;padding-bottom:26px}
-
 @media (max-width:640px){
-  .wrap{padding:0 16px}
-  .hide-s{display:none}
-  .banner{margin-top:28px;padding:22px 20px;gap:16px}
+  .banner{padding:22px 20px;gap:16px}
   .mon{padding:16px 16px 14px}
+  #incidents{padding:4px 16px}
   .bars{height:30px;gap:3px}
   .mfoot{flex-wrap:wrap;row-gap:4px}
   .mfoot .mid{order:3;flex-basis:100%}

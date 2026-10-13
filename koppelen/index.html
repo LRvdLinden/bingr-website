@@ -5,26 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Apparaat koppelen · Bingr</title>
 <meta name="robots" content="noindex">
+<link rel="canonical" href="https://bingr.online/koppelen/">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/js/account.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=73">
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
-<body>
-<header><a class="logo" href="../index.html">BINGR</a><span style="display:flex;align-items:center;gap:12px"><a id="langSwitch" class="lang" href="#">English</a><span data-userbtn style="display:inline-flex"></span></span></header>
-<main><div class="card">
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap"><div class="panel authcard">
 
   <!-- 1. inloggen / account maken -->
   <section id="auth">
     <h1 id="authTitle" data-t="signIn"></h1>
     <p class="muted" data-t="authIntro"></p>
-    <form id="authForm" novalidate>
-      <label><input id="email" type="email" autocomplete="email" data-ph="email" required></label>
-      <label class="pw"><input id="password" type="password" autocomplete="current-password" data-ph="password" required><button type="button"></button></label>
-      <div id="authErr" class="err"></div>
-      <button id="authBtn" class="btn" type="submit"></button>
+    <form id="authForm" class="fields" novalidate>
+      <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email" required></label>
+      <label class="pw"><span class="sr" data-t="password"></span><input id="password" type="password" autocomplete="current-password" data-ph="password" required><button type="button"></button></label>
+      <div id="authErr" class="err" aria-live="polite"></div>
+      <button id="authBtn" class="btn full" type="submit"></button>
     </form>
-    <div class="links">
+    <div class="alinks">
       <div><a id="forgot" href="#" role="button" data-t="forgot"></a></div>
       <div style="margin-top:14px"><span id="switchText"></span> <a id="switchMode" href="#" role="button"></a></div>
     </div>
@@ -35,31 +52,51 @@
     <h1 data-t="linkTitle"></h1>
     <p class="muted"><span data-t="signedInAs"></span> <b id="who"></b> · <a id="signOut" href="#" data-t="notYou"></a></p>
     <form id="linkForm" novalidate>
-      <label><p data-t="enterCode" style="margin:18px 0 10px"></p><input id="code" class="code" maxlength="7" autocomplete="one-time-code" inputmode="text" placeholder="K7Q-4MX"></label>
-      <div id="linkErr" class="err"></div>
-      <button id="linkBtn" class="btn" type="submit" data-t="linkBtn"></button>
+      <label><p data-t="enterCode" style="margin:22px 0 10px"></p><input id="code" class="code" maxlength="7" autocomplete="one-time-code" inputmode="text" placeholder="K7Q-4MX"></label>
+      <div id="linkErr" class="err" aria-live="polite"></div>
+      <button id="linkBtn" class="btn full" type="submit" data-t="linkBtn"></button>
     </form>
   </section>
 
   <!-- 3. klaar -->
   <section id="done" class="done hidden">
-    <div class="big">✓</div>
+    <div class="big" aria-hidden="true">✓</div>
     <h1 data-t="doneTitle"></h1>
     <p id="doneText"></p>
   </section>
 
   <!-- bevestig e-mail -->
   <section id="confirm" class="done hidden">
-    <div class="big">✉︎</div>
+    <div class="big" aria-hidden="true">✉︎</div>
     <h1 data-t="confirmTitle"></h1>
     <p data-t="confirmText"></p>
   </section>
-</div></main>
-<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
+</div></div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="../support.html">Support</a>
+        <a href="../koppelen/" data-s="foot.pair" aria-current="page">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=73" data-base="../"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js"></script>
+<script src="../assets/js/account.js?v=73"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({

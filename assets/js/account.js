@@ -1,7 +1,8 @@
 // Gedeelde helpers voor bingr.online/koppelen en /reset (Supabase-accounts).
 (function () {
   const params = new URLSearchParams(location.search);
-  const lang = (params.get("lang") || localStorage.getItem("bingr.lang") || navigator.language || "en").toLowerCase().startsWith("nl") ? "nl" : "en";
+  // taal: dezelfde keuze als de rest van de site (assets/js/site.js); ?lang= gaat voor
+  const lang = (window.BingrSite && BingrSite.lang) || ((params.get("lang") || localStorage.getItem("bingr.lang") || navigator.language || "en").toLowerCase().startsWith("nl") ? "nl" : "en");
   const cfg = window.BINGR_SUPABASE || {};
   const sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, detectSessionInUrl: true, flowType: "implicit" } });
   const $ = (id) => document.getElementById(id);
@@ -10,8 +11,6 @@
     if (dict[lang].docTitle) document.title = dict[lang].docTitle;
     document.querySelectorAll("[data-t]").forEach((el) => { const v = dict[lang][el.dataset.t]; if (v != null) el.innerHTML = v; });
     document.querySelectorAll("[data-ph]").forEach((el) => { const v = dict[lang][el.dataset.ph]; if (v != null) el.placeholder = v; });
-    const sw = $("langSwitch");
-    if (sw) { sw.textContent = lang === "nl" ? "English" : "Nederlands"; sw.onclick = (e) => { e.preventDefault(); localStorage.setItem("bingr.lang", lang === "nl" ? "en" : "nl"); location.reload(); }; }
     return (k) => dict[lang][k] || k;
   }
   function pwToggles(tr) {

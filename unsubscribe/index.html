@@ -6,23 +6,58 @@
 <title>Afmelden · Bingr</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/js/account.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=73">
 </head>
-<body>
-<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
-<main><div class="card">
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap"><div class="panel authcard">
   <section id="ask" class="hidden">
     <h1 data-t="title"></h1>
     <p data-t="ask"></p>
-    <div id="err" class="err"></div>
-    <button id="go" class="btn" type="button" data-t="button"></button>
+    <div id="err" class="err" aria-live="polite"></div>
+    <button id="go" class="btn full" type="button" data-t="button"></button>
   </section>
-  <section id="done" class="done hidden"><div class="big">✓</div><h1 data-t="doneTitle"></h1><p data-t="doneText"></p></section>
-  <section id="invalid" class="done hidden"><div class="big">⚠︎</div><h1 data-t="badTitle"></h1><p data-t="badText"></p></section>
-</div></main>
-<footer>© 2026 Bingr · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a></footer>
+  <section id="done" class="done hidden"><div class="big" aria-hidden="true">✓</div><h1 data-t="doneTitle"></h1><p data-t="doneText"></p></section>
+  <section id="invalid" class="done hidden"><div class="big" aria-hidden="true">!</div><h1 data-t="badTitle"></h1><p data-t="badText"></p></section>
+</div></div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="../support.html">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=73" data-base="../"></script>
 <script src="../assets/config.js"></script>
 <script>
 (() => {
@@ -30,21 +65,19 @@
     nl: { title: "Afmelden voor berichten", ask: "Wil je geen berichten van Bingr meer per e-mail ontvangen? Mails over je account (bevestigen, wachtwoord) blijven gewoon komen.",
           button: "Afmelden", doneTitle: "Je bent afgemeld", doneText: "Je krijgt geen berichten van Bingr meer per e-mail. Berichten in de app zie je nog wel.",
           badTitle: "Link ongeldig", badText: "Deze afmeldlink klopt niet. Gebruik de link uit de laatste e-mail, of neem contact op via Support.",
-          err: "Er ging iets mis. Probeer het opnieuw.", other: "English" },
+          err: "Er ging iets mis. Probeer het opnieuw." },
     en: { title: "Unsubscribe from announcements", ask: "Don't want to receive Bingr announcements by email anymore? Account emails (confirmation, password) will still be sent.",
           button: "Unsubscribe", doneTitle: "You're unsubscribed", doneText: "You won't receive Bingr announcements by email anymore. You'll still see announcements in the app.",
           badTitle: "Invalid link", badText: "This unsubscribe link isn't valid. Use the link from the latest email, or contact Support.",
-          err: "Something went wrong. Please try again.", other: "Nederlands" },
+          err: "Something went wrong. Please try again." },
   };
-  let lang = (navigator.language || "nl").toLowerCase().startsWith("nl") ? "nl" : "en";
+  const lang = BingrSite.lang;
   const $ = (id) => document.getElementById(id);
   function render() {
     document.documentElement.lang = lang;
     document.querySelectorAll("[data-t]").forEach((el) => (el.textContent = T[lang][el.dataset.t]));
-    $("langSwitch").textContent = T[lang].other;
     document.title = `${T[lang].title} · Bingr`;
   }
-  $("langSwitch").onclick = (e) => { e.preventDefault(); lang = lang === "nl" ? "en" : "nl"; render(); };
   const show = (id) => ["ask", "done", "invalid"].forEach((s) => $(s).classList.toggle("hidden", s !== id));
   const t = new URLSearchParams(location.search).get("t") || "";
   render();

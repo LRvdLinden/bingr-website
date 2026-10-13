@@ -5,135 +5,219 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mijn Bingr</title>
 <meta name="robots" content="noindex">
+<link rel="canonical" href="https://bingr.online/account/">
+<meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/js/account.css">
+<link rel="stylesheet" href="../assets/css/site.css?v=73">
 <style>
-.me{display:flex;align-items:center;gap:16px;margin-bottom:6px}
-.me .av{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:30px;background:linear-gradient(135deg,#E50914,#7A0008);flex:none;overflow:hidden}
-h2{font-size:20px;font-weight:800;margin:34px 0 4px}
-.colprof{display:flex;align-items:center;gap:10px;margin-top:12px;color:var(--sec,#aaa);font-size:14px}
-.colprof select{background:#1b1b1b;border:1px solid #ffffff2a;color:#fff;border-radius:8px;padding:8px 12px;font:inherit}
-.profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:18px;margin-top:16px}
+/* kop met avatar */
+.me{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:34px}
+.me .av{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:38px;background:linear-gradient(135deg,#E50914,#7A0008);flex:none;overflow:hidden;box-shadow:0 0 0 3px #000,0 0 0 4px #ffffff26}
+.me .t{min-width:0;flex:1}
+.me .ttl{font-size:clamp(34px,4.6vw,52px)}
+.me .ttl::after{margin-top:14px}
+.me #who{margin-top:12px;font-size:16px;overflow-wrap:anywhere}
+.me .btn{flex:none}
+@media (max-width:640px){.me{gap:16px}.me .av{width:64px;height:64px;font-size:28px}.me .btn{width:100%}}
+
+/* secties: kaarten; inklapbare secties met de plus van de FAQ */
+.panel .lead{max-width:62ch}
+.fpanel{padding:0}
+.fold{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:24px 26px;cursor:pointer;border-radius:16px}
+.fold:hover{background:#ffffff08}
+.fold:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.fold .ft{display:block}
+.fold .fs{display:block;color:var(--sec);font-size:15px;margin-top:4px;max-width:62ch}
+.fold[aria-expanded="true"] .chev{transform:rotate(45deg)}
+.foldbody{display:none;padding:4px 26px 24px}.foldbody.open{display:block}
+@media (max-width:640px){.fold{padding:20px}.foldbody{padding:4px 20px 20px}}
+
+/* profielen */
+.profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:18px;margin-top:20px}
 .pf{text-align:center}
-.pf .pic{width:84px;height:84px;margin:0 auto 8px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:38px}
+.pf .pic{width:88px;height:88px;margin:0 auto 10px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:40px}
 .pf .pic img{width:100%;height:100%;object-fit:cover}
-.pf .n{font-size:14px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pf .k{font-size:11px;color:var(--sec)}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-.row .btn{width:auto;margin-top:0;padding:12px 18px;font-size:15px}
-.dev .ic{color:#fff}
-.dev{align-items:flex-start}.dev .nm{white-space:normal}
+.pf .n{font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf .k{font-size:12px;color:var(--sec)}
+
+/* rijen: apparaten, servers, collecties, nu kijken */
+.dev{display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.dev:last-child{border-bottom:0}
+.dev .ic{width:46px;height:46px;border-radius:10px;background:var(--s2);border:1px solid var(--line);display:grid;place-items:center;font-size:22px;flex:none;color:#fff}
+.dev .info{flex:1;min-width:0}
+.dev .nm{font-weight:700;font-size:16px}
+.dev .meta{color:var(--sec);font-size:13.5px;line-height:1.5;margin-top:2px}
 .dev .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px;vertical-align:2px}
+.rm{background:#ffffff26;box-shadow:inset 0 0 0 1px #ffffff33;border:0;color:#fff;border-radius:5px;padding:7px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;flex:none;transition:background .15s}
+.rm:hover{background:#ffffff38}.rm:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.row .btn{padding:11px 18px;font-size:15px}
 .pav{width:30px;height:30px;border-radius:50%;overflow:hidden;display:grid;place-items:center;font-size:15px;flex:none;color:#fff;font-weight:700}
 .pav img{width:100%;height:100%;object-fit:cover}
+.who{display:flex;align-items:center;gap:8px}
+.live{background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:4px;padding:2px 7px;flex:none;margin-top:2px}
+.history .day{font-size:15px;font-weight:700;color:#fff;margin:18px 0 2px}
+.history .day::first-letter{text-transform:uppercase}
+.hrow{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.hrow .ht{color:var(--sec);font-size:14px;width:48px;flex:none;padding-top:4px;font-variant-numeric:tabular-nums}
 .hrow .pav{margin-top:1px}
 .hrow .info{flex:1;min-width:0}.hrow .nm{font-weight:700;font-size:15px}.hrow .meta{color:var(--sec);font-size:13px;line-height:1.5}
-.who{display:flex;align-items:center;gap:8px}
-.live{background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:4px;padding:2px 7px;flex:none}
-.history .day{font-size:15px;color:#fff;margin:18px 0 4px;text-transform:capitalize}
-.hrow{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #ffffff10}.hrow .ht{color:var(--sec);font-size:14px;width:48px;flex:none;padding-top:2px}
-.form{background:#ffffff0d;border:1px solid #ffffff1a;border-radius:10px;padding:18px;margin-top:14px}.form h3{font-size:16px;margin-bottom:6px}
-.form label{display:block;margin-top:12px;font-size:13px;color:var(--sec)}.form label input,.form select{margin-top:6px}
-.form select{width:100%;font:inherit;font-size:16px;color:#fff;background:#333;border:1px solid transparent;border-radius:6px;padding:14px}
-.form .chk{display:flex;align-items:center;gap:8px;color:#ddd;font-size:15px}.form .chk input{width:auto;margin:0}.chks{display:flex;gap:18px;flex-wrap:wrap}
-.fold{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin-top:34px;cursor:pointer;border-radius:8px}
-.fold:focus-visible{outline:2px solid #fff;outline-offset:4px}
-.fold .ft{display:block;font-size:20px;font-weight:800;color:#fff}.fold .fs{display:block;color:var(--sec);font-size:14px;margin-top:4px}
-.fold .chev{flex:none;color:#fff;transition:transform .2s}.fold[aria-expanded="true"] .chev{transform:rotate(180deg)}
-.foldbody{display:none}.foldbody.open{display:block}
-.btn.danger{background:none;border:1px solid #ff4d4d66;color:#ff8080}
+
+/* formulieren (server, collectie) */
+.form{background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:20px;margin-top:16px}
+.form h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.form label{display:block;margin-top:14px;font-size:14px;font-weight:600;color:var(--sec)}
+.form label input,.form select{margin-top:6px}
+.sub-page .form input:not([type=checkbox]),.sub-page .form select{background:#262626}
+.form .chk{display:flex;align-items:center;gap:8px;color:#e2e2e2;font-size:15px;font-weight:500}.form .chk input{margin:0}
+.chks{display:flex;gap:18px;flex-wrap:wrap}
+.colprof{display:flex;align-items:center;gap:10px;margin-top:6px;color:var(--sec);font-size:14px;font-weight:600}
+.sub-page .colprof select{width:auto;padding:9px 38px 9px 12px;font-size:15px}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
-<body>
-<header><a class="logo" href="../index.html">BINGR</a><a id="langSwitch" class="lang" href="#">English</a></header>
-<main><div class="card wide">
-  <section id="auth" class="hidden">
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap mid">
+  <section id="auth" class="hidden"><div class="panel authcard">
     <h1 data-t="title"></h1>
     <p class="muted" data-t="intro"></p>
-    <form id="authForm" novalidate>
-      <label><input id="email" type="email" autocomplete="email" data-ph="email"></label>
-      <label class="pw"><input id="password" type="password" autocomplete="current-password" data-ph="password"><button type="button"></button></label>
-      <div id="authErr" class="err"></div>
-      <button id="authBtn" class="btn" type="submit" data-t="signIn"></button>
+    <form id="authForm" class="fields" novalidate>
+      <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email"></label>
+      <label class="pw"><span class="sr" data-t="password"></span><input id="password" type="password" autocomplete="current-password" data-ph="password"><button type="button"></button></label>
+      <div id="authErr" class="err" aria-live="polite"></div>
+      <button id="authBtn" class="btn full" type="submit" data-t="signIn"></button>
     </form>
-    <div class="links"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../koppelen/?mode=signup" data-t="signUpNow"></a></div></div>
-  </section>
+    <div class="alinks"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../koppelen/?mode=signup" data-t="signUpNow"></a></div></div>
+  </div></section>
 
   <section id="acc" class="hidden">
-    <div class="me"><div class="av" id="ini"></div><div><h1 style="margin:0" data-t="title"></h1><div class="muted" id="who"></div></div></div>
-    <div class="row"><a class="btn" href="../web/" data-t="watchWeb" style="text-decoration:none;width:auto;display:inline-flex;align-items:center;justify-content:center"></a></div>
+    <header class="me">
+      <div class="av" id="ini"></div>
+      <div class="t"><h1 class="ttl" data-t="title"></h1><div class="muted" id="who"></div></div>
+      <a class="btn red" href="../web/"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span data-t="watchWeb"></span></a>
+    </header>
 
-    <h2 data-t="profiles"></h2>
-    <p class="muted" data-t="profHelp"></p>
-    <div class="profiles" id="profiles"></div>
+    <section class="panel">
+      <h2 class="h3" data-t="profiles"></h2>
+      <p class="lead" data-t="profHelp"></p>
+      <div class="profiles" id="profiles"></div>
+    </section>
 
-    <button type="button" class="fold" id="devFold" aria-expanded="false" aria-controls="devBody">
-      <span><span class="ft" data-t="devices"></span><span class="fs"><span id="count"></span> · <span data-t="devHelp"></span></span></span>
-      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="devBody" class="foldbody">
-      <div id="list" style="margin-top:8px"></div>
-      <div class="row"><a class="btn ghost" href="../koppelen/" data-t="linkTv"></a></div>
-    </div>
-
-    <h2 data-t="watching"></h2>
-    <p class="muted" id="streamCount"></p>
-    <div id="streams" style="margin-top:8px"></div>
-
-    <button type="button" class="fold" id="histFold" aria-expanded="false" aria-controls="histBody">
-      <span><span class="ft" data-t="historyTitle"></span><span class="fs" data-t="historyHelp"></span></span>
-      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="histBody" class="foldbody">
-      <div id="history" class="history"></div>
-    </div>
-
-    <button type="button" class="fold" id="statFold" aria-expanded="false" aria-controls="statBody">
-      <span><span class="ft" data-t="statsTitle"></span><span class="fs" data-t="statsHelp"></span></span>
-      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="statBody" class="foldbody"><div id="stats"></div></div>
-
-    <h2 data-t="servers"></h2>
-    <p class="muted" data-t="serversHelp"></p>
-    <div id="sources" style="margin-top:8px"></div>
-    <div class="row"><button class="btn ghost" id="addSource" data-t="addServer"></button></div>
-    <div id="srcForm" class="form hidden"></div>
-    <div id="srcMsg" class="err"></div>
-
-    <button type="button" class="fold" id="colFold" aria-expanded="false" aria-controls="colBody">
-      <span><span class="ft" data-t="collectionsTitle"></span><span class="fs" data-t="collectionsHelp"></span></span>
-      <svg class="chev" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <div id="colBody" class="foldbody">
-      <label id="colProfileWrap" class="colprof" style="display:none"><span data-t="colFor"></span><select id="colProfile"></select></label>
-      <div id="collections" style="margin-top:8px"></div>
-      <div class="form" id="colForm">
-        <h3 data-t="newSmart"></h3>
-        <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
-        <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
-        <div class="chks"><label class="chk"><input type="checkbox" id="colT_channel" checked> <span data-t="tChannels"></span></label><label class="chk"><input type="checkbox" id="colT_movie" checked> <span data-t="tMovies"></span></label><label class="chk"><input type="checkbox" id="colT_series" checked> <span data-t="tSeries"></span></label></div>
-        <div class="row"><button class="btn" id="colAdd" data-t="create"></button></div>
-        <div id="colMsg" class="err"></div>
+    <section class="panel fpanel">
+      <button type="button" class="fold" id="devFold" aria-expanded="false" aria-controls="devBody">
+        <span><span class="ft h3" data-t="devices"></span><span class="fs"><span id="count"></span> · <span data-t="devHelp"></span></span></span>
+        <span class="plus chev" aria-hidden="true"></span>
+      </button>
+      <div id="devBody" class="foldbody">
+        <div id="list"></div>
+        <div class="row"><a class="btn ghost" href="../koppelen/" data-t="linkTv"></a></div>
       </div>
-    </div>
+    </section>
 
-    <h2 data-t="account"></h2>
-    <div class="row">
-      <button class="btn ghost" id="resetPw" data-t="changePw"></button>
-      <button class="btn ghost" id="signOut" data-t="signOut"></button>
-      <button class="btn danger" id="delete" data-t="delete"></button>
-    </div>
-    <div id="accErr" class="err"></div>
+    <section class="panel">
+      <h2 class="h3" data-t="watching"></h2>
+      <p class="lead" id="streamCount"></p>
+      <div id="streams" style="margin-top:6px"></div>
+    </section>
+
+    <section class="panel fpanel">
+      <button type="button" class="fold" id="histFold" aria-expanded="false" aria-controls="histBody">
+        <span><span class="ft h3" data-t="historyTitle"></span><span class="fs" data-t="historyHelp"></span></span>
+        <span class="plus chev" aria-hidden="true"></span>
+      </button>
+      <div id="histBody" class="foldbody"><div id="history" class="history"></div></div>
+    </section>
+
+    <section class="panel fpanel">
+      <button type="button" class="fold" id="statFold" aria-expanded="false" aria-controls="statBody">
+        <span><span class="ft h3" data-t="statsTitle"></span><span class="fs" data-t="statsHelp"></span></span>
+        <span class="plus chev" aria-hidden="true"></span>
+      </button>
+      <div id="statBody" class="foldbody"><div id="stats"></div></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="h3" data-t="servers"></h2>
+      <p class="lead" data-t="serversHelp"></p>
+      <div id="sources" style="margin-top:6px"></div>
+      <div class="row"><button class="btn ghost" id="addSource" data-t="addServer"></button></div>
+      <div id="srcForm" class="form hidden"></div>
+      <div id="srcMsg" class="err" aria-live="polite"></div>
+    </section>
+
+    <section class="panel fpanel">
+      <button type="button" class="fold" id="colFold" aria-expanded="false" aria-controls="colBody">
+        <span><span class="ft h3" data-t="collectionsTitle"></span><span class="fs" data-t="collectionsHelp"></span></span>
+        <span class="plus chev" aria-hidden="true"></span>
+      </button>
+      <div id="colBody" class="foldbody">
+        <label id="colProfileWrap" class="colprof" style="display:none"><span data-t="colFor"></span><select id="colProfile"></select></label>
+        <div id="collections" style="margin-top:6px"></div>
+        <div class="form" id="colForm">
+          <h3 data-t="newSmart"></h3>
+          <label><span data-t="name"></span><input id="colName" data-ph="colNamePh"></label>
+          <label><span data-t="keywords"></span><input id="colQuery" data-ph="colQueryPh"></label>
+          <div class="chks"><label class="chk"><input type="checkbox" id="colT_channel" checked> <span data-t="tChannels"></span></label><label class="chk"><input type="checkbox" id="colT_movie" checked> <span data-t="tMovies"></span></label><label class="chk"><input type="checkbox" id="colT_series" checked> <span data-t="tSeries"></span></label></div>
+          <div class="row"><button class="btn" id="colAdd" data-t="create"></button></div>
+          <div id="colMsg" class="err" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 class="h3" data-t="account"></h2>
+      <div class="row">
+        <button class="btn ghost" id="resetPw" data-t="changePw"></button>
+        <button class="btn ghost" id="signOut" data-t="signOut"></button>
+        <button class="btn danger" id="delete" data-t="delete"></button>
+      </div>
+      <div id="accErr" class="err" aria-live="polite"></div>
+    </section>
   </section>
   <section id="loading" class="done"><p class="muted" data-t="waiting"></p></section>
 </div></main>
-<footer>© 2026 Bingr · <a href="../changelog/">Changelog</a> · <a href="../privacy.html">Privacy</a> · <a href="../support.html">Support</a> · <a href="../status/">Status</a> · <a href="#" onclick="BingrConsent.open();return false">Cookies</a></footer>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="../support.html">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account" aria-current="page">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=73" data-base="../"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js"></script>
+<script src="../assets/js/account.js?v=73"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
 <script src="../assets/js/console.js?v=68"></script>
@@ -152,7 +236,7 @@ const tr = t({
         smart:"Slim", manual:"%d titels", noCollections:"Nog geen collecties.", deleteCollection:"Collectie %s verwijderen?", title:"Mijn Bingr", intro:"Log in om je profielen, apparaten en account te bekijken.", signIn:"Inloggen", email:"E-mailadres", password:"Wachtwoord", show:"Tonen", hide:"Verbergen",
         forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.",
         profiles:"Profielen", profHelp:"Profielen beheer je in de app; ze staan op al je apparaten.", kids:"Kinderprofiel", main:"Hoofdaccount", noProfiles:"Nog geen profielen. Open Bingr op een apparaat om te beginnen.",
-        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen", watchWeb:"▶ Kijk in je browser",
+        devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen", watchWeb:"Kijk in je browser",
         linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", rename:"Naam wijzigen", devName:"Naam van het apparaat", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
         account:"Account", changePw:"Wachtwoord wijzigen", signOut:"Uitloggen", delete:"Account verwijderen",
         delConfirm:"Je Bingr-account verwijderen? Al je apparaten worden uitgelogd en je profielen op de server worden gewist. Dit kan niet ongedaan worden gemaakt.",
@@ -171,7 +255,7 @@ const tr = t({
         smart:"Smart", manual:"%d titles", noCollections:"No collections yet.", deleteCollection:"Delete collection %s?", title:"My Bingr", intro:"Sign in to see your profiles, devices and account.", signIn:"Sign In", email:"Email", password:"Password", show:"Show", hide:"Hide",
         forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.",
         profiles:"Profiles", profHelp:"You manage profiles in the app; they're on all your devices.", kids:"Kids profile", main:"Main account", noProfiles:"No profiles yet. Open Bingr on a device to get started.",
-        devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV", watchWeb:"▶ Watch in your browser",
+        devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV", watchWeb:"Watch in your browser",
         linked:"Linked", lastUsed:"last used", remove:"Remove", rename:"Rename", devName:"Device name", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
         account:"Account", changePw:"Change password", signOut:"Sign out", delete:"Delete account",
         delConfirm:"Delete your Bingr account? All your devices will be signed out and your profiles on the server will be erased. This can't be undone.",
