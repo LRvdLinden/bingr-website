@@ -4,20 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Status · Bingr</title>
-<meta name="description" content="Actuele status van Bingr: accounts, server, website en downloads.">
+<meta name="description" content="Actuele status van Bingr: accounts, server, website en downloads, met storingen en gepland onderhoud.">
+<meta name="bingr-app" content="status">
 <link rel="canonical" href="https://bingr.online/status/">
 <meta property="og:title" content="Status · Bingr">
-<meta property="og:description" content="Actuele status van Bingr: accounts, server, website en downloads.">
+<meta property="og:description" content="Actuele status van Bingr: accounts, server, website en downloads, met storingen en gepland onderhoud.">
 <meta property="og:url" content="https://bingr.online/status/">
 <meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
 <meta name="theme-color" content="#000000">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="alternate" type="application/atom+xml" title="Bingr-status (Atom)" href="https://bingr.online/status/feed.atom">
+<link rel="alternate" type="application/rss+xml" title="Bingr-status (RSS)" href="https://bingr.online/status/feed.rss">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/site.css?v=75">
-<link rel="stylesheet" href="status.css?v=73">
+<link rel="stylesheet" href="../status/status.css?v=78">
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
-<body class="sub-page">
+<body class="sub-page" data-view="home">
 <nav id="nav" aria-label="Hoofdmenu">
   <div class="wrap">
     <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
@@ -36,7 +40,10 @@
   </div>
 </nav>
 <main><div class="wrap mid">
-  <header class="phead"><h1 class="ttl">Status</h1></header>
+  <header class="phead shead">
+    <h1 class="ttl">Status</h1>
+    <button id="subOpen" type="button" class="btn ghost sm subopen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z"/></svg><span data-t="subOpen"></span></button>
+  </header>
   <section id="banner" class="banner loading" aria-live="polite">
     <span class="pulse" aria-hidden="true"></span>
     <div>
@@ -46,17 +53,54 @@
   </section>
   <p class="updated muted"><span data-t="updated"></span> <span id="updated">…</span>, <span data-t="refresh"></span></p>
 
-  <div id="groups"></div>
-
-  <section class="incidents">
-    <h2 data-t="incidents"></h2>
-    <div id="incidents" class="panel"></div>
+  <section id="activeWrap" class="sblock hidden" aria-labelledby="activeH">
+    <h2 id="activeH" class="sh" data-t="active"></h2>
+    <div id="active" class="ncards"></div>
+  </section>
+  <section id="maintWrap" class="sblock hidden" aria-labelledby="maintH">
+    <h2 id="maintH" class="sh" data-t="maint"></h2>
+    <div id="maint" class="ncards"></div>
   </section>
 
+  <section class="sblock" aria-labelledby="compH">
+    <div class="shrow"><h2 id="compH" class="sh" data-t="components"></h2><span class="muted small" data-t="barsHint"></span></div>
+    <div id="groups"></div>
+    <ul class="legend" aria-label="Legenda">
+      <li><i class="up"></i><span data-t="lgUp"></span></li><li><i class="maint"></i><span data-t="lgMaint"></span></li>
+      <li><i class="degraded"></i><span data-t="lgDeg"></span></li><li><i class="partial"></i><span data-t="lgPartial"></span></li>
+      <li><i class="down"></i><span data-t="lgDown"></span></li><li><i class="none"></i><span data-t="lgNone"></span></li>
+    </ul>
+  </section>
+
+  <section class="sblock" aria-labelledby="pastH">
+    <h2 id="pastH" class="sh" data-t="past"></h2>
+    <div id="past" class="past"></div>
+    <a class="histlink" href="history/"><span data-t="history"></span> <span aria-hidden="true">→</span></a>
+  </section>
   <div id="error" class="err hidden" role="alert"></div>
+  <p class="powered muted"><span class="pmark" aria-hidden="true"></span><span data-t="powered"></span></p>
 </div></main>
 
 <div id="tip" class="tip hidden" role="tooltip"></div>
+<div id="subModal" class="smodal hidden" role="dialog" aria-modal="true" aria-labelledby="subTitle">
+  <div class="smodal-bg" data-close></div>
+  <div class="smodal-card">
+    <button type="button" class="smodal-x" data-close data-ta="close" aria-label="Sluiten">×</button>
+    <h2 id="subTitle" data-t="subTitle"></h2>
+    <p class="muted" data-t="subText"></p>
+    <form id="subForm" novalidate>
+      <label class="slabel" for="subEmail" data-t="subEmail"></label>
+      <input id="subEmail" type="email" autocomplete="email" inputmode="email" required maxlength="254" placeholder="naam@voorbeeld.nl">
+      <input id="subWebsite" class="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div id="subErr" class="err" role="alert"></div>
+      <button id="subBtn" class="btn full" type="submit" data-t="subBtn"></button>
+      <p class="sfine muted" data-t="subFine"></p>
+    </form>
+    <div id="subDone" class="sdone hidden" role="status"><div class="big" aria-hidden="true">✓</div><h3 data-t="subDoneTitle"></h3><p class="muted" data-t="subDoneText"></p></div>
+    <div class="sfeed"><span data-t="subFeed"></span> <a id="feedAtom" href="https://bingr.online/status/feed.atom">Atom</a> · <a id="feedRss" href="https://bingr.online/status/feed.rss">RSS</a></div>
+  </div>
+</div>
+<div id="stoast" class="stoast" role="status" aria-live="polite"></div>
 
 <footer>
   <div class="wrap">
@@ -80,7 +124,7 @@
 </footer>
 <script src="../assets/js/site.js?v=75" data-base="../"></script>
 <script src="../assets/config.js"></script>
-<script src="status.js?v=73"></script>
+<script src="../status/status.js?v=78"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
 </body>
 </html>

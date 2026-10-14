@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melding · Status · Bingr</title>
+<meta name="description" content="Storing of onderhoud bij Bingr: tijdlijn en getroffen onderdelen.">
+<meta name="bingr-app" content="status">
+<link rel="canonical" href="https://bingr.online/status/incident/">
+<meta property="og:title" content="Melding · Status · Bingr">
+<meta property="og:description" content="Storing of onderhoud bij Bingr: tijdlijn en getroffen onderdelen.">
+<meta property="og:url" content="https://bingr.online/status/incident/">
+<meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
+<meta name="theme-color" content="#000000">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="alternate" type="application/atom+xml" title="Bingr-status (Atom)" href="https://bingr.online/status/feed.atom">
+<link rel="alternate" type="application/rss+xml" title="Bingr-status (RSS)" href="https://bingr.online/status/feed.rss">
+<link rel="icon" href="../../favicon.png">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="stylesheet" href="../../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../../status/status.css?v=78">
+<script src="../../assets/js/consent.js" data-base="../../"></script>
+</head>
+<body class="sub-page" data-view="incident">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../../index.html#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap mid">
+  <header class="phead">
+    <a class="back" href="../"><span aria-hidden="true">←</span> <span data-t="backStatus"></span></a>
+    <p id="incKind" class="eyebrow"></p>
+    <h1 id="incTitle" class="ttl inc-ttl" data-t="loadingShort"></h1>
+    <div id="incMeta" class="incmeta"></div>
+  </header>
+  <section id="incBody" class="panel incbody" aria-live="polite"></section>
+  <p class="incfoot"><a class="histlink" href="../history/"><span data-t="history"></span> <span aria-hidden="true">→</span></a></p>
+  <p class="incsub"><button id="subOpen" type="button" class="btn ghost sm subopen"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1Z"/></svg><span data-t="subOpen"></span></button></p>
+  <div id="error" class="err hidden" role="alert"></div>
+  <p class="powered muted"><span class="pmark" aria-hidden="true"></span><span data-t="powered"></span></p>
+</div></main>
+
+<div id="tip" class="tip hidden" role="tooltip"></div>
+<div id="subModal" class="smodal hidden" role="dialog" aria-modal="true" aria-labelledby="subTitle">
+  <div class="smodal-bg" data-close></div>
+  <div class="smodal-card">
+    <button type="button" class="smodal-x" data-close data-ta="close" aria-label="Sluiten">×</button>
+    <h2 id="subTitle" data-t="subTitle"></h2>
+    <p class="muted" data-t="subText"></p>
+    <form id="subForm" novalidate>
+      <label class="slabel" for="subEmail" data-t="subEmail"></label>
+      <input id="subEmail" type="email" autocomplete="email" inputmode="email" required maxlength="254" placeholder="naam@voorbeeld.nl">
+      <input id="subWebsite" class="hp" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div id="subErr" class="err" role="alert"></div>
+      <button id="subBtn" class="btn full" type="submit" data-t="subBtn"></button>
+      <p class="sfine muted" data-t="subFine"></p>
+    </form>
+    <div id="subDone" class="sdone hidden" role="status"><div class="big" aria-hidden="true">✓</div><h3 data-t="subDoneTitle"></h3><p class="muted" data-t="subDoneText"></p></div>
+    <div class="sfeed"><span data-t="subFeed"></span> <a id="feedAtom" href="https://bingr.online/status/feed.atom">Atom</a> · <a id="feedRss" href="https://bingr.online/status/feed.rss">RSS</a></div>
+  </div>
+</div>
+<div id="stoast" class="stoast" role="status" aria-live="polite"></div>
+
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../../index.html#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../../web/" data-s="foot.web">Webspeler</a>
+        <a href="../../changelog/">Changelog</a>
+        <a href="../../status/">Status</a>
+        <a href="../../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../../assets/js/site.js?v=75" data-base="../../"></script>
+<script src="../../assets/config.js"></script>
+<script src="../../status/status.js?v=78"></script>
+<script src="../../assets/js/userbtn.js" data-base="../../"></script>
+</body>
+</html>

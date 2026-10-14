@@ -115,16 +115,22 @@ jobs:
           import re
           p = "/tmp/htaccess.txt"
           s = open(p, encoding="utf-8", errors="surrogateescape").read()
+          # feeds van de statuspagina: bingr.online/status/feed(.en).atom|rss -> de functie status (URL uit assets/config.js)
+          FN = re.search(r'url:\s*"([^"]+)"', open("assets/config.js").read()).group(1).rstrip("/") + "/functions/v1/status"
           s = re.sub(r"\n?# BEGIN bingr-redirects.*?# END bingr-redirects\n?", "\n", s, flags=re.S).strip("\n")
           block = ("# BEGIN bingr-redirects (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
                    "<IfModule mod_alias.c>\n"
                    "Redirect 301 /support.html https://support.bingr.online/hulp/\n"
+                   "RedirectMatch 302 ^/status/feed\\.atom$ " + FN + "?action=feed&format=atom&lang=nl\n"
+                   "RedirectMatch 302 ^/status/feed\\.en\\.atom$ " + FN + "?action=feed&format=atom&lang=en\n"
+                   "RedirectMatch 302 ^/status/feed\\.rss$ " + FN + "?action=feed&format=rss&lang=nl\n"
+                   "RedirectMatch 302 ^/status/feed\\.en\\.rss$ " + FN + "?action=feed&format=rss&lang=en\n"
                    "</IfModule>\n"
                    "# END bingr-redirects\n")
           open(p + ".new", "w", encoding="utf-8", errors="surrogateescape").write(block + ("\n" + s + "\n" if s else ""))
           PY
             lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; put /tmp/htaccess.txt.new -o \"$TARGET/.htaccess\"; chmod 644 \"$TARGET/.htaccess\"; bye" >/dev/null 2>&1 \
-              && echo "::notice::.htaccess bijgewerkt (doorverwijzing /support.html → support.bingr.online/hulp/)" \
+              && echo "::notice::.htaccess bijgewerkt (doorverwijzing /support.html → support.bingr.online/hulp/ en de statusfeeds)" \
               || echo "::warning::.htaccess kon niet worden geüpload; support.html stuurt dan zelf door"
           else
             echo "::warning::Bestaande .htaccess niet gelezen; niet aangepast (support.html stuurt zelf door)"
@@ -144,6 +150,11 @@ jobs:
             30[1278]\ https://support.bingr.online/*) echo "::notice::/support.html stuurt door: $r" ;;
             *) echo "::warning::/support.html geeft '$r' in plaats van een 301 naar support.bingr.online (de doorverwijspagina vangt het op)" ;;
           esac
+          # statusfeeds: /status/feed.atom en .rss sturen door naar de feed (XML)
+          for f in feed.atom feed.en.rss; do
+            r=$(curl -sL --max-time 25 -o /tmp/feed.xml -w '%{http_code}' "https://bingr.online/status/$f" || true)
+            if [ "$r" = 200 ] && head -c 200 /tmp/feed.xml | grep -q '<?xml'; then echo "::notice::/status/$f geeft de feed (XML)"; else echo "::warning::/status/$f gaf HTTP $r zonder XML"; fi
+          done
           # het oude beheer-dashboard mag hier niet meer staan (nu beheer.bingr.online)
           if curl -sL --max-time 20 https://bingr.online/admindashboard/ 2>/dev/null | grep -q 'Beheer · Bingr'; then
             echo "::warning::bingr.online/admindashboard/ toont nog het oude dashboard"

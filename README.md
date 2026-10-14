@@ -35,7 +35,7 @@ Een verlopen of ongeldige code geeft een duidelijke melding; de tv toont dan van
 - **Mijn Bingr** ([/account](https://bingr.online/account/)): je account op je computer: apparaten bekijken, hernoemen en verwijderen, wie er nu kijkt en de kijkgeschiedenis (hoofdprofiel), servers en collecties beheren.
 - **Support**: staat op [support.bingr.online](https://support.bingr.online) (repo LRvdLinden/bingr-support), met de hulpartikelen (inloggen en koppelen, installeren en bijwerken op Android, Android TV / Google TV / Fire TV en Samsung TV) en supporttickets. De oude `/support.html` stuurt door: een `Redirect 301` in `.htaccess` op de server (de workflow *Website* zet die regel erin) en als vangnet een kleine doorverwijspagina `support.html`.
 - **Changelog** ([/changelog](https://bingr.online/changelog/)): wat er nieuw is per build, te filteren per platform.
-- **Status** ([/status](https://bingr.online/status/)): of de diensten van Bingr werken.
+- **Status** ([/status](https://bingr.online/status/)): of de diensten van Bingr werken: totaalbeeld, lopende storingen en gepland onderhoud met tijdlijn, onderdelen per groep met 90-dagenbalken, afgelopen incidenten (14 dagen), [geschiedenis](https://bingr.online/status/history/), detailpagina per melding, abonneren per e-mail en feeds (`/status/feed.atom`, `/status/feed.rss`, Engels: `feed.en.atom`/`feed.en.rss`, doorverwijzing via `.htaccess`).
 - **Wachtwoord opnieuw instellen** ([/reset](https://bingr.online/reset/)) en **afmelden voor e-mails** ([/unsubscribe](https://bingr.online/unsubscribe/)).
 - **Privacy** ([/privacy.html](https://bingr.online/privacy.html)) en cookie-instellingen.
 - Overal Nederlands en Engels (volgt de taal van je browser, of kies zelf).
