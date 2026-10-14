@@ -644,7 +644,7 @@
         'movies': function () { return U.row(L('Movies'), lib.movies.slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, '#/movies'); },
         'series': function () { return U.row(L('Series'), lib.series.slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, '#/series'); },
         // rij met genretegels (build 86); 'categories' hieronder = rijen per categorie van de server
-        'genres': function () { return B.categories ? B.categories.homeRow() : null; },
+        'browse': function () { return B.categories ? B.categories.homeRow() : null; },
         'categories': function () {
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
@@ -671,7 +671,7 @@
      * zou staan. Heb je de rij zelf verplaatst, dan staat hij gewoon op die plek in de indeling.
      */
     function placeGenres() {
-      var g = blocks.genres;
+      var g = blocks.browse;
       if (!g || !autoGenres || !rows) return;
       if (g.parentNode) g.parentNode.removeChild(g);
       var anchor = blocks.live || liveSlot;
@@ -698,7 +698,7 @@
       var b = builders();
       var lay = layout(b);
       var gi = -1;
-      lay.forEach(function (r, i) { if (r.key === 'genres') gi = i; });
+      lay.forEach(function (r, i) { if (r.key === 'browse') gi = i; });
       autoGenres = gi > 0 && lay[gi - 1].key === 'live';
       lay.forEach(function (r) {
         var k = r.key;
@@ -711,7 +711,7 @@
         nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
         var holder = h('div.rowgroup', { 'data-k': k }, nodes);
         blocks[k] = holder;
-        if (!(k === 'genres' && autoGenres)) rows.appendChild(holder);
+        if (!(k === 'browse' && autoGenres)) rows.appendChild(holder);
         keysBuilt[k] = true;
       });
       placeGenres();
@@ -719,7 +719,7 @@
     function refreshRows(keys) {
       var b = builders();
       // eerst de rij Categorieën losmaken (hij kan in een andere groep staan), daarna opnieuw op zijn plek
-      if (autoGenres && blocks.genres && blocks.genres.parentNode) blocks.genres.parentNode.removeChild(blocks.genres);
+      if (autoGenres && blocks.browse && blocks.browse.parentNode) blocks.browse.parentNode.removeChild(blocks.browse);
       keys.forEach(function (k) {
         var holder = blocks[k];
         if (!holder || !b[k]) return;
@@ -740,7 +740,7 @@
     pg.onData = function () {
       var lk = JSON.stringify(D.homeLayout());
       if (lk !== layoutKey) { layoutKey = lk; render(); return; }
-      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories' && k !== 'genres'; }));
+      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories' && k !== 'browse'; }));
     };
     pg.onCollections = function () { render(); };
     pg.onEpg = function () { refreshRows(['live']); };

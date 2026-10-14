@@ -98,8 +98,11 @@
   };
 
   /** Startscherm-indeling (HomeLayout op iOS): vaste rijen en collecties, onbekende sleutels genegeerd. */
-  // 'genres' (build 86) = rij "Categorieën" met genretegels; standaard direct na 'live' (= op Home 5 rijen onder "Nu live", zie screens.js)
-  var KNOWN = ['continue', 'mylist', 'recent', 'foryou', 'top10', 'live', 'genres', 'categories', 'movies', 'series'];
+  // 'browse' (build 86) = rij "Categorieën" met genretegels; standaard direct na 'live' (= op Home 5 rijen tussen "Nu live" en
+  // "Categorieën", zie screens.js). Zelfde sleutel als iOS/tvOS/macOS en Android/Samsung TV; oudere sleutels 'genres' (web)
+  // en 'categorytiles' (Android) worden bij het lezen 'browse' (plek en aan/uit blijven, dubbele vervallen).
+  var KNOWN = ['continue', 'mylist', 'recent', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
+  var ALIAS = { genres: 'browse', categorytiles: 'browse' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
   S.homeKnownKeys = KNOWN;
   S.effectiveHomeLayout = function (rows, colls) {
@@ -108,9 +111,11 @@
     KNOWN.concat(collKeys).forEach(function (k) { valid[k] = true; });
     var out = [], seen = {};
     (rows || []).forEach(function (r) {
-      if (!r || !valid[r.key] || seen[r.key]) return;
-      seen[r.key] = true;
-      out.push({ key: r.key, visible: r.visible !== false });
+      if (!r) return;
+      var key = ALIAS[r.key] || r.key;
+      if (!valid[key] || seen[key]) return;
+      seen[key] = true;
+      out.push({ key: key, visible: r.visible !== false });
     });
     KNOWN.forEach(function (k, i) {
       if (seen[k]) return;
@@ -130,12 +135,12 @@
   S.applyHomeLayout = function (stored, edited) {
     var ed = {};
     edited.forEach(function (r) { ed[r.key] = true; });
-    var keep = (stored || []).filter(function (r) { return r && !ed[r.key] && KNOWN.indexOf(r.key) < 0 && String(r.key).indexOf('collection:') !== 0; });
+    var keep = (stored || []).filter(function (r) { return r && !ed[r.key] && !ALIAS[r.key] && KNOWN.indexOf(r.key) < 0 && String(r.key).indexOf('collection:') !== 0; });
     return edited.concat(keep);
   };
   S.homeRowTitle = function (key, colls) {
     var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), foryou: L('For you'), top10: L('Top 10'),
-      live: L('Favorite channels'), genres: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
+      live: L('Favorite channels'), browse: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {
       var id = key.slice(11);
@@ -683,8 +688,8 @@
       function store(next) { D.setHomeLayout(S.applyHomeLayout(D.homeLayout(), next)); render(); }
       rows.forEach(function (r, i) {
         var line = h('div.st-row.hl-row');
-        // Categorieën op de standaardplek (direct na Favoriete zenders): op Home 5 rijen onder "Nu live"
-        var auto = r.key === 'genres' && i > 0 && rows[i - 1].key === 'live';
+        // Categorieën op de standaardplek (direct na Favoriete zenders): op Home 5 rijen tussen "Nu live" en "Categorieën"
+        var auto = r.key === 'browse' && i > 0 && rows[i - 1].key === 'live';
         var label = auto ? h('span.st-label', [h('span', S.homeRowTitle(r.key, colls)), h('span.st-sub', L('5 rows below Live now'))]) : h('span.st-label', S.homeRowTitle(r.key, colls));
         var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': r.visible ? 'true' : 'false' }, [
           label, h('span.switch' + (r.visible ? '.on' : ''), [h('i')])]);
