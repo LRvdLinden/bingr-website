@@ -62,10 +62,24 @@ jobs:
           FTP_SERVER=$(trim "${FTP_SERVER:-}" | sed -E 's#^[a-zA-Z]+://##; s#/.*$##; s#:[0-9]+$##'); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_USERNAME_ALT=$(trim "${FTP_USERNAME_ALT:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
           export LFTP_PASSWORD="$FTP_PASSWORD"
           # alleen versleuteld (FTPS) met een geldig certificaat; geen terugval op gewone FTP of andere servers
-          common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ftp:passive-mode true; set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate yes; set ssl:check-hostname yes"
+          common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ftp:passive-mode true; set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate yes; set ssl:check-hostname yes; set ssl:ca-file /tmp/ftp-ca.pem"
           ip_of(){ (getent ahostsv4 "$1" || true) | awk 'NR==1{print $1}'; }
           # certificaat geldig voor deze hostnaam? (controle vóór er inloggegevens worden verstuurd)
-          cert_ok(){ timeout 40 openssl s_client -connect "$1:21" -starttls ftp -servername "$1" -verify_hostname "$1" -verify_return_error </dev/null 2>/dev/null | grep -q 'Verify return code: 0 (ok)'; }
+          # build 95: sommige FTP-servers sturen het tussencertificaat niet mee (onvolledige keten). Dat halen we op via
+          # het AIA-adres in het certificaat zelf en zetten het naast de standaard root-certificaten; de controle tegen
+          # een vertrouwde root blijft dus volledig.
+          CA=/tmp/ftp-ca.pem; cp /etc/ssl/certs/ca-certificates.crt "$CA"
+          add_chain(){
+            local h="$1" aia
+            aia=$(timeout 30 openssl s_client -connect "$h:21" -starttls ftp -servername "$h" </dev/null 2>/dev/null \
+              | openssl x509 -noout -text 2>/dev/null | grep -oE 'CA Issuers - URI:[^ ]+' | sed 's/CA Issuers - URI://' | head -1 || true)
+            [ -n "$aia" ] || return 0
+            curl -fsSL --max-time 20 "$aia" -o /tmp/inter.bin 2>/dev/null || return 0
+            openssl x509 -inform DER -in /tmp/inter.bin -out /tmp/inter.pem 2>/dev/null || openssl x509 -in /tmp/inter.bin -out /tmp/inter.pem 2>/dev/null || return 0
+            grep -q "$(sed -n 2p /tmp/inter.pem)" "$CA" || cat /tmp/inter.pem >> "$CA"
+          }
+          vcode(){ timeout 40 openssl s_client -connect "$1:21" -starttls ftp -servername "$1" -verify_hostname "$1" -CAfile "$CA" </dev/null 2>/dev/null | grep -m1 'Verify return code' | sed 's/.*Verify return code: //' || true; }
+          cert_ok(){ timeout 40 openssl s_client -connect "$1:21" -starttls ftp -servername "$1" -verify_hostname "$1" -verify_return_error -CAfile "$CA" </dev/null 2>/dev/null | grep -q 'Verify return code: 0 (ok)'; }
           # Welke host? FTP_SERVER, anders ftp.bingr.online, anders bingr.online (zoals vroeger), maar alleen als het
           # certificaat klopt: voor die naam zelf, of voor een naam van de hoster (uit het certificaat; bij een wildcard
           # afgeleid) die naar hetzelfde IP-adres wijst. Pas daarna worden inloggegevens verstuurd.
@@ -74,6 +88,7 @@ jobs:
             [ "$attempt" -gt 1 ] && { echo "Certificaatcontrole opnieuw over 30 s…"; sleep 30; }
             for base in "$FTP_SERVER" ftp.bingr.online bingr.online; do
               base_ip=$(ip_of "$base"); [ -n "$base_ip" ] || continue
+              [ "$attempt" = 1 ] && add_chain "$base"
               if cert_ok "$base"; then HOST="$base"; break 2; fi
               names=$(timeout 40 openssl s_client -connect "$base:21" -starttls ftp -servername "$base" </dev/null 2>/dev/null \
                 | openssl x509 -noout -ext subjectAltName -subject 2>/dev/null \
@@ -87,8 +102,10 @@ jobs:
               done
               [ "$attempt" = 1 ] && echo "::notice::FTPS-certificaat op ${base}: $(echo $names | tr '\n' ' ') · servernaam: ${ptr:-onbekend}"
               for n in $(echo $cands | tr ' ' '\n' | sort -u); do
-                [ "$(ip_of "$n")" = "$base_ip" ] || continue
+                n_ip=$(ip_of "$n")
+                if [ "$n_ip" != "$base_ip" ]; then [ "$attempt" = 1 ] && echo "::notice::${n}: ander IP-adres dan ${base}, overgeslagen"; continue; fi
                 if cert_ok "$n"; then HOST="$n"; break 3; fi
+                [ "$attempt" = 1 ] && echo "::notice::${n}: certificaatcontrole: $(vcode "$n")"
               done
             done
           done
