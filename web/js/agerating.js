@@ -210,5 +210,7 @@
   /** Loopt het bijwerken nu? (Categorieën tonen dan "bezig met aanvullen") */
   AR.isWarming = function () { return running; };
   AR.hasKey = function () { return !!apiKey(); };
+  /** TMDB-verzoek met de sleutel van de server (details, cast, personen; build 90). */
+  AR.tmdb = tmdb;
   AR._cache = function () { return cache; };
 })();

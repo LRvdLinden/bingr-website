@@ -998,3 +998,38 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
   .plan-cmp { font-size: 13px; }
   .plan-locked { margin: 20px 0; padding: 28px 18px; }
 }
+
+/* build 90: info, cast en aanbevelingen op de detailpagina; pagina van een acteur/actrice */
+.dt-plot { margin-bottom: 12px; }
+.dt-credits { margin: 0 0 20px; font-size: 14px; color: #ddd; line-height: 1.5; max-width: 680px; }
+.dt-credits .k { color: #9a9a9a; }
+.dt-extra { position: relative; padding: 0 var(--gutter) 40px; max-width: 1400px; }
+.dt-sec { margin: 18px 0 8px; }
+.dt-sec-title { font-size: 14px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: #9a9a9a; margin: 0 0 12px; }
+.cast-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, auto); grid-auto-columns: 250px; gap: 14px 26px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.cast-grid::-webkit-scrollbar { display: none; }
+.cast-cell { display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; min-width: 0; border-radius: 40px; }
+a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decoration: underline; }
+.cast-pic { flex: none; width: 70px; height: 70px; border-radius: 50%; overflow: hidden; background: #2a2a2a; display: grid; place-items: center; font-weight: 700; font-size: 18px; color: #9a9a9a; }
+.cast-pic img { width: 100%; height: 100%; object-fit: cover; }
+.cast-txt { display: flex; flex-direction: column; min-width: 0; }
+.cast-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cast-role { font-size: 13px; color: #9a9a9a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-extra .row-title { font-size: 14px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: #9a9a9a; }
+.page.person { position: relative; padding: 70px var(--gutter) 60px; }
+.page.person > .dt-back { position: absolute; top: 18px; left: var(--gutter); }
+.person-head { display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; }
+.person-pic { width: 168px; height: 168px; border-radius: 50%; overflow: hidden; background: #2a2a2a; display: grid; place-items: center; font-size: 56px; font-weight: 700; color: #9a9a9a; box-shadow: 0 8px 36px #0008; border: 1px solid #ffffff1f; }
+.person-pic img { width: 100%; height: 100%; object-fit: cover; }
+.person-name { font-size: 30px; font-weight: 800; margin: 0; }
+.person-facts { text-align: center; color: #9a9a9a; font-size: 14px; line-height: 1.6; margin: 8px 0 18px; }
+.person-biobox { max-width: 760px; margin: 0 auto 26px; }
+.person-bio { color: #ddd; font-size: 15px; line-height: 1.6; margin: 0 0 10px; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.person-bio.open { -webkit-line-clamp: unset; display: block; }
+.person-none { text-align: center; }
+@media (max-width: 700px) {
+  .cast-grid { grid-auto-columns: 210px; }
+  .cast-pic { width: 56px; height: 56px; }
+  .person-pic { width: 128px; height: 128px; }
+  .person-name { font-size: 24px; }
+}

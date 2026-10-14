@@ -441,9 +441,19 @@
   };
 
   /** Afleveringen van een serie (M3U: al in de lijst; Xtream: get_series_info; Plex/Jellyfin/Emby/Stremio: hun API). */
+  var epPending = {};
   Lib.episodes = function (s) {
     if (s.episodes && s.episodes.length) return Promise.resolve({ episodes: s.episodes, info: null });
     if (Lib.episodeCache[s.id]) return Promise.resolve(Lib.episodeCache[s.id]);
+    // één verzoek tegelijk per serie (de detailpagina vraagt afleveringen en info tegelijk op)
+    if (!epPending[s.id]) {
+      epPending[s.id] = episodesNow(s);
+      var done = function () { delete epPending[s.id]; };
+      epPending[s.id].then(done, done);
+    }
+    return epPending[s.id];
+  };
+  function episodesNow(s) {
     var src = Lib.source;
     if (src && B.media.isMediaServer(src.kind)) {
       return B.media.episodes(src, s).then(function (eps) {

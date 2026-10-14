@@ -1070,14 +1070,16 @@
     var el = h('div.page.detail');
     var pg = { el: el };
     var x = null, episodes = [], season = null, currentEp = null, versions = [];
-    var buttons, epsEl, seasonSel, trailerBtnSlot, meta, langEl, plot, watchLine, seasonToggle;
+    var buttons, epsEl, seasonSel, trailerBtnSlot, meta, langEl, plot, watchLine, seasonToggle, creditsSlot, extraSlot;
     var stremio = Lib.source && Lib.source.kind === 'Stremio';
     var isShow = type === 'series';
     var listKey = null;
     var alive = true;
     function find() { var hit = Lib.lib.byId && Lib.lib.byId[id]; return hit && hit.type === type ? hit.item : null; }
 
+    var metaExtra = null;
     function metaText(extra) {
+      if (extra) metaExtra = extra; else extra = metaExtra;
       var parts = [];
       if (x.year) parts.push(String(x.year));
       if (x.rating) parts.push('★ ' + (Math.round(x.rating * 10) / 10));
@@ -1330,8 +1332,7 @@
         if (!alive) return;
         episodes = res.episodes || [];
         var info = res.info || {};
-        if (info.plot && !x.plot) plot.textContent = info.plot;
-        if (info.genre) metaText([info.genre]);
+        if (info.plot && !x.plot && !plot.textContent) plot.textContent = info.plot;
         if (!episodes.length) { U.clear(epsEl); epsEl.appendChild(h('p.muted', L('No episodes found'))); drawButtons(); return; }
         currentEp = pickCurrent();
         season = currentEp ? currentEp.season : seasons()[0];
@@ -1346,7 +1347,7 @@
       stopHero();
       U.clear(el);
       el.classList.remove('tr-on');
-      x = find();
+      x = find(); metaExtra = null;
       if (!x) {
         if (Lib.loading || !Lib.lib.byId) { el.appendChild(h('div.state', [U.spinner()])); return; }
         el.appendChild(h('div.state', [h('h2', L('Not found')), h('p.muted', L('This title is not in the library of this server.')), h('a.btn', { href: '#/home' }, L('Home'))]));
@@ -1356,6 +1357,7 @@
       document.title = x.title + ' · Bingr';
       listKey = D.key(Lib.source ? Lib.source.id : '', x.id);
       meta = h('div.dt-meta'); langEl = h('div.dt-lang'); plot = h('p.dt-plot', x.plot || '');
+      creditsSlot = h('div.dt-credits-slot'); extraSlot = h('div.dt-extra-slot');
       buttons = h('div.dt-btns');
       trailerBtnSlot = h('span.dt-trailer');
       var back = h('button.icon-btn.dt-back', { type: 'button', 'aria-label': L('Back'), title: L('Back') }, [U.icon('back')]);
@@ -1363,7 +1365,7 @@
       el.appendChild(h('div.dt-bg', [U.img(x.poster, 'hero-img')]));
       el.appendChild(h('div.dt-shade'));
       el.appendChild(h('div.dt-top', [back, h('div.dt-poster', [U.img(x.poster, 'poster', x.title)]),
-        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', x.title), meta, langEl, plot, buttons])]));
+        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', x.title), meta, langEl, plot, creditsSlot, buttons])]));
       if (isShow) {
         seasonSel = h('select.dt-season', { 'aria-label': L('Season') });
         seasonSel.addEventListener('change', function () {
@@ -1385,16 +1387,20 @@
       drawButtons();
       setTimeout(function () { if (alive && refreshVersions()) drawButtons(); }, 60);
       B.ageRatings.originalLanguage(x, isShow).then(function () { if (!alive) return; drawLang(); metaText(); if (refreshVersions()) drawButtons(); });
+      el.appendChild(extraSlot);
       if (isShow) loadEpisodes();
-      else {
-        loadTrailer();
-        autoTrailer();
-        Lib.movieInfo(x).then(function (info) {
-          if (!info || !alive) return;
-          if (info.plot && !x.plot) plot.textContent = info.plot;
-          metaText([info.duration, info.genre]);
-        });
-      }
+      else { loadTrailer(); autoTrailer(); }
+      // info, cast en aanbevelingen (= DetailsService op iOS, build 90)
+      var cur = x;
+      (isShow ? Lib.episodes(x).then(function (r) { return r && r.info; }) : Lib.movieInfo(x)).then(function (info) {
+        return B.details.load(cur, isShow, info);
+      }).then(function (d) {
+        if (!alive || x !== cur || !d) return;
+        if (d.overview) plot.textContent = d.overview;
+        metaText([d.runtime]);
+        U.clear(creditsSlot); var cr = B.details.credits(d); if (cr) creditsSlot.appendChild(cr);
+        U.clear(extraSlot); var ex = B.details.sections(d); if (ex) extraSlot.appendChild(ex);
+      }, function () { /* stil: de pagina werkt ook zonder */ });
     }
     pg.refresh = function () { if (!x || x !== find()) build(); };
     pg.onData = function () {
