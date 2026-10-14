@@ -428,7 +428,7 @@
     var watchedSeconds = 0, recorded = false, lastSave = 0, attempts = 0, triedBackup = false;
     var nextShown = false, nextDismissed = false, countdownTimer = null;
     var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false;
-    var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false;
+    var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
     var seeking = null;
 
@@ -610,7 +610,7 @@
 
     function start(resumeAt) {
       var gen = ++startGen;
-      limited = false; audioChosen = false; autoSubsDone = false;
+      limited = false; audioChosen = false; autoSubsDone = false; subsStartedAt = Date.now(); clearTimeout(subsRetry); subsRetry = null;
       errorBox.style.display = 'none'; tapPlay.style.display = 'none';
       spinner.style.display = 'flex';
       nextShown = false; nextDismissed = false; nextCard.style.display = 'none';
@@ -641,7 +641,7 @@
         ended: function () { if (engine === my) onEnded(); },
         error: function (e) { if (engine === my) fail(e); },
         state: function () { if (engine === my) { drawPlay(); if (!engine.playing) showControls(); } },
-        tracks: function () { if (engine === my && !audioChosen) applyTrackPrefs(); },
+        tracks: function () { if (engine !== my) return; if (!audioChosen) applyTrackPrefs(); if (subsStartedAt && Date.now() - subsStartedAt > 1500) autoSubtitles(); },
         needsTap: function () { if (engine === my) { spinner.style.display = 'none'; tapPlay.style.display = ''; showControls(); } }
       };
       engine = new Engine(events, video);
@@ -730,10 +730,25 @@
     /** Automatische ondertitels (off | whenNeeded | always): eerst een spoor in de stream, anders OpenSubtitles. */
     function autoSubtitles() {
       if (autoSubsDone || !engine || isLive() || isCatchup() || extCues) return;
+      var tr0 = engine.tracks();
+      // build 91: ondertitelsporen komen bij HLS en Safari soms later binnen: tot 8 s na de start opnieuw proberen
+      // (via het tracks-event en de controle na 5 s) voordat OpenSubtitles aan de beurt is
+      if (!tr0.text.length && Date.now() - subsStartedAt < 8000) {
+        if (!subsRetry) { var g = startGen; subsRetry = setTimeout(function () { subsRetry = null; if (g === startGen) autoSubtitles(); }, 3000); }
+        return;
+      }
       autoSubsDone = true;
       var mode = B.clang.autoSubtitles();
-      if (mode === 'off') return;
       var want = B.clang.preferredSubtitle();
+      // build 91: een zelf gekozen ondertiteltaal (niet "zoals de app") zet altijd een spoor in die taal uit de stream
+      // aan als dat er is, ook als automatische ondertitels uit staan; het oude "off" zet ondertitels uit (zoals Android)
+      var rawSub = B.clang.streamSubtitleSetting ? B.clang.streamSubtitleSetting() : '';
+      if (rawSub === 'off') { try { engine.selectText(null); } catch (e) { /* stil */ } }
+      else if (rawSub) {
+        var pick = tr0.text.filter(function (t) { return B.clang.norm(t.lang) === want; })[0];
+        if (pick) { if (tr0.currentText !== pick.index) engine.selectText(pick.index); return; }
+      }
+      if (mode === 'off') return;
       var audio = currentAudioLang();
       var cl = contentLang();
       if (mode === 'whenNeeded' && (!audio || audio === want)) return;
@@ -753,7 +768,7 @@
       var series = ctx.series || null;
       var imdb = item.imdbID || (item.type === 'episode' ? B.trakt.imdbFor(series || { title: item.title }, true) : B.trakt.imdbFor({ title: item.title, year: B.int(item.subtitle) }, false));
       OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
-        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null }, [want]).then(function (list) {
+        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdbFor() }, [want]).then(function (list) {
         list = list.filter(function (x) { return B.clang.norm(x.language) === want; });
         if (!list.length || closed || engine !== my || item.id !== id || extCues) return null;
         return OS.download(list[0]).then(function (cues) {
@@ -763,9 +778,17 @@
         });
       }).catch(function (e) { B.log('auto-ondertitels', e && e.message); });
     }
+    /** TMDB-id van de film of serie (uit de cache van leeftijden/trailers) voor OpenSubtitles (build 91). */
+    function tmdbFor() {
+      var x = item.type === 'episode' ? ctx.series : (Lib.lib && Lib.lib.byId && Lib.lib.byId[item.id] ? Lib.lib.byId[item.id].item : null);
+      if (!x) return null;
+      var r = B.ageRatings.cached(x.rawTitle || x.title, x.year, item.type === 'episode');
+      return r && r.found !== false && r.id != null ? r.id : null;
+    }
     function showExtCues(cues) {
       try { engine.selectText(null); } catch (e) { /* stil */ }
       extCues = cues; extOffset = 0;
+      buildExtTrack();
       clearInterval(extTimer);
       extTimer = setInterval(renderExtSub, 250);
       renderExtSub();
@@ -776,8 +799,30 @@
       var html = B.esc(t).replace(/\n/g, '<br>');
       if (subtitle._last !== html) { subtitle._last = html; subtitle.innerHTML = html ? '<span>' + html + '</span>' : ''; }
     }
+    /**
+     * Build 91: ook als echt tekstspoor, voor het volledige scherm van Safari op de iPhone (webkitEnterFullscreen
+     * verbergt de eigen weergave). Normaal "hidden"; "showing" alleen in dat volledige scherm.
+     */
+    function buildExtTrack() {
+      if (!video.addTextTrack || !window.VTTCue) return;
+      try {
+        if (!extTrack) {
+          extTrack = video.addTextTrack('subtitles', 'OpenSubtitles', '');
+          video.addEventListener('webkitbeginfullscreen', function () { if (extTrack && extCues) extTrack.mode = 'showing'; });
+          video.addEventListener('webkitendfullscreen', function () { if (extTrack) extTrack.mode = 'hidden'; });
+        }
+        var old = extTrack.cues ? Array.prototype.slice.call(extTrack.cues) : [];
+        old.forEach(function (c) { try { extTrack.removeCue(c); } catch (e) { /* stil */ } });
+        (extCues || []).forEach(function (c) {
+          var s = c.start + extOffset, e = c.end + extOffset;
+          if (e > 0) extTrack.addCue(new VTTCue(Math.max(0, s), e, c.text));
+        });
+        extTrack.mode = video.webkitDisplayingFullscreen && extCues ? 'showing' : 'hidden';
+      } catch (e) { /* stil */ }
+    }
     function clearExtSubs() {
       clearInterval(extTimer); extTimer = null;
+      if (extTrack) { try { extTrack.mode = 'disabled'; } catch (e) { /* stil */ } var t = extTrack; Array.prototype.slice.call(t.cues || []).forEach(function (c) { try { t.removeCue(c); } catch (e) { /* stil */ } }); }
       if (extCues) { extCues = null; subtitle.innerHTML = ''; subtitle._last = ''; }
     }
 
@@ -959,18 +1004,18 @@
     function chooseOffset() {
       var o = [];
       for (var x = -10; x <= 10; x += 0.5) o.push({ value: x, label: (x > 0 ? '+' : '') + x + ' s' });
-      U.choose(L('Subtitle timing'), o, extOffset, function (v) { extOffset = v; renderExtSub(); });
+      U.choose(L('Subtitle timing'), o, extOffset, function (v) { extOffset = v; renderExtSub(); buildExtTrack(); });
     }
     function openSubtitles() {
       var OS = B.opensubtitles;
       if (!OS.ready()) { U.toast(L('Something went wrong. Please try again.')); return; }
-      if (!OS.isLoggedIn()) { U.toast(L('Link OpenSubtitles in the Bingr app (My Bingr → OpenSubtitles) to download subtitles here.'), 5000); return; }
+      if (!OS.isLoggedIn()) { U.toast(L('Sign in to OpenSubtitles first (My Bingr).'), 5000); return; }
       var lang = OS.defaultLanguage();
       var series = ctx.series || null;
       var imdb = item.imdbID || (item.type === 'episode' ? B.trakt.imdbFor(series || { title: item.title }, true) : B.trakt.imdbFor({ title: item.title, year: B.int(item.subtitle) }, false));
       U.toast(L('Searching…'));
       OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
-        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null }, lang ? [lang] : []).then(function (list) {
+        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdbFor() }, lang ? [lang] : []).then(function (list) {
         if (closed) return;
         if (!list.length) { U.toast(lang ? L('No subtitles found in %@.', B.clang.name(lang) || lang) : L('No subtitles found for this title.')); return; }
         U.choose('OpenSubtitles', list.slice(0, 30).map(function (x, i) {

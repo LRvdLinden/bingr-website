@@ -643,6 +643,8 @@
       if (nb) base = nb;
       P.base = base;
     } else if (localBase && WHOLE.some(function (o) { return o.at(localBase) > 0; })) prefsNewer = true;
+    // build 91: kijkvoorkeuren van een ander apparaat → instellingen opnieuw tekenen
+    if (JSON.stringify(localBase && localBase.prefs || null) !== JSON.stringify(P.base && P.base.prefs || null)) setTimeout(function () { B.emit('settings'); }, 0);
     if (names.length) P.names = names;
     var srv = server ? normalize(server) : null;
     var merged = normalize(srv ? mergeState(P.st, srv) : P.st);

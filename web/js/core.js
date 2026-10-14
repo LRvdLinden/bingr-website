@@ -366,6 +366,29 @@
       }, function () { clearTimeout(timer); throw new NetError('network', true); });
     });
   };
+  /** POST naar de proxy met een eigen actie (build 91: OpenSubtitles): {status, json, text, buffer, proxied}. */
+  B.proxyPost = function (body, opt) {
+    opt = opt || {};
+    var A = B.account;
+    if (!A || !A.validAccessToken) return Promise.reject(new NetError('network', true));
+    return A.validAccessToken().then(function (token) {
+      var ctl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, opt.timeout || 30000);
+      return fetch(B.config.supabaseUrl + '/functions/v1/web-proxy', {
+        method: 'POST', signal: ctl ? ctl.signal : undefined,
+        headers: { 'Authorization': 'Bearer ' + token, 'apikey': B.config.supabaseKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (res) {
+        return (opt.binary ? res.arrayBuffer() : res.text()).then(function (data) {
+          clearTimeout(timer);
+          var r = { status: res.status, text: '', json: null, buffer: null, proxied: true };
+          if (opt.binary) r.buffer = data;
+          else { r.text = data || ''; if (r.text) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
+          return r;
+        });
+      }, function () { clearTimeout(timer); throw new NetError('network', true); });
+    });
+  };
   B.proxyURL = function () { return B.config.supabaseUrl + '/functions/v1/web-proxy'; };
   B.needsProxy = function (url) { return !!proxyHosts[hostOf(url)]; };
   B.markProxy = function (url) { rememberProxy(hostOf(url)); };

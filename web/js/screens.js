@@ -1577,17 +1577,22 @@
       var CLg = B.clang;
       var langOpts = ['nl', 'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'tr', 'ar', 'hi'];
       function pv(key, sharedKey) { var v = D.profilePref(key); return v != null ? v : String(D.shared(sharedKey, '') || ''); }
+      // build 91: alleen het hoofdprofiel (of een account zonder profielen) wijzigt de gedeelde stand; andere profielen alleen hun eigen
+      function setPref(sharedKey, prefKey, v) {
+        if (!D.profiles.length || D.isMain(B.app.profile)) D.setShared(sharedKey, v);
+        D.setProfilePref(prefKey, v);
+      }
       var aud = pv('audioLanguage', 'audioLanguage');
       function audLabel(v) { return v === 'stream' ? L('As in the stream') : (v ? CLg.name(v) : L('Same as app') + ' (' + CLg.name(B.lang) + ')'); }
       row(sec, L('Default audio language'), audLabel(aud), function () {
         U.choose(L('Default audio language'), [{ value: '', label: audLabel('') }, { value: 'stream', label: L('As in the stream') }]
-          .concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), aud, function (v) { D.setShared('audioLanguage', v); D.setProfilePref('audioLanguage', v); render(); });
+          .concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), aud, function (v) { setPref('audioLanguage', 'audioLanguage', v); render(); });
       });
       var autoS = CLg.autoSubtitles();
       var autoLabels = { off: L('Off'), whenNeeded: L('When needed'), always: L('Always') };
       row(sec, L('Automatic subtitles'), autoLabels[autoS], function () {
         U.choose(L('Automatic subtitles'), ['whenNeeded', 'always', 'off'].map(function (v) { return { value: v, label: autoLabels[v] }; }), autoS, function (v) {
-          D.setShared('autoSubtitles', v); D.setProfilePref('autoSubtitles', v); render();
+          setPref('autoSubtitles', 'autoSubtitles', v); render();
         });
       });
       var subRaw = pv('streamSubtitleLanguage', 'subtitleLanguage');
@@ -1595,7 +1600,7 @@
       var subAuto = L('Same as app') + ' (' + CLg.name(CLg.appLanguage()) + ')';
       row(sec, L('Subtitle language'), subCur ? CLg.name(subCur) : subAuto, function () {
         U.choose(L('Subtitle language'), [{ value: '', label: subAuto }].concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), subCur, function (v) {
-          D.setShared('subtitleLanguage', v); D.setProfilePref('streamSubtitleLanguage', v); render();
+          setPref('subtitleLanguage', 'streamSubtitleLanguage', v); render();
         });
       });
       var OS = B.opensubtitles;
@@ -1603,9 +1608,10 @@
         var osl = OS.defaultLanguage();
         var oslabel = '';
         OS.languages.forEach(function (l) { if (l[0].slice(0, 2) === osl.slice(0, 2)) oslabel = l[1]; });
-        row(sec, L('Default subtitle language') + ' (OpenSubtitles)', oslabel || L('All'), function () {
+        if (osl && !oslabel) oslabel = CLg.name(osl) || osl;
+        row(sec, L('Default subtitle language') + ' (OpenSubtitles)', osl ? oslabel : L('All'), function () {
           U.choose(L('Default subtitle language'), [{ value: '', label: L('All') }].concat(OS.languages.map(function (l) { return { value: l[0], label: l[1] }; })), osl, function (v) {
-            D.setShared('openSubtitlesLanguage', v); D.setProfilePref('subtitleLanguage', v); render();
+            setPref('openSubtitlesLanguage', 'subtitleLanguage', v); render();
           });
         });
       }

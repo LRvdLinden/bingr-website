@@ -535,32 +535,43 @@
   OS.isLoggedIn = function () { return !!C.opensubtitles(); };
   OS.username = function () { var o = C.opensubtitles(); return o ? o.username || '' : ''; };
   OS.languages = [['nl', 'Nederlands'], ['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['it', 'Italiano'],
-    ['pt-PT', 'Português'], ['tr', 'Türkçe'], ['ar', 'العربية'], ['pl', 'Polski'], ['zh-CN', '简体中文']];
-  /** Standaardtaal: settings.shared.openSubtitlesLanguage, anders de ondertiteltaal, anders de app-taal. */
+    ['pt', 'Português'], ['tr', 'Türkçe'], ['ar', 'العربية'], ['pl', 'Polski'], ['zh', '简体中文']];
+  /** Standaardtaal: prefs.subtitleLanguage van het profiel, anders settings.shared.openSubtitlesLanguage, anders de ondertiteltaal, anders de app-taal. */
   OS.defaultLanguage = function () {
     var D = B.data;
     var pv = D.profilePref ? D.profilePref('subtitleLanguage') : null;
-    if (pv != null && pv !== 'off') return pv;
+    // build 91: ISO 639-1 (oud "pt-PT" / "zh-CN" → "pt" / "zh"); "" = alle talen
+    function iso(x) { x = String(x || ''); return /^(pt|zh)[-_]/i.test(x) ? x.slice(0, 2).toLowerCase() : x; }
+    if (pv != null && pv !== 'off') return iso(pv);
     var v = D.shared('openSubtitlesLanguage', null);
-    if (v != null) return String(v);
-    var t = String(D.shared('subtitleLanguage', '') || '');
+    if (v != null) return iso(v);
+    // build 91: de ondertiteltaal van dit profiel (prefs.streamSubtitleLanguage, anders shared), anders de app-taal
+    var t = B.clang && B.clang.preferredSubtitle ? String(B.clang.preferredSubtitle() || '') : String(D.shared('subtitleLanguage', '') || '');
     return t.length === 2 ? t : String(B.lang || 'en').slice(0, 2);
   };
   function apiCodes(c) { c = String(c || '').toLowerCase(); if (c === 'pt' || c === 'pt-pt') return ['pt-br', 'pt-pt']; if (c === 'zh' || c === 'zh-cn') return ['zh-cn', 'zh-tw']; return c ? [c] : []; }
-  function osRequest(path, method, params, body, host) {
+  /**
+   * Build 91: elke aanroep gaat via de proxy (web-proxy, actie "os"): de OpenSubtitles-API stuurt geen CORS-headers,
+   * dus de browser kan hem niet zelf aanroepen. De proxy zet de API-sleutel en de user-agent. Een 401 van
+   * OpenSubtitles bij een aanroep met sessie: één keer opnieuw inloggen als er een wachtwoord bewaard is, anders
+   * (alleen bij /download en /infos/user) uitloggen. Een 401 van de proxy zelf (Bingr-sessie) laat OpenSubtitles staan.
+   */
+  function osRequest(path, method, params, body, host, retried) {
     var o = C.opensubtitles();
-    var h = host || (o && o.baseURL) || OS_HOST;
-    h = String(h).replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    var u = 'https://' + h + '/api/v1' + path;
-    if (params) {
-      var list = [];
-      Object.keys(params).sort().forEach(function (k) { list.push([k, params[k]]); });
-      if (list.length) u = B.query(u, list);
-    }
-    var hd = { 'Api-Key': OS.apiKey(), 'Content-Type': 'application/json', 'Accept': 'application/json' };
-    if (o && o.token && path !== '/login') hd.Authorization = 'Bearer ' + o.token;
-    return B.http(u, { method: method || 'GET', headers: hd, body: body, timeout: 30000 }).then(function (r) {
-      if (r.status === 401 && o && path !== '/login') changed(function (d) { d.opensubtitles = null; });
+    var h = String(host || (o && o.baseURL) || OS_HOST).replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    var req = { action: 'os', path: path, method: method || 'GET', query: params || {}, host: h };
+    if (body) req.body = body;
+    if (o && o.token && path !== '/login') req.token = o.token;
+    return B.proxyPost(req).then(function (r) {
+      var proxyErr = r.json && typeof r.json.error === 'string' && !r.json.message;
+      if (r.status === 401 && o && path !== '/login' && !proxyErr) {
+        if (o.password && !retried) {
+          return OS.login(o.username, o.password).then(function () { return osRequest(path, method, params, body, null, true); });
+        }
+        if (path === '/download' || path === '/infos/user') changed(function (d) { d.opensubtitles = null; });
+        throw new Error(L('Sign in to OpenSubtitles first (My Bingr).'));
+      }
+      if (proxyErr && r.status === 429) throw new Error(L('Something went wrong. Please try again.'));
       if (r.status < 200 || r.status >= 300) throw new Error((r.json && r.json.message) || ('OpenSubtitles ' + r.status));
       return r.json || {};
     });
@@ -568,7 +579,9 @@
   OS.login = function (user, pass) {
     return osRequest('/login', 'POST', null, { username: user, password: pass }, OS_HOST).then(function (j) {
       if (!j.token) throw new Error(L('Incorrect email or password.'));
-      return changed(function (d) { d.opensubtitles = { token: j.token, username: user, baseURL: j.base_url || OS_HOST }; });
+      var old = C.opensubtitles();
+      var keep = old && old.password && old.username === user ? { password: old.password } : {};
+      return changed(function (d) { d.opensubtitles = Object.assign({ token: j.token, username: user, baseURL: j.base_url || OS_HOST }, keep); });
     });
   };
   OS.logout = function () {
@@ -587,6 +600,10 @@
     if (numeric && numeric > 0) {
       if (isEp) { q.parent_imdb_id = String(numeric); q.season_number = String(opts.season); q.episode_number = String(opts.episode); }
       else q.imdb_id = String(numeric);
+    } else if (B.int(opts.tmdb) > 0) {
+      // build 91: geen IMDb-id → TMDB-id (contract: IMDb, anders TMDB, anders titel)
+      if (isEp) { q.parent_tmdb_id = String(B.int(opts.tmdb)); q.season_number = String(opts.season); q.episode_number = String(opts.episode); }
+      else q.tmdb_id = String(B.int(opts.tmdb));
     } else if (opts.title) {
       var p = B.parseTitle(opts.title);
       q.query = p.title.toLowerCase();
@@ -608,14 +625,22 @@
   /** Downloaden → tekst (UTF-8, anders Windows-1252) → cues [{start, end, text}] in seconden. */
   OS.download = function (sub) {
     if (!OS.isLoggedIn()) return Promise.reject(new Error(L('Sign in to OpenSubtitles first (My Bingr).')));
+    // build 91: eerder gedownloade ondertitels uit de eigen opslag (elke download telt mee voor het dagquotum)
+    var ck = 'os.cues.' + sub.id;
+    return B.idb.get(ck).then(function (c) { return c && c.length ? c : null; }, function () { return null; }).then(function (c) {
+      if (c) return c;
+      return downloadNow(sub).then(function (cues) { if (cues.length) B.idb.set(ck, cues); return cues; });
+    });
+  };
+  function downloadNow(sub) {
     return osRequest('/download', 'POST', null, { file_id: sub.id, sub_format: 'srt' }).then(function (j) {
       if (!j.link) throw new Error(L('Something went wrong. Please try again.'));
-      return B.http(j.link, { binary: true, timeout: 30000 });
+      return B.proxyPost({ action: 'osfile', url: j.link }, { binary: true, timeout: 30000 });
     }).then(function (r) {
       if (r.status < 200 || r.status >= 300 || !r.buffer) throw new Error(L('Something went wrong. Please try again.'));
       return B.subs.parse(B.subs.decode(r.buffer));
     });
-  };
+  }
 
   // MARK: ondertitels lezen (SRT en WebVTT) voor de eigen weergave in de speler
 

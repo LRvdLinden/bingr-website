@@ -302,6 +302,8 @@
   };
   /** Taal van de app als ISO 639-1 ("zh-Hans" → "zh"). */
   CL.appLanguage = function () { return CL.norm(B.lang) || 'en'; };
+  /** Ruwe instelling voor ondertitels in de stream: "" = zoals de app, "off" = oud uit, anders een taalcode (build 91). */
+  CL.streamSubtitleSetting = function () { return pref('streamSubtitleLanguage', 'subtitleLanguage'); };
   /** Gewenste ondertiteltaal: subtitleLanguage (in prefs: streamSubtitleLanguage), anders de taal van de app. */
   CL.preferredSubtitle = function () {
     var raw = pref('streamSubtitleLanguage', 'subtitleLanguage');
