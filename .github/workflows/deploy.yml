@@ -59,7 +59,7 @@ jobs:
           fi
           # spaties/regeleinden rond de secrets weghalen; wachtwoord via LFTP_PASSWORD (tekens als , " ; # breken anders lftp)
           trim(){ printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-          FTP_SERVER=$(trim "${FTP_SERVER:-}"); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_USERNAME_ALT=$(trim "${FTP_USERNAME_ALT:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
+          FTP_SERVER=$(trim "${FTP_SERVER:-}" | sed -E 's#^[a-zA-Z]+://##; s#/.*$##; s#:[0-9]+$##'); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_USERNAME_ALT=$(trim "${FTP_USERNAME_ALT:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
           export LFTP_PASSWORD="$FTP_PASSWORD"
           # alleen versleuteld (FTPS) met een geldig certificaat; geen terugval op gewone FTP of andere servers
           common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ftp:passive-mode true; set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate yes; set ssl:check-hostname yes"
@@ -72,7 +72,7 @@ jobs:
           for attempt in 1 2 3; do
             [ "$attempt" -gt 1 ] && { echo "Certificaatcontrole opnieuw over 30 s…"; sleep 30; }
             if cert_ok "$FTP_SERVER"; then HOST="$FTP_SERVER"; break; fi
-            srv_ip=$(ip_of "$FTP_SERVER"); [ -n "$srv_ip" ] || continue
+            srv_ip=$(ip_of "$FTP_SERVER"); [ -n "$srv_ip" ] || { echo "::warning::FTP_SERVER heeft geen IPv4-adres in DNS"; continue; }
             names=$(timeout 40 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp -servername "$FTP_SERVER" </dev/null 2>/dev/null \
               | openssl x509 -noout -ext subjectAltName -subject 2>/dev/null \
               | grep -oE '(DNS:|CN ?= ?)(\*\.)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | sed -E 's/^(DNS:|CN ?= ?)//' | sort -u || true)
