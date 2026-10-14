@@ -66,8 +66,10 @@
     } catch (e) { /* stil */ }
   });
 
-    app.applyAccent = function (key) {
+  app.applyAccent = function (key) {
     var k = key || D.accentKey(app.profile);
+    // accentkleuren horen bij Lifetime: met Gratis blijft Bingr rood
+    if (B.plan && !B.plan.has('themes')) k = 'red';
     var c = D.accents[k] || D.accents.red;
     document.documentElement.style.setProperty('--accent', c);
     B.store.set('lastAccent', k);
@@ -133,12 +135,14 @@
 
   function afterLogin(fresh) {
     D.checkAccountSwitch();
+    B.plan.load();
     show(splash());
     var reg = (fresh || !A.isRegistered()) ? A.registerDevice() : Promise.resolve('ok');
     reg.then(function (r) {
       if (r && r.limit) { showLimit(r); return; }
       // token voor de proxy (http-servers, video en afbeeldingen via bingr's server); ververst zichzelf
       B.ensureProxyToken();
+      B.plan.fetch();
       A.fetchConfig().then(function (ok) { if (ok) B.emit('config'); });
       var haveCache = D.profiles.length > 0;
       var sync = Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function (x) { D.migrateAccent(); return x; });
@@ -210,6 +214,8 @@
   });
   B.on('config', function () { if (app.profile) { B.trakt.refresh(false); warmAges(); } });
   B.ageRatings.preload();
+  // ander abonnement (Gratis ↔ Lifetime): accentkleur en de open pagina bijwerken
+  B.on('plan', function () { if (app.profile) { app.applyAccent(); if (B.plan.has('trakt')) B.trakt.refresh(false); } });
 
   app.signOut = function () {
     if (B.player.current) B.player.current.close();

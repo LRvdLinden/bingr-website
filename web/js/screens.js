@@ -183,6 +183,18 @@
     svg.innerHTML = '<path d="' + DEV_ICONS[k] + '"/>';
     return svg;
   };
+  /** Bij te veel apparaten/streams met Gratis: de limiet van Lifetime en een knop om te upgraden (Lifetime: niets). */
+  S.limitUpsell = function (kind, info) {
+    var P = B.plan;
+    P.noteLimitError(info);
+    var plan = String((info && info.plan) || P.get().plan).toLowerCase();
+    if (plan !== 'free') return null;
+    var limit = (info && info.limit) || P.limit(kind);
+    var text = kind === 'devices' ? L('Free: up to %d devices. Lifetime: %d.', limit, P.LIFETIME.devices)
+      : L('Free: up to %d screens at the same time. Lifetime: %d.', limit, P.LIFETIME.streams);
+    return h('div.plan-upsell', [P.badge(), h('span.plan-upsell-t', text),
+      U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'sparkle' })]);
+  };
   S.deviceLimit = function (info, onRetry, onCancel) {
     var list = h('div.dev-list');
     info.devices.forEach(function (d) {
@@ -196,6 +208,7 @@
     var card = h('div.login-card.limit', [
       h('h1', L('Too many devices')),
       h('p.muted', L('Your account can be used on up to %d devices. Remove a device to sign in on this one.', info.limit)),
+      S.limitUpsell('devices', info),
       list,
       h('div.dlg-buttons', [U.button(L('Cancel'), onCancel)])
     ]);
@@ -1417,16 +1430,27 @@
     function call(action, body) {
       return A.authed(Object.assign({ action: action }, body || {})).then(function (r) {
         if (!r) throw new Error('offline');
+        if (B.plan.isLockedResponse(r)) { setTimeout(function () { B.plan.markLocked('stats'); }, 0); throw new Error('signed_out'); }
         if (!r.ok) throw new Error(r.errorCode || 'error');
         return r.json;
       });
     }
     var main = D.isMain(prof);
-    var view = window.BingrStats ? window.BingrStats.mount(box, {
-      call: call, lang: B.lang === 'nl' ? 'nl' : 'en', profiles: D.profiles, filter: main, profileId: main ? null : prof.id,
-      avatar: function (p) { return S.avatar(p, 'tiny'); }
-    }) : null;
-    pg.destroy = function () { if (view) view.destroy(); };
+    var view = null;
+    // Statistieken horen bij Lifetime: met Gratis (of als de server feature_locked zegt) de slotweergave
+    function draw() {
+      if (view) { view.destroy(); view = null; }
+      U.clear(box);
+      if (!B.plan.has('stats')) { box.appendChild(B.plan.lockedView('stats', L('Statistics are part of Lifetime'))); return; }
+      view = window.BingrStats ? window.BingrStats.mount(box, {
+        call: call, lang: B.lang === 'nl' ? 'nl' : 'en', profiles: D.profiles, filter: main, profileId: main ? null : prof.id,
+        avatar: function (p) { return S.avatar(p, 'tiny'); }
+      }) : null;
+    }
+    var locked = !B.plan.has('stats');
+    var offPlan = B.on('plan', function () { if (B.plan.has('stats') !== !locked) { locked = !B.plan.has('stats'); draw(); } });
+    draw();
+    pg.destroy = function () { offPlan(); if (view) view.destroy(); };
     return pg;
   };
 
@@ -1482,15 +1506,19 @@
       row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
       row(sec, L('Account and devices'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
       S.supportRow(sec, L('Help, questions and support tickets'));
-      row(sec, L('Statistics'), main ? L('All profiles') : prof.name, function () { location.hash = '#/stats'; }, { icon: 'chart' });
+      S.planRow(sec);
+      S.watchingNowRow(sec);
+      row(sec, L('Statistics'), B.plan.has('stats') ? (main ? L('All profiles') : prof.name) : B.plan.badge(), function () { location.hash = '#/stats'; }, { icon: 'chart' });
       row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
 
       sec = section(L('Profile'), main ? null : L('Profiles are managed in the main account.'));
       var pRow = row(sec, L('Switch profile'), prof.name, function () { B.app.switchProfile(); });
       pRow.insertBefore(S.avatar(prof, 'tiny'), pRow.firstChild);
-      var accent = D.accentKey(prof);
+      var themes = B.plan.has('themes');
+      var accent = themes ? D.accentKey(prof) : 'red';
       var sw = h('span.st-value.swatch', [h('i', { style: { background: D.accents[accent] } }), L(accent.charAt(0).toUpperCase() + accent.slice(1))]);
-      var aRow = row(sec, L('Accent color'), null, function () {
+      if (!themes) sw.appendChild(B.plan.badge());
+      var aRow = row(sec, L('Accent color'), null, !themes ? function () { B.plan.sheet('themes'); } : function () {
         U.choose(L('Accent color'), Object.keys(D.accents).map(function (k) { return { value: k, label: L(k.charAt(0).toUpperCase() + k.slice(1)) }; }), accent, function (v) {
           B.app.applyAccent(v);
           D.setAccent(prof.id, v).then(function () { B.app.applyAccent(); render(); });
@@ -1532,6 +1560,12 @@
       row(sec, L('Active server'), src ? src.name : L('None'), function () { if (!D.sources.length) { U.toast(L('No servers yet')); return; } chooseServer(); });
       row(sec, L('Refresh now'), null, function () { if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); } }, { icon: 'refresh' });
       if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
+      // nog een server erbij: met Gratis maar één (bestaande servers blijven bruikbaar)
+      if (main) {
+        var canAdd = B.plan.canAddServer(D.sources.length);
+        row(sec, L('Add server'), canAdd ? null : B.plan.badge(), canAdd ? function () { location.href = '../account/'; } : function () { B.plan.sheet('servers'); },
+          { icon: 'plus', sub: canAdd ? L('Servers are added on bingr.online/account.') : null });
+      }
 
       sec = section(L('Audio & subtitles'), L('These choices apply to this profile only.'));
       var CLg = B.clang;
@@ -1620,7 +1654,7 @@
     }
     pg.refresh = render;
     var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
-      B.on('settings', function () { if (el.parentNode) render(); })];
+      B.on('settings', function () { if (el.parentNode) render(); }), B.on('plan', function () { if (el.parentNode) render(); })];
     pg.onCollections = render;
     pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();

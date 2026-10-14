@@ -150,7 +150,8 @@
     var p = B.app && B.app.profile;
     return !!p && (B.data.isMain(p) || B.data.profiles.length <= 1);
   };
-  Trakt.isLoggedIn = function () { return !!C.trakt() && Trakt.allowed(); };
+  // Trakt hoort bij Lifetime: met Gratis geen sync en geen scrobbles (de koppeling zelf blijft bewaard)
+  Trakt.isLoggedIn = function () { return !!C.trakt() && Trakt.allowed() && (!B.plan || B.plan.has('trakt')); };
   Trakt.username = function () { var t = C.trakt(); return t ? t.username || '' : ''; };
   Trakt.scrobbleEnabled = function () { return B.bool(B.data.shared('traktScrobble', true)) !== false; };
   Trakt.lastScrobble = null;

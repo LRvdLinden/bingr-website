@@ -507,8 +507,9 @@
       row(sec, L('Collections'), String(D.collectionsFor(prof().id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
       // Categorieën (build 86): het overzicht met genres en de categorieën van je server (stond eerst bovenin de navigatie)
       if (B.categories && B.categories.available()) row(sec, L('Categories'), String(B.categories.total()), function () { location.hash = '#/categorie'; }, { icon: 'grid' });
-      row(sec, L('Statistics'), null, function () { location.hash = '#/stats'; }, { icon: 'chart' });
+      row(sec, L('Statistics'), B.plan.has('stats') ? null : B.plan.badge(), function () { location.hash = '#/stats'; }, { icon: 'chart' });
       S.traktStatusRow(sec);
+      if (B.plan.isKnown()) { sec = S.stSection(list, L('Account')); S.planRow(sec); S.watchingNowRow(sec); }
       sec = S.stSection(list, L('Profile'));
       if (isMain()) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users' });
       row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
@@ -526,10 +527,54 @@
     pg.refresh = render;
     pg.onData = function () { drawRows(); drawList(); };
     pg.onCollections = drawList;
-    var offs = [B.on('traktStatus', drawList), B.on('connections', drawList), B.on('profiles', function () { if (el.parentNode) render(); })];
+    var offs = [B.on('traktStatus', drawList), B.on('connections', drawList), B.on('profiles', function () { if (el.parentNode) render(); }),
+      B.on('plan', drawList)];
     pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();
     return pg;
+  };
+
+  // MARK: abonnement (Gratis / Lifetime) en "Nu aan het kijken"
+
+  /** Rij "Abonnement: Gratis / Lifetime" met de limieten; klikken = vergelijking (en upgraden bij Gratis). Alleen als de server het abonnement gaf. */
+  S.planRow = function (sec) {
+    var P = B.plan;
+    if (!P.isKnown()) return null;
+    var free = P.isFree();
+    var val = h('span.st-value.plan-val', [h('span.plan-pill' + (free ? '' : '.life'), P.name())]);
+    return S.stRow(sec, L('Subscription'), val, function () { P.sheet(free ? 'plan' : null); }, { icon: 'sparkle', sub: P.summary() });
+  };
+  /** Rij "Nu aan het kijken" (list_streams): met Gratis op slot. */
+  S.watchingNowRow = function (sec) {
+    var P = B.plan;
+    var on = P.has('now_watching');
+    return S.stRow(sec, L('Watching now'), on ? null : P.badge(), function () { if (P.has('now_watching')) S.watchingNowSheet(); else P.sheet('now_watching'); }, { icon: 'tv' });
+  };
+  S.watchingNowSheet = function () {
+    var body = h('div.wn-sheet', [h('div.trakt-wait', [U.spinner()])]);
+    var dlg = U.modal({ title: L('Watching now'), body: body, cls: 'wn-dlg', buttons: [{ label: L('Close') }] });
+    function load() {
+      A.listStreams().then(function (r) {
+        if (!document.body.contains(dlg.el)) return;
+        U.clear(body);
+        if (r && r.locked) { dlg.close(); B.plan.markLocked('now_watching'); B.plan.sheet('now_watching'); return; }
+        if (!r) {
+          body.appendChild(h('p.muted', L('Something went wrong. Please try again.')));
+          body.appendChild(U.button(L('Try again'), function () { U.clear(body); body.appendChild(h('div.trakt-wait', [U.spinner()])); load(); }, { cls: 'small', icon: 'refresh' }));
+          return;
+        }
+        body.appendChild(h('p.muted.small', L('%d of %d watching now', r.streams.length, r.limit)));
+        if (!r.streams.length) { body.appendChild(h('p.muted', L('Nobody is watching right now.'))); return; }
+        var list = h('div.limit-list');
+        r.streams.forEach(function (st) {
+          var who = st.deviceName + (st.profileName ? ' · ' + st.profileName : '');
+          list.appendChild(h('div.limit-row', [S.platformIcon(st.platform), h('div', [h('div', who), h('div.muted.small', [st.title || '', st.startedAt ? ' · ' + B.fmtTime(st.startedAt) : ''].join(''))])]));
+        });
+        body.appendChild(list);
+      });
+    }
+    load();
+    return dlg;
   };
 
   function backLink(href, label) { return h('a.st-back', { href: href }, [U.icon('chevron', 'st-back-ic'), label]); }
@@ -724,6 +769,8 @@
   S.traktStatusRow = function (sec) {
     var T = B.trakt;
     if (!T.ready()) return null;
+    // Trakt hoort bij Lifetime
+    if (!B.plan.has('trakt')) return S.stRow(sec, 'Trakt', B.plan.badge(), function () { B.plan.sheet('trakt'); }, { lead: traktLogo() });
     if (!T.allowed()) {
       return S.stRow(sec, 'Trakt', B.connections.trakt() ? L('Main account') : L('Not linked'), null, { lead: traktLogo() });
     }
@@ -736,6 +783,7 @@
   /** Venster om Trakt te koppelen (apparaatcode op trakt.tv/activate) of de koppeling te beheren. */
   S.traktSheet = function () {
     var T = B.trakt;
+    if (!B.plan.has('trakt')) return B.plan.sheet('trakt');
     var body = h('div.trakt-sheet');
     var flow = null, dlg = null;
     function done() { if (flow) { flow.cancel(); flow = null; } }
@@ -810,7 +858,7 @@
     var main = isMain(), T = B.trakt, OS = B.opensubtitles;
     var sec = S.stSection(list, L('Connections'), L('The server, Trakt and OpenSubtitles belong to the main account and are used by all profiles.'));
     S.traktStatusRow(sec);
-    if (main && T.isLoggedIn()) {
+    if (main && T.isLoggedIn() && B.plan.has('trakt')) {
       var on = T.scrobbleEnabled();
       S.stRow(sec, L('Scrobble'), null, function () { D.setShared('traktScrobble', !on); setTimeout(rerender, 30); }, { toggle: on });
     }

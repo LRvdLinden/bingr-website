@@ -291,7 +291,7 @@
     }).then(function (r) {
       if (!r) return 'failed';
       var j = r.json || {};
-      if (r.status === 403 && (r.errorCode === 'device_limit' || j.devices)) return { limit: j.limit || 15, devices: parseDevices(j.devices) };
+      if (r.status === 403 && (r.errorCode === 'device_limit' || j.devices)) return { limit: j.limit || 15, devices: parseDevices(j.devices), plan: j.plan || null };
       if (!r.ok) return 'failed';
       B.store.set('deviceRegistered', true);
       return 'ok';
@@ -301,6 +301,8 @@
     return deviceCall('heartbeat', A.deviceId()).then(function (r) {
       if (!r) return true;
       if (r.json && r.json.revoked === true) return false;
+      // abonnement (Gratis/Lifetime): zit het in het antwoord, dan dat; anders apart ophalen
+      if (B.plan && !(r.ok && r.json && r.json.entitlements && B.plan.apply(r.json.entitlements))) B.plan.fetch();
       return true;
     });
   };
@@ -346,6 +348,7 @@
   A.fetchConfig = function () {
     return authed({ action: 'config' }).then(function (r) {
       if (!r || !r.ok || !r.json) return false;
+      if (r.json.entitlements && B.plan) B.plan.apply(r.json.entitlements);
       B.store.set('serverKeys', r.json);
       return true;
     });
@@ -476,7 +479,7 @@
     return authed(body).then(function (r) {
       if (!r) return { failed: true };
       var j = r.json || {};
-      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 6, streams: parseStreams(j.streams) };
+      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 6, streams: parseStreams(j.streams), plan: j.plan || null };
       return r.ok ? { ok: true } : { failed: true };
     });
   };
@@ -487,6 +490,15 @@
       if (!r) return null;
       if (r.json && r.json.stopped === true) return false;
       return r.ok ? true : null;
+    });
+  };
+  /** Wie kijkt er nu (list_streams): {limit, streams} | {locked: true} (Gratis) | null (fout). */
+  A.listStreams = function () {
+    return authed({ action: 'list_streams' }).then(function (r) {
+      if (!r) return null;
+      if (B.plan && B.plan.isLockedResponse(r)) return { locked: true };
+      if (!r.ok || !r.json) return null;
+      return { limit: r.json.limit || 6, streams: parseStreams(r.json.streams) };
     });
   };
   A.streamStop = function () { return authed({ action: 'stream_stop', device_id: A.deviceId() }).catch(B.noop); };

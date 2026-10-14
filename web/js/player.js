@@ -1122,6 +1122,8 @@
         list.appendChild(h('div.limit-row', [B.screens.platformIcon(s.platform), h('div', [h('div', s.deviceName + ' · ' + s.profileName), h('div.muted.small', s.title)])]));
       });
       errorBox.appendChild(list);
+      var up = B.screens.limitUpsell('streams', r);
+      if (up) errorBox.appendChild(up);
       var row = h('div.dlg-buttons');
       row.appendChild(U.button(L('Try again'), function () { errorBox.style.display = 'none'; start(ctx.resume || 0); }, { primary: true }));
       row.appendChild(U.button(L('Close'), function () { close(); }));
