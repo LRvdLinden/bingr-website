@@ -354,9 +354,9 @@
   // MARK: hoofdscherm (navigatie bovenaan of onderaan, pagina's via de router)
 
   // [sleutel, tekst, icoon, waar]: 'top' = alleen bovenin (computer), 'tab' = alleen in de onderbalk (telefoon)
-  // Categorieën: bovenin naast Series; op de telefoon via de chip "Categorieën" bij Films en Series (onderbalk blijft 5 tabs)
+  // Categorieën (build 86): niet in de navigatie, maar in Mijn Bingr (Bibliotheek) en als rij op Home (#/categorie hoort bij Mijn Bingr)
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
-    ['categorie', 'Categories', 'grid', 'top'], ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
+    ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
 
   S.main = function () {
     var content = h('main.content', { id: 'content', tabindex: '-1' });
@@ -368,7 +368,6 @@
     var hidden = D.shared('hiddenTabs', []) || [];
     NAV.forEach(function (n) {
       if (hidden.indexOf(n[0]) >= 0) return;
-      if (n[0] === 'categorie' && !(B.categories && B.categories.available())) return;
       if (n[3] !== 'tab') links.appendChild(h('a.top-link', { href: '#/' + n[0], 'data-k': n[0] }, L(n[1])));
       if (n[3] !== 'top') tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
     });
@@ -644,6 +643,8 @@
         'recent': function () { return U.row(L('Recently added'), Lib.recent(lib.movies, 30).map(function (m) { return posterCard(m, 'movie'); })); },
         'movies': function () { return U.row(L('Movies'), lib.movies.slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, '#/movies'); },
         'series': function () { return U.row(L('Series'), lib.series.slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, '#/series'); },
+        // rij met genretegels (build 86); 'categories' hieronder = rijen per categorie van de server
+        'genres': function () { return B.categories ? B.categories.homeRow() : null; },
         'categories': function () {
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
@@ -657,32 +658,68 @@
       });
       return b;
     }
-    function order(b) {
+    /** Volledige indeling (ook uitgezette rijen), alleen rijen die hier bestaan. */
+    function layout(b) {
       var colls = D.collectionsFor(B.app.profile.id);
-      return S.effectiveHomeLayout(D.homeLayout(), colls).filter(function (r) { return r.visible && b[r.key]; }).map(function (r) { return r.key; });
+      return S.effectiveHomeLayout(D.homeLayout(), colls).filter(function (r) { return b[r.key]; });
     }
-    var blocks = {};
+    var blocks = {}, rows = null, liveSlot = null, autoGenres = false;
+    /**
+     * Rij "Categorieën" op zijn standaardplek (in de indeling direct na "Nu live"): op Home na de 5e rij die onder
+     * "Nu live" staat (elke rij telt: Top 10 = 2 rijen, "Rijen per categorie" = een rij per categorie). Minder dan
+     * 5 rijen daaronder = helemaal onderaan. Geen "Nu live" (uitgezet of geen zenders): vanaf de plek waar die rij
+     * zou staan. Heb je de rij zelf verplaatst, dan staat hij gewoon op die plek in de indeling.
+     */
+    function placeGenres() {
+      var g = blocks.genres;
+      if (!g || !autoGenres || !rows) return;
+      if (g.parentNode) g.parentNode.removeChild(g);
+      var anchor = blocks.live || liveSlot;
+      var after = null, n = 0;
+      if (anchor) {
+        var all = rows.querySelectorAll('section.row');
+        for (var i = 0; i < all.length && !after; i++) {
+          var r = all[i];
+          if (anchor.contains(r) || !(anchor.compareDocumentPosition(r) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+          if (++n === 5) after = r;
+        }
+      }
+      if (after) after.parentNode.insertBefore(g, after.nextSibling); else rows.appendChild(g);
+    }
     function render() {
       U.clear(el);
-      blocks = {};
+      blocks = {}; rows = null; liveSlot = null; autoGenres = false;
       var st = stateBox();
       if (st) { el.appendChild(st); return; }
       var hf = heroFor();
       if (hf) el.appendChild(hero(hf));
-      var rows = h('div.rows');
+      rows = h('div.rows');
       el.appendChild(rows);
       var b = builders();
-      order(b).forEach(function (k) {
+      var lay = layout(b);
+      var gi = -1;
+      lay.forEach(function (r, i) { if (r.key === 'genres') gi = i; });
+      autoGenres = gi > 0 && lay[gi - 1].key === 'live';
+      lay.forEach(function (r) {
+        var k = r.key;
+        if (!r.visible) {
+          // onzichtbaar merkteken op de plek van een uitgezette "Nu live" (telpunt voor de rij Categorieën)
+          if (k === 'live' && autoGenres) { liveSlot = h('div.rowgroup.live-slot', { hidden: true }); rows.appendChild(liveSlot); }
+          return;
+        }
         var nodes = b[k]();
         nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
-        var holder = h('div.rowgroup', nodes);
+        var holder = h('div.rowgroup', { 'data-k': k }, nodes);
         blocks[k] = holder;
-        rows.appendChild(holder);
+        if (!(k === 'genres' && autoGenres)) rows.appendChild(holder);
         keysBuilt[k] = true;
       });
+      placeGenres();
     }
     function refreshRows(keys) {
       var b = builders();
+      // eerst de rij Categorieën losmaken (hij kan in een andere groep staan), daarna opnieuw op zijn plek
+      if (autoGenres && blocks.genres && blocks.genres.parentNode) blocks.genres.parentNode.removeChild(blocks.genres);
       keys.forEach(function (k) {
         var holder = blocks[k];
         if (!holder || !b[k]) return;
@@ -695,6 +732,7 @@
         var tr2 = holder.querySelector('.row-track');
         if (tr2) tr2.scrollLeft = x;
       });
+      placeGenres();
     }
     pg.refresh = render;
     pg.onLoading = function () { if (el.querySelector('.state')) render(); };
@@ -702,7 +740,7 @@
     pg.onData = function () {
       var lk = JSON.stringify(D.homeLayout());
       if (lk !== layoutKey) { layoutKey = lk; render(); return; }
-      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories'; }));
+      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories' && k !== 'genres'; }));
     };
     pg.onCollections = function () { render(); };
     pg.onEpg = function () { refreshRows(['live']); };
@@ -741,8 +779,6 @@
         var groups = isMovie ? lib.movieGroups : lib.seriesGroups;
         var chips = h('div.chips', { role: 'tablist' });
         var base = isMovie ? 'movies' : 'series';
-        // naar Categorieën (genres en de categorieën van je server), met alleen films of series voorgeselecteerd
-        if (B.categories) chips.appendChild(h('a.chip.chip-cat', { href: B.categories.overviewLink(type) }, [U.icon('grid'), h('span', L('Categories'))]));
         chips.appendChild(h('a.chip' + (!group ? '.active' : ''), { href: '#/' + base, role: 'tab' }, L('All')));
         groups.forEach(function (g) { chips.appendChild(h('a.chip' + (g === group ? '.active' : ''), { href: R.link([base, g]), role: 'tab' }, g)); });
         el.appendChild(chips);

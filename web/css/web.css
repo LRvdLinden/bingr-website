@@ -855,8 +855,6 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
 .pl-error { overflow-y: auto; }
 
 /* build 85: Categorieën (categories.js). Tegels met een verloop in de kleur van het genre en een waaier van covers. */
-.chip.chip-cat { display: inline-flex; align-items: center; gap: 6px; background: #ffffff14; border-color: #ffffff59; color: #fff; }
-.chip.chip-cat .ic { width: 16px; height: 16px; }
 .cat-head { align-items: flex-end; flex-wrap: wrap; }
 .cat-sub { margin-top: 6px; font-size: 15px; }
 .cat-fill { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 6px 12px; border-radius: 999px; background: #ffffff12; color: var(--sec); font-size: 13px; font-weight: 600; white-space: nowrap; }
@@ -897,6 +895,16 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
 .cat-tile.srv .cat-count { font-size: 12px; }
 .cat-tile.srv .cat-txt { left: 14px; top: 12px; right: 20%; }
 .cat-tile.srv .cat-p { width: 27%; }
+/* rij "Categorieën" op Home (build 86): kleinere tegels in een horizontale rij */
+.cat-tile.cat-mini { flex: none; width: clamp(220px, 21vw, 300px); border-radius: 10px; box-shadow: 0 4px 14px #00000059; }
+.cat-tile.cat-mini:hover, .cat-tile.cat-mini:focus-visible { transform: scale(1.04); box-shadow: 0 12px 28px #000000a6, 0 0 0 2px #ffffffe6; }
+.cat-tile.cat-mini .cat-txt { left: 14px; top: 12px; }
+.cat-tile.cat-mini .cat-name { font-size: 20px; }
+.cat-tile.cat-mini .cat-count { margin-top: 4px; font-size: 12px; }
+.cat-tile.cat-mini .cat-p { width: 28%; }
+.cat-all-ic { position: absolute; right: 14px; bottom: 12px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #ffffff1f; }
+.cat-all-ic .ic { width: 22px; height: 22px; }
+.cat-row .row-track { padding-top: 10px; }
 
 /* categoriepagina */
 .page.cat-page { position: relative; }
@@ -931,6 +939,11 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
   .cat-count, .cat-tile.srv .cat-count { font-size: 11.5px; margin-top: 3px; }
   .cat-p, .cat-tile.srv .cat-p { width: 34%; bottom: -26%; border-radius: 5px; }
   .cat-p1 { right: 2%; } .cat-p2 { right: 20%; } .cat-p3 { right: 38%; } .cat-p4 { right: 56%; }
+  .cat-tile.cat-mini { width: 168px; aspect-ratio: 4 / 3; }
+  .cat-tile.cat-mini .cat-txt { left: 10px; top: 9px; right: 10px; }
+  .cat-tile.cat-mini .cat-name { font-size: 16px; }
+  .cat-tile.cat-mini .cat-p { width: 34%; }
+  .cat-all-ic { width: 36px; height: 36px; right: 10px; bottom: 10px; }
   .cat-ph { padding-top: 14px; }
   .cat-ph-t h1 { font-size: 26px; }
   .btn.cat-back { width: 38px; min-height: 38px; }

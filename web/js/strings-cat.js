@@ -66,6 +66,16 @@
   K.push('Genre');
   var G = { nl: 'Genre', de: 'Genre', fr: 'Genre', es: 'Género', it: 'Genere', pt: 'Gênero', pl: 'Gatunek', tr: 'Tür', ar: 'النوع', 'zh-Hans': '类型' };
   Object.keys(G).forEach(function (l) { V[l].push(G[l]); });
+  // build 86: rij Categorieën op Home en in de indeling van het startscherm
+  K.push('%d categories', '5 rows below Live now');
+  var H = {
+    nl: ['%d categorieën', '5 rijen onder Nu live'], de: ['%d Kategorien', '5 Reihen unter Jetzt live'],
+    fr: ['%d catégories', '5 rangées sous En direct'], es: ['%d categorías', '5 filas debajo de En directo'],
+    it: ['%d categorie', '5 righe sotto In diretta'], pt: ['%d categorias', '5 fileiras abaixo de Em direto'],
+    pl: ['Kategorie: %d', '5 rzędów pod Teraz na żywo'], tr: ['%d kategori', 'Şimdi canlı’nın 5 sıra altında'],
+    ar: ['%d فئة', '5 صفوف أسفل مباشر الآن'], 'zh-Hans': ['%d 个分类', '“正在直播”下方 5 行']
+  };
+  Object.keys(H).forEach(function (l) { V[l].push(H[l][0], H[l][1]); });
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
   Object.keys(V).forEach(function (lang) {
     var tab = all[lang] = all[lang] || {};

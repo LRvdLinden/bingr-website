@@ -11,7 +11,7 @@
   var h = U.h, R = U.router;
   var L = function () { return B.L.apply(null, arguments); };
 
-  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'settings', 'stats'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
+  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'settings', 'stats', 'categorie'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
 
   function prof() { return B.app.profile; }
   function srcId() { return Lib.source ? Lib.source.id : ''; }
@@ -98,7 +98,8 @@
   };
 
   /** Startscherm-indeling (HomeLayout op iOS): vaste rijen en collecties, onbekende sleutels genegeerd. */
-  var KNOWN = ['continue', 'mylist', 'recent', 'foryou', 'top10', 'live', 'categories', 'movies', 'series'];
+  // 'genres' (build 86) = rij "Categorieën" met genretegels; standaard direct na 'live' (= op Home 5 rijen onder "Nu live", zie screens.js)
+  var KNOWN = ['continue', 'mylist', 'recent', 'foryou', 'top10', 'live', 'genres', 'categories', 'movies', 'series'];
   var DEFAULT_HIDDEN = { movies: true, series: true };
   S.homeKnownKeys = KNOWN;
   S.effectiveHomeLayout = function (rows, colls) {
@@ -134,7 +135,7 @@
   };
   S.homeRowTitle = function (key, colls) {
     var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), foryou: L('For you'), top10: L('Top 10'),
-      live: L('Favorite channels'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
+      live: L('Favorite channels'), genres: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {
       var id = key.slice(11);
@@ -499,6 +500,8 @@
       var hist = D.history().filter(function (e) { return !e.playlistID || String(e.playlistID).toLowerCase() === String(srcId()).toLowerCase(); });
       row(sec, L('Watch history'), hist.length ? String(hist.length) : null, function () { location.hash = '#/history'; }, { icon: 'history' });
       row(sec, L('Collections'), String(D.collectionsFor(prof().id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
+      // Categorieën (build 86): het overzicht met genres en de categorieën van je server (stond eerst bovenin de navigatie)
+      if (B.categories && B.categories.available()) row(sec, L('Categories'), String(B.categories.total()), function () { location.hash = '#/categorie'; }, { icon: 'grid' });
       row(sec, L('Statistics'), null, function () { location.hash = '#/stats'; }, { icon: 'chart' });
       S.traktStatusRow(sec);
       sec = S.stSection(list, L('Profile'));
@@ -680,8 +683,11 @@
       function store(next) { D.setHomeLayout(S.applyHomeLayout(D.homeLayout(), next)); render(); }
       rows.forEach(function (r, i) {
         var line = h('div.st-row.hl-row');
+        // Categorieën op de standaardplek (direct na Favoriete zenders): op Home 5 rijen onder "Nu live"
+        var auto = r.key === 'genres' && i > 0 && rows[i - 1].key === 'live';
+        var label = auto ? h('span.st-label', [h('span', S.homeRowTitle(r.key, colls)), h('span.st-sub', L('5 rows below Live now'))]) : h('span.st-label', S.homeRowTitle(r.key, colls));
         var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': r.visible ? 'true' : 'false' }, [
-          h('span.st-label', S.homeRowTitle(r.key, colls)), h('span.switch' + (r.visible ? '.on' : ''), [h('i')])]);
+          label, h('span.switch' + (r.visible ? '.on' : ''), [h('i')])]);
         tg.addEventListener('click', function () { var n = rows.map(function (x) { return { key: x.key, visible: x.visible }; }); n[i].visible = !n[i].visible; store(n); });
         var up = U.button('', function () { var n = rows.slice(); var t = n[i - 1]; n[i - 1] = n[i]; n[i] = t; store(n); }, { icon: 'up', cls: 'icon-only small', title: L('Move up') });
         var down = U.button('', function () { var n = rows.slice(); var t = n[i + 1]; n[i + 1] = n[i]; n[i] = t; store(n); }, { icon: 'down', cls: 'icon-only small', title: L('Move down') });

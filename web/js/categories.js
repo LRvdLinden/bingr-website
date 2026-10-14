@@ -3,6 +3,9 @@
  * de server als terugval) en per categorie van je server ("Van je server"), en per categorie een rooster met
  * Alles / Films / Series en sorteren (Populair, Nieuwste, A–Z, Beoordeling).
  *
+ * Build 86: het overzicht opent vanuit Mijn Bingr (Bibliotheek) en vanuit de rij "Categorieën" op Home (C.homeRow);
+ * niet meer bovenin de navigatie of als chip bij Films en Series. De routes blijven gelijk (deeplinks werken).
+ *
  * Routes: #/categorie (overzicht) en #/categorie/<id>, met ?type=movie|series en ?sort=popular|newest|az|rating.
  * <id> = genresleutel (action, comedy, …) of "server:<naam van de categorie>".
  *
@@ -327,10 +330,7 @@
     var pg = { el: el, title: L('Categories') };
     var type = typeFrom(r.query);
     var grid = null, warm = warmer(), note = null, genreBox = null, shown = '';
-    function genreList() {
-      return C.genres.map(function (g) { return C.byId(g.key); }).filter(function (c) { return count(c, type) > 0; })
-        .sort(function (a, b) { return count(b, type) - count(a, type) || BY_KEY[a.id].order - BY_KEY[b.id].order; });
-    }
+    function genreList() { return genresByCount(type); }
     function drawGenres() {
       U.clear(genreBox);
       var list = genreList();
@@ -503,6 +503,37 @@
     render();
     return pg;
   }
+
+  // MARK: Home-rij "Categorieën" en de regel in Mijn Bingr (build 86)
+
+  /** Genres met titels, de grootste eerst (zelfde volgorde als het overzicht bij "Alles"). */
+  function genresByCount(type) {
+    return C.genres.map(function (g) { return C.byId(g.key); }).filter(function (c) { return count(c, type) > 0; })
+      .sort(function (a, b) { return count(b, type) - count(a, type) || BY_KEY[a.id].order - BY_KEY[b.id].order; });
+  }
+  /** Aantal categorieën in het overzicht (genres met titels + categorieën van je server), voor Mijn Bingr. */
+  C.total = function () {
+    if (!C.available() || !Lib.source) return 0;
+    return genresByCount('all').length + serverCats().filter(function (c) { return count(c, 'all') > 0; }).length;
+  };
+  /**
+   * Rij "Categorieën" op Home: de 10 genres met de meeste titels als kleine tegels (verloop, waaier van covers,
+   * naam, aantal) en als laatste "Alle categorieën" (naar het overzicht). Geen genres = geen rij.
+   */
+  C.homeRow = function () {
+    if (!C.available()) return null;
+    var list = genresByCount('all').slice(0, 10);
+    if (!list.length) return null;
+    var cards = list.map(function (c) { var t = tile(c, 'all', false); t.classList.add('cat-mini'); return t; });
+    cards.push(h('a.cat-tile.cat-mini.cat-all.noart', { href: '#/categorie', 'aria-label': L('All categories'), style: '--c1:#3b3d4a;--c2:#121318' }, [
+      h('div.cat-glow'), h('div.cat-all-ic', [U.icon('grid')]), h('div.cat-shade'),
+      h('div.cat-txt', [h('div.cat-name', L('All categories')), h('div.cat-count', L('%d categories', C.total()))])
+    ]));
+    var row = U.row(L('Categories'), cards, 'cat-row', '#/categorie');
+    // links/rechts (toetsenbord en afstandsbediening) van tegel naar tegel; omhoog/omlaag blijft de pagina scrollen
+    arrowNav(row, '.cat-tile');
+    return row;
+  };
 
   S.pages.categorie = function (r) {
     return r.parts[1] ? categoryPage(r) : overview(r);
