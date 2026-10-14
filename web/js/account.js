@@ -41,6 +41,31 @@
   function generic() { return new AccountError(L('Something went wrong. Please try again.')); }
   function offline() { return new AccountError(L('No internet connection.'), 'offline'); }
 
+  // MARK: geblokkeerd account (user_banned; contract in docs/ACCOUNT.md van iptv-ios-appletv)
+  var blocked = false;
+  A.bannedMessage = function () {
+    return L('Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.');
+  };
+  /** Antwoord (B.http: {status, json}) of fout van supabase-js ({code, message}) van een geblokkeerd account? */
+  A.isBanned = function (r) {
+    if (!r) return false;
+    var j = r.json || r;
+    if (j.banned === true) return true;
+    var codes = [j.error_code, j.error, j.code, j.reason];
+    for (var i = 0; i < codes.length; i++) {
+      var c = typeof codes[i] === 'string' ? codes[i].toLowerCase() : '';
+      if (c === 'user_banned' || c === 'banned' || c === 'account_blocked') return true;
+    }
+    return /banned/i.test(String(j.msg || j.message || j.error_description || ''));
+  };
+  /** Na uitloggen door een blokkade: true (één keer), zodat het inlogscherm de melding toont. */
+  A.takeBlocked = function () { var b = blocked; blocked = false; return b; };
+  function bannedOut() {
+    blocked = true;
+    hardSignOut();
+    clear();
+  }
+
   function clear() {
     session = null;
     B.store.set('deviceRegistered', false);
@@ -55,6 +80,7 @@
       if (r && r.data && r.data.session) { session = r.data.session; return 'ok'; }
       var e = r && r.error;
       var st = e && e.status;
+      if (e && A.isBanned(e)) { bannedOut(); return 'invalid'; }
       if (st === 400 || st === 401 || st === 403 || (e && /refresh/i.test(e.code || '') && st !== 0)) { clear(); return 'invalid'; }
       return 'offline';
     }, function () { return 'offline'; }).then(function (res) { refreshing = null; return res; });
@@ -89,6 +115,7 @@
     var attempt = 0;
     function go(token) {
       return post('/functions/v1/device-auth', body, token).then(function (r) {
+        if (r.status >= 400 && A.isBanned(r)) { bannedOut(); return null; }
         if (r.status !== 401 || attempt > 0) return r;
         attempt++;
         return A.refresh().then(function (res) {
@@ -110,6 +137,8 @@
       var e = r.error || {};
       if (e.status === 0 || /fetch/i.test(e.name || '')) throw offline();
       if (e.code === 'email_not_confirmed' || /confirm/i.test(e.message || '')) throw new AccountError(L('Confirm your email address first. Check your inbox.'));
+      // geblokkeerd account (user_banned, ook status 400): eigen melding, vóór "onjuist wachtwoord"
+      if (A.isBanned(e)) throw new AccountError(A.bannedMessage(), 'banned');
       if (e.code === 'invalid_credentials' || e.status === 400) throw new AccountError(L('Incorrect email or password.'));
       throw generic();
     }, function () { throw offline(); });
@@ -150,6 +179,7 @@
   };
   A.pollTv = function (c) {
     return post('/functions/v1/device-auth', { action: 'poll', code: c.code, poll_secret: c.pollSecret }).then(function (r) {
+      if (A.isBanned(r) || (r.json && r.json.status === 'banned')) throw new AccountError(A.bannedMessage(), 'banned');
       if (!r.ok) throw generic();
       var j = r.json || {};
       if (j.status === 'approved') return j.token_hash ? { status: 'approved', tokenHash: j.token_hash, email: j.email } : { status: 'expired' };
@@ -158,6 +188,7 @@
   };
   A.verifyTv = function (tokenHash) {
     return sb.auth.verifyOtp({ type: 'magiclink', token_hash: tokenHash }).then(function (r) {
+      if (r.error && A.isBanned(r.error)) throw new AccountError(A.bannedMessage(), 'banned');
       if (!r.data || !r.data.session) throw generic();
       session = r.data.session;
     });

@@ -116,14 +116,19 @@
   }
 
   var onLogin = false;
+  // geblokkeerd account (user_banned): na het uitloggen de melding op het inlogscherm
+  function blockedNotice() {
+    if (A.takeBlocked && A.takeBlocked()) U.modal({ title: L('Account'), text: A.bannedMessage(), buttons: [{ label: L('OK') }] });
+  }
   function toLogin() {
-    if (onLogin) return;
+    if (onLogin) { blockedNotice(); return; }
     onLogin = true;
     if (B.player.current) B.player.current.close(true);
     destroyMain();
     app.profile = null;
     try { sessionStorage.removeItem('bingr.web.profile'); } catch (e) { /* stil */ }
     show(S.login(function () { onLogin = false; afterLogin(true); }));
+    blockedNotice();
   }
 
   function afterLogin(fresh) {

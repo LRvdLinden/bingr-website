@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/site.css?v=75">
 <script src="../assets/js/consent.js" data-base="../"></script>
+<style>.namerow input{letter-spacing:0}.namehint{font-size:13px;line-height:1.45;margin-top:7px}</style>
 </head>
 <body class="sub-page">
 <nav id="nav" aria-label="Hoofdmenu">
@@ -54,6 +55,11 @@
     <p class="muted"><span data-t="signedInAs"></span> <b id="who"></b> · <a id="signOut" href="#" data-t="notYou"></a></p>
     <form id="linkForm" novalidate>
       <label><p data-t="enterCode" style="margin:22px 0 10px"></p><input id="code" class="code" maxlength="7" autocomplete="one-time-code" inputmode="text" placeholder="K7Q-4MX"></label>
+      <!-- eigen naam voor het apparaat (zodra bekend is wat voor apparaat bij de code hoort): "Apple TV - Woonkamer" -->
+      <div id="nameRow" class="namerow hidden">
+        <label><p style="margin:20px 0 8px"><span data-t="nameLbl"></span> <span class="muted" data-t="nameOpt"></span></p><input id="devName" maxlength="40" autocomplete="off" autocapitalize="sentences" spellcheck="false"></label>
+        <p class="namehint muted" data-t="nameHint"></p>
+      </div>
       <div id="linkErr" class="err" aria-live="polite"></div>
       <button id="linkBtn" class="btn full" type="submit" data-t="linkBtn"></button>
     </form>
@@ -106,23 +112,65 @@ const tr = t({
         linkTitle:"Apparaat koppelen", signedInAs:"Ingelogd als", notYou:"Niet jij?", enterCode:"Voer de code in die op je scherm staat:", linkBtn:"Koppelen",
         doneTitle:"Je tv is ingelogd", doneText:"%s is nu ingelogd met je Bingr-account. Kies op je tv wie er kijkt en veel kijkplezier!",
         confirmTitle:"Bevestig je e-mailadres", confirmText:"We hebben je een e-mail gestuurd. Klik op de link daarin; daarna kom je hier terug om je tv te koppelen.",
+        banned:"Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer. Vragen? Ga naar support.bingr.online.",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", exists:"Er bestaat al een account met dit e-mailadres.",
         badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
-        noCode:"Vul de code van je tv in.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
+        noCode:"Vul de code van je tv in.", nameLbl:"Naam van dit apparaat", nameOpt:"(optioneel)", nameHint:"Bijv. Woonkamer. Zo herken je het apparaat in Mijn Bingr. Je kunt de hele naam aanpassen.", nameLong:"De naam mag maximaal 40 tekens hebben.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
   en: { docTitle:"Link a device · Bingr", signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV, tablet or computer.", email:"Email", password:"Password",
         show:"Show", hide:"Hide", forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.", haveAcc:"Already have an account?", signInNow:"Sign in.",
         linkTitle:"Link a device", signedInAs:"Signed in as", notYou:"Not you?", enterCode:"Enter the code shown on your screen:", linkBtn:"Link",
         doneTitle:"Your TV is signed in", doneText:"%s is now signed in with your Bingr account. Pick who's watching on your TV and enjoy!",
         confirmTitle:"Confirm your email", confirmText:"We sent you an email. Click the link in it; you'll come back here to link your TV.",
+        banned:"Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.",
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", exists:"An account with this email already exists.",
         badEmail:"Enter a valid email address.", shortPw:"Password must be at least 6 characters.", badCode:"That code is invalid or has expired. Check your TV for the new code.",
-        noCode:"Enter the code from your TV.", generic:"Something went wrong. Please try again.", resetSent:"If an account exists, you'll receive an email to reset your password.", waiting:"One moment…" }
+        noCode:"Enter the code from your TV.", nameLbl:"Name for this device", nameOpt:"(optional)", nameHint:"E.g. Living room. This is how you'll recognise the device in My Bingr. You can change the whole name.", nameLong:"The name can be at most 40 characters.", generic:"Something went wrong. Please try again.", resetSent:"If an account exists, you'll receive an email to reset your password.", waiting:"One moment…" }
 });
 pwToggles(tr);
 let mode = "signin";
 const fmt = (c) => { c = c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6); return c.length > 3 ? c.slice(0, 3) + "-" + c.slice(3) : c; };
 $("code").value = fmt(params.get("code") || "");
-$("code").addEventListener("input", (e) => { e.target.value = fmt(e.target.value); });
+$("code").addEventListener("input", (e) => { e.target.value = fmt(e.target.value); lookup(); });
+
+// ---- eigen naam: zodra de code klopt, de soort apparaat ophalen (device-auth code_info) en "Apple TV - " voorinvullen ----
+let nameFor = "", nameEdited = false, prefix = "", lookupN = 0;
+const cleanName = (v) => v.replace(/\s+/g, " ").trim().replace(/[\s\-–—:·|,]+$/u, "").trim();
+$("devName").addEventListener("input", () => { nameEdited = true; });
+// cursor achteraan, zodat je meteen "Woonkamer" achter "Apple TV - " typt
+$("devName").addEventListener("focus", () => { if (!nameEdited) { const n = $("devName").value.length; setTimeout(() => $("devName").setSelectionRange(n, n), 0); } });
+// geblokkeerd account (device-auth: 401 {error:"user_banned", banned:true}): uitloggen en de melding bij het inloggen tonen
+const isBanned = (j) => !!j && (j.banned === true || j.error === "user_banned");
+async function bannedOut() {
+  await Bingr.hardSignOut();
+  $("nameRow").classList.add("hidden");
+  show("auth"); $("authErr").textContent = tr("banned");
+}
+async function lookup() {
+  const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  if (code === nameFor) return;
+  const n = ++lookupN;
+  if (code.length !== 6) { nameFor = ""; $("nameRow").classList.add("hidden"); return; }
+  try {
+    const { data: s } = await sb.auth.getSession();
+    if (!s.session) return;
+    const r = await fetch(cfg.url + "/functions/v1/device-auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + s.session.access_token },
+      body: JSON.stringify({ action: "code_info", code })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (n !== lookupN) return;
+    if (isBanned(j)) return bannedOut();
+    nameFor = code;
+    if (r.status === 404) { $("nameRow").classList.add("hidden"); $("linkErr").textContent = tr("badCode"); return; }
+    if (!r.ok || !j.ok) { $("nameRow").classList.add("hidden"); return; } // geen naamveld; koppelen werkt gewoon
+    $("linkErr").textContent = "";
+    prefix = (j.label || "TV") + " - ";
+    if (!nameEdited) $("devName").value = prefix;
+    $("nameRow").classList.remove("hidden");
+    $("devName").focus();
+  } catch (e) { if (n === lookupN) $("nameRow").classList.add("hidden"); }
+}
 
 function setMode(m) {
   mode = m;
@@ -139,6 +187,7 @@ setMode(params.get("mode") === "signup" ? "signup" : "signin");
 function show(id) { ["auth", "link", "done", "confirm"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
 function errText(e) {
   const c = (e && (e.code || e.error_code)) || "", m = ((e && e.message) || "").toLowerCase();
+  if (c === "user_banned" || m.includes("banned")) return tr("banned");
   if (c === "invalid_credentials" || m.includes("invalid login")) return tr("badCreds");
   if (c === "email_not_confirmed" || m.includes("not confirmed")) return tr("notConfirmed");
   if (c === "user_already_exists" || m.includes("already registered")) return tr("exists");
@@ -147,7 +196,7 @@ function errText(e) {
 }
 async function refresh() {
   const { data } = await sb.auth.getSession();
-  if (data.session) { $("who").textContent = data.session.user.email; show("link"); if ($("code").value.length === 7) $("linkBtn").focus(); else $("code").focus(); }
+  if (data.session) { $("who").textContent = data.session.user.email; show("link"); if ($("code").value.length === 7) { $("linkBtn").focus(); nameFor = ""; lookup(); } else $("code").focus(); }
   else show("auth");
 }
 $("authForm").onsubmit = async (e) => {
@@ -185,23 +234,28 @@ $("linkForm").onsubmit = async (e) => {
   e.preventDefault();
   const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   if (code.length !== 6) return ($("linkErr").textContent = tr("noCode"));
+  // naam: alleen als het veld zichtbaar is en meer is dan alleen de soort ("Apple TV - " zonder iets erachter)
+  const name = $("nameRow").classList.contains("hidden") ? "" : cleanName($("devName").value);
+  if (name.length > 40) { $("linkErr").textContent = tr("nameLong"); $("devName").focus(); return; }
+  const custom = name && name.toLowerCase() !== cleanName(prefix).toLowerCase() ? name : "";
   busy($("linkBtn"), true, tr("waiting")); $("linkErr").textContent = "";
   try {
     const { data: s } = await sb.auth.getSession();
     const r = await fetch(cfg.url + "/functions/v1/device-auth", {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + s.session.access_token },
-      body: JSON.stringify({ action: "approve", code })
+      body: JSON.stringify(custom ? { action: "approve", code, name: custom } : { action: "approve", code })
     });
     const j = await r.json().catch(() => ({}));
+    if (isBanned(j)) return bannedOut();
     if (r.status === 401) { await Bingr.hardSignOut(); show("auth"); return; }
     if (!r.ok || !j.ok) throw new Error(j.error || "x");
-    $("doneText").textContent = tr("doneText").replace("%s", j.device || "TV");
+    $("doneText").textContent = tr("doneText").replace("%s", j.name || j.device || "TV");
     show("done");
-  } catch (err) { $("linkErr").textContent = err.message === "invalid_code" ? tr("badCode") : tr("generic"); }
+  } catch (err) { $("linkErr").textContent = err.message === "invalid_code" ? tr("badCode") : err.message === "name_too_long" ? tr("nameLong") : tr("generic"); }
   finally { busy($("linkBtn"), false, tr("linkBtn")); }
 };
-sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") refresh(); });
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") setTimeout(refresh, 0); });
 refresh();
 </script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
