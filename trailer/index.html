@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Bingr trailer</title>
+<!-- Doorgeefpagina voor de trailer in de kop van de Samsung TV-app (Tizen draait vanaf file:// en stuurt
+     geen Referer mee; YouTube weigert de embed dan met fout 153). Deze pagina heeft een echte https-herkomst,
+     sluit de YouTube-speler in en geeft de widget-berichten (onReady, onStateChange, onError, infoDelivery)
+     in hetzelfde formaat door aan de app; opdrachten van de app (mute, unMute, setVolume, playVideo, stopVideo)
+     gaan naar de speler. Alleen ?v=<YouTube-id>. -->
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}#p{position:absolute;inset:0;width:100%;height:100%;border:0}</style>
+</head><body><div id="p"></div>
+<script>
+(function () {
+  var id = (new URLSearchParams(location.search).get('v') || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32);
+  var player = null, timer = null;
+  function send(o) { try { o.channel = 'widget'; o.id = 1; parent.postMessage(JSON.stringify(o), '*'); } catch (e) { } }
+  if (!id || parent === window) { send({ event: 'onError', info: 2 }); return; }
+  window.addEventListener('message', function (ev) {
+    if (ev.source !== parent || !player) return;
+    var m; try { m = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+    if (!m || m.event !== 'command') return;
+    var ok = { mute: 1, unMute: 1, setVolume: 1, playVideo: 1, pauseVideo: 1, stopVideo: 1 };
+    if (ok[m.func] && typeof player[m.func] === 'function') { try { player[m.func].apply(player, m.args || []); } catch (e) { } }
+  });
+  window.onYouTubeIframeAPIReady = function () {
+    player = new YT.Player('p', {
+      host: 'https://www.youtube-nocookie.com', videoId: id,
+      playerVars: { autoplay: 1, mute: 1, playsinline: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1,
+        iv_load_policy: 3, cc_load_policy: 0, enablejsapi: 1, origin: location.origin, widget_referrer: location.origin },
+      events: {
+        onReady: function (e) { e.target.mute(); e.target.playVideo(); send({ event: 'onReady' }); },
+        onStateChange: function (e) {
+          send({ event: 'onStateChange', info: e.data });
+          clearInterval(timer);
+          if (e.data === 1) timer = setInterval(function () {
+            try { send({ event: 'infoDelivery', info: { currentTime: player.getCurrentTime(), duration: player.getDuration(), playerState: 1 } }); } catch (x) { }
+          }, 500);
+        },
+        onError: function (e) { send({ event: 'onError', info: e && e.data }); }
+      }
+    });
+  };
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  s.onerror = function () { send({ event: 'onError', info: 'api' }); };
+  document.head.appendChild(s);
+})();
+</script>
+</body></html>
