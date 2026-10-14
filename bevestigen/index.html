@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bevestigen · Bingr</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<style>
+.authcard .acts{display:flex;flex-direction:column;gap:12px;margin-top:24px}
+.authcard .acts .btn{width:100%}
+.authcard .done p+p{margin-top:10px}
+.authcard .resend{margin-top:20px;text-align:left}
+.authcard .resend .btn.full{margin-top:16px}
+</style>
+<script src="../assets/js/consent.js" data-base="../"></script>
+</head>
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap"><div class="panel authcard">
+
+  <!-- 1. eerst klikken: linkscanners (bv. Outlook Safe Links) openen de link vooraf en mogen hem niet opmaken -->
+  <section id="start" class="done hidden">
+    <div class="big" aria-hidden="true" id="startIcon">✉︎</div>
+    <h1 id="startTitle"></h1>
+    <p id="startText"></p>
+    <div id="startErr" class="err" aria-live="polite"></div>
+    <button id="goBtn" class="btn full" type="button"></button>
+  </section>
+
+  <!-- 2. uitnodiging: wachtwoord kiezen -->
+  <section id="form" class="hidden">
+    <h1 data-t="pwTitle"></h1>
+    <p class="muted"><span data-t="forAcc"></span> <b id="who"></b></p>
+    <form id="pwForm" class="fields" novalidate>
+      <label class="pw"><span class="sr" data-t="newPw"></span><input id="pw1" type="password" autocomplete="new-password" data-ph="newPw"><button type="button"></button></label>
+      <label class="pw"><span class="sr" data-t="repeatPw"></span><input id="pw2" type="password" autocomplete="new-password" data-ph="repeatPw"><button type="button"></button></label>
+      <div id="pwErr" class="err" aria-live="polite"></div>
+      <button id="saveBtn" class="btn full" type="submit" data-t="save"></button>
+    </form>
+  </section>
+
+  <!-- 3. klaar -->
+  <section id="done" class="done hidden">
+    <div class="big" aria-hidden="true" id="doneIcon">✓</div>
+    <h1 id="doneTitle"></h1>
+    <p id="doneText"></p>
+    <div class="acts" id="doneActs"></div>
+  </section>
+
+  <!-- 4. verlopen, al gebruikt of onvolledig -->
+  <section id="invalid" class="done hidden">
+    <div class="big" aria-hidden="true">⌛</div>
+    <h1 id="invalidTitle"></h1>
+    <p id="invalidText"></p>
+    <form id="resendForm" class="resend fields hidden" novalidate>
+      <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email"></label>
+      <div id="resendErr" class="err" aria-live="polite"></div>
+      <button id="resendBtn" class="btn full" type="submit"></button>
+    </form>
+    <div class="acts" id="invalidActs"></div>
+  </section>
+</div></div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=75" data-base="../"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/config.js"></script>
+<script src="../assets/js/account.js?v=73"></script>
+<script>
+// bingr.online/bevestigen/?token_hash=…&type=…&lang=…[&next=…]: alle links uit de accountmails (supabase/templates in
+// iptv-ios-appletv). Pas na een klik op de knop gaat de token naar Supabase (POST /auth/v1/verify); de token wordt nooit gelogd.
+const { sb, params, $, t, pwToggles, busy, lang } = Bingr;
+const tr = t({
+  nl: { docTitle:"Bevestigen · Bingr", email:"E-mailadres", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
+        pwTitle:"Kies een wachtwoord", forAcc:"Voor",
+        "signup.t":"Bevestig je e-mailadres", "signup.p":"Klik op de knop om je e-mailadres te bevestigen en je Bingr-account te activeren.", "signup.b":"E-mailadres bevestigen",
+        "recovery.t":"Nieuw wachtwoord kiezen", "recovery.p":"Klik op de knop om verder te gaan en een nieuw wachtwoord voor je Bingr-account te kiezen.", "recovery.b":"Doorgaan",
+        "magiclink.t":"Inloggen bij Bingr", "magiclink.p":"Klik op de knop om in te loggen op bingr.online.", "magiclink.b":"Inloggen",
+        "invite.t":"Je bent uitgenodigd", "invite.p":"Klik op de knop om je uitnodiging te accepteren. Daarna kies je een wachtwoord.", "invite.b":"Uitnodiging accepteren",
+        "email_change.t":"Nieuw e-mailadres bevestigen", "email_change.p":"Klik op de knop om de wijziging van het e-mailadres van je Bingr-account te bevestigen.", "email_change.b":"Bevestigen",
+        signupDone:"Je e-mailadres is bevestigd", signupDoneP:"Je account is klaar. Je kunt nu inloggen in de Bingr-app met je e-mailadres en wachtwoord.",
+        magicDone:"Je bent ingelogd", magicDoneP:"Je bent ingelogd op bingr.online met je Bingr-account.",
+        inviteDone:"Je account is klaar", inviteDoneP:"Je wachtwoord is opgeslagen. Log in de Bingr-app in met je e-mailadres en dit wachtwoord.",
+        changeDone:"Je e-mailadres is gewijzigd", changeDoneP:"Log voortaan in met je nieuwe e-mailadres. Je wachtwoord blijft hetzelfde.",
+        changeHalf:"Nog één stap", changeHalfP:"Deze bevestiging is gelukt. Klik ook op de link in de e-mail die we naar je andere e-mailadres hebben gestuurd; daarna is de wijziging rond.",
+        toAccount:"Naar Mijn Bingr", getApp:"Download de app", toNext:"Verder", toPair:"Verder met koppelen", toWeb:"Naar de webspeler", toHome:"Naar bingr.online", toSupport:"Naar support",
+        expired:"Link verlopen of al gebruikt", expiredSignup:"Deze link is ongeldig, verlopen of al gebruikt. Heb je je e-mailadres al bevestigd? Dan kun je gewoon inloggen. Anders sturen we je een nieuwe bevestigingsmail.",
+        expiredRecovery:"Deze link is ongeldig, verlopen of al gebruikt. Vul je e-mailadres in, dan sturen we je een nieuwe link om je wachtwoord opnieuw in te stellen.",
+        expiredMagic:"Deze inloglink is ongeldig, verlopen of al gebruikt. Vraag een nieuwe aan of log in met je wachtwoord.",
+        expiredOther:"Deze link is ongeldig, verlopen of al gebruikt. Vraag een nieuwe aan of neem contact op met support.",
+        broken:"Deze link is onvolledig", brokenP:"Er ontbreekt een deel van de link. Kopieer de volledige link uit de e-mail, of gebruik de knop in de e-mail.",
+        resendSignup:"Nieuwe bevestigingsmail sturen", resendRecovery:"Nieuwe link sturen",
+        sentSignup:"Bestaat er een onbevestigd account met dit adres, dan ontvang je zo een nieuwe bevestigingsmail.", sentRecovery:"Bestaat er een account met dit adres, dan ontvang je zo een e-mail om je wachtwoord opnieuw in te stellen.",
+        badEmail:"Vul een geldig e-mailadres in.", tooMany:"Je hebt net al een e-mail gekregen. Wacht even en probeer het dan opnieuw.",
+        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", offline:"Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        generic:"Er ging iets mis. Probeer het opnieuw.", waiting:"Even geduld…" },
+  en: { docTitle:"Confirm · Bingr", email:"Email", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
+        pwTitle:"Choose a password", forAcc:"For",
+        "signup.t":"Confirm your email address", "signup.p":"Click the button to confirm your email address and activate your Bingr account.", "signup.b":"Confirm email address",
+        "recovery.t":"Choose a new password", "recovery.p":"Click the button to continue and choose a new password for your Bingr account.", "recovery.b":"Continue",
+        "magiclink.t":"Sign in to Bingr", "magiclink.p":"Click the button to sign in on bingr.online.", "magiclink.b":"Sign in",
+        "invite.t":"You're invited", "invite.p":"Click the button to accept your invitation. Then you'll choose a password.", "invite.b":"Accept invitation",
+        "email_change.t":"Confirm your new email address", "email_change.p":"Click the button to confirm the change of email address for your Bingr account.", "email_change.b":"Confirm",
+        signupDone:"Your email address is confirmed", signupDoneP:"Your account is ready. You can now sign in to the Bingr app with your email address and password.",
+        magicDone:"You're signed in", magicDoneP:"You're signed in on bingr.online with your Bingr account.",
+        inviteDone:"Your account is ready", inviteDoneP:"Your password has been saved. Sign in to the Bingr app with your email address and this password.",
+        changeDone:"Your email address has been changed", changeDoneP:"From now on, sign in with your new email address. Your password stays the same.",
+        changeHalf:"One more step", changeHalfP:"This confirmation worked. Also click the link in the email we sent to your other email address; then the change is complete.",
+        toAccount:"Go to My Bingr", getApp:"Download the app", toNext:"Continue", toPair:"Continue linking", toWeb:"Go to the web player", toHome:"Go to bingr.online", toSupport:"Go to support",
+        expired:"Link expired or already used", expiredSignup:"This link is invalid, has expired or was already used. Already confirmed your email address? Then you can just sign in. Otherwise we'll send you a new confirmation email.",
+        expiredRecovery:"This link is invalid, has expired or was already used. Enter your email address and we'll send you a new link to reset your password.",
+        expiredMagic:"This sign-in link is invalid, has expired or was already used. Request a new one or sign in with your password.",
+        expiredOther:"This link is invalid, has expired or was already used. Request a new one or contact support.",
+        broken:"This link is incomplete", brokenP:"Part of the link is missing. Copy the full link from the email, or use the button in the email.",
+        resendSignup:"Send a new confirmation email", resendRecovery:"Send a new link",
+        sentSignup:"If there's an unconfirmed account with this address, you'll receive a new confirmation email shortly.", sentRecovery:"If an account exists with this address, you'll receive an email to reset your password shortly.",
+        badEmail:"Enter a valid email address.", tooMany:"You just received an email. Please wait a moment and try again.",
+        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", offline:"No connection. Check your internet and try again.",
+        generic:"Something went wrong. Please try again.", waiting:"One moment…" }
+});
+pwToggles(tr);
+
+const TYPES = ["signup", "email", "recovery", "magiclink", "invite", "email_change"];
+const rawType = params.get("type") || "";
+const type = rawType === "email" ? "signup" : rawType;   // "email" = nieuwe naam voor signup
+const hash = params.get("token_hash") || "";
+
+// next = redirect_to van de app/site. Staat altijd achteraan in de link en kan zelf ? en & bevatten (Supabase vult hem
+// onbewerkt of url-gecodeerd in): neem alles na "next=". Alleen adressen op deze site, nooit naar buiten.
+function nextUrl() {
+  const q = location.search, i = q.search(/[?&]next=/);
+  if (i < 0) return null;
+  let v = q.slice(i + 6);
+  try { if (/^https?%3a/i.test(v) || /^%2f/i.test(v)) v = decodeURIComponent(v); } catch (e) { return null; }
+  try {
+    const u = new URL(v, location.origin);
+    if (u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return null;
+    if (u.pathname === "/" || u.pathname === "/index.html" || /^\/(reset|bevestigen)(\/|$)/.test(u.pathname)) return null;   // niets toe te voegen
+    u.hash = "";
+    return u;
+  } catch (e) { return null; }
+}
+const next = nextUrl();
+
+function show(id) { ["start", "form", "done", "invalid"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+function btn(href, label, ghost) {
+  const a = document.createElement("a");
+  a.className = "btn" + (ghost ? " ghost" : ""); a.href = href; a.textContent = label;
+  return a;
+}
+function acts(id, list) { const el = $(id); el.textContent = ""; list.forEach((b) => el.appendChild(b)); }
+function nextButton() {
+  if (!next) return null;
+  const label = next.pathname.startsWith("/koppelen") ? tr("toPair") : next.pathname.startsWith("/web") ? tr("toWeb") : tr("toNext");
+  return btn(next.pathname + next.search, label);
+}
+// token uit de adresbalk (en de geschiedenis) halen zodra hij gebruikt is
+function forgetToken() {
+  try { history.replaceState(null, "", location.pathname + "?type=" + encodeURIComponent(rawType) + "&lang=" + lang); } catch (e) {}
+}
+function done(icon, title, text, buttons) {
+  $("doneIcon").textContent = icon; $("doneTitle").textContent = title; $("doneText").textContent = text;
+  acts("doneActs", buttons.filter(Boolean));
+  show("done");
+}
+function signupDone() {
+  const n = nextButton();
+  done("✓", tr("signupDone"), tr("signupDoneP"), n ? [n, btn("../account/", tr("toAccount"), true)]
+    : [btn("../account/", tr("toAccount")), btn("../index.html#download", tr("getApp"), true)]);
+}
+
+function invalid(kind) {
+  $("resendForm").classList.add("hidden");
+  if (kind === "broken") {
+    $("invalidTitle").textContent = tr("broken"); $("invalidText").textContent = tr("brokenP");
+    acts("invalidActs", [btn("../index.html", tr("toHome"), true)]);
+  } else {
+    $("invalidTitle").textContent = tr("expired");
+    const txt = { signup: "expiredSignup", recovery: "expiredRecovery", magiclink: "expiredMagic" }[type] || "expiredOther";
+    $("invalidText").textContent = tr(txt);
+    if (type === "signup" || type === "recovery") {
+      $("resendBtn").textContent = tr(type === "signup" ? "resendSignup" : "resendRecovery");
+      $("resendForm").classList.remove("hidden");
+      acts("invalidActs", type === "signup" ? [btn("../account/", tr("toAccount"), true)] : []);
+    } else if (type === "magiclink") {
+      acts("invalidActs", [btn("../account/", tr("toAccount"))]);
+    } else {
+      acts("invalidActs", [btn("../account/", tr("toAccount")), btn("https://support.bingr.online", tr("toSupport"), true)]);
+    }
+  }
+  show("invalid");
+}
+
+// startscherm per type
+if (!hash || !TYPES.includes(rawType)) invalid("broken");
+else {
+  $("startTitle").textContent = tr(type + ".t");
+  $("startText").textContent = tr(type + ".p");
+  $("goBtn").textContent = tr(type + ".b");
+  $("startIcon").textContent = type === "recovery" ? "🔑" : type === "magiclink" ? "→" : "✉︎";
+  show("start");
+}
+
+function isExpired(err) {
+  const c = (err && (err.code || err.error_code)) || "", m = ((err && err.message) || "").toLowerCase();
+  return c === "otp_expired" || c === "otp_disabled" || c === "flow_state_expired" || c === "flow_state_not_found" || c === "bad_jwt"
+    || (err && (err.status === 401 || err.status === 403 || err.status === 404))
+    || /expired|invalid|not found|already/.test(m);
+}
+
+$("goBtn").onclick = async () => {
+  const b = $("goBtn");
+  busy(b, true, tr("waiting")); $("startErr").textContent = "";
+  let res;
+  try { res = await sb.auth.verifyOtp({ token_hash: hash, type }); }
+  catch (e) { res = { data: {}, error: e }; }
+  const { data, error } = res || {};
+  if (error) {
+    if (isExpired(error)) { forgetToken(); invalid("expired"); return; }
+    busy(b, false, tr(type + ".b"));
+    $("startErr").textContent = (error.name === "AuthRetryableFetchError" || error.status === 0 || /fetch|network/i.test(error.message || "")) ? tr("offline") : tr("generic");
+    return;
+  }
+  forgetToken();
+  const session = data && data.session, user = data && data.user;
+  if (type === "recovery") {
+    // de sessie staat nu in deze browser: reset/ toont direct het formulier voor het nieuwe wachtwoord
+    if (!session) { invalid("expired"); return; }
+    location.replace("../reset/?lang=" + lang);
+    return;
+  }
+  if (type === "signup") return signupDone();
+  if (type === "magiclink") {
+    const n = nextButton();
+    return done("✓", tr("magicDone"), tr("magicDoneP"), n ? [n, btn("../account/", tr("toAccount"), true)] : [btn("../account/", tr("toAccount"))]);
+  }
+  if (type === "invite") {
+    if (!session) return signupDone();
+    $("who").textContent = (session.user && session.user.email) || "";
+    show("form"); $("pw1").focus();
+    return;
+  }
+  if (type === "email_change") {
+    // met "dubbele bevestiging" geeft de eerste link alleen een melding (geen gebruiker): dan ook de andere mail
+    if (!session && !(user && user.id)) return done("✉︎", tr("changeHalf"), tr("changeHalfP"), [btn("../account/", tr("toAccount"), true)]);
+    return done("✓", tr("changeDone"), tr("changeDoneP"), [btn("../account/", tr("toAccount"))]);
+  }
+};
+
+$("pwForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const a = $("pw1").value, b2 = $("pw2").value;
+  if (a.length < 6) return ($("pwErr").textContent = tr("shortPw"));
+  if (a !== b2) return ($("pwErr").textContent = tr("mismatch"));
+  busy($("saveBtn"), true, tr("waiting")); $("pwErr").textContent = "";
+  const { error } = await sb.auth.updateUser({ password: a }).catch((err) => ({ error: err }));
+  busy($("saveBtn"), false, tr("save"));
+  if (error) { $("pwErr").textContent = error.code === "weak_password" ? tr("shortPw") : tr("generic"); return; }
+  const n = nextButton();
+  done("✓", tr("inviteDone"), tr("inviteDoneP"), [n || btn("../account/", tr("toAccount")), btn("../index.html#download", tr("getApp"), true)]);
+};
+
+$("resendForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const email = $("email").value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $("resendErr").textContent = tr("badEmail"); $("email").focus(); return; }
+  const b = $("resendBtn"), label = b.textContent;
+  busy(b, true, tr("waiting")); $("resendErr").textContent = "";
+  let error = null;
+  try {
+    const r = type === "signup"
+      ? await sb.auth.resend({ type: "signup", email, options: next ? { emailRedirectTo: next.href } : {} })
+      : await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
+    error = r && r.error;
+  } catch (err) { error = err; }
+  busy(b, false, label);
+  // 429 = te vaak; andere fouten niet tonen (verklapt niet of een adres bestaat)
+  if (error && (error.status === 429 || /rate limit|security purposes/i.test(error.message || ""))) { $("resendErr").textContent = tr("tooMany"); return; }
+  if (error && (error.name === "AuthRetryableFetchError" || error.status === 0)) { $("resendErr").textContent = tr("offline"); return; }
+  $("resendErr").innerHTML = '<span class="ok"></span>';
+  $("resendErr").firstChild.textContent = tr(type === "signup" ? "sentSignup" : "sentRecovery");
+};
+</script>
+<script src="../assets/js/userbtn.js" data-base="../"></script>
+</body>
+</html>

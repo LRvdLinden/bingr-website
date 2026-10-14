@@ -37,5 +37,6 @@ Een verlopen of ongeldige code geeft een duidelijke melding; de tv toont dan van
 - **Changelog** ([/changelog](https://bingr.online/changelog/)): wat er nieuw is per build, te filteren per platform.
 - **Status** ([/status](https://bingr.online/status/)): of de diensten van Bingr werken: totaalbeeld, lopende storingen en gepland onderhoud met tijdlijn, onderdelen per groep met 90-dagenbalken, afgelopen incidenten (14 dagen), [geschiedenis](https://bingr.online/status/history/), detailpagina per melding, abonneren per e-mail en feeds (`/status/feed.atom`, `/status/feed.rss`, Engels: `feed.en.atom`/`feed.en.rss`, doorverwijzing via `.htaccess`).
 - **Wachtwoord opnieuw instellen** ([/reset](https://bingr.online/reset/)) en **afmelden voor e-mails** ([/unsubscribe](https://bingr.online/unsubscribe/)).
+- **Links uit de accountmails** ([/bevestigen](https://bingr.online/bevestigen/)): e-mailadres bevestigen, wachtwoord vergeten, inloglink, uitnodiging en e-mailwijziging. Bevestigt pas na een klik (linkscanners maken de link zo niet op); bij wachtwoord vergeten gaat hij daarna door naar /reset.
 - **Privacy** ([/privacy.html](https://bingr.online/privacy.html)) en cookie-instellingen.
 - Overal Nederlands en Engels (volgt de taal van je browser, of kies zelf).
