@@ -276,6 +276,44 @@
   }
   P.Xtream = Xtream;
 
+  /**
+   * Build 83: wat de server over zichzelf zegt (player_api.php zonder action): user_info.allowed_output_formats
+   * (bv. ["m3u8","ts","rtmp"]), max_connections en server_info. Eén keer per server per sessie; null bij een fout.
+   */
+  var xinfo = {};
+  Xtream.prototype.serverInfo = function () {
+    var k = this.server + '|' + this.username;
+    if (xinfo[k]) return xinfo[k];
+    xinfo[k] = B.getJSON(this.api(), null, 15000).then(function (r) {
+      var ui = (r && r.user_info) || {}, si = (r && r.server_info) || {};
+      var f = ui.allowed_output_formats;
+      if (typeof f === 'string') { try { f = JSON.parse(f); } catch (e) { f = f.split(/[\s,]+/); } }
+      return {
+        formats: Array.isArray(f) ? f.map(function (x) { return String(x).toLowerCase(); }) : null,
+        maxConnections: B.int(ui.max_connections), activeConnections: B.int(ui.active_cons),
+        status: ui.status || null, protocol: si.server_protocol || null
+      };
+    }).catch(function () { delete xinfo[k]; return null; });
+    return xinfo[k];
+  };
+
+  /**
+   * HLS-varianten van een Xtream-film of -aflevering (/movie|series/<user>/<pw>/<id>.<ext>): veel panels leveren
+   * dezelfde titel ook als .m3u8 (ze knippen of remuxen hem dan zelf, soms met transcoderen). Volgorde: dezelfde
+   * map met .m3u8, daarna /hls/<user>/<pw>/<id>.m3u8 (enkele panels). Geen HLS bij allowed_output_formats zonder
+   * m3u8. Resultaat: [{url, kind}] (leeg als de URL geen Xtream-VOD-adres is).
+   */
+  P.vodHlsCandidates = function (url, info) {
+    var m = /^(https?:\/\/[^/?#]+)((?:\/[^/?#]+)*?)\/(movie|series)\/([^/?#]+)\/([^/?#]+)\/(\d+)\.([a-z0-9]{2,5})(\?.*)?$/i.exec(String(url || ''));
+    if (!m || /^m3u8?$/i.test(m[7])) return [];
+    if (info && info.formats && info.formats.length && info.formats.indexOf('m3u8') < 0) return [];
+    var root = m[1] + m[2], cred = '/' + m[4] + '/' + m[5] + '/', q = m[8] || '';
+    return [
+      { url: root + '/' + m[3] + cred + m[6] + '.m3u8' + q, kind: m[3] },
+      { url: root + '/hls' + cred + m[6] + '.m3u8' + q, kind: 'hls' }
+    ];
+  };
+
   // MARK: Stalker / MAC-portal (= StalkerClient.kt; op de tv kan de browser geen Cookie-header zetten,
   // daarom gaat het MAC-adres ook als parameter mee — niet elk portal accepteert dat)
 

@@ -4,6 +4,9 @@
  * Android). Streams van http-servers (en https-servers zonder CORS) gaan via de GET-vorm van de proxy
  * (…/web-proxy?u=…&t=…); die herschrijft HLS-afspeellijsten, zodat ook segmenten via de proxy lopen. Verder zoals de andere apps: hervatten, voortgang, audio- en ondertitelsporen, automatische ondertitels,
  * intro overslaan, volgende aflevering met aftellen, stream_start/ping/stop (max. 6), beeld-in-beeld en volledig scherm.
+ * Build 83: films en afleveringen van Xtream-servers eerst als HLS (…/<id>.m3u8, als de server dat levert; in Safari
+ * altijd, elders bij MKV/AVI e.d.), elke poging komt in een logboek, en bij een fout zegt de diagnose (playdiag.js)
+ * precies wat er mis is, met een knop "Details".
  */
 (function () {
   'use strict';
@@ -59,7 +62,7 @@
    * vaak door naar een http-adres (dat blokkeert de browser op een https-pagina) of naar een host zonder geldig
    * certificaat; de proxy volgt die doorverwijzing zelf.
    */
-  B.playPlan = function (url, live, forceTry) {
+  function basePlan(url, live, forceTry) {
     var ext = extOf(url);
     if (UNSUPPORTED[ext] && !forceTry) return { error: unsupportedError(ext) };
     if (MATROSKA[ext] && !forceTry && isSafariEngine()) return { error: safariMkvError(ext) };
@@ -83,53 +86,32 @@
       plan.steps = plan.steps.concat(extra);
     }
     return plan;
+  }
+  /**
+   * Met HLS-varianten (build 83, films/afleveringen van Xtream): in Safari altijd eerst HLS (Safari kent geen MKV en
+   * speelt AC3/E-AC3 en HEVC wel in HLS), elders eerst bij een formaat dat de browser niet kent (MKV, AVI, …) en anders
+   * als laatste poging. Een HLS-stap met probe:true wordt eerst gecontroleerd (#EXTM3U met segmenten).
+   */
+  B.playPlan = function (url, live, forceTry, hlsCands) {
+    var base = basePlan(url, live, forceTry);
+    if (live || !hlsCands || !hlsCands.length) return base;
+    var ext = extOf(url), safari = isSafariEngine();
+    var native = /^(mp4|m4v|mov)$/.test(ext) || (!safari && ext === 'webm');
+    var probes = hlsCands.map(function (c) { return { how: 'hls', probe: true, url: c.url, kind: c.kind }; });
+    var rest = base.error ? [{ how: 'fail', error: base.error }] : base.steps;
+    return { steps: safari || !native ? probes.concat(rest) : rest.concat(probes) };
   };
 
-  /**
-   * Waarom speelt een film of aflevering niet? Vraagt via de proxy de eerste bytes op (Range 0-15): een fout van de
-   * server (404, 403, 5xx) of een bestand dat er is maar waarvan de browser het beeld of geluid niet kan afspelen
-   * (vaak HEVC/H.265, AC3/E-AC3 of DTS). Geeft een Error met een duidelijke tekst, of null.
-   */
-  B.diagnoseVOD = function (url, codecPossible) {
-    url = String(url || '');
-    if (!/^https?:/i.test(url) || isBackendURL(url)) return Promise.resolve(null);
-    return B.ensureProxyToken().then(function () {
-      var pu = B.proxyGetURL(url);
-      if (!pu) return null;
-      var ctl = window.AbortController ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
-      return fetch(pu, { headers: { Range: 'bytes=0-15' }, signal: ctl ? ctl.signal : undefined }).then(function (r) {
-        return r.arrayBuffer().then(function (buf) {
-          clearTimeout(timer);
-          var e;
-          if (r.status >= 400) {
-            if (r.status === 404 || r.status === 410) e = new Error(L('The server can’t find this video (error %d). Try again later or watch in the app.', r.status));
-            else if (r.status === 401 || r.status === 403) e = new Error(L('The server refused this video (error %d). Check your subscription, or watch in the app.', r.status));
-            else e = new Error(L('The server isn’t responding to this video right now (error %d). Try again later.', r.status));
-            e.server = r.status;
-            return e;
-          }
-          var b = new Uint8Array(buf), kind = '';
-          var ct = (r.headers.get('content-type') || '').toLowerCase();
-          if (b.length >= 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) kind = 'MKV';
-          else if (b.length >= 8 && b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) kind = 'MP4';
-          else if (b.length >= 1 && b[0] === 0x47) kind = 'TS';
-          else if (b.length >= 4 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) kind = 'AVI';
-          else if (/html|json|text/.test(ct)) {
-            e = new Error(L('The server sent a page instead of a video. Your subscription may have expired, or the server is busy. Try again later or watch in the app.'));
-            e.server = r.status;
-            return e;
-          }
-          if (codecPossible === false) return null;
-          var ext = (extOf(url) || '').toUpperCase();
-          e = new Error(L('Your browser can’t play the picture or sound of this video (%@). This is often HEVC (H.265) video or AC3/DTS audio. Watch in the Bingr app.', kind || ext || '?'));
-          e.unsupported = (kind || ext || '?').toLowerCase();
-          e.codec = true;
-          return e;
-        });
-      }, function () { clearTimeout(timer); return null; });
-    }, function () { return null; });
-  };
+  /** Per server en vorm (movie/series/hls): levert hij HLS voor films/afleveringen? (alleen deze sessie) */
+  var vodHlsMemo = {};
+  function hostOf(u) { var m = /^https?:\/\/(?:[^@\/]*@)?([^\/?#]+)/i.exec(String(u || '')); return m ? m[1].toLowerCase() : ''; }
+
+  /** MediaError als Error, met code en de tekst van de browser (Chrome: DEMUXER_ERROR_…, Firefox: …). */
+  function mediaErr(v) {
+    var me = v && v.error, e = new Error('MEDIA_ERR_' + ((me && me.code) || 0));
+    e.media = { code: (me && me.code) || 0, message: (me && me.message) || '' };
+    return e;
+  }
 
   // MARK: hls.js-lader met de proxy als terugval (geen CORS)
 
@@ -206,7 +188,8 @@
     video.onpause = function () { self.ev.state(); };
     video.onplay = function () { self.ev.state(); };
     video.onended = function () { self.ev.ended(); };
-    video.onerror = function () { if (self.started) self.ev.error(new Error('MEDIA_ERR_' + ((video.error && video.error.code) || 0))); };
+    video.onerror = function () { if (self.started) { var e = mediaErr(video); self.note(e, true); self.ev.error(e); } };
+    this.trace = []; this.hlsTried = false; this.url = null;
   }
   Engine.prototype.reset = function () {
     if (this.hls) { try { this.hls.destroy(); } catch (e) { /* stil */ } this.hls = null; }
@@ -218,6 +201,13 @@
     this.started = false;
   };
   Engine.prototype.stop = function () { this.reset(); this.stopped = true; };
+  /** Fout na het starten in het logboek (bij de laatste poging). */
+  Engine.prototype.note = function (e, after) {
+    var last = this.trace[this.trace.length - 1];
+    if (!last) return;
+    last.err = (after ? 'after start: ' : '') + (e && e.message);
+    if (e && e.media) last.media = e.media;
+  };
   /** Eén poging; resolve zodra er beeld is (canplay), reject bij een fout of na 25 s. */
   Engine.prototype.attempt = function (step, opts) {
     var self = this, v = this.v;
@@ -238,7 +228,7 @@
       }
       self._fail = fail;
       v.addEventListener('canplay', ok); v.addEventListener('loadeddata', ok);
-      var onErr = function () { if (!self.started) { v.removeEventListener('error', onErr); fail(new Error('MEDIA_ERR_' + ((v.error && v.error.code) || 0))); } };
+      var onErr = function () { if (!self.started) { v.removeEventListener('error', onErr); fail(mediaErr(v)); } };
       v.addEventListener('error', onErr);
       if (step.how === 'direct' || (step.how === 'hls' && isAppleNative(v))) {
         v.src = step.url;
@@ -259,10 +249,13 @@
           var recovered = 0;
           hls.on(Hls.Events.ERROR, function (evt, data) {
             if (!data || !data.fatal) return;
-            if (!self.started) { fail(new Error('hls_' + data.details)); return; }
+            var code = data.response && data.response.code;
+            if (!self.started) { fail(new Error('hls_' + data.details + (code ? ' (HTTP ' + code + ')' : ''))); return; }
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recovered < 2) { recovered++; hls.recoverMediaError(); return; }
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && recovered < 2) { recovered++; hls.startLoad(); return; }
-            self.ev.error(new Error('hls_' + data.details));
+            var he = new Error('hls_' + data.details + (code ? ' (HTTP ' + code + ')' : ''));
+            self.note(he, true);
+            self.ev.error(he);
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, function () { self.ev.tracks(); });
           hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () { self.ev.tracks(); });
@@ -279,7 +272,10 @@
           if (!M.getFeatureList().mseLivePlayback) { fail(new Error('no_mse')); return; }
           var p = self.ts = M.createPlayer({ type: 'mpegts', isLive: !!opts.live, url: step.url },
             { enableWorker: false, lazyLoad: false, liveBufferLatencyChasing: true, autoCleanupSourceBuffer: true });
-          p.on(M.Events.ERROR, function () { if (!self.started) fail(new Error('mpegts')); else self.ev.error(new Error('mpegts')); });
+          p.on(M.Events.ERROR, function (type, detail) {
+            var me = new Error('mpegts ' + (type || '') + (detail ? ' ' + detail : ''));
+            if (!self.started) fail(me); else { self.note(me, true); self.ev.error(me); }
+          });
           p.attachMediaElement(v);
           p.load();
         }, function () { fail(new Error('mpegts_lib')); });
@@ -288,8 +284,11 @@
   };
   Engine.prototype.open = function (url, opts) {
     var self = this;
-    var plan = B.playPlan(url, opts.live, opts.forceTry);
-    if (plan.error) return Promise.reject(plan.error);
+    var PD = B.playdiag;
+    this.url = url; this.trace = []; this.hlsTried = false; this.hlsFound = false;
+    var plan = B.playPlan(url, opts.live, opts.forceTry, opts.hls);
+    if (plan.error) { this.trace.push({ how: 'format', ok: false, err: plan.error.message, url: PD.mask(url) }); return Promise.reject(plan.error); }
+    var hlsFound = false;
     var i = 0, lastErr = null;
     var proxied = plan.steps.some(function (st) { return B.mustProxy(st.url); });
     if (proxied) {
@@ -302,24 +301,71 @@
       if (self.stopped) return Promise.reject(new Error('stopped'));
       if (i >= plan.steps.length) return Promise.reject(lastErr || new Error('fail'));
       var step = plan.steps[i++];
+      if (step.how === 'fail') {
+        self.trace.push({ how: 'format', ok: false, err: step.error.message, url: PD.mask(url) });
+        lastErr = step.error;
+        return next();
+      }
+      if (step.probe) return probeHls(step);
       if (step.proxy || B.mustProxy(step.url)) {
         return B.ensureProxyToken().then(function () {
           var pu = B.proxyGetURL(step.url);
           if (!pu) { lastErr = lastErr || new Error('proxy_token'); return next(); }
-          return run({ how: step.how, url: pu, orig: step.url });
+          return run({ how: step.how, url: pu, orig: step.url, vodHls: step.vodHls });
         });
       }
       return run(step);
     }
+    /**
+     * HLS-variant van een film/aflevering: eerst via de proxy kijken of de server echt een afspeellijst geeft
+     * (kort, 7 s). Zo ja: Safari speelt hem zelf (eerst direct bij https, anders/daarna via de proxy, die afspeellijst
+     * en segmenten herschrijft); hls.js valt zelf terug op de proxy. Zo nee: door naar de volgende poging.
+     */
+    function probeHls(step) {
+      if (hlsFound || self.stopped) return next();
+      var memoKey = hostOf(step.url) + '|' + step.kind;
+      if (vodHlsMemo[memoKey] === false) return next();
+      self.hlsTried = true;
+      return PD.probe(step.url, 7000).then(function (p) {
+        if (self.stopped) return Promise.reject(new Error('stopped'));
+        var ok = PD.isHls(p);
+        // deze sessie onthouden: geeft de server 4xx op deze vorm, dan niet bij elke titel opnieuw vragen
+        if (ok) vodHlsMemo[memoKey] = true;
+        else if (!p.error && p.status >= 400 && p.status < 500 && vodHlsMemo[memoKey] !== true) vodHlsMemo[memoKey] = false;
+        self.trace.push({ how: 'hls-check (' + step.kind + ')', via: 'proxy', url: PD.mask(step.url), ok: ok, err: ok ? null : (p.error || 'no HLS'), probe: p, ms: p.ms });
+        B.log('HLS-variant ' + step.kind + ': ' + (ok ? 'ja' : 'nee'), PD.sigLabel(p));
+        if (!ok) {
+          // de server even laten opruimen (IPTV-abonnementen tellen verbindingen)
+          var wait = p.bytes && p.bytes.length && !p.error ? 600 : 0;
+          return new Promise(function (r) { setTimeout(r, wait); }).then(next);
+        }
+        hlsFound = self.hlsFound = true;
+        var subs = [];
+        var insecureInside = p.finalProtocol === 'http' || /^http:/i.test((p.hls && p.hls.first) || '');
+        if (isAppleNative(self.v)) {
+          if (!B.mustProxy(step.url) && !insecureInside) subs.push({ how: 'hls', url: step.url, vodHls: true });
+          subs.push({ how: 'hls', url: step.url, proxy: true, vodHls: true });
+        } else subs.push({ how: 'hls', url: step.url, vodHls: true, proxy: insecureInside && !B.mustProxy(step.url) });
+        plan.steps.splice.apply(plan.steps, [i, 0].concat(subs));
+        return next();
+      });
+    }
     function run(step) {
-      B.log('afspelen via ' + step.how + (step.orig ? ' (proxy)' : ''), String(step.orig || step.url).replace(/\/\/[^/]+/, '//…'));
+      B.log('afspelen via ' + step.how + (step.orig ? ' (proxy)' : ''), PD.mask(step.orig || step.url));
       self.lastStep = step;
+      var rec = { how: step.how + (step.vodHls ? ' (VOD)' : ''), via: step.orig ? 'proxy' : 'direct', url: PD.mask(step.orig || step.url), ok: false };
+      var t0 = Date.now();
+      self.trace.push(rec);
       return self.attempt(step, opts).then(function () {
+        rec.ok = true; rec.ms = Date.now() - t0;
         self.started = true;
         if (opts.onReady) { try { opts.onReady(); } catch (e) { B.log('onReady', e); } }
         var p = self.v.play();
         return p && p.then ? p.then(null, function (e) { if (e && e.name === 'NotAllowedError') self.ev.needsTap(); }) : null;
-      }, function (e) { lastErr = e; return next(); });
+      }, function (e) {
+        rec.ms = Date.now() - t0; rec.err = e && e.message; if (e && e.media) rec.media = e.media;
+        lastErr = e; return next();
+      });
     }
     this.stopped = false;
     return next();
@@ -600,7 +646,10 @@
       };
       engine = new Engine(events, video);
       var my = engine;
-      return engine.open(url, { live: isLive(), start: resumeAt || 0, forceTry: forceTry, onReady: function () { if (engine === my) applyTrackPrefs(); } }).then(function () {
+      return vodHls(url).then(function (cands) {
+        if (closed || engine !== my) return Promise.reject(new Error('stopped'));
+        return my.open(url, { live: isLive(), start: resumeAt || 0, forceTry: forceTry, hls: cands, onReady: function () { if (engine === my) applyTrackPrefs(); } });
+      }).then(function () {
         if (closed || limited || engine !== my || (gen != null && gen !== startGen)) { if (engine === my && (closed || limited)) my.stop(); return; }
         attempts = 0;
         spinner.style.display = 'none';
@@ -615,6 +664,22 @@
         setTimeout(function () { if (!closed && engine === my && !audioChosen) applyTrackPrefs(); }, 5000);
         if (!isLive()) setTimeout(function () { if (!closed && engine === my) mediaHint(my); }, 6000);
       });
+    }
+
+    /**
+     * HLS-varianten van deze film/aflevering (build 83): alleen Xtream-adressen (/movie/ of /series/), en niet als de
+     * server zegt dat hij geen m3u8 levert (allowed_output_formats). De serverinfo wacht hooguit 4 s.
+     */
+    function vodHls(url) {
+      if (isLive() || isCatchup() || !B.providers.vodHlsCandidates(url).length) return Promise.resolve(null);
+      var src = Lib.source;
+      var info = src && src.kind === 'Xtream Codes' && B.normalizedServer(src.serverURL) && String(url).indexOf(B.normalizedServer(src.serverURL)) === 0
+        ? new B.providers.Xtream(src, D.secret(src, 'password')).serverInfo() : Promise.resolve(null);
+      var capped = Promise.race([info, new Promise(function (r) { setTimeout(function () { r(null); }, 4000); })]);
+      return capped.then(function (inf) {
+        if (inf) B.log('server: uitvoer ' + (inf.formats || []).join(',') + ', verbindingen ' + inf.activeConnections + '/' + inf.maxConnections);
+        return B.providers.vodHlsCandidates(url, inf);
+      }, function () { return B.providers.vodHlsCandidates(url, null); });
     }
 
     /**
@@ -722,7 +787,7 @@
       if (closed || limited) return;
       B.log('player error', e && e.message);
       spinner.style.display = 'none';
-      if (e && (e.insecure || e.unsupported)) { showError(e); return; }
+      if (e && e.insecure) { showError(e); return; }
       if (attempts < 1 && engine && engine.started) {
         attempts++;
         var at = engine && !isLive() ? engine.time() : 0;
@@ -743,28 +808,30 @@
         });
         return;
       }
-      // film of aflevering: uitzoeken waarom (fout van de server, of beeld/geluid dat de browser niet kent)
-      if (!isLive() && !isCatchup() && !(e && (e.server || e.codec)) && engine) {
-        var last = engine.lastStep, g2 = startGen;
-        var orig = last ? (last.orig || last.url) : null;
-        if (orig && !/^(timeout|stopped)$/.test(String(e && e.message))) {
-          spinner.style.display = 'flex';
-          B.diagnoseVOD(orig, !/MEDIA_ERR_2|proxy_token/.test(String(e && e.message))).then(function (d) {
-            if (closed || g2 !== startGen) return;
-            spinner.style.display = 'none';
-            showError(d || e);
-          });
-          return;
-        }
+      // uitzoeken waarom (build 83): eerste bytes van het bestand via de proxy, formaat, codecs, wat de browser kent
+      var PD = B.playdiag, g2 = startGen;
+      var rep = { browser: PD.browser(), attempts: engine ? engine.trace.slice() : [], lastError: e, hlsTried: !!(engine && engine.hlsTried), hlsFound: !!(engine && engine.hlsFound),
+        url: engine ? engine.url : null, title: item.title + (item.subtitle ? ' · ' + item.subtitle : '') };
+      if (!isLive() && !isCatchup() && rep.url && !/^(stopped)$/.test(String(e && e.message))) {
+        spinner.style.display = 'flex';
+        PD.inspect(rep.url).then(function (p) {
+          if (closed || g2 !== startGen) return;
+          spinner.style.display = 'none';
+          rep.probe = p;
+          var d = PD.explain(rep);
+          B.log('diagnose', PD.text(rep));
+          showError(d || e, rep);
+        });
+        return;
       }
-      showError(e);
+      showError(e, rep);
     }
-    function showError(e) {
+    function showError(e, rep) {
       if (closed) return;
       if (engine) engine.stop();
       spinner.style.display = 'none';
       U.clear(errorBox);
-      var insecure = e && e.insecure, unsup = e && e.unsupported, server = e && e.server;
+      var insecure = e && e.insecure, unsup = e && e.unsupported, server = e && (e.server || e.specific);
       errorBox.appendChild(U.icon(insecure ? 'lock' : 'warn', 'pl-err-ic'));
       errorBox.appendChild(h('h2', insecure ? L('Not available in the browser') : unsup ? L('Not available in the browser') : L("Can't play this")));
       var msg = insecure || unsup || server ? e.message : (isLive() ? L('This channel is not available right now.') : L('This title could not be loaded.'));
@@ -778,6 +845,13 @@
       if (isLive() && item.channel && !insecure) row.appendChild(U.button(L('Other source'), chooseBackup, { icon: 'layers' }));
       row.appendChild(U.button(L('Close'), function () { close(); }));
       errorBox.appendChild(row);
+      // build 83: wat er geprobeerd is en wat de server stuurde (zonder inloggegevens); ?debug=1 = meteen open
+      if (!rep && engine) rep = { browser: B.playdiag.browser(), attempts: engine.trace.slice(), url: engine.url, lastError: e };
+      if (rep) {
+        var dp = B.playdiag.panel(rep);
+        row.appendChild(dp.button);
+        errorBox.appendChild(dp.box);
+      }
       errorBox.style.display = 'flex';
       root.classList.add('ui');
       var f = row.querySelector('.btn'); if (f) f.focus();
@@ -1203,6 +1277,7 @@
 
     document.documentElement.classList.add('playing');
     B.player.current = screen;
+    B.emit('playerOpened');
     document.body.appendChild(root);
     history.pushState({ bingrPlayer: true }, '', location.href);
     window.addEventListener('popstate', onPop);

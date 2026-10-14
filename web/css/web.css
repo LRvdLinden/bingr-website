@@ -831,3 +831,25 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
   .dialog.wide-dlg { max-height: 92vh; }
   .trakt-code { font-size: 32px; }
 }
+
+/* build 83: trailer in de kop van de detailpagina (zonder geluid, na 1,5 s; zie screens.js) */
+.dt-tr { position: absolute; inset: 0 0 auto 0; height: 92vh; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .8s ease; background: #000; }
+.dt-tr.on { opacity: 1; }
+.dt-tr-frame { position: absolute; left: 50%; top: 50%; width: max(100%, calc(92vh * 16 / 9)); height: max(92vh, calc(100vw * 9 / 16)); transform: translate(-50%, -50%); border: 0; }
+.page.detail.tr-on .dt-shade { background: linear-gradient(90deg, #000000cc, #00000033 60%, transparent), linear-gradient(180deg, #00000066, transparent 22%, transparent 55%, var(--bg)); }
+.dt-tr-mute { position: absolute; z-index: 2; top: calc(var(--top) + 6px); right: var(--gutter); width: 44px; height: 44px; border: 1px solid #ffffff59; background: #00000073; backdrop-filter: blur(8px); }
+.dt-tr-mute:hover { background: #000000a6; }
+.dt-poster { transition: opacity .6s ease; }
+@media (max-width: 699px), (pointer: coarse) and (max-device-width: 599px) {
+  .dt-tr { top: calc(var(--top) + env(safe-area-inset-top)); height: calc(100vw * 9 / 16); -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent); mask-image: linear-gradient(180deg, #000 78%, transparent); }
+  .dt-tr-frame { left: 0; top: 0; width: 100%; height: 100%; transform: none; }
+  .page.detail.tr-on .dt-poster { opacity: 0; }
+  .page.detail.tr-on .dt-shade { background: linear-gradient(180deg, #00000059, transparent calc(var(--top) + 40px)); }
+  .dt-tr-mute { top: calc(var(--top) + env(safe-area-inset-top) + 100vw * 9 / 16 - 56px); right: 12px; }
+}
+
+/* build 83: details bij een afspeelfout */
+.pl-diag { width: min(760px, 100%); max-height: 42vh; overflow: auto; text-align: left; background: #111; border: 1px solid #ffffff26; border-radius: 10px; padding: 12px 14px; position: relative; }
+.pl-diag-text { margin: 0; white-space: pre-wrap; word-break: break-all; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #cfcfcf; }
+.pl-diag-copy { position: sticky; float: right; top: 0; min-height: 30px; padding: 0 12px; font-size: 13px; }
+.pl-error { overflow-y: auto; }

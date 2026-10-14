@@ -1075,6 +1075,7 @@
 
     var trailer = null;
     function openTrailer(t) {
+      stopHero();
       var frame = h('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(t.key) + '?autoplay=1&rel=0&modestbranding=1&hl=' + B.lang,
         title: L('Trailer'), allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' });
       U.modal({ title: t.season ? L('Trailer season %d', t.season) : L('Trailer'), body: h('div.trailer', [frame]), cls: 'trailer-dlg', buttons: [{ label: L('Close') }] });
@@ -1088,6 +1089,91 @@
         U.clear(trailerBtnSlot);
         if (t) trailerBtnSlot.appendChild(U.button(t.season ? L('Trailer season %d', t.season) : L('Trailer'), function () { openTrailer(t); }, { icon: 'trailer' }));
       });
+    }
+
+    // MARK: trailer in de kop (build 83, zoals de apps sinds build 82)
+    // Na 1,5 s speelt de trailer zonder geluid achter de titel (film: die van de film; serie: die van het nieuwste
+    // seizoen, anders die van de serie), met geluid aan/uit. Pas zichtbaar als YouTube meldt dat hij speelt (anders
+    // blijft de afbeelding staan). Stopt bij afspelen, de trailerknop, een ander scherm of een verborgen tabblad.
+    // Niet bij de instelling uit, Beweging beperken of Databesparing.
+    var hero = null, heroTimer = null;
+    function heroAllowed() {
+      if (!S.autoplayTrailers()) return false;
+      try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* stil */ }
+      var c = navigator.connection;
+      if (c && (c.saveData || /(^|-)2g$/.test(String(c.effectiveType || '')))) return false;
+      return !document.hidden && !B.player.current && alive;
+    }
+    function stopHero() {
+      clearTimeout(heroTimer); heroTimer = null;
+      if (!hero) return;
+      var hh = hero; hero = null;
+      clearInterval(hh.ping); clearTimeout(hh.giveUp);
+      window.removeEventListener('message', hh.onMsg);
+      el.classList.remove('tr-on');
+      hh.box.classList.remove('on');
+      if (hh.mute.parentNode) hh.mute.remove();
+      setTimeout(function () { hh.box.remove(); }, 650);
+    }
+    function autoTrailer() {
+      stopHero();
+      if (!heroAllowed()) return;
+      var ss = isShow ? seasons() : [];
+      var want = isShow ? (ss.length ? ss[ss.length - 1] : null) : null;
+      var my = x;
+      B.ageRatings.trailer(x, isShow, want).then(function (t) {
+        if (!t || !alive || x !== my || hero) return;
+        clearTimeout(heroTimer);
+        heroTimer = setTimeout(function () { if (alive && x === my && heroAllowed()) startHero(t.key); }, 1500);
+      });
+    }
+    function startHero(key) {
+      var YT = 'https://www.youtube-nocookie.com';
+      var src = YT + '/embed/' + encodeURIComponent(key) + '?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=' + encodeURIComponent(key) +
+        '&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&enablejsapi=1&origin=' + encodeURIComponent(location.origin) + '&hl=' + encodeURIComponent(B.lang);
+      var frame = h('iframe.dt-tr-frame', { src: src, title: L('Trailer'), allow: 'autoplay; encrypted-media', tabindex: '-1', 'aria-hidden': 'true',
+        referrerpolicy: 'strict-origin-when-cross-origin' });
+      var box = h('div.dt-tr', [frame]);
+      var muted = true;
+      var mute = U.button('', function () {
+        muted = !muted;
+        cmd(muted ? 'mute' : 'unMute');
+        if (!muted) cmd('setVolume', [100]);
+        drawMute();
+      }, { icon: 'mute', cls: 'icon-btn dt-tr-mute', title: L('Sound on') });
+      function drawMute() {
+        U.clear(mute); mute.appendChild(U.icon(muted ? 'mute' : 'volume'));
+        mute.title = muted ? L('Sound on') : L('Sound off');
+        mute.setAttribute('aria-label', mute.title);
+      }
+      function post(o) { try { frame.contentWindow.postMessage(JSON.stringify(o), YT); } catch (e) { /* stil */ } }
+      function cmd(f, args) { post({ event: 'command', func: f, args: args || [], id: 1, channel: 'widget' }); }
+      var hh = hero = { box: box, frame: frame, mute: mute, ping: null, giveUp: null, onMsg: null };
+      hh.onMsg = function (ev) {
+        if (ev.source !== frame.contentWindow || ev.origin !== YT || hero !== hh) return;
+        var d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+        if (!d) return;
+        clearInterval(hh.ping);
+        var state = d.event === 'onStateChange' ? d.info : (d.event === 'infoDelivery' && d.info && typeof d.info.playerState === 'number' ? d.info.playerState : null);
+        if (d.event === 'onError') { stopHero(); return; }
+        if (state === 1 && !box.classList.contains('on')) {
+          clearTimeout(hh.giveUp);
+          box.classList.add('on');
+          el.classList.add('tr-on');
+          drawMute();
+          el.appendChild(mute);
+        }
+      };
+      window.addEventListener('message', hh.onMsg);
+      frame.addEventListener('load', function () {
+        var n = 0;
+        // YouTube-iframe-API zonder script: "listening" tot de speler antwoordt
+        hh.ping = setInterval(function () { if (++n > 40) clearInterval(hh.ping); post({ event: 'listening', id: 1, channel: 'widget' }); }, 250);
+      });
+      // speelt hij na 15 s nog niet (geblokkeerd, geen netwerk), dan weer weg: de afbeelding blijft
+      hh.giveUp = setTimeout(function () { if (hero === hh && !box.classList.contains('on')) stopHero(); }, 15000);
+      var bg = el.querySelector('.dt-bg');
+      if (bg && bg.nextSibling) el.insertBefore(box, bg.nextSibling); else el.insertBefore(box, el.firstChild);
     }
 
     function listButton() {
@@ -1199,10 +1285,13 @@
         drawEpisodes();
         drawButtons();
         loadTrailer();
+        autoTrailer();
       });
     }
     function build() {
+      stopHero();
       U.clear(el);
+      el.classList.remove('tr-on');
       x = find();
       if (!x) {
         if (Lib.loading || !Lib.lib.byId) { el.appendChild(h('div.state', [U.spinner()])); return; }
@@ -1245,6 +1334,7 @@
       if (isShow) loadEpisodes();
       else {
         loadTrailer();
+        autoTrailer();
         Lib.movieInfo(x).then(function (info) {
           if (!info || !alive) return;
           if (info.plot && !x.plot) plot.textContent = info.plot;
@@ -1263,7 +1353,14 @@
       }
     };
     pg.onCollections = function () { if (x) drawButtons(); };
-    pg.destroy = function () { alive = false; };
+    function onVis() { if (document.hidden) stopHero(); }
+    document.addEventListener('visibilitychange', onVis);
+    var offHero = [B.on('playerOpened', stopHero), B.on('settings', function () { if (!S.autoplayTrailers()) stopHero(); })];
+    pg.destroy = function () {
+      alive = false; stopHero();
+      document.removeEventListener('visibilitychange', onVis);
+      offHero.forEach(function (f) { if (typeof f === 'function') f(); });
+    };
     build();
     return pg;
   };
@@ -1300,6 +1397,9 @@
   S.supportRow = function (sec, sub) {
     return S.stRow(sec, L('Support'), null, function () { window.open(S.SUPPORT_URL, '_blank', 'noopener'); }, { icon: 'help', sub: sub || null });
   };
+  /** Trailers automatisch afspelen (build 83): standaard aan, per browser. */
+  S.autoplayTrailers = function () { return B.store.get('autoplayTrailers', true) !== false; };
+  S.setAutoplayTrailers = function (on) { B.store.set('autoplayTrailers', !!on); B.emit('settings'); };
   S.stRow = function (sec, label, value, fn, opts) {
     opts = opts || {};
     var r = fn ? (opts.href ? h('a.st-row' + (opts.danger ? '.danger' : ''), { href: opts.href }) : h('button.st-row' + (opts.danger ? '.danger' : ''), { type: 'button' })) : h('div.st-row.info');
@@ -1439,6 +1539,10 @@
           B.app.setLanguage(v);
         });
       });
+      // build 83: trailer zonder geluid in de kop van film- en seriepagina's (per browser, zoals per apparaat in de apps)
+      var trOn = S.autoplayTrailers();
+      row(sec, L('Play trailers automatically'), null, function () { S.setAutoplayTrailers(!trOn); render(); },
+        { toggle: trOn, icon: 'trailer', sub: trOn ? L('Muted, on movie and series pages. Not with data saver or Reduce Motion on.') : null });
 
       var mainPin = D.pinFor(D.mainProfile());
       sec = section(L('Parental lock'), main ? (mainPin ? null : L('Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).')) : null);
@@ -1471,7 +1575,7 @@
 
       sec = section(L('About'));
       row(sec, 'Bingr ' + B.config.version + (B.config.build ? ' (build ' + B.config.build + ')' : ''), L('Browser') + ' · ' + A.deviceDisplayName(), null);
-      row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app.'), null, null);
+      row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
     }
     pg.refresh = render;
     var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
