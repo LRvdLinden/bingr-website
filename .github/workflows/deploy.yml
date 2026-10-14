@@ -100,6 +100,35 @@ jobs:
               && echo "::notice::Oude map admindashboard/ van de server verwijderd" || echo "::warning::Oude map admindashboard/ kon niet worden verwijderd"
           fi
           lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
+          # doorverwijzingen in .htaccess op de server (bestaat er al een van de hoster, dan blijft die inhoud staan):
+          # alleen het blok tussen de markeringen wordt (opnieuw) gezet. De hulp van /support.html staat nu op support.bingr.online.
+          lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 -a \"$TARGET/\"; bye" > /tmp/ls-all.txt 2>/dev/null || true
+          rm -f /tmp/htaccess.txt
+          ht_ok=1
+          if grep -qE '(^|/)\.htaccess$' /tmp/ls-all.txt; then
+            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; get \"$TARGET/.htaccess\" -o /tmp/htaccess.txt; bye" >/dev/null 2>&1 || ht_ok=0
+          else
+            : > /tmp/htaccess.txt
+          fi
+          if [ "$ht_ok" = 1 ] && [ -f /tmp/htaccess.txt ]; then
+            python3 - <<'PY'
+          import re
+          p = "/tmp/htaccess.txt"
+          s = open(p, encoding="utf-8", errors="surrogateescape").read()
+          s = re.sub(r"\n?# BEGIN bingr-redirects.*?# END bingr-redirects\n?", "\n", s, flags=re.S).strip("\n")
+          block = ("# BEGIN bingr-redirects (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
+                   "<IfModule mod_alias.c>\n"
+                   "Redirect 301 /support.html https://support.bingr.online/hulp/\n"
+                   "</IfModule>\n"
+                   "# END bingr-redirects\n")
+          open(p + ".new", "w", encoding="utf-8", errors="surrogateescape").write(block + ("\n" + s + "\n" if s else ""))
+          PY
+            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; put /tmp/htaccess.txt.new -o \"$TARGET/.htaccess\"; chmod 644 \"$TARGET/.htaccess\"; bye" >/dev/null 2>&1 \
+              && echo "::notice::.htaccess bijgewerkt (doorverwijzing /support.html → support.bingr.online/hulp/)" \
+              || echo "::warning::.htaccess kon niet worden geüpload; support.html stuurt dan zelf door"
+          else
+            echo "::warning::Bestaande .htaccess niet gelezen; niet aangepast (support.html stuurt zelf door)"
+          fi
           echo "::notice::Website bijgewerkt op bingr.online"
 
       - name: Controleren of de site online staat
@@ -109,6 +138,12 @@ jobs:
           want=$(grep -o '<span data-build>[^<]*' index.html | sed 's/<span data-build>//' | head -1)
           live=$(curl -sL --max-time 20 https://bingr.online/ | grep -o '<span data-build>[^<]*' | sed 's/<span data-build>//' | head -1 || true)
           if [ -n "$want" ] && [ "$live" != "$want" ]; then echo "::error::bingr.online toont '$live', verwacht '$want': de upload is niet op de juiste plek aangekomen."; exit 1; fi
+          # /support.html is verhuisd naar support.bingr.online (301 via .htaccess, anders de doorverwijspagina)
+          r=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 https://bingr.online/support.html || true)
+          case "$r" in
+            30[1278]\ https://support.bingr.online/*) echo "::notice::/support.html stuurt door: $r" ;;
+            *) echo "::warning::/support.html geeft '$r' in plaats van een 301 naar support.bingr.online (de doorverwijspagina vangt het op)" ;;
+          esac
           # het oude beheer-dashboard mag hier niet meer staan (nu beheer.bingr.online)
           if curl -sL --max-time 20 https://bingr.online/admindashboard/ 2>/dev/null | grep -q 'Beheer · Bingr'; then
             echo "::warning::bingr.online/admindashboard/ toont nog het oude dashboard"
