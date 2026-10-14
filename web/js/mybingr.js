@@ -1074,6 +1074,11 @@
     }, { primary: true });
     save.disabled = !st.name.trim();
     var btns = [save, U.button(L('Cancel'), function () { dlg.close(); })];
+    if (existing && !isMainProfile) btns.push(U.button(L('Make main profile'), function () {
+      U.confirm(L('Make main profile'), L('%@ becomes the main profile: managing profiles and servers, Trakt and the settings move there. You become a regular profile.').replace('%@', existing.name), L('Make main profile'), function () {
+        D.setMainProfile(existing.id).then(function () { U.toast(L('Saved')); dlg.close(); }, function (e) { U.toast(e.message); });
+      });
+    }, { icon: 'users' }));
     if (existing && !isMainProfile) btns.push(U.button(L('Delete profile'), function () {
       U.confirm(L('Delete profile'), L('Delete %@', existing.name), L('Delete'), function () {
         D.deleteProfile(existing.id).then(function () { U.toast(L('Deleted')); dlg.close(); }, function (e) { U.toast(e.message); });

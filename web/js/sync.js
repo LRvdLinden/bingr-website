@@ -1166,6 +1166,29 @@
       });
     });
   };
+  /** Ander profiel hoofdprofiel maken (build 89): precies één isMain, updatedAt = nu bij het nieuwe en het oude
+   *  hoofdprofiel (zodat de apps het overnemen). Het oude hoofdprofiel wordt een gewoon profiel. */
+  D.setMainProfile = function (id) {
+    var p = D.profileById(id);
+    if (!p || D.isMain(p)) return Promise.resolve(false);
+    return A.readProfiles().then(function (list) {
+      if (list == null) throw new Error(L('No internet connection.'));
+      var now = B.iso(), found = false;
+      list = list.map(function (o) {
+        if (!o || !o.id || o.deleted === true) return o;
+        var on = lower(o.id) === lower(id);
+        if (on) found = true;
+        if (!!o.isMain === on) return o;
+        var c = Object.assign({}, o); c.isMain = on; c.updatedAt = now; return c;
+      });
+      if (!found) throw new Error(L('Something went wrong. Please try again.'));
+      return A.writeProfiles(list).then(function (ok) {
+        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
+        applyProfiles(list);
+        return true;
+      });
+    });
+  };
   /** Eigen foto (JPEG-blob) of null = weg. In de lijst alleen {path, updated} (build 40). */
   D.setProfilePhoto = function (id, blob) {
     var p = D.profileById(id);

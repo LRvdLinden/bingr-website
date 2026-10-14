@@ -6,6 +6,8 @@
   'use strict';
   var NL = {
     'Subscription': 'Abonnement',
+    'Make main profile': 'Maak hoofdprofiel',
+    '%@ becomes the main profile: managing profiles and servers, Trakt and the settings move there. You become a regular profile.': '%@ wordt het hoofdprofiel: profielen en servers beheren, Trakt en de instellingen gaan daarheen. Jij wordt een gewoon profiel.',
     'Free': 'Gratis',
     'Lifetime': 'Lifetime',
     'Upgrade to Lifetime': 'Upgrade naar Lifetime',
