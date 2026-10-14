@@ -161,11 +161,14 @@ $("authForm").onsubmit = async (e) => {
       const { error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
     } else {
-      const back = location.origin + location.pathname + "?code=" + encodeURIComponent($("code").value.replace("-", ""));
+      // zonder koppelcode (account maken vanaf de homepage of Mijn Bingr) daarna naar Mijn Bingr, anders terug naar koppelen
+      const code = $("code").value.replace("-", "").trim();
+      const back = code ? location.origin + location.pathname + "?code=" + encodeURIComponent(code) : location.origin + "/account/";
       const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang }, emailRedirectTo: back } });
       if (error) throw error;
       if (data.user && data.user.identities && data.user.identities.length === 0) throw { code: "user_already_exists" };
       if (!data.session) { show("confirm"); return; }
+      if (!code) { location.href = "/account/"; return; }
     }
     await refresh();
   } catch (err) { $("authErr").textContent = errText(err); }

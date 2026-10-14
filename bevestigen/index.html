@@ -190,6 +190,8 @@ function btn(href, label, ghost) {
 function acts(id, list) { const el = $(id); el.textContent = ""; list.forEach((b) => el.appendChild(b)); }
 function nextButton() {
   if (!next) return null;
+  // koppelen zonder koppelcode (account gemaakt vanaf de homepage) of Mijn Bingr: de gewone knop "Naar Mijn Bingr" volstaat
+  if ((next.pathname.startsWith("/koppelen") && !new URLSearchParams(next.search).get("code")) || next.pathname.startsWith("/account")) return null;
   const label = next.pathname.startsWith("/koppelen") ? tr("toPair") : next.pathname.startsWith("/web") ? tr("toWeb") : tr("toNext");
   return btn(next.pathname + next.search, label);
 }
@@ -206,6 +208,8 @@ function signupDone() {
   const n = nextButton();
   done("✓", tr("signupDone"), tr("signupDoneP"), n ? [n, btn("../account/", tr("toAccount"), true)]
     : [btn("../account/", tr("toAccount")), btn("../index.html#download", tr("getApp"), true)]);
+  // account gemaakt zonder koppelcode: na de bevestiging vanzelf door naar Mijn Bingr
+  if (!n) setTimeout(() => location.replace("../account/"), 1800);
 }
 
 function invalid(kind) {
