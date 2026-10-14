@@ -354,8 +354,9 @@
   // MARK: hoofdscherm (navigatie bovenaan of onderaan, pagina's via de router)
 
   // [sleutel, tekst, icoon, waar]: 'top' = alleen bovenin (computer), 'tab' = alleen in de onderbalk (telefoon)
+  // Categorieën: bovenin naast Series; op de telefoon via de chip "Categorieën" bij Films en Series (onderbalk blijft 5 tabs)
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
-    ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
+    ['categorie', 'Categories', 'grid', 'top'], ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
 
   S.main = function () {
     var content = h('main.content', { id: 'content', tabindex: '-1' });
@@ -367,6 +368,7 @@
     var hidden = D.shared('hiddenTabs', []) || [];
     NAV.forEach(function (n) {
       if (hidden.indexOf(n[0]) >= 0) return;
+      if (n[0] === 'categorie' && !(B.categories && B.categories.available())) return;
       if (n[3] !== 'tab') links.appendChild(h('a.top-link', { href: '#/' + n[0], 'data-k': n[0] }, L(n[1])));
       if (n[3] !== 'top') tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
     });
@@ -528,6 +530,7 @@
     });
   }
   S.chooseServer = chooseServer;
+  S.stateBox = stateBox;
 
   // MARK: Home
 
@@ -738,10 +741,12 @@
         var groups = isMovie ? lib.movieGroups : lib.seriesGroups;
         var chips = h('div.chips', { role: 'tablist' });
         var base = isMovie ? 'movies' : 'series';
+        // naar Categorieën (genres en de categorieën van je server), met alleen films of series voorgeselecteerd
+        if (B.categories) chips.appendChild(h('a.chip.chip-cat', { href: B.categories.overviewLink(type) }, [U.icon('grid'), h('span', L('Categories'))]));
         chips.appendChild(h('a.chip' + (!group ? '.active' : ''), { href: '#/' + base, role: 'tab' }, L('All')));
         groups.forEach(function (g) { chips.appendChild(h('a.chip' + (g === group ? '.active' : ''), { href: R.link([base, g]), role: 'tab' }, g)); });
         el.appendChild(chips);
-        setTimeout(function () { var a = chips.querySelector('.active'); if (a && a.scrollIntoView) chips.scrollLeft = a.offsetLeft - 40; }, 0);
+        setTimeout(function () { var a = chips.querySelector('.active'); if (a && group) chips.scrollLeft = a.offsetLeft - 40; }, 0);
         var all = isMovie ? lib.movies : lib.series;
         if (!group) {
           var byG = Lib.byGroup(type);

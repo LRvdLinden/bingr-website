@@ -207,5 +207,8 @@
     }).then(function () { running = false; }, function () { running = false; });
   };
   AR.stop = function () { running = false; };
+  /** Loopt het bijwerken nu? (Categorieën tonen dan "bezig met aanvullen") */
+  AR.isWarming = function () { return running; };
+  AR.hasKey = function () { return !!apiKey(); };
   AR._cache = function () { return cache; };
 })();

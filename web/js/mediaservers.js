@@ -92,12 +92,14 @@
       var movies = r[0].filter(function (i) { return i && i.Id; }).map(function (i) {
         return { id: 'jf' + i.Id, title: i.Name || '?', year: B.int(i.ProductionYear), poster: self.image(i.Id),
           group: (list(i, 'Genres')[0]) || moviesL, streamURL: self.stream(i.Id), imdbID: (i.ProviderIds && i.ProviderIds.Imdb) || null,
-          rating: num(i.CommunityRating), plot: i.Overview || null, addedAt: B.parseISO(i.DateCreated), rated: i.OfficialRating || null };
+          rating: num(i.CommunityRating), plot: i.Overview || null, addedAt: B.parseISO(i.DateCreated), rated: i.OfficialRating || null,
+          genres: list(i, 'Genres').join(', ') || null };
       });
       var series = r[1].filter(function (i) { return i && i.Id; }).map(function (i) {
         return { id: 'jfs' + i.Id, title: i.Name || '?', year: B.int(i.ProductionYear), poster: self.image(i.Id),
           group: (list(i, 'Genres')[0]) || seriesL, imdbID: (i.ProviderIds && i.ProviderIds.Imdb) || null,
-          plot: i.Overview || null, rating: num(i.CommunityRating), remoteID: String(i.Id), rated: i.OfficialRating || null, episodes: [] };
+          plot: i.Overview || null, rating: num(i.CommunityRating), remoteID: String(i.Id), rated: i.OfficialRating || null, episodes: [],
+          genres: list(i, 'Genres').join(', ') || null };
       });
       var channels = r[2].filter(function (c) { return c && c.Id; }).map(function (c) {
         return { id: 'jfc' + c.Id, name: c.Name || '?', logo: self.image(c.Id), group: 'Live TV', streamURL: self.stream(c.Id),
@@ -210,14 +212,15 @@
               var rk = String(m.ratingKey);
               var g0 = list(m, 'Genre')[0];
               var group = (g0 && g0.tag) || dir.title || 'Plex';
+              var gtags = list(m, 'Genre').map(function (g) { return g && g.tag; }).filter(Boolean).join(', ') || null;
               var rating = num(m.audienceRating) != null ? num(m.audienceRating) : num(m.rating);
               if (dir.type === 'movie') {
                 movies.push({ id: 'px' + rk, title: m.title || '?', year: B.int(m.year), poster: self.image(m.thumb), group: group,
                   streamURL: self.stream(m), imdbID: plexImdb(m), rating: rating, plot: m.summary || null,
-                  addedAt: m.addedAt ? m.addedAt * 1000 : null, rated: m.contentRating || null });
+                  addedAt: m.addedAt ? m.addedAt * 1000 : null, rated: m.contentRating || null, genres: gtags });
               } else {
                 series.push({ id: 'pxs' + rk, title: m.title || '?', year: B.int(m.year), poster: self.image(m.thumb), group: group,
-                  imdbID: plexImdb(m), plot: m.summary || null, rating: rating, remoteID: rk, rated: m.contentRating || null, episodes: [] });
+                  imdbID: plexImdb(m), plot: m.summary || null, rating: rating, remoteID: rk, rated: m.contentRating || null, episodes: [], genres: gtags });
               }
             });
           });
@@ -306,10 +309,10 @@
           var year = m.releaseInfo ? B.int(String(m.releaseInfo).slice(0, 4)) : null;
           if (r.cat.type === 'movie') {
             movies.push({ id: 'sm' + id + '-' + r.cat.id, title: m.name || '?', year: year, poster: urlValue(m.poster), group: group,
-              imdbID: id, rating: num(m.imdbRating), plot: m.description || null, stremio: 'movie|' + id });
+              imdbID: id, rating: num(m.imdbRating), plot: m.description || null, stremio: 'movie|' + id, genres: (Array.isArray(m.genres) ? m.genres.join(', ') : m.genres) || null });
           } else {
             series.push({ id: 'ss' + id + '-' + r.cat.id, title: m.name || '?', year: year, poster: urlValue(m.poster), group: group,
-              imdbID: id, plot: m.description || null, rating: num(m.imdbRating), remoteID: id, episodes: [] });
+              imdbID: id, plot: m.description || null, rating: num(m.imdbRating), remoteID: id, episodes: [], genres: (Array.isArray(m.genres) ? m.genres.join(', ') : m.genres) || null });
           }
         });
       });
