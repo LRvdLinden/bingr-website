@@ -66,34 +66,34 @@ jobs:
           ip_of(){ (getent ahostsv4 "$1" || true) | awk 'NR==1{print $1}'; }
           # certificaat geldig voor deze hostnaam? (controle vóór er inloggegevens worden verstuurd)
           cert_ok(){ timeout 40 openssl s_client -connect "$1:21" -starttls ftp -servername "$1" -verify_hostname "$1" -verify_return_error </dev/null 2>/dev/null | grep -q 'Verify return code: 0 (ok)'; }
-          # gedeelde hosting toont vaak het certificaat van de hoster: dan een concrete naam (geen wildcard) uit het certificaat
-          # gebruiken die naar hetzelfde IP-adres wijst als FTP_SERVER, en die ook geverifieerd
+          # Welke host? FTP_SERVER, anders ftp.bingr.online, anders bingr.online (zoals vroeger), maar alleen als het
+          # certificaat klopt: voor die naam zelf, of voor een naam van de hoster (uit het certificaat; bij een wildcard
+          # afgeleid) die naar hetzelfde IP-adres wijst. Pas daarna worden inloggegevens verstuurd.
           HOST=""
           for attempt in 1 2 3; do
             [ "$attempt" -gt 1 ] && { echo "Certificaatcontrole opnieuw over 30 s…"; sleep 30; }
-            if cert_ok "$FTP_SERVER"; then HOST="$FTP_SERVER"; break; fi
-            srv_ip=$(ip_of "$FTP_SERVER"); [ -n "$srv_ip" ] || { echo "::warning::FTP_SERVER heeft geen IPv4-adres in DNS"; continue; }
-            names=$(timeout 40 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp -servername "$FTP_SERVER" </dev/null 2>/dev/null \
-              | openssl x509 -noout -ext subjectAltName -subject 2>/dev/null \
-              | grep -oE '(DNS:|CN ?= ?)(\*\.)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | sed -E 's/^(DNS:|CN ?= ?)//' | sort -u || true)
-            # wildcard (*.hoster.nl): de eerste naam van FTP_SERVER ervoor (ftp.bingr.online → ftp.hoster.nl), en ftp.hoster.nl
-            cands=""; first="${FTP_SERVER%%.*}"
-            for n in $names; do
-              case "$n" in \*.*) cands="$cands $first.${n#\*.} ftp.${n#\*.}";; *) cands="$cands $n";; esac
-            done
-            # diagnose zonder gevoelige gegevens: namen op het certificaat (openbaar) en de verify-code
-            vcode=$(timeout 40 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp -servername "$FTP_SERVER" -verify_hostname "$FTP_SERVER" </dev/null 2>/dev/null | grep -m1 'Verify return code' || true)
-            echo "::notice::FTPS-certificaat: namen: $(echo $names | tr '\n' ' ') · ${vcode:-geen antwoord}"
-            for n in $(echo $cands | tr ' ' '\n' | sort -u); do
-              [ "$(ip_of "$n")" = "$srv_ip" ] || continue
-              if cert_ok "$n"; then HOST="$n"; break 2; fi
+            for base in "$FTP_SERVER" ftp.bingr.online bingr.online; do
+              base_ip=$(ip_of "$base"); [ -n "$base_ip" ] || continue
+              if cert_ok "$base"; then HOST="$base"; break 2; fi
+              names=$(timeout 40 openssl s_client -connect "$base:21" -starttls ftp -servername "$base" </dev/null 2>/dev/null \
+                | openssl x509 -noout -ext subjectAltName -subject 2>/dev/null \
+                | grep -oE '(DNS:|CN ?= ?)(\*\.)?[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | sed -E 's/^(DNS:|CN ?= ?)//' | sort -u || true)
+              cands=""; first="${base%%.*}"
+              for n in $names; do
+                case "$n" in \*.*) cands="$cands $first.${n#\*.} ftp.${n#\*.}";; *) cands="$cands $n";; esac
+              done
+              [ "$attempt" = 1 ] && echo "::notice::FTPS-certificaat op ${base}: $(echo $names | tr '\n' ' ')"
+              for n in $(echo $cands | tr ' ' '\n' | sort -u); do
+                [ "$(ip_of "$n")" = "$base_ip" ] || continue
+                if cert_ok "$n"; then HOST="$n"; break 3; fi
+              done
             done
           done
           if [ -z "$HOST" ]; then
-            echo "::error::Het FTPS-certificaat van de server is niet geldig voor FTP_SERVER en geen naam uit het certificaat wijst naar hetzelfde IP-adres. Zet het secret FTP_SERVER op de hostnaam uit het certificaat van de hoster (bijvoorbeeld ftp.<hoster>)."
+            echo "::error::Geen FTP-server met een geldig FTPS-certificaat gevonden (FTP_SERVER, ftp.bingr.online, bingr.online). Zet het secret FTP_SERVER op de hostnaam die op het certificaat van de hoster staat."
             exit 1
           fi
-          [ "$HOST" != "$FTP_SERVER" ] && echo "::notice::Certificaat hoort bij een andere naam van de hoster op hetzelfde IP-adres; die naam wordt gebruikt."
+          [ "$HOST" != "$FTP_SERVER" ] && echo "::notice::Uploaden via ${HOST} (certificaat gecontroleerd)."
           USER_OK=""
           # de FTP-server reageert soms even niet: tot 4 pogingen met een pauze
           for attempt in 1 2 3 4; do
