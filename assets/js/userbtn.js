@@ -12,15 +12,27 @@
     return null;
   }
   // tekent de avatar in een element (rond, vult het element)
+  // build 94: met DOM-elementen in plaats van innerHTML: emoji, figuurtje en foto komen uit profielgegevens die de
+  // gebruiker zelf kan aanpassen, en mogen nooit als HTML gelezen worden
+  function img(src) {
+    var i = document.createElement("img"); i.src = src; i.alt = "";
+    i.style.cssText = "width:100%;height:100%;object-fit:cover;border-radius:50%"; return i;
+  }
   function paint(el, email) {
     var c = null; try { c = JSON.parse(ls("bingr.mainAvatar") || "null"); } catch (e) {}
     var letter = (email || "?").charAt(0).toUpperCase();
-    if (c && c.email === email && c.photo) { el.innerHTML = '<img src="' + c.photo + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'; el.style.background = "#222"; return; }
-    if (c && c.email === email && c.sym && c.sym.indexOf("kid") === 0) { el.innerHTML = '<img src="' + base + "assets/img/" + c.sym + '.png" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">'; el.style.background = grad(c.color); return; }
-    if (c && c.email === email && c.sym) { el.innerHTML = '<span style="font-size:.55em;line-height:1">' + (c.emoji || SYM[c.sym] || "📺") + "</span>"; el.style.background = grad(c.color); return; }
+    var mine = c && typeof c === "object" && c.email === email;
+    el.textContent = "";
+    if (mine && typeof c.photo === "string" && /^(data:image\/(jpeg|png|webp);base64,|blob:)/.test(c.photo)) { el.appendChild(img(c.photo)); el.style.background = "#222"; return; }
+    if (mine && typeof c.sym === "string" && /^kid\d{2}$/.test(c.sym)) { el.appendChild(img(base + "assets/img/" + c.sym + ".png")); el.style.background = grad(c.color); return; }
+    if (mine && c.sym) {
+      var sp = document.createElement("span"); sp.style.cssText = "font-size:.55em;line-height:1";
+      sp.textContent = (typeof c.emoji === "string" && c.emoji.length <= 16 ? c.emoji : "") || SYM[c.sym] || "📺";
+      el.appendChild(sp); el.style.background = grad(c.color); return;
+    }
     el.textContent = letter; el.style.background = "linear-gradient(135deg,#E50914,#7A0008)";
   }
-  function grad(i) { var p = PAL[(((i || 0) % PAL.length) + PAL.length) % PAL.length]; return "linear-gradient(135deg," + p[0] + "," + p[1] + ")"; }
+  function grad(i) { i = parseInt(i, 10) || 0; var p = PAL[(((i || 0) % PAL.length) + PAL.length) % PAL.length]; return "linear-gradient(135deg," + p[0] + "," + p[1] + ")"; }
   // hoofdprofiel ophalen en bewaren (alleen met een geldige sessie)
   function refresh(s, done) {
     if (!s || !s.access_token || (s.expires_at && s.expires_at * 1000 < Date.now())) return;

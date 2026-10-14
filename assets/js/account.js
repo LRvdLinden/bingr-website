@@ -2,7 +2,7 @@
 (function () {
   const params = new URLSearchParams(location.search);
   // taal: dezelfde keuze als de rest van de site (assets/js/site.js); ?lang= gaat voor
-  const lang = (window.BingrSite && BingrSite.lang) || ((params.get("lang") || localStorage.getItem("bingr.lang") || navigator.language || "en").toLowerCase().startsWith("nl") ? "nl" : "en");
+  const lang = (window.BingrSite && BingrSite.lang) || ((params.get("lang") || (function () { try { return localStorage.getItem("bingr.lang"); } catch (e) { return null; } })() || navigator.language || "en").toLowerCase().startsWith("nl") ? "nl" : "en");
   const cfg = window.BINGR_SUPABASE || {};
   const sb = window.supabase.createClient(cfg.url, cfg.anonKey, { auth: { persistSession: true, detectSessionInUrl: true, flowType: "implicit" } });
   const $ = (id) => document.getElementById(id);

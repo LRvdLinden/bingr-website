@@ -103,7 +103,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=80"></script>
+<script src="../assets/js/account.js?v=94"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -258,6 +258,6 @@ $("linkForm").onsubmit = async (e) => {
 sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") setTimeout(refresh, 0); });
 refresh();
 </script>
-<script src="../assets/js/userbtn.js" data-base="../"></script>
+<script src="../assets/js/userbtn.js?v=94" data-base="../"></script>
 </body>
 </html>
