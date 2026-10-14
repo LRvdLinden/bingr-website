@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="assets/css/site.css?v=75">
+<link rel="stylesheet" href="assets/css/site.css?v=95">
 <script src="assets/js/consent.js" data-base=""></script>
 </head>
 <body class="sub-page">
@@ -40,6 +40,8 @@
 <div class="prose">
 <p class="muted">Laatst bijgewerkt: oktober 2026</p>
 <div class="panel"><p><b>Kort gezegd:</b> voor Bingr heb je een account nodig (e-mailadres en wachtwoord). Bij je account bewaren we wat nodig is om Bingr op al je apparaten hetzelfde te laten werken: je profielen, instellingen, servers (versleuteld), lijsten en voortgang, je gekoppelde apparaten wat er de afgelopen 7 dagen is bekeken en per profiel je kijkstatistieken (max. 400 dagen). Bingr toont geen advertenties en gebruikt geen analytics of tracking.</p></div>
+<h2 id="verantwoordelijke">Wie is verantwoordelijk</h2>
+<p>Verwerkingsverantwoordelijke voor je gegevens is <b>Bingr, beheerd door Léon van der Linden</b>.<!-- TODO adres: postadres van de verwerkingsverantwoordelijke hier invullen --> Contact: <a href="mailto:support@bingr.online">support@bingr.online</a> (voor privacyvragen ook <a href="mailto:privacy@bingr.online">privacy@bingr.online</a>).</p>
 <h2>Je Bingr-account</h2>
 <ul>
 <li>Bij je account bewaren we je <b>servers en afspeellijsten</b> (versleuteld, met een sleutel die alleen de Bingr-server kent), je instellingen, collecties en per profiel je lijsten en voortgang, zodat alles na opnieuw installeren of op een nieuw apparaat terugkomt.</li>
@@ -70,15 +72,53 @@
 <li><b>Trakt</b> (als je inlogt) om bekeken titels, je watchlist en aanbevelingen te synchroniseren.</li>
 <li><b>OpenSubtitles</b> (als je inlogt of ondertitels zoekt) om ondertitels op te zoeken en te downloaden.</li>
 <li><b>TMDB en OMDb</b> om posters, beschrijvingen, cast en scores op te halen. Daarbij wordt alleen de titel en het jaar van een film of serie verstuurd.</li>
+<li><b>YouTube</b> (van Google) als je een trailer afspeelt: de speler van YouTube wordt dan geladen en YouTube ziet je IP-adres.</li>
+<li>Posters en andere afbeeldingen worden rechtstreeks van de servers van <b>TMDB</b> geladen; TMDB ziet daarbij je IP-adres.</li>
 <li><b>Chromecast / AirPlay</b> binnen je eigen netwerk als je een stream naar je tv stuurt.</li>
 </ul>
-<p>Voor die diensten geldt hun eigen privacybeleid. Bingr deelt geen gegevens met anderen en verkoopt niets door.</p>
+<p>Voor die diensten geldt hun eigen privacybeleid. Bingr verkoopt geen gegevens en deelt ze alleen met de partijen hieronder, voor zover dat nodig is om Bingr te laten werken.</p>
+<h2 id="support">Support</h2>
+<p>Maak je een ticket op <a href="https://support.bingr.online">support.bingr.online</a> of in de app, dan bewaren we je e-mailadres, je naam (als je die invult), het onderwerp, de berichten, het soort apparaat en de app-versie, en de taal. Om misbruik en spam te beperken bewaren we ook een versleutelde, niet terug te rekenen vorm (hash) van je IP-adres. Je ontvangt e-mails over je ticket.</p>
+
+<h2 id="grondslagen">Grondslagen</h2>
+<ul>
+<li><b>Je account</b> (e-mailadres, wachtwoord, profielen, servers, instellingen, lijsten, voortgang, gekoppelde apparaten), het bewaken van het aantal schermen, de kijkgeschiedenis van 7 dagen, de statistieken en Lifetime: <b>uitvoering van de overeenkomst</b> (art. 6 lid 1 sub b AVG). Zonder deze gegevens werkt Bingr niet.</li>
+<li><b>Support:</b> uitvoering van de overeenkomst; voor vragen zonder account ons <b>gerechtvaardigd belang</b> om je vraag te beantwoorden (art. 6 lid 1 sub b en f AVG). De IP-hash tegen misbruik: gerechtvaardigd belang.</li>
+<li><b>E-mails:</b> e-mails over je account (adres bevestigen, wachtwoord herstellen, blokkade) horen bij de overeenkomst. Berichten over Bingr zelf (bijvoorbeeld een storing of een belangrijke wijziging) sturen we op basis van ons gerechtvaardigd belang; afmelden kan met de link in elke e-mail.</li>
+<li><b>Noodzakelijke opslag op de website</b> (sessie, taal, cookiekeuze): nodig om de site te laten werken die je zelf gebruikt.</li>
+<li><b>Google Fonts:</b> alleen met je <b>toestemming</b> (art. 6 lid 1 sub a AVG); je trekt die in via <a href="#" onclick="BingrConsent.open();return false">Cookie-instellingen</a>.</li>
+</ul>
+
+<h2 id="bewaartermijnen">Bewaartermijnen</h2>
+<ul>
+<li><b>Accountgegevens</b> (inclusief profielen, servers, instellingen en apparaten): tot je je account verwijdert.</li>
+<li><b>Kijkgeschiedenis</b> (wie kijkt er nu): 8 dagen. <b>Statistieken:</b> maximaal 400 dagen, of korter als je ze zelf wist.</li>
+<li><b>Koppelcodes</b> voor een tv: maximaal 10 minuten.</li>
+<li><b>Supporttickets:</b> 24 maanden nadat het ticket is gesloten, daarna automatisch verwijderd. De <b>IP-hash</b> bij een ticket: 30 dagen.</li>
+<li><b>Cookiekeuze:</b> 12 maanden.</li>
+</ul>
+
+<h2 id="verwerkers">Wie je gegevens voor ons verwerkt</h2>
+<ul>
+<li><b>Supabase</b>: de server voor accounts, synchronisatie en support, in een datacenter in Frankfurt (EU).</li>
+<li><b>Onze e-mailprovider</b><!-- TODO naam en vestigingsland van de SMTP-provider (BINGR_SMTP_HOST) -->: het versturen van e-mails over je account, je tickets en Bingr.</li>
+<li><b>Onze webhoster</b><!-- TODO naam en vestigingsland van de webhoster -->: de websites bingr.online en support.bingr.online. De webserver verwerkt technische gegevens zoals je IP-adres in serverlogs.</li>
+<li><b>GitHub</b>: de downloads voor Android en Samsung TV, en het overzicht van de nieuwste versie dat de homepage ophaalt. GitHub ziet daarbij je IP-adres.</li>
+<li><b>Google Fonts</b> (alleen met toestemming), <b>YouTube</b> (als je een trailer afspeelt), <b>TMDB</b> en <b>OMDb</b> (filmgegevens en afbeeldingen), en <b>Trakt</b> en <b>OpenSubtitles</b> (alleen als je inlogt): zie hierboven.</li>
+</ul>
+<!-- TODO controleren: waarborg per partij buiten de EU (EU-VS-gegevensprivacykader of standaardcontractbepalingen) -->
+<p>Sommige van deze partijen zijn gevestigd in de Verenigde Staten. Gegevens gaan daarheen alleen met passende waarborgen, zoals het EU-VS-gegevensprivacykader of de standaardcontractbepalingen van de Europese Commissie.</p>
+
 <h2>Kinderen</h2>
 <p>Met een kinderprofiel, leeftijdsgrens en pincode bepaal je zelf wat er te zien is. Bingr verzamelt geen gegevens over kinderen.</p>
 <h2>Je gegevens verwijderen</h2>
 <p>Je account en alle bijbehorende gegevens (profielen, profielfoto's, servers, instellingen, apparaten, kijkgeschiedenis en statistieken) verwijder je in de app via <b>Mijn Bingr → Account → Account verwijderen</b> of op <a href="account/">bingr.online/account</a>; dat is direct en definitief. Verwijder een profiel of server in de app, of verwijder de app. Gegevens in iCloud kun je wissen via de iCloud-instellingen van je apparaat.</p>
+<h2 id="rechten">Je rechten</h2>
+<p>Je hebt recht op <b>inzage</b> in je gegevens, <b>rectificatie</b> (verbeteren), <b>verwijdering</b>, <b>beperking</b> van de verwerking, <b>overdraagbaarheid</b> (je gegevens in een gangbaar formaat krijgen) en <b>bezwaar</b> tegen verwerking op basis van gerechtvaardigd belang. Gaf je toestemming, dan kun je die altijd intrekken. Veel regel je zelf in Mijn Bingr (in de app of op <a href="account/">bingr.online/account</a>); voor de rest maak je een ticket op <a href="https://support.bingr.online">support.bingr.online</a> of mail je ons. We reageren binnen een maand.</p>
+<h2 id="klacht">Klacht</h2>
+<p>Ben je niet tevreden over hoe we met je gegevens omgaan, laat het ons dan eerst weten. Je hebt ook het recht een klacht in te dienen bij de <a href="https://autoriteitpersoonsgegevens.nl" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
 <h2>Contact</h2>
-<p>Vragen over privacy? Mail naar <a href="mailto:privacy@bingr.online">privacy@bingr.online</a>.</p>
+<p>Vragen over privacy? Mail naar <a href="mailto:privacy@bingr.online">privacy@bingr.online</a> of <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
 </div>
 </div>
 <div data-l="en" hidden>
@@ -86,6 +126,8 @@
 <div class="prose">
 <p class="muted">Last updated: October 2026</p>
 <div class="panel"><p><b>In short:</b> Bingr needs an account (email address and password). With your account we store what's needed to make Bingr work the same on all your devices: your profiles, settings, servers (encrypted), lists and progress, your linked devices what was watched in the last 7 days and your viewing statistics per profile (max. 400 days). Bingr shows no ads and uses no analytics or tracking.</p></div>
+<h2 id="verantwoordelijke-en">Who is responsible</h2>
+<p>The controller of your data is <b>Bingr, run by Léon van der Linden</b>.<!-- TODO adres: postal address of the controller goes here --> Contact: <a href="mailto:support@bingr.online">support@bingr.online</a> (for privacy questions also <a href="mailto:privacy@bingr.online">privacy@bingr.online</a>).</p>
 <h2>Your Bingr account</h2>
 <ul>
 <li>With your account we store your <b>servers and playlists</b> (encrypted, with a key only the Bingr server knows), your settings, collections and, per profile, your lists and progress, so everything comes back after reinstalling or on a new device.</li>
@@ -116,15 +158,53 @@
 <li><b>Trakt</b> (if you sign in) to sync watched titles, your watchlist and recommendations.</li>
 <li><b>OpenSubtitles</b> (if you sign in or search for subtitles) to look up and download subtitles.</li>
 <li><b>TMDB and OMDb</b> to fetch posters, descriptions, cast and ratings. Only the title and year of a movie or series are sent.</li>
+<li><b>YouTube</b> (by Google) when you play a trailer: YouTube's player is loaded and YouTube sees your IP address.</li>
+<li>Posters and other images are loaded directly from <b>TMDB</b>'s servers; TMDB sees your IP address when they load.</li>
 <li><b>Chromecast / AirPlay</b> within your own network when you send a stream to your TV.</li>
 </ul>
-<p>Those services have their own privacy policies. Bingr doesn't share data with others and doesn't sell anything.</p>
+<p>Those services have their own privacy policies. Bingr doesn't sell data and only shares it with the parties below, as far as needed to make Bingr work.</p>
+<h2 id="support-en">Support</h2>
+<p>If you open a ticket at <a href="https://support.bingr.online">support.bingr.online</a> or in the app, we store your email address, your name (if you enter it), the subject, the messages, the type of device and app version, and the language. To limit abuse and spam we also store an encrypted, irreversible form (hash) of your IP address. You'll receive emails about your ticket.</p>
+
+<h2 id="grondslagen-en">Legal bases</h2>
+<ul>
+<li><b>Your account</b> (email address, password, profiles, servers, settings, lists, progress, linked devices), enforcing the number of screens, the 7-day watch history, statistics and Lifetime: <b>performance of the contract</b> (Art. 6(1)(b) GDPR). Bingr can't work without this data.</li>
+<li><b>Support:</b> performance of the contract; for questions without an account, our <b>legitimate interest</b> in answering your question (Art. 6(1)(b) and (f) GDPR). The IP hash against abuse: legitimate interest.</li>
+<li><b>Emails:</b> emails about your account (confirming your address, resetting your password, a block) are part of the contract. Messages about Bingr itself (for example an outage or an important change) are sent based on our legitimate interest; you can unsubscribe with the link in every email.</li>
+<li><b>Necessary storage on the website</b> (session, language, cookie choice): needed to make the site you're using work.</li>
+<li><b>Google Fonts:</b> only with your <b>consent</b> (Art. 6(1)(a) GDPR); you can withdraw it via <a href="#" onclick="BingrConsent.open();return false">Cookie settings</a>.</li>
+</ul>
+
+<h2 id="bewaartermijnen-en">Retention periods</h2>
+<ul>
+<li><b>Account data</b> (including profiles, servers, settings and devices): until you delete your account.</li>
+<li><b>Watch history</b> (who's watching now): 8 days. <b>Statistics:</b> at most 400 days, or shorter if you clear them yourself.</li>
+<li><b>Link codes</b> for a TV: at most 10 minutes.</li>
+<li><b>Support tickets:</b> 24 months after the ticket is closed, then deleted automatically. The <b>IP hash</b> with a ticket: 30 days.</li>
+<li><b>Cookie choice:</b> 12 months.</li>
+</ul>
+
+<h2 id="verwerkers-en">Who processes your data for us</h2>
+<ul>
+<li><b>Supabase</b>: the server for accounts, sync and support, in a data center in Frankfurt (EU).</li>
+<li><b>Our email provider</b><!-- TODO name and country of the SMTP provider (BINGR_SMTP_HOST) -->: sending emails about your account, your tickets and Bingr.</li>
+<li><b>Our web host</b><!-- TODO name and country of the web host -->: the websites bingr.online and support.bingr.online. The web server processes technical data such as your IP address in server logs.</li>
+<li><b>GitHub</b>: the downloads for Android and Samsung TV, and the latest-version overview that the homepage fetches. GitHub sees your IP address.</li>
+<li><b>Google Fonts</b> (only with consent), <b>YouTube</b> (when you play a trailer), <b>TMDB</b> and <b>OMDb</b> (movie data and images), and <b>Trakt</b> and <b>OpenSubtitles</b> (only if you sign in): see above.</li>
+</ul>
+<!-- TODO check: safeguard per party outside the EU (EU-US Data Privacy Framework or standard contractual clauses) -->
+<p>Some of these parties are based in the United States. Data only goes there with appropriate safeguards, such as the EU-US Data Privacy Framework or the European Commission's standard contractual clauses.</p>
+
 <h2>Children</h2>
 <p>With a kids profile, age limit and PIN you decide what can be watched. Bingr doesn't collect data about children.</p>
 <h2>Deleting your data</h2>
 <p>You delete your account and all associated data (profiles, profile photos, servers, settings, devices, watch history and statistics) in the app via <b>My Bingr → Account → Delete account</b> or at <a href="account/">bingr.online/account</a>; this is immediate and permanent. Delete a profile or server in the app, or delete the app. You can erase data in iCloud via your device's iCloud settings.</p>
+<h2 id="rechten-en">Your rights</h2>
+<p>You have the right to <b>access</b> your data, <b>rectification</b> (correction), <b>erasure</b>, <b>restriction</b> of processing, <b>data portability</b> (receiving your data in a common format) and to <b>object</b> to processing based on legitimate interest. If you gave consent, you can withdraw it at any time. You can do a lot yourself in My Bingr (in the app or at <a href="account/">bingr.online/account</a>); for anything else, open a ticket at <a href="https://support.bingr.online">support.bingr.online</a> or email us. We respond within one month.</p>
+<h2 id="klacht-en">Complaints</h2>
+<p>If you're not happy with how we handle your data, please let us know first. You also have the right to lodge a complaint with the Dutch Data Protection Authority, the <a href="https://autoriteitpersoonsgegevens.nl" rel="noopener">Autoriteit Persoonsgegevens</a>.</p>
 <h2>Contact</h2>
-<p>Questions about privacy? Email <a href="mailto:privacy@bingr.online">privacy@bingr.online</a>.</p>
+<p>Questions about privacy? Email <a href="mailto:privacy@bingr.online">privacy@bingr.online</a> or <a href="mailto:support@bingr.online">support@bingr.online</a>.</p>
 </div>
 </div>
 </div></main>
@@ -141,14 +221,16 @@
         <a href="changelog/">Changelog</a>
         <a href="status/">Status</a>
         <a href="privacy.html" data-s="foot.privacy" aria-current="page">Privacy</a>
+        <a href="voorwaarden/" data-s="foot.terms">Voorwaarden</a>
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
-    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build>1.0.0 (build 94)</span></p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build>1.0.0 (build 95)</span></p>
   </div>
 </footer>
-<script src="assets/js/site.js?v=75" data-base=""></script>
+<script src="assets/js/site.js?v=95" data-base=""></script>
 <script>
 // Engelse ankers heten <id>-en: met Engels en een #anker daarheen scrollen
 (function () { if (BingrSite.lang === "en" && location.hash) { var t = document.getElementById(location.hash.slice(1) + "-en"); if (t) setTimeout(function () { t.scrollIntoView(); }, 0); } })();

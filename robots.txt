@@ -1,4 +1,5 @@
 User-agent: *
 Disallow: /unsubscribe/
-Disallow: /bevestigen/
 Disallow: /trailer/
+
+Sitemap: https://bingr.online/sitemap.xml

@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
 <script src="../assets/js/consent.js" data-base="../"></script>
 <style>.namerow input{letter-spacing:0}.namehint{font-size:13px;line-height:1.45;margin-top:7px}</style>
 </head>
@@ -92,18 +92,21 @@
         <a href="../changelog/">Changelog</a>
         <a href="../status/">Status</a>
         <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../assets/js/site.js?v=75" data-base="../"></script>
+<script src="../assets/js/site.js?v=95" data-base="../"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
+<script src="../assets/js/auth-forms.js?v=1"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -185,15 +188,8 @@ $("switchMode").onclick = () => setMode(mode === "signin" ? "signup" : "signin")
 setMode(params.get("mode") === "signup" ? "signup" : "signin");
 
 function show(id) { ["auth", "link", "done", "confirm"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
-function errText(e) {
-  const c = (e && (e.code || e.error_code)) || "", m = ((e && e.message) || "").toLowerCase();
-  if (c === "user_banned" || m.includes("banned")) return tr("banned");
-  if (c === "invalid_credentials" || m.includes("invalid login")) return tr("badCreds");
-  if (c === "email_not_confirmed" || m.includes("not confirmed")) return tr("notConfirmed");
-  if (c === "user_already_exists" || m.includes("already registered")) return tr("exists");
-  if (c === "weak_password") return tr("shortPw");
-  return tr("generic");
-}
+// foutmeldingen (ook te veel pogingen en geen verbinding): assets/js/auth-forms.js
+const errText = (e) => BingrAuth.errText(e, tr);
 async function refresh() {
   const { data } = await sb.auth.getSession();
   if (data.session) { $("who").textContent = data.session.user.email; show("link"); if ($("code").value.length === 7) { $("linkBtn").focus(); nameFor = ""; lookup(); } else $("code").focus(); }
@@ -223,12 +219,7 @@ $("authForm").onsubmit = async (e) => {
   } catch (err) { $("authErr").textContent = errText(err); }
   finally { busy($("authBtn"), false, tr(mode === "signin" ? "signIn" : "signUp")); }
 };
-$("forgot").onclick = async () => {
-  const email = $("email").value.trim();
-  if (!/^\S+@\S+\.\S+$/.test(email)) { $("authErr").textContent = tr("badEmail"); $("email").focus(); return; }
-  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
-  $("authErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
-};
+$("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent", trigger: $("forgot"), focusEl: $("email") });
 $("signOut").onclick = async (e) => { e.preventDefault(); await Bingr.hardSignOut(); show("auth"); };
 $("linkForm").onsubmit = async (e) => {
   e.preventDefault();

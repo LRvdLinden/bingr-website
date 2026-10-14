@@ -20,7 +20,8 @@
     l.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap";
     document.head.appendChild(l);
   }
-  var nl = (function () { try { return localStorage.getItem("bingr.lang"); } catch (e) { return null; } })();
+  // taal zoals assets/js/site.js: ?lang= gaat voor, dan de bewaarde keuze, dan de browsertaal
+  var nl = (function () { try { return new URLSearchParams(location.search).get("lang") || localStorage.getItem("bingr.lang"); } catch (e) { return null; } })();
   nl = (nl || navigator.language || "nl").toLowerCase().indexOf("nl") === 0;
   var T = nl
     ? { t: "Cookies en privacy", p: "Bingr gebruikt alleen opslag die nodig is: om je ingelogd te houden en je taal en deze keuze te onthouden. Met je toestemming laden we ook het lettertype van Google Fonts; daarbij ziet Google je IP-adres. Geen advertenties, geen tracking.", a: "Accepteren", r: "Alleen noodzakelijk", m: "Meer in de privacyverklaring" }
@@ -32,13 +33,26 @@
     st.textContent = "#bingr-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:560px;margin:0 auto;background:#141414f2;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid #ffffff22;border-radius:14px;padding:20px 22px;color:#fff;font:15px/1.5 Inter,-apple-system,'Helvetica Neue',Arial,sans-serif;box-shadow:0 20px 60px #000a}" +
       "#bingr-consent h4{font-size:17px;margin:0 0 6px}#bingr-consent p{margin:0;color:#c8c8c8;font-size:14px}#bingr-consent a{color:#fff}" +
       "#bingr-consent .b{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}#bingr-consent button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:11px 18px;cursor:pointer}" +
-      "#bingr-consent .y{background:#E50914;color:#fff}#bingr-consent .n{background:#ffffff1f;color:#fff}";
+      "#bingr-consent .y{background:#E50914;color:#fff}#bingr-consent .n{background:#ffffff1f;color:#fff}#bingr-consent:focus{outline:none}#bingr-consent:focus-visible{outline:3px solid #fff;outline-offset:3px}";
     document.head.appendChild(st);
-    var d = document.createElement("div"); d.id = "bingr-consent"; d.setAttribute("role", "dialog"); d.setAttribute("aria-live", "polite");
-    d.innerHTML = "<h4>" + T.t + "</h4><p>" + T.p + ' <a href="' + base + 'privacy.html#cookies">' + T.m + '</a></p><div class="b"><button class="y">' + T.a + '</button><button class="n">' + T.r + "</button></div>";
-    d.querySelector(".y").onclick = function () { save("all"); fonts(); d.remove(); showBubble(true); };
-    d.querySelector(".n").onclick = function () { save("necessary"); d.remove(); showBubble(true); };
+    // niet-modaal venster: naam via de kop, focus erheen bij tonen en terug naar waar die was bij sluiten
+    var prev = document.activeElement;
+    var d = document.createElement("div"); d.id = "bingr-consent"; d.setAttribute("role", "dialog");
+    d.setAttribute("aria-labelledby", "bingr-consent-t"); d.setAttribute("aria-describedby", "bingr-consent-p"); d.tabIndex = -1;
+    d.innerHTML = '<h4 id="bingr-consent-t">' + T.t + '</h4><p id="bingr-consent-p">' + T.p + ' <a href="' + base + 'privacy.html#cookies">' + T.m + '</a></p><div class="b"><button type="button" class="y">' + T.a + '</button><button type="button" class="n">' + T.r + "</button></div>";
+    function close(choice) {
+      save(choice); if (choice === "all") fonts();
+      var hadFocus = d.contains(document.activeElement);
+      d.remove(); showBubble(true);
+      if (hadFocus) {
+        var back = prev && prev !== document.body && document.contains(prev) ? prev : document.getElementById("bingr-cookie-btn");
+        if (back && back.focus) try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); }
+      }
+    }
+    d.querySelector(".y").onclick = function () { close("all"); };
+    d.querySelector(".n").onclick = function () { close("necessary"); };
     (document.body || document.documentElement).appendChild(d);
+    try { d.focus({ preventScroll: true }); } catch (e) { d.focus(); }
   }
   // cookie-bolletje links onderin (zodra er een keuze is): tik = melding opnieuw
   function bubble() {

@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
 <style>
 /* kop met avatar */
 .me{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:34px}
@@ -232,17 +232,20 @@
         <a href="../changelog/">Changelog</a>
         <a href="../status/">Status</a>
         <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../assets/js/site.js?v=75" data-base="../"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/js/site.js?v=95" data-base="../"></script>
+<script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
+<script src="../assets/js/auth-forms.js?v=1"></script>
 <script src="../assets/js/userbtn.js?v=94" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
 <script src="../assets/js/console.js?v=89"></script>
@@ -330,7 +333,7 @@ const platLabel = (p) => isTizen(p) ? "Samsung TV" : isBrowser(p) ? "Browser" : 
 const SYM = { tv:"📺", globe:"🌐", sportscourt:"⚽", crown:"👑", flame:"🔥", film:"🎬", popcorn:"🍿", star:"⭐", gamecontroller:"🎮", "moon.stars":"🌙", bolt:"⚡", heart:"❤️",
   "waveform.path.ecg":"🎧", hare:"🐰", forward:"🚀", sparkle:"🌈", link:"🔗", "bubble.left":"💬", wifi:"📶", umbrella:"☂️", play:"▶️", "book.closed":"📕", person:"🧸", paintbrush:"🎭" };
 const PAL = [["#E50914","#7A0008"],["#2563EB","#1E1B4B"],["#10B981","#064E3B"],["#F59E0B","#9A3412"],["#A855F7","#3B0764"],["#EC4899","#831843"],["#14B8A6","#0C4A6E"],["#64748B","#0F172A"]];
-const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const esc = BingrAuth.esc;
 function show(id) { ["auth", "acc", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
 function rel(iso) {
   const d = new Date(iso), m = Math.round((Date.now() - d) / 60000);
@@ -465,24 +468,15 @@ async function load() {
 }
 $("authForm").onsubmit = async (e) => {
   e.preventDefault();
-  busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
-  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
-  busy($("authBtn"), false, tr("signIn"));
+  // inloggen met nette foutmeldingen en de knop altijd weer aan: assets/js/auth-forms.js
   // geblokkeerd account (user_banned): reden en einddatum staan in de mail; contact via een nieuw ticket (zonder inloggen)
-  if (error && (error.code === "user_banned" || /banned/i.test(error.message || ""))) { bannedMsg(); return; }
-  if (error) { $("authErr").textContent = error.code === "email_not_confirmed" ? tr("notConfirmed") : error.code === "invalid_credentials" ? tr("badCreds") : tr("generic"); return; }
-  load();
+  const ok = await BingrAuth.signIn({ email: $("email").value, password: $("password").value, btn: $("authBtn"), label: tr("signIn"), errEl: $("authErr"), tr, onBanned: bannedMsg });
+  if (ok) load();
 };
-$("forgot").onclick = async () => {
-  const email = $("email").value.trim();
-  if (!/^\S+@\S+\.\S+$/.test(email)) { $("authErr").textContent = tr("badEmail"); return; }
-  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
-  $("authErr").innerHTML = '<span class="ok">' + tr("resetSent2") + "</span>";
-};
+$("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent2", trigger: $("forgot"), focusEl: $("email") });
 $("resetPw").onclick = async () => {
   const { data } = await sb.auth.getSession(); if (!data.session) return;
-  await sb.auth.resetPasswordForEmail(data.session.user.email, { redirectTo: location.origin + "/reset/" });
-  $("accErr").innerHTML = '<span class="ok">' + tr("resetSent") + "</span>";
+  BingrAuth.sendReset({ email: data.session.user.email, errEl: $("accErr"), tr, sentKey: "resetSent", trigger: $("resetPw") });
 };
 // Apparaten, kijkgeschiedenis, statistieken en collecties: standaard dicht, keuze onthouden in deze browser
 [["devFold", "devBody", "bingr.devicesOpen"], ["histFold", "histBody", "bingr.historyOpen"], ["statFold", "statBody", "bingr.statsOpen"], ["colFold", "colBody", "bingr.collectionsOpen"]].forEach(function (f) {

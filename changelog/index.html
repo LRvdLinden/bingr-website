@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
 <style>
 /* filters */
 .fbar{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 22px}
@@ -114,14 +114,16 @@
         <a href="../changelog/" aria-current="page">Changelog</a>
         <a href="../status/">Status</a>
         <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../assets/js/site.js?v=75" data-base="../"></script>
+<script src="../assets/js/site.js?v=95" data-base="../"></script>
 <script>
 (function () {
   const lang = BingrSite.lang;
@@ -158,7 +160,8 @@
   const q = new URLSearchParams(location.search);
   let fp = q.get("p") || "all", ft = q.get("t") || "all";
   if (fp === "apple") fp = "ios";
-  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  // ook aanhalingstekens, want de tekst komt ook in attributen terecht
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   function plats(raw, build) {
     const pl = eff(raw, build), out = [];
     let rest = pl;

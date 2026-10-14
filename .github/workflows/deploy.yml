@@ -3,6 +3,8 @@ name: Website
 # Zet de site via FTPS op de webserver (bingr.online), bij elke push naar main, met de hand, of na de Covers-workflow.
 # Benodigde repository-secrets: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
 # Optioneel: FTP_USERNAME_ALT (tweede gebruikersnaam om te proberen) en FTP_DIR (doelmap, anders automatisch).
+# Alleen FTPS met een geverifieerd certificaat. FTP_SERVER moet een naam uit het certificaat zijn (bij gedeelde hosting vaak
+# die van de hoster); anders zoekt de workflow een naam uit het certificaat met hetzelfde IP-adres, of stopt met een foutmelding.
 
 on:
   push:
@@ -24,8 +26,23 @@ jobs:
         with:
           ref: main
 
-      - name: lftp installeren
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+      - name: lftp en Pillow installeren
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp python3-pil
+
+      # De homepage laadt de screenshots als WebP (<picture> met JPG als terugval). tools/sync_website.py in
+      # iptv-ios-appletv schrijft alleen de JPG's; hier worden de WebP's opnieuw gemaakt, zodat ze altijd overeenkomen.
+      - name: WebP van de screenshots maken
+        run: |
+          python3 - <<'PY'
+          import glob
+          from PIL import Image
+          n = 0
+          for f in sorted(glob.glob("assets/img/nl/*.jpg") + glob.glob("assets/img/en/*.jpg")):
+              Image.open(f).save(f[:-4] + ".webp", "WEBP", quality=80, method=6)
+              n += 1
+          assert n, "geen screenshots gevonden"
+          print(f"{n} WebP-bestanden gemaakt")
+          PY
 
       - name: Uploaden via FTPS
         env:
@@ -40,34 +57,52 @@ jobs:
             echo "::warning::FTP-secrets ontbreken (FTP_SERVER, FTP_USERNAME, FTP_PASSWORD) — website niet geüpload."
             exit 0
           fi
-          common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ssl:verify-certificate no; set ftp:passive-mode true"
-          # eerst expliciete FTPS (versleuteld), daarna gewone FTP als de server geen TLS kent
-          USER_OK=""; base=""; SERVER_OK=""
-          # de FTP-server reageert soms even niet: tot 4 pogingen met een pauze
           # spaties/regeleinden rond de secrets weghalen; wachtwoord via LFTP_PASSWORD (tekens als , " ; # breken anders lftp)
           trim(){ printf '%s' "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'; }
-          FTP_SERVER=$(trim "${FTP_SERVER:-}"); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
+          FTP_SERVER=$(trim "${FTP_SERVER:-}"); FTP_USERNAME=$(trim "${FTP_USERNAME:-}"); FTP_USERNAME_ALT=$(trim "${FTP_USERNAME_ALT:-}"); FTP_PASSWORD=$(trim "$FTP_PASSWORD")
           export LFTP_PASSWORD="$FTP_PASSWORD"
-          echo "::notice::FTP: gebruikersnaam ${#FTP_USERNAME} tekens, wachtwoord ${#FTP_PASSWORD} tekens"
-          for attempt in 1 2 3 4; do
-          [ "$attempt" -gt 1 ] && { echo "Nieuwe poging $attempt over 45 s…"; sleep 45; }
-          for srv in "$FTP_SERVER" "ftp.bingr.online" "bingr.online"; do
-          for mode in "set ftp:ssl-force true; set ftp:ssl-protect-data true" "set ftp:ssl-allow false"; do
-            for u in "$FTP_USERNAME" "${FTP_USERNAME_ALT:-}"; do
-              [ -z "$u" ] && continue
-              echo "Proberen: gebruiker '${u}', modus: ${mode}"
-              if lftp -e "$common; $mode; open --env-password -u \"$u\" \"$srv\"; cls -1 > /tmp/root.txt; bye" 2>/tmp/err.txt; then
-                USER_OK="$u"; base="$common; $mode"; SERVER_OK="$srv"; break 4
-              fi
-              msg=$(sed 's/PASS .*/PASS ***/' /tmp/err.txt | tr '\n' ' ' | tail -c 300)
-              echo "::warning::Mislukt (${srv}, gebruiker ${u%%@*}…, ${mode%%;*}): ${msg:-geen melding}"
+          # alleen versleuteld (FTPS) met een geldig certificaat; geen terugval op gewone FTP of andere servers
+          common="set cmd:fail-exit true; set net:max-retries 3; set net:timeout 30; set net:reconnect-interval-base 5; set ftp:passive-mode true; set ftp:ssl-force true; set ftp:ssl-protect-data true; set ssl:verify-certificate yes; set ssl:check-hostname yes"
+          ip_of(){ (getent ahostsv4 "$1" || true) | awk 'NR==1{print $1}'; }
+          # certificaat geldig voor deze hostnaam? (controle vóór er inloggegevens worden verstuurd)
+          cert_ok(){ timeout 40 openssl s_client -connect "$1:21" -starttls ftp -servername "$1" -verify_hostname "$1" -verify_return_error </dev/null 2>/dev/null | grep -q 'Verify return code: 0 (ok)'; }
+          # gedeelde hosting toont vaak het certificaat van de hoster: dan een concrete naam (geen wildcard) uit het certificaat
+          # gebruiken die naar hetzelfde IP-adres wijst als FTP_SERVER, en die ook geverifieerd
+          HOST=""
+          for attempt in 1 2 3; do
+            [ "$attempt" -gt 1 ] && { echo "Certificaatcontrole opnieuw over 30 s…"; sleep 30; }
+            if cert_ok "$FTP_SERVER"; then HOST="$FTP_SERVER"; break; fi
+            srv_ip=$(ip_of "$FTP_SERVER"); [ -n "$srv_ip" ] || continue
+            names=$(timeout 40 openssl s_client -connect "$FTP_SERVER:21" -starttls ftp -servername "$FTP_SERVER" </dev/null 2>/dev/null \
+              | openssl x509 -noout -ext subjectAltName -subject 2>/dev/null \
+              | grep -oE '(DNS:|CN ?= ?)[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+' | sed -E 's/^(DNS:|CN ?= ?)//' | sort -u || true)
+            for n in $names; do
+              [ "$(ip_of "$n")" = "$srv_ip" ] || continue
+              if cert_ok "$n"; then HOST="$n"; break 2; fi
             done
           done
+          if [ -z "$HOST" ]; then
+            echo "::error::Het FTPS-certificaat van de server is niet geldig voor FTP_SERVER en geen naam uit het certificaat wijst naar hetzelfde IP-adres. Zet het secret FTP_SERVER op de hostnaam uit het certificaat van de hoster (bijvoorbeeld ftp.<hoster>)."
+            exit 1
+          fi
+          [ "$HOST" != "$FTP_SERVER" ] && echo "::notice::Certificaat hoort bij een andere naam van de hoster op hetzelfde IP-adres; die naam wordt gebruikt."
+          USER_OK=""
+          # de FTP-server reageert soms even niet: tot 4 pogingen met een pauze
+          for attempt in 1 2 3 4; do
+            [ "$attempt" -gt 1 ] && { echo "Nieuwe poging $attempt over 45 s…"; sleep 45; }
+            for u in "$FTP_USERNAME" "${FTP_USERNAME_ALT:-}"; do
+              [ -z "$u" ] && continue
+              if lftp -e "$common; open --env-password -u \"$u\" \"$HOST\"; cls -1 > /tmp/root.txt; bye" 2>/tmp/err.txt; then
+                USER_OK="$u"; break 2
+              fi
+              # foutmelding zonder regels die gebruikersnaam of wachtwoord kunnen bevatten
+              msg=$(grep -viE 'user|pass' /tmp/err.txt | tr '\n' ' ' | tail -c 200 || true)
+              echo "::warning::Inloggen mislukt (poging $attempt): ${msg:-geen melding}"
+            done
           done
-          done
-          [ -n "$USER_OK" ] || { echo "::error::Inloggen op de FTP-server mislukt met de opgegeven gebruikersnamen."; exit 1; }
-          [[ "$base" == *"ssl-allow false"* ]] && echo "::warning::Server ondersteunt geen FTPS; upload gaat via gewone FTP."
-          echo "::notice::Ingelogd op ${SERVER_OK} als ${USER_OK%%@*}…"; echo "Inhoud van de hoofdmap:"; cat /tmp/root.txt
+          [ -n "$USER_OK" ] || { echo "::error::Inloggen op de FTP-server mislukt."; exit 1; }
+          base="$common"; SERVER_OK="$HOST"
+          echo "::notice::Ingelogd via FTPS (certificaat geverifieerd)"
 
           # doelmap: FTP_DIR, anders de gebruikelijke webmappen, anders de hoofdmap
           TARGET="${FTP_DIR:-}"
@@ -84,7 +119,7 @@ jobs:
             done
           fi
           TARGET="${TARGET:-.}"
-          echo "::notice::Uploaden naar map: $TARGET (hoofdmap bevat: $(tr '\n' ' ' < /tmp/root.txt | head -c 200))"
+          echo "::notice::Doelmap: $([ -n "${FTP_DIR:-}" ] && echo 'FTP_DIR' || echo 'automatisch bepaald')"
 
           # eenmalige opruiming: builds 62 kwamen per ongeluk in web/ terecht (dan staat er web/web/ en web/changelog/).
           # Alleen in dat geval web/ weghalen; de mirror hieronder zet de echte webspeler er meteen weer neer.

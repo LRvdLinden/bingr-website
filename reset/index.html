@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
 <script src="../assets/js/consent.js" data-base="../"></script>
 </head>
 <body class="sub-page">
@@ -41,7 +41,9 @@
     </form>
   </section>
   <section id="done" class="done hidden"><div class="big" aria-hidden="true">✓</div><h1 data-t="doneTitle"></h1><p data-t="doneText"></p></section>
-  <section id="invalid" class="done hidden"><div class="big" aria-hidden="true">⌛</div><h1 data-t="invalidTitle"></h1><p data-t="invalidText"></p></section>
+  <section id="invalid" class="done hidden"><div class="big" aria-hidden="true">⌛</div><h1 data-t="invalidTitle"></h1><p data-t="invalidText"></p>
+    <!-- nieuwe link aanvragen: in Mijn Bingr via "Wachtwoord vergeten?" -->
+    <p style="margin-top:22px"><a class="btn red" href="../account/" data-t="newLink"></a></p></section>
   <section id="loading" class="done"><p class="muted" data-t="waiting"></p></section>
 </div></div></main>
 <footer>
@@ -57,27 +59,30 @@
         <a href="../changelog/">Changelog</a>
         <a href="../status/">Status</a>
         <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../assets/js/site.js?v=75" data-base="../"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/js/site.js?v=95" data-base="../"></script>
+<script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
+<script src="../assets/js/auth-forms.js?v=1"></script>
 <script>
 const { sb, $, t, pwToggles, busy } = Bingr;
 const tr = t({
   nl: { docTitle:"Nieuw wachtwoord · Bingr", title:"Nieuw wachtwoord", forAcc:"Voor", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
         doneTitle:"Wachtwoord gewijzigd", doneText:"Voor je veiligheid ben je op al je apparaten uitgelogd. Log opnieuw in met je nieuwe wachtwoord.", invalidTitle:"Link verlopen",
-        invalidText:"Deze link is ongeldig of al gebruikt. Vraag in de Bingr-app via <b>Wachtwoord vergeten?</b> een nieuwe aan.",
+        invalidText:"Deze link is ongeldig of al gebruikt. Vraag een nieuwe aan via <b>Wachtwoord vergeten?</b> in Mijn Bingr of in de Bingr-app.", newLink:"Nieuwe link aanvragen in Mijn Bingr",
         shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", samePw:"Kies een ander wachtwoord dan je huidige.", waiting:"Even geduld…" },
   en: { docTitle:"New password · Bingr", title:"New password", forAcc:"For", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
         doneTitle:"Password changed", doneText:"For your security you've been signed out on all your devices. Sign in again with your new password.", invalidTitle:"Link expired",
-        invalidText:"This link is invalid or has already been used. Request a new one in the Bingr app with <b>Forgot password?</b>",
+        invalidText:"This link is invalid or has already been used. Request a new one with <b>Forgot password?</b> in My Bingr or in the Bingr app.", newLink:"Request a new link in My Bingr",
         shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", samePw:"Choose a different password from your current one.", waiting:"One moment…" }
 });
 pwToggles(tr);
@@ -94,10 +99,15 @@ $("pwForm").onsubmit = async (e) => {
   const a = $("pw1").value, b = $("pw2").value;
   if (a.length < 6) return ($("err").textContent = tr("shortPw"));
   if (a !== b) return ($("err").textContent = tr("mismatch"));
-  busy($("saveBtn"), true, tr("waiting"));
-  const { error } = await sb.auth.updateUser({ password: a });
-  busy($("saveBtn"), false, tr("save"));
-  if (error) { $("err").textContent = error.code === "same_password" ? tr("samePw") : error.code === "weak_password" ? tr("shortPw") : tr("generic"); return; }
+  busy($("saveBtn"), true, tr("waiting")); $("err").textContent = "";
+  try {
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) throw error;
+  } catch (err) {
+    // te veel pogingen of geen verbinding: nette melding via assets/js/auth-forms.js
+    $("err").textContent = err && err.code === "same_password" ? tr("samePw") : BingrAuth.errText(err, tr);
+    return;
+  } finally { busy($("saveBtn"), false, tr("save")); }
   // de server heeft alle sessies al ingetrokken (trigger bij wachtwoordwijziging); hier alleen lokaal opruimen
   await Bingr.hardSignOut();
   if (window.BingrAvatar) BingrAvatar.clear();

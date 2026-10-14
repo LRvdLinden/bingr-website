@@ -7,12 +7,22 @@
 <meta name="description" content="Bingr is een IPTV- en mediaspeler voor iPhone, iPad, Apple TV, Mac, Android, Android TV, Google TV, Fire TV, Samsung TV en de browser. Je hebt je eigen IPTV-server of -abonnement nodig (Xtream Codes, M3U of MAC-portal) of je eigen Plex, Jellyfin of Emby. Bingr levert zelf geen zenders, films of series.">
 <meta property="og:title" content="Bingr: je eigen IPTV op elk scherm">
 <meta property="og:description" content="Speler voor je eigen IPTV-server of -abonnement, op iPhone, iPad, Apple TV, Mac, Android, Samsung TV en in je browser. Bingr levert zelf geen content.">
-<meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
+<link rel="canonical" href="https://bingr.online/">
+<!-- NL en EN delen dezelfde URL (taalknop / ?lang=en): alleen x-default -->
+<link rel="alternate" hreflang="x-default" href="https://bingr.online/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bingr">
+<meta property="og:locale" content="nl_NL">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:image" content="https://bingr.online/assets/img/nl/tv_home.jpg">
+<meta property="og:image:width" content="1400">
+<meta property="og:image:height" content="788">
 <meta property="og:url" content="https://bingr.online/">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="assets/css/site.css?v=75">
+<link rel="stylesheet" href="assets/css/site.css?v=95">
 <link rel="stylesheet" href="assets/css/plans.css?v=1">
 <style>
 /* homepage: alleen wat hier hoort; gedeelde stijl staat in assets/css/site.css */
@@ -21,6 +31,7 @@
 .wall{position:absolute;inset:-30% -25%;z-index:-2;display:grid;grid-template-columns:repeat(6,1fr);gap:18px;transform:rotate(-11deg);align-content:center;animation:drift 90s linear infinite alternate}
 .wall .col{display:flex;flex-direction:column;gap:18px}
 .wall .col:nth-child(even){margin-top:-140px}
+.wall picture{display:block}
 .wall img{width:100%;border-radius:10px;box-shadow:0 0 0 1px #ffffff14}
 .wall .ph{width:58%;margin:0 auto;border-radius:18px}
 @keyframes drift{to{transform:rotate(-11deg) translate3d(-4%,-3%,0)}}
@@ -57,6 +68,7 @@
 /* screens row */
 .shots{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding:26px var(--g) 14px;margin:0 calc(var(--g) * -1);scrollbar-width:thin;scrollbar-color:#444 transparent}
 .shots figure{flex:none;scroll-snap-align:start}
+.shots picture{display:block}
 .shots img{height:330px;width:auto;border-radius:10px;box-shadow:0 0 0 1px #ffffff1a;background:var(--s1)}
 .shots .p img{border-radius:22px}
 .shots figcaption{font-size:14px;color:var(--sec);margin-top:10px}
@@ -140,7 +152,7 @@
 
 <nav id="nav" aria-label="Hoofdmenu">
   <div class="wrap">
-    <a href="#" class="logo" aria-label="Bingr">BINGR</a>
+    <a href="./" class="logo" aria-label="Bingr">BINGR</a>
     <div class="links">
       <a href="#features" data-i18n="nav.features">Functies</a>
       <a href="#start" data-i18n="nav.start">Wat heb je nodig</a>
@@ -156,14 +168,15 @@
   </div>
 </nav>
 
+<main id="main">
 <header class="hero">
   <div class="wall" aria-hidden="true">
-    <div class="col"><img src="assets/img/nl/tv_home.jpg" alt="" fetchpriority="high"><img class="ph" src="assets/img/nl/ios_top10.jpg" alt=""><img src="assets/img/nl/tv_guide.jpg" alt=""></div>
-    <div class="col"><img class="ph" src="assets/img/nl/ios_home.jpg" alt=""><img src="assets/img/nl/tv_detail.jpg" alt=""><img src="assets/img/nl/tv_multiview.jpg" alt=""></div>
-    <div class="col"><img src="assets/img/nl/tv_live.jpg" alt=""><img src="assets/img/nl/tv_home.jpg" alt=""><img class="ph" src="assets/img/nl/ios_detail.jpg" alt=""></div>
-    <div class="col"><img src="assets/img/nl/tv_trakt.jpg" alt=""><img class="ph" src="assets/img/nl/ios_categories.jpg" alt=""><img src="assets/img/nl/tv_picker.jpg" alt=""></div>
-    <div class="col"><img class="ph" src="assets/img/nl/ios_live.jpg" alt=""><img src="assets/img/nl/tv_guide.jpg" alt=""><img src="assets/img/nl/tv_detail.jpg" alt=""></div>
-    <div class="col"><img src="assets/img/nl/tv_multiview.jpg" alt=""><img src="assets/img/nl/tv_live.jpg" alt=""><img class="ph" src="assets/img/nl/ios_top10.jpg" alt=""></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_home.webp"><img src="assets/img/nl/tv_home.jpg" alt="" fetchpriority="high" width="1400" height="788" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img class="ph" src="assets/img/nl/ios_top10.jpg" alt="" width="600" height="1300" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img src="assets/img/nl/tv_guide.jpg" alt="" width="1400" height="788" decoding="async"></picture></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/ios_home.webp"><img class="ph" src="assets/img/nl/ios_home.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img src="assets/img/nl/tv_detail.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img src="assets/img/nl/tv_multiview.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_live.webp"><img src="assets/img/nl/tv_live.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_home.webp"><img src="assets/img/nl/tv_home.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_detail.webp"><img class="ph" src="assets/img/nl/ios_detail.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_trakt.webp"><img src="assets/img/nl/tv_trakt.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_categories.webp"><img class="ph" src="assets/img/nl/ios_categories.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_picker.webp"><img src="assets/img/nl/tv_picker.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/ios_live.webp"><img class="ph" src="assets/img/nl/ios_live.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img src="assets/img/nl/tv_guide.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img src="assets/img/nl/tv_detail.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
+    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img src="assets/img/nl/tv_multiview.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_live.webp"><img src="assets/img/nl/tv_live.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img class="ph" src="assets/img/nl/ios_top10.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture></div>
   </div>
   <div class="wrap">
     <h1 data-i18n="hero.title">Je eigen IPTV, op elk scherm in huis.</h1>
@@ -195,15 +208,15 @@
     <h2 class="h2" id="screens-t" data-i18n="shots.title">Zo ziet Bingr eruit</h2>
     <p class="sub" data-i18n="shots.sub">Jouw zenders en je eigen bibliotheek, netjes in rijen met posters, een Top 10 en Verder kijken.</p>
     <div class="shots" tabindex="0" aria-label="Screenshots">
-      <figure><img data-loc src="assets/img/nl/tv_home.jpg" width="1400" height="788" loading="lazy" alt="Startscherm van Bingr op Apple TV" data-i18n-alt="alt.tvhome"><figcaption><b>Apple TV</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
-      <figure class="p"><img data-loc src="assets/img/nl/ios_top10.jpg" width="600" height="1300" loading="lazy" alt="Top 10 van vandaag op iPhone" data-i18n-alt="alt.iostop"><figcaption><b>iPhone</b> <span data-i18n="cap.top10">Top 10 vandaag</span></figcaption></figure>
-      <figure><img data-loc src="assets/img/nl/tv_guide.jpg" width="1400" height="788" loading="lazy" alt="Tv-gids met nu-lijn" data-i18n-alt="alt.guide"><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.guide">Tv-gids</span></figcaption></figure>
-      <figure class="p"><img data-loc src="assets/img/nl/ios_live.jpg" width="600" height="1300" loading="lazy" alt="Live tv met zenderlijst op iPhone" data-i18n-alt="alt.ioslive"><figcaption><b>iPhone</b> <span data-i18n="cap.live">Live tv</span></figcaption></figure>
-      <figure><img data-loc src="assets/img/nl/tv_multiview.jpg" width="1400" height="788" loading="lazy" alt="Vier streams tegelijk in Multiview" data-i18n-alt="alt.multi"><figcaption><b>Apple TV</b> <span>Multiview</span></figcaption></figure>
-      <figure><img data-loc src="assets/img/nl/tv_detail.jpg" width="1400" height="788" loading="lazy" alt="Detailpagina van een film met scores en cast" data-i18n-alt="alt.detail"><figcaption><b>Apple TV</b> <span data-i18n="cap.detail">Detailpagina</span></figcaption></figure>
-      <figure class="p"><img data-loc src="assets/img/nl/ios_home.jpg" width="600" height="1300" loading="lazy" alt="Startscherm van Bingr op iPhone" data-i18n-alt="alt.ioshome"><figcaption><b>iPhone</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
-      <figure><img data-loc src="assets/img/nl/mac_home.jpg" width="1440" height="900" loading="lazy" alt="Bingr op de Mac" data-i18n-alt="alt.mac"><figcaption><b>Mac</b> <span data-i18n="cap.mac">Een echte Mac-app</span></figcaption></figure>
-      <figure><img data-loc src="assets/img/nl/tv_picker.jpg" width="1400" height="788" loading="lazy" alt="Profielkeuze met figuurtjes" data-i18n-alt="alt.picker"><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.picker">Wie kijkt er?</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_home.webp"><img data-loc src="assets/img/nl/tv_home.jpg" width="1400" height="788" loading="lazy" alt="Startscherm van Bingr op Apple TV" data-i18n-alt="alt.tvhome" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
+      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img data-loc src="assets/img/nl/ios_top10.jpg" width="600" height="1300" loading="lazy" alt="Top 10 van vandaag op iPhone" data-i18n-alt="alt.iostop" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.top10">Top 10 vandaag</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img data-loc src="assets/img/nl/tv_guide.jpg" width="1400" height="788" loading="lazy" alt="Tv-gids met nu-lijn" data-i18n-alt="alt.guide" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.guide">Tv-gids</span></figcaption></figure>
+      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_live.webp"><img data-loc src="assets/img/nl/ios_live.jpg" width="600" height="1300" loading="lazy" alt="Live tv met zenderlijst op iPhone" data-i18n-alt="alt.ioslive" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.live">Live tv</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img data-loc src="assets/img/nl/tv_multiview.jpg" width="1400" height="788" loading="lazy" alt="Vier streams tegelijk in Multiview" data-i18n-alt="alt.multi" decoding="async"></picture><figcaption><b>Apple TV</b> <span>Multiview</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img data-loc src="assets/img/nl/tv_detail.jpg" width="1400" height="788" loading="lazy" alt="Detailpagina van een film met scores en cast" data-i18n-alt="alt.detail" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.detail">Detailpagina</span></figcaption></figure>
+      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_home.webp"><img data-loc src="assets/img/nl/ios_home.jpg" width="600" height="1300" loading="lazy" alt="Startscherm van Bingr op iPhone" data-i18n-alt="alt.ioshome" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/mac_home.webp"><img data-loc src="assets/img/nl/mac_home.jpg" width="1440" height="900" loading="lazy" alt="Bingr op de Mac" data-i18n-alt="alt.mac" decoding="async"></picture><figcaption><b>Mac</b> <span data-i18n="cap.mac">Een echte Mac-app</span></figcaption></figure>
+      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_picker.webp"><img data-loc src="assets/img/nl/tv_picker.jpg" width="1400" height="788" loading="lazy" alt="Profielkeuze met figuurtjes" data-i18n-alt="alt.picker" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.picker">Wie kijkt er?</span></figcaption></figure>
     </div>
   </div>
 </section>
@@ -279,7 +292,7 @@
         <h3 data-i18n="dl.android.t">Android, Android TV, Google TV en Fire TV</h3>
         <p class="os" data-i18n="dl.android.os">Telefoons, tablets en tv's met Android 7 of nieuwer</p>
         <div class="acts">
-          <a class="store" href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/android" data-rel="apk" aria-label="Android (APK)">
+          <a class="store" href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/Android/v1.0.0" data-rel="apk" aria-label="Android (APK)">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22a11.4 11.4 0 0 0-9.84 0L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg>
             <span><small data-i18n="cta.android">Download voor</small><b>Android (APK)</b></span>
           </a>
@@ -291,7 +304,7 @@
         <h3>Samsung TV</h3>
         <p class="os" data-i18n="dl.tizen.os">Smart tv's met Tizen (2018 en nieuwer)</p>
         <div class="acts">
-          <a class="btn ghost sm" href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/tizen" data-rel="wgt" data-i18n="dl.wgt">Download voor Samsung TV (.wgt)</a>
+          <a class="btn ghost sm" href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/Samsung%20TV/v1.0.0" data-rel="wgt" data-i18n="dl.wgt">Download voor Samsung TV (.wgt)</a>
         </div>
         <p class="note" data-i18n="plat.tizennote">Zet Developer Mode aan op je tv en installeer het .wgt-bestand met Tizen Studio (sdb) en een Samsung-certificaat. <a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">Stap voor stap uitgelegd</a></p>
       </div>
@@ -323,13 +336,13 @@
     <details><summary data-i18n="q1">Levert Bingr zenders, films of series?</summary><div class="a" data-i18n="a1">Nee. Bingr is een speler: je gebruikt je eigen IPTV-abonnement, afspeellijst of mediaserver. Bingr levert, verkoopt of host zelf geen content. Voor vragen over je zenderaanbod neem je contact op met je eigen aanbieder.</div></details>
     <details><summary data-i18n="q6">Wat is IPTV en wat heb ik nodig?</summary><div class="a" data-i18n="a6">IPTV is tv via internet. Je aanbieder geeft je inloggegevens voor een server (Xtream Codes: server-adres, gebruikersnaam en wachtwoord) of een link naar een M3U-afspeellijst. Die vul je in Bingr in, en je zenders, films en series verschijnen in de app. <a href="https://support.bingr.online/hulp/afspeellijst/#server">Je server toevoegen</a></div></details>
     <details><summary data-i18n="q2">Welke bronnen werken?</summary><div class="a" data-i18n="a2">M3U/M3U8, Xtream Codes, MAC-portals (Stalker), Plex, Jellyfin, Emby, Stremio en mappen op je NAS via SMB. Tv-gidsen via XMLTV.</div></details>
-    <details><summary data-i18n="q3">Op welke apparaten werkt Bingr?</summary><div class="a" data-i18n="a3">iPhone en iPad met iOS 17 of nieuwer, Apple TV met tvOS 17 of nieuwer, Macs met macOS 14 of nieuwer, Android-telefoons, -tablets, Android TV, Google TV en Fire TV (Android 7 of nieuwer, <a href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/android" data-rel="apk">APK downloaden</a>), Samsung-tv's met Tizen (<a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">installeren via Developer Mode</a>) en in je browser op <a href="web/">bingr.online/web</a>.</div></details>
+    <details><summary data-i18n="q3">Op welke apparaten werkt Bingr?</summary><div class="a" data-i18n="a3">iPhone en iPad met iOS 17 of nieuwer, Apple TV met tvOS 17 of nieuwer, Macs met macOS 14 of nieuwer, Android-telefoons, -tablets, Android TV, Google TV en Fire TV (Android 7 of nieuwer, <a href="https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/Android/v1.0.0" data-rel="apk">APK downloaden</a>), Samsung-tv's met Tizen (<a href="https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md">installeren via Developer Mode</a>) en in je browser op <a href="web/">bingr.online/web</a>.</div></details>
     <details><summary data-i18n="q7">Wat kost Bingr?</summary><div class="a" data-i18n="a7">Een Bingr-account is gratis: je kijkt op 2 schermen tegelijk, op maximaal 8 apparaten, met 1 server. Met <a href="#prijzen">Lifetime</a> betaal je eenmalig € 4,99 voor 6 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, de Trakt-koppeling en thema's. Je IPTV-abonnement regel en betaal je zelf bij je eigen aanbieder: Bingr verkoopt geen zenderpakketten.</div></details>
     <details><summary data-i18n="q10">Hoe werkt Lifetime?</summary><div class="a" data-i18n="a10">Lifetime betaal je één keer (€ 4,99) en geldt daarna voor altijd, voor je hele account: alle profielen en al je apparaten. Je krijgt 6 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, de Trakt-koppeling en thema's en accentkleuren. Upgraden doe je ingelogd op <a href="upgrade/">bingr.online/upgrade</a>; betalen kan daar binnenkort. Had je al een account voordat Lifetime er was? Dan heb je Lifetime cadeau gekregen. Vragen? <a href="https://support.bingr.online">support.bingr.online</a></div></details>
     <details><summary data-i18n="q8">Hoe koppel ik mijn tv?</summary><div class="a" data-i18n="a8">Op Apple TV, Android TV, Google TV, Fire TV en Samsung TV zie je een QR-code en een code. Scan de QR-code met je telefoon of ga naar <a href="koppelen/">bingr.online/koppelen</a>, vul de code in en log in. Je tv is meteen ingelogd. Liever met de afstandsbediening? Kies Inloggen met e-mail.</div></details>
     <details><summary data-i18n="q4">Moet ik op elk apparaat alles opnieuw instellen?</summary><div class="a" data-i18n="a4">Nee. Je logt overal in met je Bingr-account: je profielen, servers, Mijn lijst, voortgang en instellingen staan dan op al je apparaten, ook op Android en Samsung TV. Met Gratis werkt je account op 8 apparaten en kijk je op 2 schermen tegelijk, met Lifetime op 15 apparaten en 6 schermen.</div></details>
     <details><summary data-i18n="q5">Wat zie ik met een kinderprofiel?</summary><div class="a" data-i18n="a5">Alleen kinderzenders, tekenfilms en familietitels, en titels met een bekende leeftijd binnen de grens. Boven de grens vraagt Bingr de pincode van het hoofdaccount.</div></details>
-    <details><summary data-i18n="q9">Wat doet Bingr met mijn gegevens?</summary><div class="a" data-i18n="a9">Je account staat bij Supabase in een datacenter in Frankfurt (EU). Wachtwoorden en tokens van je servers worden versleuteld bewaard. Je e-mailadres gebruiken we alleen voor inloggen, het bevestigen van je adres en het herstellen van je wachtwoord. Alles staat in de <a href="privacy.html">privacyverklaring</a>.</div></details>
+    <details><summary data-i18n="q9">Wat doet Bingr met mijn gegevens?</summary><div class="a" data-i18n="a9">Je account staat op onze server in een datacenter in Frankfurt (EU). Wachtwoorden en tokens van je servers worden versleuteld bewaard. Je e-mailadres gebruiken we alleen voor inloggen, het bevestigen van je adres en het herstellen van je wachtwoord. Alles staat in de <a href="privacy.html">privacyverklaring</a>.</div></details>
   </div>
 </section>
 
@@ -343,11 +356,12 @@
     </div>
   </div>
 </section>
+</main>
 
 <footer>
   <div class="wrap">
     <div class="top">
-      <div><a href="#" class="logo">BINGR</a><div style="margin-top:12px" data-i18n="foot.tag">IPTV zoals het hoort.</div></div>
+      <div><a href="./" class="logo">BINGR</a><div style="margin-top:12px" data-i18n="foot.tag">IPTV zoals het hoort.</div></div>
       <div class="flinks">
         <a href="#faq">FAQ</a>
         <a href="https://support.bingr.online">Support</a>
@@ -357,11 +371,13 @@
         <a href="changelog/">Changelog</a>
         <a href="status/">Status</a>
         <a href="privacy.html" data-i18n="foot.privacy">Privacy</a>
+        <a href="voorwaarden/" data-i18n="foot.terms">Voorwaarden</a>
         <a href="#" onclick="BingrConsent.open();return false" data-i18n="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
     <p class="disc" data-i18n="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
-    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-i18n="foot.version">versie</span> <span data-build>1.0.0 (build 94)</span></p>
+    <p class="disc tmdb" data-i18n="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-i18n="foot.version">versie</span> <span data-build>1.0.0 (build 95)</span></p>
   </div>
 </footer>
 
@@ -401,7 +417,7 @@ const EN = {
  "q1":"Does Bingr provide channels, movies or series?","a1":"No. Bingr is a player: you use your own IPTV subscription, playlist or media server. Bingr does not provide, sell or host any content. For questions about your channel line-up, contact your own provider.",
  "q6":"What is IPTV and what do I need?","a6":"IPTV is TV over the internet. Your provider gives you login details for a server (Xtream Codes: server address, username and password) or a link to an M3U playlist. Enter those in Bingr, and your channels, movies and series appear in the app. <a href=\"https://support.bingr.online/hulp/afspeellijst/#server\">Add your server</a>",
  "q2":"Which sources are supported?","a2":"M3U/M3U8, Xtream Codes, MAC portals (Stalker), Plex, Jellyfin, Emby, Stremio and folders on your NAS via SMB. TV guides via XMLTV.",
- "q3":"Which devices does Bingr run on?","a3":"iPhone and iPad with iOS 17 or later, Apple TV with tvOS 17 or later, Macs with macOS 14 or later, Android phones, tablets, Android TV, Google TV and Fire TV (Android 7 or later, <a href=\"https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/android\" data-rel=\"apk\">download the APK</a>), Samsung TVs with Tizen (<a href=\"https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md\">install via Developer Mode</a>) and in your browser at <a href=\"web/\">bingr.online/web</a>.",
+ "q3":"Which devices does Bingr run on?","a3":"iPhone and iPad with iOS 17 or later, Apple TV with tvOS 17 or later, Macs with macOS 14 or later, Android phones, tablets, Android TV, Google TV and Fire TV (Android 7 or later, <a href=\"https://github.com/LRvdLinden/bingr-beheer/tree/main/versions/Android/v1.0.0\" data-rel=\"apk\">download the APK</a>), Samsung TVs with Tizen (<a href=\"https://github.com/LRvdLinden/bingr-android/blob/main/tizen/README.md\">install via Developer Mode</a>) and in your browser at <a href=\"web/\">bingr.online/web</a>.",
  "q7":"What does Bingr cost?","a7":"A Bingr account is free: you watch on 2 screens at the same time, on up to 8 devices, with 1 server. With <a href=\"#prijzen\">Lifetime</a> you pay €4.99 once for 6 screens at the same time, 15 devices, unlimited servers, statistics, Watching now, the Trakt integration and themes. You arrange and pay for your IPTV subscription with your own provider: Bingr does not sell channel packages.",
  "q10":"How does Lifetime work?","a10":"You pay for Lifetime once (€4.99) and it's yours forever, for your whole account: all profiles and all your devices. You get 6 screens at the same time, 15 devices, unlimited servers, statistics, Watching now, the Trakt integration, and themes and accent colours. Upgrade while signed in at <a href=\"upgrade/\">bingr.online/upgrade</a>; payment will be available there soon. Did you have an account before Lifetime existed? Then you got Lifetime as a gift. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
  "plans.title":"Choose your plan","plans.sub":"Start for free. More screens at once, statistics and Trakt? Lifetime is a one-time €4.99 and stays yours.",
@@ -409,9 +425,10 @@ const EN = {
  "q8":"How do I link my TV?","a8":"On Apple TV, Android TV, Google TV, Fire TV and Samsung TV you see a QR code and a code. Scan the QR code with your phone or go to <a href=\"koppelen/\">bingr.online/koppelen</a>, enter the code and sign in. Your TV is signed in right away. Prefer the remote? Choose Sign in with email.",
  "q4":"Do I have to set everything up on every device?","a4":"No. You sign in everywhere with your Bingr account, so your profiles, servers, My List, progress and settings are on all your devices, including Android and Samsung TV. With Free your account works on 8 devices with 2 screens at the same time, with Lifetime on 15 devices and 6 screens.",
  "q5":"What does a kids profile show?","a5":"Only kids channels, cartoons and family titles, plus titles with a known age rating within the limit. Above the limit, Bingr asks for the main account's PIN.",
- "q9":"What does Bingr do with my data?","a9":"Your account is stored with Supabase in a data centre in Frankfurt (EU). Passwords and tokens for your servers are stored encrypted. We only use your email address for signing in, confirming your address and resetting your password. Everything is in the <a href=\"privacy.html\">privacy policy</a>.",
+ "q9":"What does Bingr do with my data?","a9":"Your account is stored on our server in a data centre in Frankfurt (EU). Passwords and tokens for your servers are stored encrypted. We only use your email address for signing in, confirming your address and resetting your password. Everything is in the <a href=\"privacy.html\">privacy policy</a>.",
  "final.title":"Got an IPTV subscription? You're almost set.","final.p":"Create a free account, add your server and watch on all your screens.",
- "foot.tag":"IPTV, done right.","foot.pair":"Link a TV","foot.account":"My Bingr","foot.web":"Web player","foot.privacy":"Privacy","foot.cookies":"Cookie settings","foot.version":"version",
+ "foot.tag":"IPTV, done right.","foot.terms":"Terms",
+ "foot.tmdb":"Movie and series data and images: <a href=\"https://www.themoviedb.org\" rel=\"noopener\">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.","foot.pair":"Link a TV","foot.account":"My Bingr","foot.web":"Web player","foot.privacy":"Privacy","foot.cookies":"Cookie settings","foot.version":"version",
  "foot.disc":"Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc. Android, Google TV and Android TV are trademarks of Google LLC, Fire TV of Amazon.com, Inc. and Samsung and Tizen of Samsung Electronics Co., Ltd."
 };
 const NL = {}, NL_ALT = {}, NL_TITLE = document.title;
@@ -424,15 +441,21 @@ function setLang(l){
   document.documentElement.lang = l;
   document.title = l === 'en' ? 'Bingr: your own IPTV on every screen' : NL_TITLE;
   document.querySelectorAll('img[data-loc]').forEach(im => { im.src = im.getAttribute('src').replace(/\/(nl|en)\//, '/' + l + '/'); });
+  document.querySelectorAll('source[data-loc]').forEach(so => { so.srcset = so.getAttribute('srcset').replace(/\/(nl|en)\//, '/' + l + '/'); });
   document.querySelectorAll('.lang button').forEach(b => { b.classList.toggle('on', b.dataset.lang === l); b.setAttribute('aria-pressed', b.dataset.lang === l); });
   try { localStorage.setItem('bingr.lang', l); } catch (e) {}
   if (dlInfo) setDl();
   // vergelijkingstabel Gratis / Lifetime (assets/js/plans.js); de NL-versie staat ook al in de HTML
   if (window.BingrPlans) document.getElementById('plansTable').innerHTML = BingrPlans.table(l, { base: '' });
 }
-document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
-let saved = null; try { saved = localStorage.getItem('bingr.lang'); } catch (e) {}
-setLang(saved || ((navigator.language || 'nl').toLowerCase().startsWith('nl') ? 'nl' : 'en'));
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => {
+  setLang(b.dataset.lang);
+  // ?lang= in de link zou de keuze bij herladen overrulen: weghalen (zoals assets/js/site.js)
+  try { const u = new URL(location.href); if (u.searchParams.has('lang')) { u.searchParams.delete('lang'); history.replaceState(null, '', u.toString()); } } catch (e) {}
+}));
+// taal: ?lang= gaat voor, dan de bewaarde keuze, dan de browsertaal
+let saved = null; try { saved = new URLSearchParams(location.search).get('lang') || localStorage.getItem('bingr.lang'); } catch (e) {}
+setLang((saved || navigator.language || 'nl').toLowerCase().startsWith('nl') ? 'nl' : 'en');
 
 document.getElementById('yr').textContent = new Date().getFullYear();
 // APK en .wgt: direct naar het nieuwste bestand in bingr-beheer/versions (latest.json), anders de map
@@ -447,6 +470,7 @@ const nav = document.getElementById('nav');
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > 20);
 addEventListener('scroll', onScroll, { passive: true }); onScroll();
 </script>
+<script src="assets/js/site.js?v=95" data-nav-only></script>
 <script src="assets/js/userbtn.js?v=94" data-base=""></script>
 </body>
 </html>
