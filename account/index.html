@@ -218,7 +218,7 @@
 <script src="../assets/js/site.js?v=75" data-base="../"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=73"></script>
+<script src="../assets/js/account.js?v=80"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
 <script src="../assets/js/console.js?v=74"></script>
@@ -310,7 +310,7 @@ async function call(action, extra) {
   const r = await fetch(cfg.url + "/functions/v1/device-auth", { method: "POST",
     headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token },
     body: JSON.stringify(Object.assign({ action }, extra || {})) });
-  if (r.status === 401) { await sb.auth.signOut({ scope: "local" }).catch(() => {}); throw new Error("signed_out"); }
+  if (r.status === 401) { await Bingr.hardSignOut(); throw new Error("signed_out"); }
   const j = await r.json(); if (!r.ok) throw new Error(j.error || "x"); return j;
 }
 // Kleine ronde profielfoto (Nu kijken, kijkgeschiedenis): op profile_id, anders op naam, anders eerste letter
@@ -412,11 +412,13 @@ $("signOut").onclick = async () => {
     await call("remove_device", { device_id: webDevice }).catch(() => {});
     try { localStorage.setItem("bingr.web.deviceRegistered", "false"); } catch (e) {}
   }
-  await sb.auth.signOut({ scope: "local" }).catch(() => {}); BingrAvatar.clear(); show("auth");
+  await Bingr.hardSignOut(); BingrAvatar.clear();
+  // opnieuw laden: ook het poppetje rechtsboven en alle andere sessiestaat zijn dan weg
+  location.replace(location.pathname);
 };
 $("delete").onclick = async () => {
   if (!confirm(tr("delConfirm"))) return;
-  try { await call("delete_account"); await sb.auth.signOut({ scope: "local" }).catch(() => {}); BingrAvatar.clear(); show("auth"); } catch (e) { $("accErr").textContent = tr("generic"); }
+  try { await call("delete_account"); await Bingr.hardSignOut(); BingrAvatar.clear(); show("auth"); } catch (e) { $("accErr").textContent = tr("generic"); }
 };
 load();
 </script>

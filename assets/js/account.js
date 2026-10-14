@@ -22,5 +22,12 @@
   function busy(btn, on, label) { btn.disabled = on; if (label) btn.textContent = label; }
   // links die als knop werken (href="#" voor het toetsenbord): niet naar boven springen
   document.addEventListener("click", (e) => { const a = e.target.closest && e.target.closest('a[href="#"][role="button"]'); if (a) e.preventDefault(); });
-  window.Bingr = { sb, lang, params, $, t, pwToggles, busy, cfg };
+  // Uitloggen in deze browser, altijd: hooguit 3 s wachten op de server (een al ingetrokken sessie of een vastgelopen
+  // lock mag het uitloggen niet tegenhouden), daarna zelf de sessie (sb-…-auth-token) uit de opslag halen.
+  async function hardSignOut() {
+    try { await Promise.race([sb.auth.signOut({ scope: "local" }), new Promise((r) => setTimeout(r, 3000))]); } catch (e) {}
+    try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token(-code-verifier)?$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) {}
+    try { window.BingrAvatar && BingrAvatar.clear(); } catch (e) {}
+  }
+  window.Bingr = { sb, lang, params, $, t, pwToggles, busy, cfg, hardSignOut };
 })();

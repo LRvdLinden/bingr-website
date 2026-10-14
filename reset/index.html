@@ -67,7 +67,7 @@
 <script src="../assets/js/site.js?v=75" data-base="../"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=73"></script>
+<script src="../assets/js/account.js?v=80"></script>
 <script>
 const { sb, $, t, pwToggles, busy } = Bingr;
 const tr = t({
@@ -99,7 +99,7 @@ $("pwForm").onsubmit = async (e) => {
   busy($("saveBtn"), false, tr("save"));
   if (error) { $("err").textContent = error.code === "same_password" ? tr("samePw") : error.code === "weak_password" ? tr("shortPw") : tr("generic"); return; }
   // de server heeft alle sessies al ingetrokken (trigger bij wachtwoordwijziging); hier alleen lokaal opruimen
-  await sb.auth.signOut({ scope: "local" }).catch(() => {});
+  await Bingr.hardSignOut();
   if (window.BingrAvatar) BingrAvatar.clear();
   show("done");
 };

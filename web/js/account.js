@@ -290,14 +290,23 @@
     return String(p || '');
   };
 
+  /** Altijd lokaal uitloggen: hooguit 3 s wachten op de server (ingetrokken sessie of vastgelopen lock), dan zelf
+   *  de sessie (sb-…-auth-token) uit de opslag halen, zodat ook bingr.online niet meer ingelogd is. */
+  function hardSignOut() {
+    var srv = sb ? Promise.resolve().then(function () { return sb.auth.signOut({ scope: 'local' }); }).catch(B.noop) : Promise.resolve();
+    return Promise.race([srv, new Promise(function (r) { setTimeout(r, 3000); })]).then(function () {
+      try { Object.keys(localStorage).filter(function (k) { return /^sb-.*-auth-token(-code-verifier)?$/.test(k); }).forEach(function (k) { localStorage.removeItem(k); }); } catch (e) { /* stil */ }
+      try { localStorage.removeItem('bingr.mainAvatar'); } catch (e) { /* stil */ }
+    });
+  }
   /** Uitloggen: eerst remove_device voor deze browser, dan uitloggen op dit apparaat (niet overal). */
   A.signOut = function () {
     var p = A.isSignedIn() ? A.removeDevice(A.deviceId()).catch(B.noop) : Promise.resolve();
-    return p.then(function () { return sb ? sb.auth.signOut({ scope: 'local' }).catch(B.noop) : null; }).then(function () { clear(); });
+    return p.then(function () { return hardSignOut(); }).then(function () { clear(); });
   };
   /** Op een ander apparaat verwijderd (heartbeat: revoked): lokaal uitloggen. */
   A.revokedSignOut = function () {
-    if (sb) sb.auth.signOut({ scope: 'local' }).catch(B.noop);
+    hardSignOut();
     clear();
   };
 
