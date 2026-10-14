@@ -1,0 +1,42 @@
+/* Bingr: vergelijkingstabel Gratis / Lifetime (assets/js/plans.js). Homepage, /upgrade/ en Mijn Bingr. */
+.pl-wrap{margin-top:30px;max-width:920px;margin-left:auto;margin-right:auto}
+.pl-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.pl-table th,.pl-table td{padding:15px 16px;text-align:center;vertical-align:middle;border-bottom:1px solid var(--line)}
+.pl-table tbody th{text-align:left;font-weight:600;font-size:16px;color:#fff}
+.pl-table .pl-corner{width:46%;border-bottom:0}
+.pl-l{display:block}
+.pl-h{display:block;font-size:13px;font-weight:400;color:var(--dim);margin-top:2px}
+.pl-num{font-size:20px;font-weight:800;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.pl-ic{width:24px;height:24px;color:#fff;display:inline-block;vertical-align:middle}
+.pl-ic.no{color:#ffffff4d}
+.pl-table tbody tr.pl-split th,.pl-table tbody tr.pl-split td{border-top:1px solid #ffffff38}
+
+/* kolomkoppen als kaartjes; Lifetime is de uitgelichte kolom (rand + gloed over de hele hoogte) */
+.pl-plan{position:relative;padding:26px 12px 20px!important;border-bottom:0!important;vertical-align:bottom!important}
+.pl-name{display:block;font-size:20px;font-weight:800;letter-spacing:-.01em}
+.pl-price{display:block;font-size:clamp(30px,3.6vw,40px);font-weight:900;letter-spacing:-.03em;line-height:1.1;margin-top:6px}
+.pl-note{display:block;font-size:13px;color:var(--sec);margin-top:4px}
+.pl-tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);white-space:nowrap;background:var(--red);color:#fff;font-size:12px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;border-radius:20px;padding:4px 11px;box-shadow:0 4px 18px #e5091466}
+.pl-tag.yours{background:#fff;color:#000;box-shadow:none}
+.pl-table .life{background:linear-gradient(180deg,#e509141a,#e509140d);box-shadow:inset 1px 0 0 #e5091480,inset -1px 0 0 #e5091480}
+.pl-table thead .life{border-radius:16px 16px 0 0;box-shadow:inset 1px 0 0 #e5091480,inset -1px 0 0 #e5091480,inset 0 1px 0 #e5091480;background:linear-gradient(180deg,#e5091433,#e509141a)}
+.pl-table thead .life .pl-price{color:#fff;text-shadow:0 0 30px #e5091499}
+.pl-table tfoot td{border-bottom:0;padding-top:20px;padding-bottom:22px}
+.pl-table tfoot .life{border-radius:0 0 16px 16px;box-shadow:inset 1px 0 0 #e5091480,inset -1px 0 0 #e5091480,inset 0 -1px 0 #e5091480}
+.pl-table tbody td.life .pl-ic:not(.no){color:var(--red-hi)}
+.pl-cta{white-space:normal;width:100%;max-width:220px}
+/* huidig abonnement (op /upgrade/): wit kader in plaats van rood */
+.pl-table thead .cur:not(.life){box-shadow:inset 0 0 0 1px #ffffff40;border-radius:16px 16px 0 0}
+
+@media (max-width:640px){
+  .pl-table th,.pl-table td{padding:12px 6px}
+  .pl-table tbody th{font-size:14px;padding-left:2px}
+  .pl-table .pl-corner{width:40%}
+  .pl-h{font-size:12px}
+  .pl-name{font-size:16px}
+  .pl-price{font-size:24px}
+  .pl-note{font-size:11.5px}
+  .pl-num{font-size:17px}
+  .pl-tag{font-size:10.5px;padding:3px 8px}
+  .pl-cta{padding:8px 8px;font-size:13px}
+}

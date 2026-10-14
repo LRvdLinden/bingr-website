@@ -65,6 +65,22 @@
 .hrow .pav{margin-top:1px}
 .hrow .info{flex:1;min-width:0}.hrow .nm{font-weight:700;font-size:15px}.hrow .meta{color:var(--sec);font-size:13px;line-height:1.5}
 
+/* abonnement en slotje (Gratis) */
+.planrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.planrow .pb{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:#ffffff14;border:1px solid var(--line);color:#fff}
+.planrow .pb svg{width:24px;height:24px}
+.planrow.life .pb{background:linear-gradient(135deg,#E50914,#7A0008);border:0}
+.planrow .pt{flex:1;min-width:200px}
+.planrow .pn{font-size:20px;font-weight:800}
+.planrow .pl{color:var(--sec);font-size:14.5px;margin-top:2px}
+.planrow .btn{flex:none}
+.locked{display:flex;gap:16px;align-items:flex-start;padding:18px;border-radius:12px;background:linear-gradient(150deg,#26090b 0%,#161616 60%);border:1px solid #e5091455}
+.locked .lk{flex:none;width:40px;height:40px;border-radius:10px;background:var(--red);display:grid;place-items:center;color:#fff}
+.locked .lk svg{width:22px;height:22px}
+.locked b{font-size:16px}
+.locked p{color:var(--sec);font-size:14.5px;margin:4px 0 12px}
+@media (max-width:640px){.planrow .btn{width:100%}}
+
 /* formulieren (server, collectie) */
 .form{background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:20px;margin-top:16px}
 .form h3{font-size:17px;font-weight:800;margin-bottom:4px}
@@ -115,6 +131,11 @@
       <div class="t"><h1 class="ttl" data-t="title"></h1><div class="muted" id="who"></div></div>
       <a class="btn red" href="../web/"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span data-t="watchWeb"></span></a>
     </header>
+
+    <section class="panel" id="planPanel">
+      <h2 class="h3" data-t="planTitle"></h2>
+      <div id="plan" style="margin-top:14px"><p class="muted" data-t="waiting"></p></div>
+    </section>
 
     <section class="panel">
       <h2 class="h3" data-t="profiles"></h2>
@@ -221,7 +242,7 @@
 <script src="../assets/js/account.js?v=80"></script>
 <script src="../assets/js/userbtn.js" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
-<script src="../assets/js/console.js?v=74"></script>
+<script src="../assets/js/console.js?v=89"></script>
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -244,7 +265,12 @@ const tr = t({
         resetSent:"We hebben je een e-mail gestuurd om je wachtwoord te wijzigen. Na het wijzigen word je op al je apparaten uitgelogd.", justNow:"zojuist", minAgo:"%d min geleden", yesterday:"gisteren", waiting:"Even geduld…",
         banned:"Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk:"Vragen?",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
-        resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
+        resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.",
+        planTitle:"Abonnement", planLabel:"Abonnement: %s", free:"Gratis", lifetime:"Lifetime", planLimits:"%s tegelijk kijken · %d apparaten · %v",
+        oneServer:"1 server", unlimitedServers:"onbeperkt servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"Bekijk abonnementen",
+        lifeIncluded:"Statistieken, Nu aan het kijken, Trakt en thema's staan aan.", freeMissing:"Statistieken, Nu aan het kijken, Trakt en thema's horen bij Lifetime (eenmalig € 4,99).",
+        lockedStats:"Statistieken horen bij Lifetime", lockedWatching:"Nu aan het kijken hoort bij Lifetime", lockedHistory:"Kijkgeschiedenis hoort bij Lifetime",
+        lockedText:"Eenmalig € 4,99, voor je hele account. Je kijktijd wordt al bijgehouden: na het upgraden staat alles er meteen.", upgradeCta:"Upgrade naar Lifetime" },
   en: { docTitle:"My Bingr", tooLarge:"Too large to save.", loadFailed:"Couldn't load this. Refresh the page to try again.", watching:"Watching now", watchingCount:"%d of %d screens watching now", watchingFor:"watching for %s", signedInSince:"signed in since %s", nobodyWatching:"Nobody is watching right now.",
         historyTitle:"Watch history (7 days)", historyHelp:"What was watched per profile and device", statsTitle:"Statistics", statsHelp:"How much each profile watches: per day, month or year, with your most watched titles", noHistory:"Nothing watched in the last 7 days.", today:"Today", minutes:"%d min", hours:"%d h %m min",
         servers:"Servers and playlists", serversHelp:"Changes reach all your devices within a few minutes. Add Plex, Jellyfin, Emby and Stremio in the app.", addServer:"Add server", editServer:"Edit server",
@@ -264,7 +290,12 @@ const tr = t({
         resetSent:"We've sent you an email to change your password. After changing it you'll be signed out on all your devices.", justNow:"just now", minAgo:"%d min ago", yesterday:"yesterday", waiting:"One moment…",
         banned:"Your account has been blocked. You received an email with the reason and until when.", bannedAsk:"Questions?",
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", generic:"Something went wrong. Please try again.", badEmail:"Enter a valid email address.",
-        resetSent2:"If an account exists, you'll receive an email to reset your password." }
+        resetSent2:"If an account exists, you'll receive an email to reset your password.",
+        planTitle:"Plan", planLabel:"Plan: %s", free:"Free", lifetime:"Lifetime", planLimits:"%s at the same time · %d devices · %v",
+        oneServer:"1 server", unlimitedServers:"unlimited servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"View plans",
+        lifeIncluded:"Statistics, Watching now, Trakt and themes are unlocked.", freeMissing:"Statistics, Watching now, Trakt and themes are part of Lifetime (one-time €4.99).",
+        lockedStats:"Statistics are part of Lifetime", lockedWatching:"Watching now is part of Lifetime", lockedHistory:"Watch history is part of Lifetime",
+        lockedText:"A one-time €4.99, for your whole account. Your watch time is already being recorded: after upgrading, everything is there right away.", upgradeCta:"Upgrade to Lifetime" }
 });
 pwToggles(tr);
 const loc = lang === "nl" ? "nl-NL" : "en-GB";
@@ -373,6 +404,22 @@ async function loadDevices() {
     try { await call("remove_device", { device_id: b.dataset.id }); loadDevices(); } catch (e) { $("accErr").textContent = tr("generic"); b.disabled = false; }
   });
 }
+// Abonnement (device-auth `entitlements`, platform web): Gratis of Lifetime met de limieten; null bij een fout
+async function loadPlan() {
+  let e = null;
+  try { e = await call("entitlements", { platform: "web" }); }
+  catch (err) { if (err.message === "banned" || err.message === "signed_out") throw err; $("plan").innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; return null; }
+  const life = e.plan === "lifetime", l = e.limits || {};
+  const srv = l.servers == null ? tr("unlimitedServers") : l.servers === 1 ? tr("oneServer") : tr("nServers").replace("%d", l.servers);
+  const ic = life ? '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+  $("plan").innerHTML = `<div class="planrow${life ? " life" : ""}"><span class="pb">${ic}</span><div class="pt">
+      <div class="pn">${tr("planLabel").replace("%s", life ? tr("lifetime") : tr("free"))}</div>
+      <div class="pl">${esc(tr("planLimits").replace("%s", l.streams).replace("%d", l.devices).replace("%v", srv))}</div>
+      <div class="pl">${life ? tr("lifeIncluded") : tr("freeMissing")}</div></div>
+    ${life ? `<a class="btn ghost sm" href="../upgrade/">${tr("planDetails")}</a>` : `<a class="btn red sm" href="../upgrade/">${tr("upgrade")}</a>`}</div>`;
+  return e;
+}
 function bannedMsg() {
   $("authErr").innerHTML = `${tr("banned")} ${tr("bannedAsk")} <a href="https://support.bingr.online/nieuw/">support.bingr.online</a>`;
 }
@@ -382,7 +429,7 @@ async function load() {
   const email = data.session.user.email || "";
   $("who").textContent = email; BingrAvatar.paint($("ini"), email); show("acc"); $("accErr").textContent = "";
   BingrAvatar.refresh(data.session, () => BingrAvatar.paint($("ini"), email));
-  try { await Promise.all([loadProfiles(), loadDevices()]); BingrConsole.loadAll(); }
+  try { const [, , ent] = await Promise.all([loadProfiles(), loadDevices(), loadPlan()]); BingrConsole.loadAll(ent ? ent.features : null); }
   catch (e) { if (e.message === "banned") { show("auth"); bannedMsg(); } else if (e.message === "signed_out") show("auth"); else $("accErr").textContent = tr("generic"); }
 }
 $("authForm").onsubmit = async (e) => {

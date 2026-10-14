@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Upgrade naar Lifetime · Bingr</title>
+<meta name="description" content="Bingr Lifetime: eenmalig € 4,99 voor 6 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, Trakt en thema's.">
+<link rel="canonical" href="https://bingr.online/upgrade/">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/css/site.css?v=75">
+<link rel="stylesheet" href="../assets/css/plans.css?v=1">
+<style>
+/* upgrade: kop, huidig abonnement en de betaalkaart; de tabel staat in assets/css/plans.css */
+.up-head{text-align:center;margin-bottom:8px}
+.up-head .ttl::after{margin:18px auto 0}
+.up-head .lead{color:#d4d4d4;font-size:clamp(16px,1.8vw,19px);max-width:60ch;margin:18px auto 0}
+.from-app{display:flex;gap:10px;align-items:center;justify-content:center;color:var(--sec);font-size:14px;margin-top:14px}
+.from-app svg{width:18px;height:18px}
+.current{display:flex;align-items:center;gap:18px;flex-wrap:wrap;max-width:920px;margin:30px auto 0}
+.current .badge{flex:none;width:58px;height:58px;border-radius:14px;display:grid;place-items:center;background:#ffffff14;border:1px solid var(--line)}
+.current .badge svg{width:30px;height:30px}
+.current.life .badge{background:linear-gradient(135deg,#E50914,#7A0008);border:0;box-shadow:0 6px 26px #e5091455}
+.current .t{flex:1;min-width:220px}
+.current .k{color:var(--sec);font-size:14px;font-weight:600}
+.current .v{font-size:26px;font-weight:900;letter-spacing:-.02em;line-height:1.15;margin-top:2px}
+.current .lim{color:var(--sec);font-size:14.5px;margin-top:4px}
+.pay{max-width:920px;margin:16px auto 0;display:grid;grid-template-columns:1fr auto;gap:18px 26px;align-items:center;background:linear-gradient(150deg,#26090b 0%,#151515 55%,#121212 100%);border:1px solid #e5091466}
+.pay h2{font-size:22px;font-weight:800;letter-spacing:-.015em}
+.pay p{color:#d4d4d4;font-size:15.5px;margin-top:6px}
+.pay p a{color:#fff;font-weight:600}
+.pay .price{font-size:15px;color:var(--sec);margin-top:10px}
+.pay .price b{font-size:28px;color:#fff;font-weight:900;letter-spacing:-.02em;margin-right:6px}
+.pay .btn{white-space:nowrap}
+.pay .btn:disabled{opacity:.55;cursor:not-allowed;background:#ffffff26;box-shadow:inset 0 0 0 1px #ffffff33}
+.have{text-align:center;max-width:920px;margin:16px auto 0}
+.have .ok-big{display:inline-flex;align-items:center;gap:10px;font-size:22px;font-weight:800;color:#fff}
+.have .ok-big svg{width:28px;height:28px;color:var(--ok)}
+.have p{color:var(--sec);margin-top:8px}
+.have .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+#auth .authcard{margin-top:10px}
+@media (max-width:640px){.pay{grid-template-columns:1fr}.pay .btn{width:100%}.current .v{font-size:22px}}
+</style>
+<script src="../assets/js/consent.js" data-base="../"></script>
+</head>
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../index.html#features" data-s="nav.features">Functies</a>
+      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../index.html#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap mid">
+  <header class="up-head">
+    <h1 class="ttl" data-t="title"></h1>
+    <p class="lead" data-t="lead"></p>
+    <p class="from-app hidden" id="fromApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg><span data-t="fromApp"></span></p>
+  </header>
+
+  <section id="auth" class="hidden"><div class="panel authcard">
+    <h2 class="h3" data-t="signInTitle" style="font-size:28px;font-weight:900;letter-spacing:-.03em"></h2>
+    <p class="muted" data-t="intro" style="margin-top:8px"></p>
+    <form id="authForm" class="fields" novalidate>
+      <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email"></label>
+      <label class="pw"><span class="sr" data-t="password"></span><input id="password" type="password" autocomplete="current-password" data-ph="password"><button type="button"></button></label>
+      <div id="authErr" class="err" aria-live="polite"></div>
+      <button id="authBtn" class="btn full" type="submit" data-t="signIn"></button>
+    </form>
+    <div class="alinks"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../koppelen/?mode=signup" data-t="signUpNow"></a></div></div>
+  </div></section>
+
+  <section id="acc" class="hidden">
+    <div class="panel current" id="current" aria-live="polite"></div>
+    <div id="action"></div>
+  </section>
+  <section id="loading"><p class="muted" style="text-align:center;margin-top:30px" data-t="waiting"></p></section>
+
+  <div id="plansTable"></div>
+</div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../index.html#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=75" data-base="../"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../assets/config.js"></script>
+<script src="../assets/js/account.js?v=80"></script>
+<script src="../assets/js/userbtn.js" data-base="../"></script>
+<script src="../assets/js/plans.js?v=1"></script>
+<script>
+// Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
+// `entitlements` (platform "web") en de vergelijking. Betalen is nog niet gekoppeld: de knop staat uit.
+// ?from=app&platform=… (vanuit de apps) mag; het toont alleen een korte regel.
+const { sb, $, t, pwToggles, busy, cfg, lang, params } = Bingr;
+const tr = t({
+  nl: { docTitle: "Upgrade naar Lifetime · Bingr", title: "Upgrade naar Lifetime", lead: "Eén keer € 4,99, voor altijd: meer schermen tegelijk, meer apparaten, onbeperkt servers, statistieken, Nu aan het kijken, Trakt en thema's.",
+        fromApp: "Na het upgraden zie je Lifetime binnen een paar minuten in de app.",
+        signInTitle: "Log in om te upgraden", intro: "Lifetime hoort bij je Bingr-account en geldt op al je apparaten.", signIn: "Inloggen", email: "E-mailadres", password: "Wachtwoord", show: "Tonen", hide: "Verbergen",
+        forgot: "Wachtwoord vergeten?", newTo: "Nog geen account?", signUpNow: "Maak gratis een account.", waiting: "Even geduld…",
+        yourPlan: "Je abonnement", free: "Gratis", lifetime: "Lifetime", limits: "%s tegelijk kijken · %d apparaten · %v",
+        oneServer: "1 server", unlimitedServers: "onbeperkt servers", servers: "%d servers",
+        payTitle: "Lifetime voor je hele account", payText: "Upgraden kan binnenkort hier. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
+        price: "<b>€ 4,99</b> eenmalig", payBtn: "Betalen — binnenkort beschikbaar",
+        have: "Je hebt Lifetime", haveText: "Alles van Bingr staat voor je aan, op al je apparaten.", toAccount: "Naar Mijn Bingr", watch: "Kijk in je browser",
+        gift: "Cadeau: je had al een account toen Lifetime er kwam.",
+        loadFailed: "Je abonnement kon niet worden geladen. Ververs de pagina om het opnieuw te proberen.",
+        banned: "Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk: "Vragen?",
+        badCreds: "Onjuist e-mailadres of wachtwoord.", notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.", generic: "Er ging iets mis. Probeer het opnieuw.", badEmail: "Vul een geldig e-mailadres in.",
+        resetSent2: "Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
+  en: { docTitle: "Upgrade to Lifetime · Bingr", title: "Upgrade to Lifetime", lead: "Pay €4.99 once, keep it forever: more screens at once, more devices, unlimited servers, statistics, Watching now, Trakt and themes.",
+        fromApp: "After upgrading, Lifetime shows up in the app within a few minutes.",
+        signInTitle: "Sign in to upgrade", intro: "Lifetime belongs to your Bingr account and works on all your devices.", signIn: "Sign In", email: "Email", password: "Password", show: "Show", hide: "Hide",
+        forgot: "Forgot password?", newTo: "No account yet?", signUpNow: "Create a free account.", waiting: "One moment…",
+        yourPlan: "Your plan", free: "Free", lifetime: "Lifetime", limits: "%s at the same time · %d devices · %v",
+        oneServer: "1 server", unlimitedServers: "unlimited servers", servers: "%d servers",
+        payTitle: "Lifetime for your whole account", payText: "Upgrading will be available here soon. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
+        price: "<b>€4.99</b> one-time", payBtn: "Payment — coming soon",
+        have: "You have Lifetime", haveText: "Everything in Bingr is unlocked for you, on all your devices.", toAccount: "Go to My Bingr", watch: "Watch in your browser",
+        gift: "A gift: you already had an account when Lifetime arrived.",
+        loadFailed: "Your plan couldn't be loaded. Refresh the page to try again.",
+        banned: "Your account has been blocked. You received an email with the reason and until when.", bannedAsk: "Questions?",
+        badCreds: "Incorrect email or password.", notConfirmed: "Confirm your email address first. Check your inbox.", generic: "Something went wrong. Please try again.", badEmail: "Enter a valid email address.",
+        resetSent2: "If an account exists, you'll receive an email to reset your password." },
+});
+pwToggles(tr);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ICON_FREE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+const ICON_LIFE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/></svg>';
+const ICON_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';
+if (params.get("from") === "app") $("fromApp").classList.remove("hidden");
+function show(id) { ["auth", "acc", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+function table(current) { $("plansTable").innerHTML = BingrPlans.table(lang, { base: "../", current, ctas: false }); }
+async function call(action, extra) {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) throw new Error("signed_out");
+  const r = await fetch(cfg.url + "/functions/v1/device-auth", { method: "POST",
+    headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token },
+    body: JSON.stringify(Object.assign({ action }, extra || {})) });
+  const j = await r.json().catch(() => ({}));
+  if (j.banned === true || j.error === "user_banned") { await Bingr.hardSignOut(); throw new Error("banned"); }
+  if (r.status === 401) { await Bingr.hardSignOut(); throw new Error("signed_out"); }
+  if (!r.ok) throw new Error(j.error || "x"); return j;
+}
+function limitsText(e) {
+  const s = e.limits || {};
+  const srv = s.servers == null ? tr("unlimitedServers") : s.servers === 1 ? tr("oneServer") : tr("servers").replace("%d", s.servers);
+  return tr("limits").replace("%s", s.streams).replace("%d", s.devices).replace("%v", srv);
+}
+function render(e) {
+  const life = e.plan === "lifetime";
+  $("current").classList.toggle("life", life);
+  $("current").innerHTML = `<div class="badge">${life ? ICON_LIFE : ICON_FREE}</div><div class="t"><div class="k">${tr("yourPlan")}</div>
+    <div class="v">${life ? tr("lifetime") : tr("free")}</div><div class="lim">${esc(limitsText(e))}</div></div>`;
+  $("action").innerHTML = life
+    ? `<div class="have"><div class="ok-big">${ICON_OK}<span>${tr("have")}</span></div><p>${tr("haveText")}</p><p id="giftNote"></p>
+        <div class="row"><a class="btn red sm" href="../web/">${tr("watch")}</a><a class="btn ghost sm" href="../account/">${tr("toAccount")}</a></div></div>`
+    : `<div class="panel pay"><div><h2>${tr("payTitle")}</h2><p class="price">${tr("price")}</p><p>${tr("payText")}</p></div>
+        <button class="btn" type="button" disabled aria-disabled="true">${tr("payBtn")}</button></div>`;
+  table(life ? "lifetime" : "free");
+  // Lifetime cadeau (bestaand account bij de invoering): eigen rij in account_plans, alleen te lezen door jezelf
+  if (life) sb.from("account_plans").select("source").maybeSingle().then(({ data }) => {
+    if (data && data.source === "legacy" && $("giftNote")) $("giftNote").textContent = tr("gift");
+  }).catch(() => {});
+}
+async function load() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { show("auth"); table(null); return; }
+  show("loading");
+  try { render(await call("entitlements", { platform: "web" })); show("acc"); }
+  catch (e) {
+    if (e.message === "banned") { show("auth"); bannedMsg(); table(null); }
+    else if (e.message === "signed_out") { show("auth"); table(null); }
+    else { show("acc"); $("current").innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; $("action").innerHTML = ""; table(null); }
+  }
+}
+function bannedMsg() { $("authErr").innerHTML = `${tr("banned")} ${tr("bannedAsk")} <a href="https://support.bingr.online/nieuw/">support.bingr.online</a>`; }
+// inloggen zoals op Mijn Bingr; daarna blijft de pagina /upgrade/ (met dezelfde parameters)
+$("authForm").onsubmit = async (e) => {
+  e.preventDefault();
+  busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value });
+  busy($("authBtn"), false, tr("signIn"));
+  if (error && (error.code === "user_banned" || /banned/i.test(error.message || ""))) { bannedMsg(); return; }
+  if (error) { $("authErr").textContent = error.code === "email_not_confirmed" ? tr("notConfirmed") : error.code === "invalid_credentials" ? tr("badCreds") : tr("generic"); return; }
+  load();
+};
+$("forgot").onclick = async () => {
+  const email = $("email").value.trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { $("authErr").textContent = tr("badEmail"); return; }
+  await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + "/reset/" });
+  $("authErr").innerHTML = '<span class="ok">' + tr("resetSent2") + "</span>";
+};
+load();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 // Mijn Bingr op de website: nu aan het kijken, kijkgeschiedenis (7 dagen), statistieken, servers en collecties beheren.
 // Gebruikt call() (device-auth), tr(), esc(), icons, devIcon, platLabel, loc en $ uit account/index.html.
+// Abonnementen: bij Gratis (features.stats / features.now_watching false, of 403 feature_locked) een slotje met Upgrade.
 window.BingrConsole = (function () {
   const KINDS = { m3u: "M3U / M3U8", xtream: "Xtream Codes", stalker: "Stalker / MAC-portal" };
   const EDITABLE = Object.values(KINDS);
@@ -255,14 +256,35 @@ window.BingrConsole = (function () {
       avatar: (p) => profileAvatar(p.id, p.name) });
   }
 
+  // ---- slotje voor Lifetime-functies (Gratis)
+  const LOCK = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
+  function lock(id, key) {
+    $(id).innerHTML = `<div class="locked"><span class="lk">${LOCK}</span><div><b>${tr(key)}</b><p>${tr("lockedText")}</p>
+      <a class="btn red sm" href="../upgrade/">${tr("upgradeCta")}</a></div></div>`;
+  }
+  const lockStreams = () => { $("streamCount").textContent = ""; lock("streams", "lockedWatching"); };
+
   let timer = null;
-  async function loadAll() {
+  // features: {stats, now_watching} uit `entitlements` (null = onbekend: gewoon laden; de server geeft dan feature_locked)
+  async function loadAll(features) {
     $("addSource").onclick = () => openSource(null);
     $("colAdd").onclick = addSmart;
-    try { loadStats(); } catch (e) { $("stats").innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; }
-    const fail = (id) => (e) => { if (e && e.message === "signed_out") return; $(id).innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; };
-    await Promise.all([loadStreams().catch(fail("streams")), loadHistory().catch(fail("history")), loadSources().catch(fail("sources")), loadCollections().catch(fail("collections"))]);
-    clearInterval(timer); timer = setInterval(() => { if (!document.hidden) loadStreams().catch(() => {}); }, 30000);
+    const f = features || {};
+    if (f.stats === false) lock("stats", "lockedStats");
+    else { try { loadStats(); } catch (e) { $("stats").innerHTML = `<p class="muted">${tr("loadFailed")}</p>`; } }
+    const fail = (id, locked) => (e) => {
+      if (e && e.message === "signed_out") return;
+      if (e && e.message === "feature_locked" && locked) { locked(); return; }
+      $(id).innerHTML = `<p class="muted">${tr("loadFailed")}</p>`;
+    };
+    const watching = f.now_watching !== false;
+    if (!watching) { lockStreams(); lock("history", "lockedHistory"); }
+    await Promise.all([
+      watching ? loadStreams().catch(fail("streams", lockStreams)) : null,
+      watching ? loadHistory().catch(fail("history", () => lock("history", "lockedHistory"))) : null,
+      loadSources().catch(fail("sources")), loadCollections().catch(fail("collections"))]);
+    clearInterval(timer);
+    if (watching) timer = setInterval(() => { if (!document.hidden) loadStreams().catch(() => {}); }, 30000);
   }
   return { loadAll };
 })();
