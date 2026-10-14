@@ -214,8 +214,9 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .row-head { display: flex; align-items: baseline; gap: 14px; padding: 0 var(--gutter); margin-bottom: 8px; }
 .page:not(.home) .row-head { padding: 0; }
 .row-title { font-size: 20px; font-weight: 700; color: #e5e5e5; }
-.row-more { display: inline-flex; align-items: center; gap: 2px; font-size: 13.5px; color: #54b9c5; font-weight: 600; opacity: 0; transition: opacity .2s; }
-.row:hover .row-more, .row-more:focus-visible { opacity: 1; }
+/* "Alles bekijken": witte tekst en altijd zichtbaar, zoals MediaRow op iOS */
+.row-more { display: inline-flex; align-items: center; gap: 2px; font-size: 14px; color: #fff; font-weight: 600; opacity: .85; transition: opacity .2s; }
+.row-more:hover, .row-more:focus-visible { opacity: 1; text-decoration: underline; }
 .row-more .ic { width: 16px; height: 16px; }
 .row-wrap { position: relative; }
 .row-track { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x proximity; scroll-padding: 0 var(--gutter); padding: 6px var(--gutter) 14px; scrollbar-width: none; overscroll-behavior-x: contain; }
@@ -247,7 +248,7 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .card-progress { position: absolute; left: 8px; right: 8px; bottom: 7px; height: 3px; background: #ffffff4d; border-radius: 2px; overflow: hidden; }
 .card-progress > div { height: 100%; background: var(--accent); }
 .card-progress.inline { position: static; height: 3px; margin-top: 6px; }
-.card .lang-strip + .card-progress { bottom: 22px; }
+.card .lang-strip ~ .card-progress { bottom: 22px; }
 .top10 { width: calc(var(--poster-w) * 1.42); display: flex; align-items: flex-end; }
 .top10-num { font-size: calc(var(--poster-w) * 1.08); font-weight: 900; line-height: .78; letter-spacing: -.08em; color: var(--bg); -webkit-text-stroke: 4px #595959; margin-right: -10px; flex: none; width: 52%; text-align: right; }
 .top10 .card-img { flex: 1; }
@@ -651,7 +652,8 @@ html.playing #bingr-cookie-btn { display: none; }
 .card, .ccard, .ep, .lv-main, .hist-main, .coll-main { -webkit-touch-callout: none; }
 .card-watched { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; box-shadow: 0 2px 6px #0008; }
 .card-watched .ic { width: 14px; height: 14px; stroke-width: 3; }
-.card-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: 3px 7px; border-radius: 4px; background: #000000b3; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* labels Serie/Film en "N bekeken": accentkleur (rood, of de kleur van het profiel) met witte tekst, zoals PosterCard op iOS */
+.card-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: 3px 6px; border-radius: 2px; background: var(--accent); box-shadow: 0 1px 4px #0006; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Voor jou: label Serie/Film linksboven (zoals iOS build 74); het aantal bekeken eronder */
 .card-badge.card-kind { max-width: calc(100% - 40px); }
 .card-badge.card-badge-below { top: 30px; }

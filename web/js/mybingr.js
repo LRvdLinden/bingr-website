@@ -506,6 +506,7 @@
       row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
       row(sec, L('Settings'), null, function () { location.hash = '#/settings'; }, { icon: 'gear' });
       row(sec, L('Account and devices'), null, function () { location.href = '../account/'; }, { icon: 'account' });
+      S.supportRow(sec);
     }
     function render() {
       U.clear(el);

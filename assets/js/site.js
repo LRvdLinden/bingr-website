@@ -12,7 +12,7 @@
   // gedeelde teksten (nav en footer); NL staat in de HTML
   var EN = {
     "nav.features": "Features", "nav.start": "What you need", "nav.platforms": "Devices", "nav.web": "Watch in your browser",
-    "foot.tag": "IPTV, done right.", "foot.pair": "Link a TV", "foot.account": "My Bingr", "foot.web": "Web player",
+    "foot.tag": "IPTV, done right.", "foot.help": "Help", "foot.pair": "Link a TV", "foot.account": "My Bingr", "foot.web": "Web player",
     "foot.privacy": "Privacy", "foot.cookies": "Cookie settings", "foot.version": "version",
     "foot.disc": "Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc. Android, Google TV and Android TV are trademarks of Google LLC, Fire TV of Amazon.com, Inc. and Samsung and Tizen of Samsung Electronics Co., Ltd."
   };

@@ -91,7 +91,9 @@
     'Your browser can’t play the picture or sound of this video (%@). This is often HEVC (H.265) video or AC3/DTS audio. Watch in the Bingr app.': 'Je browser kan het beeld of geluid van deze video (%@) niet afspelen. Vaak is dat HEVC-beeld (H.265) of AC3/DTS-geluid. Kijk in de Bingr-app.',
     'No picture? The video in this file (often HEVC/H.265) can’t be played by your browser. Watch in the Bingr app.': 'Geen beeld? Je browser kan het beeld in dit bestand (vaak HEVC/H.265) niet afspelen. Kijk in de Bingr-app.',
     'No sound? The audio in this file (often AC3 or DTS) can’t be played by your browser. Watch in the Bingr app.': 'Geen geluid? Je browser kan het geluid in dit bestand (vaak AC3 of DTS) niet afspelen. Kijk in de Bingr-app.',
-    'You can set a PIN after saving the profile.': 'Na het opslaan kun je een pincode instellen.'
+    'You can set a PIN after saving the profile.': 'Na het opslaan kun je een pincode instellen.',
+    'Support': 'Support',
+    'Help, questions and support tickets': 'Hulp, vragen en supporttickets'
   };
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
   all.nl = all.nl || {};

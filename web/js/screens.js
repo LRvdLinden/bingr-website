@@ -273,25 +273,49 @@
   S.titleLink = function (type, x) { return R.link(['title', type, x.id]); };
   /** Film bekeken (lokaal of op Trakt), zoals Playables.isWatched op iOS. */
   S.movieWatched = function (m) { return D.isWatched(m.id) || B.trakt.isMovieWatched(m); };
-  /** Aantal bekeken afleveringen van een serie (Trakt of lokaal, het hoogste). */
-  S.seriesWatchedCount = function (s) { return Math.max(B.trakt.watchedCount(s), D.watchedCount(s.id)); };
+  /**
+   * Aantal bekeken afleveringen van een serie, zoals seriesRow op iOS: het hoogste van Trakt, de lokale sleutels
+   * ep:<serie>|s-e en (als de afleveringen al geladen zijn) de afleveringen met een eigen bekeken-vinkje.
+   */
+  S.seriesWatchedCount = function (s) {
+    var own = 0;
+    (s.episodes || []).forEach(function (e) { if (e && D.isWatched(e.id)) own++; });
+    return Math.max(B.trakt.watchedCount(s), D.watchedCount(s.id), own);
+  };
+  /** Vinkje, "N BEKEKEN" en voortgang op een poster; opnieuw te tekenen zonder de kaart te vervangen (S.refreshMarks). */
+  function cardMarks(x, type, opts) {
+    var isShow = type === 'series';
+    var pr = opts.progress;
+    // voortgang van een film ook buiten Verder kijken (zoals PosterCard op iOS)
+    if (pr == null && !isShow) { var pe = D.progress(x.id); pr = pe && pe.fraction > 0 ? pe.fraction : null; }
+    var watched = !isShow && !opts.continueKeys && S.movieWatched(x);
+    var wc = isShow ? S.seriesWatchedCount(x) : 0;
+    return { watched: watched, nodes: [
+      watched ? h('div.card-watched.mark', { title: L('Watched') }, [U.icon('check')]) : null,
+      opts.kindBadge ? h('div.card-badge.card-kind', isShow ? L('SERIES') : L('MOVIE')) : null,
+      wc > 0 ? h('div.card-badge.mark' + (opts.kindBadge ? '.card-badge-below' : ''), L('%d WATCHED', wc)) : null,
+      pr ? h('div.card-progress.mark', [h('div', { style: { width: Math.round(B.clamp(pr, 0, 1) * 100) + '%' } })]) : null] };
+  }
+  function cardLabel(x, watched) { return x.title + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : ''); }
   function posterCard(x, type, opts) {
     opts = opts || {};
     var isShow = type === 'series';
-    var pr = opts.progress;
-    var watched = !isShow && !pr && S.movieWatched(x);
-    var wc = isShow ? S.seriesWatchedCount(x) : 0;
-    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': x.title + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : '') }, [
-      h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, isShow),
-        watched ? h('div.card-watched', { title: L('Watched') }, [U.icon('check')]) : null,
-        opts.kindBadge ? h('div.card-badge.card-kind', isShow ? L('SERIES') : L('MOVIE')) : null,
-        wc > 0 ? h('div.card-badge' + (opts.kindBadge ? '.card-badge-below' : ''), L('%d WATCHED', wc)) : null,
-        pr ? h('div.card-progress', [h('div', { style: { width: Math.round(B.clamp(pr, 0, 1) * 100) + '%' } })]) : null]),
-      h('div.card-title', x.title)
-    ]);
+    var m = cardMarks(x, type, opts);
+    var img = h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, isShow)].concat(m.nodes));
+    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': cardLabel(x, m.watched) }, [img, h('div.card-title', x.title)]);
+    card._marks = function () {
+      var n = cardMarks(x, type, opts);
+      Array.prototype.slice.call(img.querySelectorAll('.mark')).forEach(function (e) { e.remove(); });
+      n.nodes.forEach(function (e) { if (e && e.classList.contains('mark')) img.appendChild(e); });
+      card.setAttribute('aria-label', cardLabel(x, n.watched));
+    };
     if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, opts); }, x.title);
     return card;
   }
+  /** Bekeken-vinkjes en voortgang op alle zichtbare posters bijwerken (na Trakt-sync of (on)bekeken markeren). */
+  S.refreshMarks = function (root) {
+    Array.prototype.slice.call((root || document).querySelectorAll('a.card')).forEach(function (c) { if (c._marks) c._marks(); });
+  };
   S.posterCard = posterCard;
   /** [{type, item}] alfabetisch op titel (taalgevoelig, hoofdletters en accenten tellen niet; bij gelijke titel op id). */
   S.sortByTitle = function (list) {
@@ -405,7 +429,10 @@
       B.on('epg', function () { if (page && page.onEpg) soon('epg', function () { if (page && page.onEpg) page.onEpg(); }, 300); }),
       B.on('profiles', drawProf),
       B.on('collections', function () { if (page && page.onCollections) soon('coll', function () { if (page && page.onCollections) page.onCollections(); }, 150); }),
-      B.on('trakt', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); })
+      B.on('trakt', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); }),
+      // vinkjes op álle posters (ook Films, Series, zoeken en categorie-rijen, die geen onData hebben)
+      B.on('trakt', function () { soon('marks', function () { S.refreshMarks(content); }, 350); }),
+      B.on('profileData', function () { soon('marks', function () { S.refreshMarks(content); }, 350); })
     ];
     R.handlers = [render];
     var screen = {
@@ -435,8 +462,10 @@
       it.addEventListener('click', function () { close(); B.app.pickProfileWithPin(p); });
       menu.appendChild(it);
     });
-    function item(icon, label, fn, href) {
-      var it = href ? h('a.menu-it', { href: href, role: 'menuitem' }, [U.icon(icon), h('span', label)]) : h('button.menu-it', { type: 'button', role: 'menuitem' }, [U.icon(icon), h('span', label)]);
+    function item(icon, label, fn, href, ext) {
+      var attrs = { href: href, role: 'menuitem' };
+      if (ext) { attrs.target = '_blank'; attrs.rel = 'noopener'; }
+      var it = href ? h('a.menu-it', attrs, [U.icon(icon), h('span', label)]) : h('button.menu-it', { type: 'button', role: 'menuitem' }, [U.icon(icon), h('span', label)]);
       it.addEventListener('click', function () { close(); if (fn) fn(); });
       menu.appendChild(it);
     }
@@ -446,6 +475,7 @@
     item('user', L('My Bingr'), null, '#/mybingr');
     item('gear', L('Settings'), null, '#/settings');
     item('account', L('Account and devices'), null, '../account/');
+    item('help', L('Support'), null, S.SUPPORT_URL, true);
     menu.appendChild(h('div.menu-sep'));
     item('logout', L('Sign out'), function () { confirmSignOut(); });
     var r = anchor.getBoundingClientRect();
@@ -1265,6 +1295,11 @@
   // MARK: Instellingen
 
   /** Rij in een lijst met instellingen (ook gebruikt door Mijn Bingr en de beheerschermen). */
+  /** Supportsite (build 75): opent in een nieuw tabblad, onder Account en apparaten. */
+  S.SUPPORT_URL = 'https://support.bingr.online';
+  S.supportRow = function (sec, sub) {
+    return S.stRow(sec, L('Support'), null, function () { window.open(S.SUPPORT_URL, '_blank', 'noopener'); }, { icon: 'help', sub: sub || null });
+  };
   S.stRow = function (sec, label, value, fn, opts) {
     opts = opts || {};
     var r = fn ? (opts.href ? h('a.st-row' + (opts.danger ? '.danger' : ''), { href: opts.href }) : h('button.st-row' + (opts.danger ? '.danger' : ''), { type: 'button' })) : h('div.st-row.info');
@@ -1305,6 +1340,7 @@
       var sec = section(L('Account'));
       row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
       row(sec, L('Account and devices'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
+      S.supportRow(sec, L('Help, questions and support tickets'));
       row(sec, L('Statistics'), main ? L('All profiles') : prof.name, function () { location.hash = '#/stats'; }, { icon: 'chart' });
       row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
 

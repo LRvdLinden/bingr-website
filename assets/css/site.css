@@ -171,3 +171,9 @@ input.code{text-transform:uppercase;letter-spacing:.35em;text-align:center;font-
   .authcard{padding:28px 20px 24px}
   .prose p,.prose li{font-size:16px}
 }
+/* support: knop naar het ticketsysteem (support.bingr.online) */
+.ticket-cta{display:flex;align-items:center;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;margin:-10px 0 34px;padding:20px 22px;border-radius:10px;background:#ffffff0f;box-shadow:inset 0 0 0 1px #ffffff1f}
+.ticket-cta div{display:flex;flex-direction:column;gap:4px}
+.ticket-cta b{font-size:18px}
+.ticket-cta span{color:#ffffffb3}
+@media (max-width:560px){.ticket-cta .btn{width:100%}}

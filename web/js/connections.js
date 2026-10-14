@@ -112,20 +112,25 @@
   // bekeken-lijst van Trakt kan groot worden: in IndexedDB (sleutel trakt.cache.v1). Oudere builds hadden hem in
   // localStorage ('trakt.cache'); die wordt één keer overgezet en daar gewist (anders loopt de opslag vol).
   var legacyT = B.store.get('trakt.cache', null);
-  var cacheT = legacyT || { movies: [], shows: {}, index: {}, activity: null };
+  var cacheT = legacyT || { movies: [], shows: {}, index: {}, tmdb: {}, activity: null, iv: 2 };
   var cacheGen = 0;
   if (legacyT) { B.idb.set('trakt.cache.v1', legacyT).then(function () { B.store.del('trakt.cache'); }); }
   else {
     B.idb.get('trakt.cache.v1').then(function (c) {
       // alleen als er intussen niets nieuws is opgehaald of gewist
       if (!c || typeof c !== 'object' || cacheGen) return;
-      cacheT = { movies: c.movies || [], shows: c.shows || {}, index: c.index || {}, activity: c.activity || null };
-      loadCache();
+      cacheT = { movies: c.movies || [], shows: c.shows || {}, index: c.index || {}, tmdb: c.tmdb || {}, activity: c.activity || null, iv: c.iv || 0 };
+      if (!c.tmdb) cacheT.needTmdb = true;
+      migrateIndex(); loadCache();
+      // kaarten die al getekend zijn (vóór de cache er was) alsnog afvinken: Trakt.refresh meldt niets als er bij
+      // Trakt niets nieuws is
+      B.emit('trakt');
     });
   }
-  var watchedMovies = {}, watchedShows = {};
+  var watchedMovies = {}, watchedShows = {}, anyT = false;
   function loadCache() {
     watchedMovies = {}; watchedShows = {};
+    anyT = !!((cacheT.movies || []).length || Object.keys(cacheT.shows || {}).length || Object.keys(cacheT.index || {}).length);
     (cacheT.movies || []).forEach(function (i) { watchedMovies[i] = true; });
     Object.keys(cacheT.shows || {}).forEach(function (k) { var set = {}; (cacheT.shows[k] || []).forEach(function (e) { set[e] = true; }); watchedShows[k] = set; });
   }
@@ -136,7 +141,7 @@
     clearTimeout(cacheTimer);
     cacheTimer = setTimeout(function () { B.idb.set('trakt.cache.v1', cacheT); }, 1500);
   }
-  Trakt.reset = function () { cacheGen++; cacheT = { movies: [], shows: {}, index: {}, activity: null }; loadCache(); };
+  Trakt.reset = function () { cacheGen++; cacheT = { movies: [], shows: {}, index: {}, tmdb: {}, activity: null, iv: 2 }; loadCache(); };
 
   Trakt.clientID = function () { return A.serverKey('traktClientID') || ''; };
   Trakt.ready = function () { return !!Trakt.clientID(); };
@@ -298,18 +303,57 @@
   Trakt._get = get;
 
   // titel → IMDb-index (Trakt-titels en eerder opgezochte IPTV-titels)
-  function idxKey(title, year, show) { return (show ? 's' : 'm') + '|' + B.fold(title).replace(/[^a-z0-9]+/g, ' ').trim() + '|' + (year || ''); }
+  // = TitleIndex.norm op iOS: zonder accenten en hoofdletters, alleen letters en cijfers ("Spider-Man" = "Spiderman")
+  var NOT_ALNUM = (function () { try { return new RegExp('[^\\p{L}\\p{N}]+', 'gu'); } catch (e) { return /[^a-z0-9\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+/g; } })();
+  function norm(t) { return B.fold(t).replace(NOT_ALNUM, ''); }
+  function idxKey(title, year, show) { return (show ? 's' : 'm') + '|' + norm(title) + '|' + (year || ''); }
+  /** Index van vóór build 75 had spaties tussen de woorden; één keer omzetten naar de nieuwe sleutels. */
+  function migrateIndex() {
+    if ((cacheT.iv || 0) >= 2) return;
+    var old = cacheT.index || {}, ix = {};
+    Object.keys(old).forEach(function (k) {
+      var p = k.split('|');
+      if (p.length !== 3) return;
+      var nk = p[0] + '|' + norm(p[1]) + '|' + p[2];
+      if (!ix[nk]) ix[nk] = old[k];
+    });
+    cacheT.index = ix; cacheT.tmdb = cacheT.tmdb || {}; cacheT.iv = 2;
+  }
+  if (legacyT) migrateIndex();
   function indexAdd(title, year, imdb, show) {
     if (!title || !imdb) return;
     cacheT.index[idxKey(title, year, show)] = imdb;
     cacheT.index[idxKey(title, null, show)] = cacheT.index[idxKey(title, null, show)] || imdb;
   }
+  // schone titel per ruwe titel (scheelt opschonen bij elke kaart)
+  var cleanCache = {}, cleanCount = 0;
+  function cleaned(raw) {
+    var c = cleanCache[raw];
+    if (c) return c;
+    if (++cleanCount > 20000) { cleanCache = {}; cleanCount = 0; }
+    var p = B.parseTitle(raw);
+    return (cleanCache[raw] = { title: p.title, year: p.year });
+  }
   function indexed(title, year, show) {
     var ix = cacheT.index || {};
-    var p = B.parseTitle(title);
-    return ix[idxKey(title, year, show)] || ix[idxKey(p.title, year || p.year, show)] || ix[idxKey(p.title, null, show)] || null;
+    if (!title) return null;
+    var c = cleaned(title);
+    return (year && ix[idxKey(title, year, show)]) || ix[idxKey(title, null, show)] ||
+      ((year || c.year) && ix[idxKey(c.title, year || c.year, show)]) || ix[idxKey(c.title, null, show)] || null;
   }
-  Trakt.imdbFor = function (x, show) { return (x && x.imdbID) || (x ? indexed(x.rawTitle || x.title, x.year, show) : null); };
+  /** TMDB-id (uit de TMDB-cache van leeftijden/trailers) → IMDb-id via Trakt, zoals MetadataService op iOS. */
+  function viaTmdb(x, show) {
+    var AR = B.ageRatings;
+    var r = AR && AR.cached ? AR.cached(x.rawTitle || x.title, x.year, show) : null;
+    return r && r.id != null ? (cacheT.tmdb || {})[(show ? 's' : 'm') + r.id] || null : null;
+  }
+  Trakt.imdbFor = function (x, show) {
+    if (!x) return null;
+    if (x.imdbID) return x.imdbID;
+    // niets bekeken bij Trakt (niet ingelogd / subprofiel)? dan ook niet elke titel opschonen, zoals op iOS
+    if (!anyT && !Object.keys(cacheT.index || {}).length) return null;
+    return indexed(x.rawTitle || x.title, x.year, show) || viaTmdb(x, show);
+  };
   Trakt.isMovieWatched = function (m) { var i = Trakt.isLoggedIn() ? Trakt.imdbFor(m, false) : null; return !!(i && watchedMovies[i]); };
   Trakt.isEpisodeWatched = function (series, season, ep) {
     var i = Trakt.isLoggedIn() ? Trakt.imdbFor(series, true) : null;
@@ -332,23 +376,27 @@
     B.emit('traktStatus');
     return get('/sync/last_activities').then(function (act) {
       var all = act && act.all;
-      if (!force && all && all === cacheT.activity && (cacheT.movies.length || Object.keys(cacheT.shows).length)) return;
+      // cache van vóór build 75 heeft nog geen TMDB-ids: dan één keer alles ophalen
+      if (!force && all && all === cacheT.activity && cacheT.tmdb && (cacheT.movies.length || Object.keys(cacheT.shows).length) &&
+        (Object.keys(cacheT.tmdb).length || !cacheT.needTmdb)) return;
       return Promise.all([get('/sync/watched/movies'), get('/sync/watched/shows')]).then(function (r) {
-        var movies = [], shows = {};
+        var movies = [], shows = {}, tmdbIx = {};
         (r[0] || []).forEach(function (x) {
           var mv = x && x.movie, i = mv && mv.ids && mv.ids.imdb;
           if (!i) return;
           movies.push(i); indexAdd(mv.title, mv.year, i, false);
+          if (mv.ids.tmdb != null) tmdbIx['m' + mv.ids.tmdb] = i;
         });
         (r[1] || []).forEach(function (x) {
           var sh = x && x.show, i = sh && sh.ids && sh.ids.imdb;
           if (!i) return;
           indexAdd(sh.title, sh.year, i, true);
+          if (sh.ids.tmdb != null) tmdbIx['s' + sh.ids.tmdb] = i;
           var eps = [];
           (x.seasons || []).forEach(function (s) { (s.episodes || []).forEach(function (e) { if (s.number != null && e.number != null) eps.push(s.number + '-' + e.number); }); });
           shows[i] = eps;
         });
-        cacheT.movies = movies; cacheT.shows = shows; cacheT.activity = all || null;
+        cacheT.movies = movies; cacheT.shows = shows; cacheT.tmdb = tmdbIx; cacheT.needTmdb = false; cacheT.activity = all || null;
         saveCache(); loadCache();
         B.emit('trakt');
       });
@@ -405,7 +453,7 @@
           if (r2 === 'ok') {
             if (isEp) { (watchedShows[imdb] = watchedShows[imdb] || {})[item.season + '-' + item.episode] = true; (cacheT.shows[imdb] = cacheT.shows[imdb] || []).push(item.season + '-' + item.episode); }
             else { watchedMovies[imdb] = true; cacheT.movies.push(imdb); }
-            saveCache();
+            saveCache(); B.emit('trakt');
             Trakt.lastScrobble = L('Marked as watched on Trakt: %@', item.title);
           }
           setTimeout(function () { Trakt.refresh(true); }, 3000);
