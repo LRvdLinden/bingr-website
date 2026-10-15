@@ -146,10 +146,10 @@
 
   function U() { return B.ui; }
 
-  /** Badge "🔒 Lifetime" (los, of als waarde in een instellingenrij). */
+  /** Badge "Lifetime" met het Lifetime-icoon (los, of als waarde in een instellingenrij). */
   P.badge = function (cls) {
     var u = U();
-    return u.h('span.plan-badge' + (cls ? '.' + cls : ''), { title: L('Available with Lifetime') }, [u.icon('lock', 'plan-badge-ic'), u.h('span', 'Lifetime')]);
+    return u.h('span.plan-badge' + (cls ? '.' + cls : ''), { title: L('Available with Lifetime') }, [u.icon('lifetime', 'plan-badge-ic'), u.h('span', 'Lifetime')]);
   };
 
   function featureLine(reason) {
@@ -217,14 +217,14 @@
     var dlg = null;
     var body = h('div.plan-sheet');
     if (p.plan === 'lifetime' && !p.assumed) {
-      body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('sparkle')]), h('div', [h('div.plan-title', 'Bingr Lifetime'),
+      body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), h('div', [h('div.plan-title', 'Bingr Lifetime'),
         h('div.muted.small', L('You have Lifetime. Thanks for supporting Bingr!'))])]));
       body.appendChild(P.compareTable(null));
       body.appendChild(h('div.dlg-buttons', [u.button(L('Close'), function () { dlg.close(); }, { primary: true })]));
       dlg = u.modal({ title: '', body: body, cls: 'plan-dlg' });
       return dlg;
     }
-    body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('sparkle')]), h('div', [
+    body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), h('div', [
       h('div.plan-title', L('Upgrade to Lifetime')),
       h('div.plan-price', L('%@ one-time', P.price()))
     ])]));
@@ -245,7 +245,7 @@
       P.badge(),
       h('h2', title),
       h('p.muted', featureLine(reason) || ''),
-      h('div.dlg-buttons.center', [u.button(L('Upgrade to Lifetime'), function () { P.sheet(reason); }, { primary: true, icon: 'sparkle' })])
+      h('div.dlg-buttons.center', [u.button(L('Upgrade to Lifetime'), function () { P.sheet(reason); }, { primary: true, icon: 'lifetime' })])
     ]);
   };
 

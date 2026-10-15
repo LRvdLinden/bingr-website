@@ -542,7 +542,7 @@
     if (!P.isKnown()) return null;
     var free = P.isFree();
     var val = h('span.st-value.plan-val', [h('span.plan-pill' + (free ? '' : '.life'), P.name())]);
-    return S.stRow(sec, L('Subscription'), val, function () { P.sheet(free ? 'plan' : null); }, { icon: 'sparkle', sub: P.summary() });
+    return S.stRow(sec, L('Subscription'), val, function () { P.sheet(free ? 'plan' : null); }, { icon: 'lifetime', sub: P.summary() });
   };
   /** Rij "Nu aan het kijken" (list_streams): met Gratis op slot. */
   S.watchingNowRow = function (sec) {

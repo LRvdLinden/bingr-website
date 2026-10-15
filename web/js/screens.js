@@ -193,7 +193,7 @@
     var text = kind === 'devices' ? L('Free: up to %d devices. Lifetime: %d.', limit, P.LIFETIME.devices)
       : L('Free: up to %d screens at the same time. Lifetime: %d.', limit, P.LIFETIME.streams);
     return h('div.plan-upsell', [P.badge(), h('span.plan-upsell-t', text),
-      U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'sparkle' })]);
+      U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'lifetime' })]);
   };
   S.deviceLimit = function (info, onRetry, onCancel) {
     var list = h('div.dev-list');
