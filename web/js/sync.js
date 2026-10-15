@@ -1187,6 +1187,13 @@
       return A.writeProfiles(list).then(function (ok) {
         if (!ok) throw new Error(L('Something went wrong. Please try again.'));
         applyProfiles(list);
+        // build 97: het actieve profiel is een nieuw object (isMain veranderd): B.app.profile bijwerken en opnieuw
+        // melden, zodat wat alleen het hoofdprofiel ziet meteen verdwijnt of verschijnt
+        var cur = B.app && B.app.profile;
+        var fresh = cur ? D.profileById(cur.id) : null;
+        if (fresh) B.app.profile = fresh;
+        B.emit('profiles');
+        B.emit('settings');
         return true;
       });
     });

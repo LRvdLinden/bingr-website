@@ -17,10 +17,12 @@
   var L = function () { return B.L.apply(null, arguments); };
   var DT = B.details = {};
 
+  // build 97: geldige TMDB-locales (en-EN en ar-AR bestaan niet)
+  var TMDB_LANG = { en: 'en-US', nl: 'nl-NL', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', it: 'it-IT', pt: 'pt-PT', pl: 'pl-PL',
+    tr: 'tr-TR', ar: 'ar-SA', 'zh-Hans': 'zh-CN' };
   function tmdbLang() {
     var l = B.lang || 'en';
-    if (l === 'zh-Hans') return 'zh-CN';
-    if (l === 'pt') return 'pt-PT';
+    if (B.has(TMDB_LANG, l)) return TMDB_LANG[l];
     return l.length === 2 ? l + '-' + l.toUpperCase() : l;
   }
   function img(path, size) { return path ? 'https://image.tmdb.org/t/p/' + size + path : null; }
@@ -94,19 +96,43 @@
 
   // MARK: koppelen aan de bibliotheek (= matchRecommendations op iOS)
 
-  var idx = null, idxFor = null;
+  /**
+   * build 97: titelindex lui en in stukjes (B.chunked, zoals applyChunked), per bibliotheekversie (Lib.version) in
+   * plaats van objectidentiteit; zonder prototype (titel "Constructor"). Tot hij klaar is, geeft DT.match null.
+   */
+  var idx = null, idxVer = -1, idxP = null, idxPVer = -1, idxJob = null;
   function norm(t) { var p = B.parseTitle(t); return B.fold((p && p.title) || t).replace(/[^a-z0-9]/g, ''); }
-  function index() {
+  function indexNow() { return idx && idxVer === Lib.version ? idx : null; }
+  DT.indexReady = function () {
+    if (indexNow()) return Promise.resolve(idx);
+    var ver = Lib.version;
+    if (idxP && idxPVer === ver) return idxP;
+    if (idxJob) { idxJob.cancel(); idxJob = null; }
     var lib = Lib.lib || {};
-    if (idx && idxFor === lib) return idx;
-    idx = { movie: {}, series: {} }; idxFor = lib;
-    (lib.movies || []).forEach(function (m) { var n = norm(m.rawTitle || m.title); if (n) (idx.movie[n] = idx.movie[n] || []).push(m); });
-    (lib.series || []).forEach(function (s) { var n = norm(s.rawTitle || s.title); if (n && !idx.series[n]) idx.series[n] = [s]; });
-    return idx;
-  }
+    var next = { movie: Object.create(null), series: Object.create(null) };
+    var p = idxP = Promise.resolve().then(function () {
+      if (idxP !== p) throw new Error('cancelled');
+      idxJob = B.chunked(lib.movies || [], function (m) { var n = norm(m.rawTitle || m.title); if (n) (next.movie[n] = next.movie[n] || []).push(m); });
+      return idxJob;
+    }).then(function () {
+      if (idxP !== p) throw new Error('cancelled');
+      idxJob = B.chunked(lib.series || [], function (s) { var n = norm(s.rawTitle || s.title); if (n && !next.series[n]) next.series[n] = [s]; });
+      return idxJob;
+    }).then(function () {
+      if (idxP !== p) throw new Error('cancelled');
+      idxJob = null;
+      if (Lib.version === ver) { idx = next; idxVer = ver; }
+      return next;
+    });
+    idxPVer = ver;
+    p.catch(function () { if (idxP === p) { idxP = null; idxPVer = -1; } });
+    return p;
+  };
   /** Titel uit je bibliotheek bij een TMDB-titel (titel in de app-taal of origineel, met hetzelfde jaar als dat bekend is). */
   DT.match = function (r) {
-    var ix = index(), tab = r.isShow ? ix.series : ix.movie;
+    var ix = indexNow();
+    if (!ix) { DT.indexReady().catch(B.noop); return null; }
+    var tab = r.isShow ? ix.series : ix.movie;
     var keys = [r.title, r.original].filter(Boolean).map(norm);
     for (var i = 0; i < keys.length; i++) {
       var list = tab[keys[i]];
@@ -123,8 +149,15 @@
   DT.personLink = function (c) {
     return R.link(['person', String(c.personID || 0)]) + '?n=' + encodeURIComponent(c.name);
   };
+  /** build 97: foto met terugval op initialen als hij niet laadt, zonder referrer. */
+  function photoOrInitials(url, name, lazy) {
+    if (!url) return h('span', initials(name));
+    var im = h('img', { src: url, alt: '', loading: lazy ? 'lazy' : null, decoding: 'async', referrerpolicy: 'no-referrer' });
+    im.onerror = function () { im.onerror = null; if (im.parentNode) im.parentNode.replaceChild(h('span', initials(name)), im); };
+    return im;
+  }
   function castCell(c, clickable) {
-    var pic = h('span.cast-pic', c.photo ? [h('img', { src: c.photo, alt: '', loading: 'lazy' })] : [h('span', initials(c.name))]);
+    var pic = h('span.cast-pic', [photoOrInitials(c.photo, c.name, true)]);
     var txt = h('span.cast-txt', [h('span.cast-name', c.name), c.character ? h('span.cast-role', c.character) : null]);
     return clickable ? h('a.cast-cell', { href: DT.personLink(c) }, [pic, txt]) : h('div.cast-cell', [pic, txt]);
   }
@@ -142,21 +175,31 @@
     var out = h('div.dt-extra');
     if (d.cast.length) {
       var can = AR.hasKey();
-      out.appendChild(section(L('Cast'), h('div.cast-grid', d.cast.map(function (c) { return castCell(c, can); }))));
+      out.appendChild(section(L('Actors'), h('div.cast-grid', d.cast.map(function (c) { return castCell(c, can); }))));
     }
-    var recs = d.recommendations.map(function (r) { return { r: r, hit: DT.match(r) }; });
-    if (ageLimited()) recs = recs.filter(function (x) { return x.hit; });
-    if (recs.length) {
-      var cards = recs.map(function (x) {
-        if (x.hit) return S.posterCard(x.hit, x.r.isShow ? 'series' : 'movie');
-        var q = '#/search?q=' + encodeURIComponent(x.r.title);
-        return h('a.card.rec-out', { href: q, 'aria-label': x.r.title + (x.r.year ? ' (' + x.r.year + ')' : '') },
-          [h('div.card-img', [U.img(x.r.poster, 'poster', x.r.title)]), h('div.card-title', x.r.title)]);
-      });
-      out.appendChild(U.row(L('Recommendations'), cards, 'dt-recs'));
+    if (d.recommendations.length) {
+      // build 97: met de titelindex koppelen; is die nog niet klaar, dan de rij invullen zodra hij er is
+      if (indexNow()) { var row = recsRow(d); if (row) out.appendChild(row); }
+      else {
+        var slot = h('div.dt-recs-slot');
+        out.appendChild(slot);
+        DT.indexReady().then(function () { var r2 = recsRow(d); if (r2 && slot.isConnected !== false) slot.appendChild(r2); }, B.noop);
+      }
     }
     return out.childNodes.length ? out : null;
   };
+  function recsRow(d) {
+    var recs = d.recommendations.map(function (r) { return { r: r, hit: DT.match(r) }; });
+    if (ageLimited()) recs = recs.filter(function (x) { return x.hit; });
+    if (!recs.length) return null;
+    var cards = recs.map(function (x) {
+      if (x.hit) return S.posterCard(x.hit, x.r.isShow ? 'series' : 'movie');
+      var q = '#/search?q=' + encodeURIComponent(x.r.title);
+      return h('a.card.rec-out', { href: q, 'aria-label': x.r.title + (x.r.year ? ' (' + x.r.year + ')' : '') },
+        [h('div.card-img', [U.img(x.r.poster, 'poster', x.r.title)]), h('div.card-title', x.r.title)]);
+    });
+    return U.row(L('Recommendations'), cards, 'dt-recs');
+  }
 
   // MARK: pagina van een acteur/actrice (#/person/<tmdb-id>?n=<naam>)
 
@@ -208,25 +251,30 @@
     try { return new Date(s + 'T12:00:00').toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return s; }
   }
 
+  // build 97: persoonspagina licht het tabblad op waar je vandaan kwam (anders Home)
+  S.navOwner.person = function (r, last) { return last || 'home'; };
   S.pages.person = function (r) {
     var name = r.query.n || '';
     var box = h('div.person-box');
     var back = h('button.icon-btn.dt-back', { type: 'button', 'aria-label': L('Back'), title: L('Back') }, [U.icon('back')]);
     back.addEventListener('click', function () { if (history.length > 1) history.back(); else R.go('/home'); });
     var el = h('div.page.person', [back, box]);
-    var pg = { el: el, title: name || L('Cast') };
+    var pg = { el: el, title: name || L('Actors') };
     var alive = true;
     pg.destroy = function () { alive = false; };
     box.appendChild(h('div.state', [U.spinner()]));
     var id = B.int(r.parts[1]);
     (id ? Promise.resolve(id) : resolveName(name)).then(function (pid) { return pid ? person(pid) : null; }).then(function (res) {
+      // build 97: eerst de titelindex (in stukjes), dan pas "Beschikbaar in Bingr" koppelen
+      return DT.indexReady().then(function () { return res; }, function () { return res; });
+    }).then(function (res) {
       if (!alive) return;
       U.clear(box);
       var p = res && res.p, nm = (p && p.name) || name;
       pg.title = nm; document.title = nm + ' · Bingr';
       var photo = p && img(p.profile_path, 'h632');
       box.appendChild(h('div.person-head', [
-        h('div.person-pic', photo ? [h('img', { src: photo, alt: '' })] : [h('span', initials(nm))]),
+        h('div.person-pic', [photoOrInitials(photo, nm, false)]),
         h('h1.person-name', nm)
       ]));
       if (p) {
@@ -254,6 +302,13 @@
           [h('div.card-img', [U.img(c.poster, 'poster', c.title)]), h('div.card-title', c.title)]);
       })));
       if (!p && !have.length) box.appendChild(h('p.muted.person-none', L('No information found for this person.')));
+    }).catch(function (e) {
+      // build 97: geen eindeloze spinner bij een fout
+      B.log('persoon', e && e.message);
+      if (!alive) return;
+      U.clear(box);
+      box.appendChild(h('div.state', [U.icon('warn', 'state-ic'), h('p.muted', L('Something went wrong. Please try again.')),
+        U.button(L('Try again'), function () { R.fire(); }, { primary: true })]));
     });
     return pg;
   };

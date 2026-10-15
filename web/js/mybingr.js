@@ -182,7 +182,7 @@
       var rs = (recs.series || []).map(function (r) { return si[normTitle(r.title)]; }).filter(Boolean);
       for (var i = 0; i < Math.max(rm.length, rs.length) && i < 15; i++) { add('movie', rm[i]); add('series', rs[i]); }
     }
-    var score = {}, src = srcId();
+    var score = Object.create(null), src = srcId(); // build 97: per groep, zonder prototype
     D.progressList().forEach(function (pe) { var hit = lib.byId[pe.key]; if (hit && hit.type === 'movie') score[hit.item.group] = (score[hit.item.group] || 0) + 1; });
     D.setList('watched').slice(0, 200).forEach(function (k) { var hit = lib.byId[k]; if (hit && hit.type === 'movie') score[hit.item.group] = (score[hit.item.group] || 0) + 1; });
     D.setList('myList').forEach(function (k) {

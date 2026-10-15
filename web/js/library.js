@@ -110,8 +110,11 @@
   /** Filter per item (= Playlists.apply): geeft per soort een functie item → gefilterde kopie of null. */
   function makeFilter(ctx) {
     var c = ctx.custom;
-    var hidden = {}; (c.hidden || []).forEach(function (h) { hidden[h] = true; });
-    var locked = {}; (ctx.lockedGroups || []).forEach(function (g) { locked[g] = true; });
+    // build 97: groepsnamen van de aanbieder kunnen "constructor", "__proto__" of "toString" zijn: geen prototype
+    // en alleen eigen sleutels opzoeken
+    function own(o, k) { return o && B.has(o, k) ? o[k] : undefined; }
+    var hidden = Object.create(null); (c.hidden || []).forEach(function (h) { hidden[h] = true; });
+    var locked = Object.create(null); (ctx.lockedGroups || []).forEach(function (g) { locked[g] = true; });
     var ageLimit = ctx.unlocked ? null : ctx.ageLimit;
     function isLocked(g) {
       if (!ctx.parentalEnabled || ctx.unlocked) return false;
@@ -119,14 +122,14 @@
       return ctx.autoLockAdult && PC.isAdultGroup(g);
     }
     function group(g) {
-      var m = c.merged[g] || g;
-      return c.renamed['group:' + m] || m;
+      var m = own(c.merged, g) || g;
+      return own(c.renamed, 'group:' + m) || m;
     }
-    var groupOK = {};
+    var groupOK = Object.create(null);
     function visible(id, g) {
       if (hidden[id]) return false;
       if (B.has(groupOK, g)) return groupOK[g];
-      var m = c.merged[g] || g;
+      var m = own(c.merged, g) || g;
       var ok = !hidden['group:' + g] && !hidden['group:' + m] && !isLocked(g) && !isLocked(m);
       groupOK[g] = ok;
       return ok;
@@ -140,27 +143,27 @@
     return {
       channel: function (ch) {
         if (!visible(ch.id, ch.group)) return null;
-        var o = B.assign({}, ch, { group: group(ch.group), name: c.renamed[ch.id] || ch.name, rawGroup: ch.group });
+        var o = B.assign({}, ch, { group: group(ch.group), name: own(c.renamed, ch.id) || ch.name, rawGroup: ch.group });
         if (ageLimit != null && !PC.channelAllowedFor(o.name, o.rawGroup, ageLimit, ctx.strict)) return null;
         return o;
       },
       movie: function (m) {
         if (!visible(m.id, m.group) || !ageOK(m, false)) return null;
         // taal-tag ("Animal (IT)", "NL | …") niet in de getoonde titel; rawTitle blijft voor TMDB, Trakt en sleutels
-        return B.assign({}, m, { group: group(m.group), title: c.renamed[m.id] || CLs(m.title), rawTitle: m.title, rawGroup: m.group });
+        return B.assign({}, m, { group: group(m.group), title: own(c.renamed, m.id) || CLs(m.title), rawTitle: m.title, rawGroup: m.group });
       },
       series: function (x) {
         if (!visible(x.id, x.group) || !ageOK(x, true)) return null;
-        return B.assign({}, x, { group: group(x.group), title: c.renamed[x.id] || CLs(x.title), rawTitle: x.title, rawGroup: x.group });
+        return B.assign({}, x, { group: group(x.group), title: own(c.renamed, x.id) || CLs(x.title), rawTitle: x.title, rawGroup: x.group });
       },
       sortChannels: function (channels) {
         if (!((c.groupOrder && c.groupOrder.length) || Object.keys(c.channelOrder || {}).length)) return channels;
-        var gIndex = {}; c.groupOrder.forEach(function (g, i) { if (!B.has(gIndex, g)) gIndex[g] = i; });
-        var natural = {}, n = 0;
+        var gIndex = Object.create(null); (c.groupOrder || []).forEach(function (g, i) { if (!B.has(gIndex, g)) gIndex[g] = i; });
+        var natural = Object.create(null), n = 0;
         channels.forEach(function (ch) { if (!B.has(natural, ch.group)) natural[ch.group] = 10000 + n++; });
-        var cIndex = {};
-        Object.keys(c.channelOrder).forEach(function (g) { (c.channelOrder[g] || []).forEach(function (id, i) { cIndex[id] = i; }); });
-        var original = {};
+        var cIndex = Object.create(null);
+        Object.keys(c.channelOrder || {}).forEach(function (g) { (c.channelOrder[g] || []).forEach(function (id, i) { cIndex[id] = i; }); });
+        var original = Object.create(null);
         channels.forEach(function (ch, i) { if (!B.has(original, ch.id)) original[ch.id] = 100000 + i; });
         return channels.sort(function (a, b) {
           var ga = B.has(gIndex, a.group) ? gIndex[a.group] : natural[a.group];
@@ -238,7 +241,7 @@
   }
 
   function groupsOf(list) {
-    var seen = {}, out = [];
+    var seen = Object.create(null), out = []; // build 97: geen prototype (groep "constructor")
     list.forEach(function (x) { if (!seen[x.group]) { seen[x.group] = true; out.push(x.group); } });
     return out;
   }
@@ -246,7 +249,8 @@
   Lib.byGroup = function (type) {
     return Lib.memo('byGroup:' + type, function () {
       var list = type === 'movie' ? Lib.lib.movies : type === 'series' ? Lib.lib.series : Lib.lib.channels;
-      var m = {};
+      // build 97: zonder prototype, zodat m["constructor"] of m["__proto__"] gewoon een groep is
+      var m = Object.create(null);
       for (var i = 0; i < list.length; i++) (m[list[i].group] = m[list[i].group] || []).push(list[i]);
       return m;
     });
@@ -256,7 +260,7 @@
     l.channelGroups = groupsOf(l.channels);
     l.movieGroups = groupsOf(l.movies);
     l.seriesGroups = groupsOf(l.series);
-    l.byId = {};
+    l.byId = Object.create(null); // build 97
     l.channels.forEach(function (x) { l.byId[x.id] = { type: 'channel', item: x }; });
     l.movies.forEach(function (x) { l.byId[x.id] = { type: 'movie', item: x }; });    l.series.forEach(function (x) { l.byId[x.id] = { type: 'series', item: x }; });
   }
@@ -387,6 +391,7 @@
     Lib.source = src;
     Lib.error = null;
     Lib.episodeCache = {};
+    movieInfoCache.clear(); // build 97
     Lib.stalker = null;
     if (!src) { Lib.raw = { channels: [], movies: [], series: [], epg: {} }; Lib.applyFilters(); return Promise.resolve(); }
     // eenmalige uitleg: een http-server loopt in de browser via de server van Bingr
@@ -469,10 +474,32 @@
       return r;
     }, function () { return { episodes: [], info: null }; });
   };
+  /** build 97: Xtream-filminfo per xtreamVodID onthouden (zoals episodeCache), hooguit ~200; per server, geleegd bij een andere server. */
+  var movieInfoCache = new Map(), MOVIE_INFO_CAP = 200;
   Lib.movieInfo = function (m) {
     var src = Lib.source;
-    if (!src || src.kind !== 'Xtream Codes' || m.xtreamVodID == null) return Promise.resolve(null);
-    return new P.Xtream(src, D.secret(src, 'password')).vodInfo(m.xtreamVodID).catch(function () { return null; });
+    if (!src || src.kind !== 'Xtream Codes' || !m || m.xtreamVodID == null) return Promise.resolve(null);
+    var key = src.id + '|' + m.xtreamVodID;
+    if (movieInfoCache.has(key)) {
+      var hit = movieInfoCache.get(key);
+      movieInfoCache.delete(key); movieInfoCache.set(key, hit); // recent gebruikt achteraan
+      return hit;
+    }
+    var p = new P.Xtream(src, D.secret(src, 'password')).vodInfo(m.xtreamVodID).then(function (info) {
+      if (!info && movieInfoCache.get(key) === p) movieInfoCache.delete(key); // niets gekregen: later opnieuw proberen
+      p._v = info || null;
+      return info || null;
+    }, function () { if (movieInfoCache.get(key) === p) movieInfoCache.delete(key); return null; });
+    movieInfoCache.set(key, p);
+    while (movieInfoCache.size > MOVIE_INFO_CAP) movieInfoCache.delete(movieInfoCache.keys().next().value);
+    return p;
+  };
+  /** build 97: al opgehaalde Xtream-info zonder netwerk (of null). */
+  Lib.movieInfoCached = function (m) {
+    var src = Lib.source;
+    if (!src || !m || m.xtreamVodID == null) return null;
+    var p = movieInfoCache.get(src.id + '|' + m.xtreamVodID);
+    return p && p._v !== undefined ? p._v : null;
   };
 
   /** Stremio: alle directe streams van een titel ("movie|tt…" of "series|tt…:s:e"). */

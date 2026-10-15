@@ -385,7 +385,7 @@
       if (n[3] !== 'top') tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
     });
     var el = h('div.app', [header, content, tabs]);
-    var page = null, pageKey = null, scrolls = {};
+    var page = null, pageKey = null, scrolls = {}, lastNav = null;
     function drawProf() {
       U.clear(profBtn);
       var p = B.app.profile;
@@ -409,7 +409,11 @@
       page = S.pages[key](r);
       content.appendChild(page.el);
       el.setAttribute('data-page', key);
-      var navKey = S.navOwner[key] || key;
+      // build 97: navOwner mag een functie zijn (titel- en persoonspagina: het tabblad waar je vandaan kwam)
+      var own = S.navOwner[key];
+      var lastTab = NAV.some(function (n) { return n[0] === lastNav; }) ? lastNav : null;
+      var navKey = (typeof own === 'function' ? own(r, lastTab) : own) || key;
+      lastNav = navKey;
       [links, tabs].forEach(function (box) {
         Array.prototype.forEach.call(box.children, function (a) {
           var on = a.getAttribute('data-k') === navKey || (box === tabs && key === 'mylist' && a.getAttribute('data-k') === 'mybingr');
@@ -425,7 +429,9 @@
     }
     /** Huidige pagina opnieuw opbouwen (nieuwe bibliotheek, andere taal), op dezelfde plek. */
     function rerender() {
-      if (!page || B.player.current) return;
+      if (!page) return;
+      if (B.player.current) { deferred.lib = true; return; } // build 97: na het sluiten van de speler één keer
+      deferred.lib = false;
       var y = window.scrollY;
       if (page.refresh) { page.refresh(); return; }
       if (page.destroy) { try { page.destroy(); } catch (e) { /* stil */ } }
@@ -436,17 +442,40 @@
     }
     var pending = {};
     function soon(kind, fn, ms) { clearTimeout(pending[kind]); pending[kind] = setTimeout(fn, ms || 250); }
+    // build 97: zolang de speler open is de verborgen pagina niet bijwerken (voortgang en vinkjes komen elke paar
+    // seconden binnen); onthouden wat er nog moet en dat één keer doen als de speler sluit
+    var deferred = { lib: false, data: false, epg: false, coll: false, marks: false };
+    function hook(kind, fn) {
+      return function () {
+        if (B.player.current) { deferred[kind] = true; return; }
+        deferred[kind] = false;
+        fn();
+      };
+    }
+    var doData = hook('data', function () { if (page && page.onData) page.onData(); });
+    var doEpg = hook('epg', function () { if (page && page.onEpg) page.onEpg(); });
+    var doColl = hook('coll', function () { if (page && page.onCollections) page.onCollections(); });
+    var doMarks = hook('marks', function () { S.refreshMarks(content); });
+    function flushDeferred() {
+      var d = deferred;
+      if (d.lib) { d.lib = d.data = d.epg = d.coll = false; rerender(); }
+      if (d.coll) doColl();
+      if (d.data) doData();
+      if (d.epg) doEpg();
+      if (d.marks) doMarks();
+    }
     var offs = [
       B.on('library', function () { clearTimeout(pending.data); clearTimeout(pending.epg); soon('lib', rerender, 200); }),
       B.on('loading', function () { if (page && page.onLoading) page.onLoading(); }),
-      B.on('profileData', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); }),
-      B.on('epg', function () { if (page && page.onEpg) soon('epg', function () { if (page && page.onEpg) page.onEpg(); }, 300); }),
+      B.on('profileData', function () { if (page && page.onData) soon('data', doData, 300); }),
+      B.on('epg', function () { if (page && page.onEpg) soon('epg', doEpg, 300); }),
       B.on('profiles', drawProf),
-      B.on('collections', function () { if (page && page.onCollections) soon('coll', function () { if (page && page.onCollections) page.onCollections(); }, 150); }),
-      B.on('trakt', function () { if (page && page.onData) soon('data', function () { if (page && page.onData) page.onData(); }, 300); }),
+      B.on('collections', function () { if (page && page.onCollections) soon('coll', doColl, 150); }),
+      B.on('trakt', function () { if (page && page.onData) soon('data', doData, 300); }),
       // vinkjes op álle posters (ook Films, Series, zoeken en categorie-rijen, die geen onData hebben)
-      B.on('trakt', function () { soon('marks', function () { S.refreshMarks(content); }, 350); }),
-      B.on('profileData', function () { soon('marks', function () { S.refreshMarks(content); }, 350); })
+      B.on('trakt', function () { soon('marks', doMarks, 350); }),
+      B.on('profileData', function () { soon('marks', doMarks, 350); }),
+      B.on('playerClosed', function () { soon('flush', flushDeferred, 50); })
     ];
     R.handlers = [render];
     var screen = {
@@ -634,10 +663,13 @@
     function forYouRow() {
       if (!forYouAsked && B.trakt.isLoggedIn()) {
         forYouAsked = true;
-        Promise.all([B.trakt.recommendations(false), B.trakt.recommendations(true)]).then(function (r) {
-          forYouRecs = { movies: r[0], series: r[1] };
+        // build 97: lukt Trakt niet, dan blijft de rij staan zonder Trakt-tips (geen onafgehandelde fout)
+        var none = function (e) { B.log('trakt aanbevelingen', e && e.message); return null; };
+        Promise.all([B.trakt.recommendations(false).catch(none), B.trakt.recommendations(true).catch(none)]).then(function (r) {
+          if (!r[0] && !r[1]) return;
+          forYouRecs = { movies: r[0] || [], series: r[1] || [] };
           if (el.parentNode) refreshRows(['foryou']);
-        });
+        }).catch(function (e) { B.log('voor jou', e && e.message); });
       }
       // altijd alfabetisch op titel, films en series door elkaar (zonder onderscheid in hoofdletters en accenten),
       // met het label Serie/Film linksboven op de cover (zoals iOS build 74)
@@ -852,7 +884,11 @@
   S.pages.mylist = function () {
     var el = h('div.page.mylist');
     var pg = { el: el, title: L('My List') };
+    var grid = null;
     function render() {
+      // build 97: vorig rooster (IntersectionObserver) eerst opruimen
+      if (grid && grid.destroy) grid.destroy();
+      grid = null;
       U.clear(el);
       el.appendChild(h('div.page-head', [h('h1', L('My List'))]));
       var st = stateBox();
@@ -862,10 +898,12 @@
         el.appendChild(h('div.state', [U.icon('bookmark', 'state-ic'), h('h2', L('Your list is empty')), h('p.muted', L('Add movies and series with the My List button.'))]));
         return;
       }
-      el.appendChild(U.grid(items, function (hit) { return posterCard(hit.item, hit.type); }, 'posters'));
+      grid = U.grid(items, function (hit) { return posterCard(hit.item, hit.type); }, 'posters');
+      el.appendChild(grid);
     }
     pg.refresh = render;
     pg.onData = render;
+    pg.destroy = function () { if (grid && grid.destroy) grid.destroy(); grid = null; };
     render();
     return pg;
   };
@@ -944,15 +982,27 @@
     }
     function favKey(ch) { return D.key(src, ch.id); }
     function chanRow(ch) {
-      var nn = Lib.nowNext(ch);
-      var fav = D.inSet('favorites', favKey(ch));
       var row = h('div.lv-row' + (selected === ch ? '.sel' : ''), { role: 'listitem' });
+      var nameEl = h('div.lv-name'), nowEl = h('div.lv-now.muted'), txt = h('div.lv-txt', [nameEl, nowEl]);
+      var prog = null;
+      // build 97: nu/straks, voortgang en ster bijwerken zonder de rij te vervangen (focus en scrollpositie blijven)
+      row._upd = function () {
+        var nn = Lib.nowNext(ch);
+        var fav = D.inSet('favorites', favKey(ch));
+        if (row._fav !== fav) { row._fav = fav; U.clear(nameEl); U.append(nameEl, [ch.name, fav ? U.icon('starFill', 'lv-fav') : null]); }
+        var t = nn.now ? B.fmtTime(nn.now.start) + '  ' + nn.now.title : (nn.next ? L('Next') + ': ' + nn.next.title : '');
+        if (nowEl.textContent !== t) nowEl.textContent = t;
+        if (nn.now) {
+          if (!prog) { prog = h('div.card-progress.inline', [h('div')]); txt.appendChild(prog); }
+          prog.firstChild.style.width = pct(nn.now);
+        } else if (prog) { prog.remove(); prog = null; }
+        row.classList.toggle('sel', selected === ch);
+      };
+      row._upd();
       var main = h('button.lv-main', { type: 'button', 'aria-label': L('Watch %@', ch.name) }, [
         h('span.lv-num', ch.number != null ? String(ch.number) : ''),
         h('div.lv-logo', [U.img(ch.logo, 'logo', ch.name)]),
-        h('div.lv-txt', [h('div.lv-name', [ch.name, fav ? U.icon('starFill', 'lv-fav') : null]),
-          h('div.lv-now.muted', nn.now ? B.fmtTime(nn.now.start) + '  ' + nn.now.title : (nn.next ? L('Next') + ': ' + nn.next.title : '')),
-          nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
+        txt
       ]);
       main.addEventListener('click', function () { B.player.playChannel(ch, currentList); });
       U.onMenu(main, function () {
@@ -1011,14 +1061,48 @@
       if (cur) setTimeout(function () { list.scrollTop = Math.max(0, cur.offsetTop - list.offsetTop - 60); }, 0);
     }
     function drawGuide() { if (guideEl) fillGuide(guideEl, selected); }
-    function refreshList() {
+    /**
+     * build 97: zenderlijst bijwerken. Zelfde zenders: alleen de getoonde rijen ter plekke (nu/straks, ster).
+     * Andere zenders (favoriet erbij, recent): opnieuw opbouwen met dezelfde scrollpositie, minstens zoveel rijen
+     * als er al stonden, en de focus terug op dezelfde zender.
+     */
+    function sameList(a, b) {
+      if (a.length !== b.length) return false;
+      for (var i = 0; i < a.length; i++) if (a[i].id !== b[i].id) return false;
+      return true;
+    }
+    function updateRows() {
       if (!listEl) return;
-      var y = listEl.scrollTop;
+      Array.prototype.forEach.call(listEl.querySelectorAll('.lv-row'), function (rw) { if (rw._upd) rw._upd(); });
+    }
+    function refreshList(rebuild) {
+      if (!listEl) return;
+      var fresh = channelsFor(group);
+      if (!rebuild && grid && sameList(fresh, currentList)) { updateRows(); return; }
+      currentList = fresh;
+      var y = listEl.scrollTop, wy = window.scrollY;
+      var old = listEl.querySelectorAll('.lv-row').length;
+      var ae = document.activeElement, focusRow = ae && listEl.contains(ae) && ae.closest ? ae.closest('.lv-row') : null;
+      var focusId = focusRow && focusRow._ch ? focusRow._ch.id : null, focusGuide = !!(ae && ae.classList && ae.classList.contains('lv-gbtn'));
       if (grid && grid.destroy) grid.destroy();
       U.clear(listEl);
-      grid = U.grid(currentList, chanRow, 'lv-grid', 80);
+      var need = 80;
+      if (old > need) need = old;
+      if (focusId != null) for (var i = 0; i < currentList.length; i++) if (currentList[i].id === focusId) { need = Math.max(need, i + 20); break; }
+      grid = U.grid(currentList, chanRow, 'lv-grid', need);
       listEl.appendChild(grid);
       listEl.scrollTop = y;
+      if (window.scrollY !== wy) window.scrollTo(0, wy);
+      if (focusId != null) {
+        var rows = listEl.querySelectorAll('.lv-row');
+        for (var j = 0; j < rows.length; j++) {
+          if (rows[j]._ch && rows[j]._ch.id === focusId) {
+            var f = rows[j].querySelector(focusGuide ? '.lv-gbtn' : '.lv-main');
+            if (f) { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } }
+            break;
+          }
+        }
+      }
     }
     function render() {
       if (grid && grid.destroy) grid.destroy();
@@ -1047,7 +1131,8 @@
       guideEl = h('aside.lv-guide');
       el.appendChild(h('div.lv-cols', [gl, listEl, guideEl]));
       if (!selected || currentList.indexOf(selected) < 0) selected = currentList[0] || null;
-      refreshList();
+      grid = null;
+      refreshList(true);
       drawGuide();
       setTimeout(function () { var a = gl.querySelector('.active'); if (a) gl.scrollTop = a.offsetTop - 80; }, 0);
     }
@@ -1064,6 +1149,8 @@
 
   // MARK: detailpagina
 
+  // build 97: de detailpagina licht het tabblad op waar je vandaan kwam; direct geopend: Films of Series
+  S.navOwner.title = function (r, last) { return last || (r.parts[1] === 'series' ? 'series' : 'movies'); };
   S.pages.title = function (r) {
     var type = r.parts[1] === 'series' ? 'series' : 'movie';
     var id = r.parts[2] || '';

@@ -132,7 +132,7 @@
   function serverCats() {
     var k = kinds();
     return Lib.memo('cat:server:' + k.movie + k.series, function () {
-      var out = [], at = {};
+      var out = [], at = Object.create(null); // build 97: groep "constructor"/"__proto__" mag geen prototype raken
       var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
       function add(groups, map, type) {
         groups.forEach(function (g) {

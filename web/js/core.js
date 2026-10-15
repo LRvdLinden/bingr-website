@@ -396,30 +396,38 @@
   // MARK: proxy-token en GET-URL's (voor <video>, hls.js, Safari's eigen HLS-speler en afbeeldingen)
 
   /** Kort geldig token van de proxy (6 uur); na het inloggen opgehaald en ruim voor het verloopt ververst. */
-  var ptoken = null, ptokenP = null, ptokenTimer = null;
+  // build 97: ptokenGen telt op bij clearProxyToken; een verzoek van vóór het wissen (ander account) zet niets meer
+  var ptoken = null, ptokenP = null, ptokenTimer = null, ptokenGen = 0;
   B.ensureProxyToken = function () {
     if (ptoken && ptoken.exp - Date.now() > 30 * 60000) return Promise.resolve(ptoken.token);
     if (ptokenP) return ptokenP;
     var A = B.account;
     if (!A || !A.validAccessToken) return Promise.resolve(null);
-    ptokenP = A.validAccessToken().then(function (jwt) {
+    var gen = ptokenGen;
+    var my = ptokenP = A.validAccessToken().then(function (jwt) {
+      if (gen !== ptokenGen) return null;
       return fetch(B.config.supabaseUrl + '/functions/v1/web-proxy', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + jwt, 'apikey': B.config.supabaseKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'token' })
       }).then(function (r) { return r.json(); });
     }).then(function (j) {
-      ptokenP = null;
+      if (gen !== ptokenGen) return null; // build 97: intussen gewist
+      if (ptokenP === my) ptokenP = null;
       var exp = j && j.token ? Date.parse(j.expires_at) : NaN;
       if (!j || !j.token || !isFinite(exp)) return ptoken ? ptoken.token : null;
       ptoken = { token: j.token, exp: exp };
       clearTimeout(ptokenTimer);
       ptokenTimer = setTimeout(function () { B.ensureProxyToken(); }, Math.max(60000, exp - Date.now() - 45 * 60000));
       return ptoken.token;
-    }, function () { ptokenP = null; return ptoken ? ptoken.token : null; });
-    return ptokenP;
+    }, function () {
+      if (gen !== ptokenGen) return null;
+      if (ptokenP === my) ptokenP = null;
+      return ptoken ? ptoken.token : null;
+    });
+    return my;
   };
-  B.clearProxyToken = function () { ptoken = null; clearTimeout(ptokenTimer); };
+  B.clearProxyToken = function () { ptokenGen++; ptoken = null; ptokenP = null; clearTimeout(ptokenTimer); };
   function b64url(s) {
     return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
@@ -613,6 +621,8 @@
     }
     B.lang = (pick === 'en' || B.has(all, pick)) ? pick : 'en';
     try { document.documentElement.lang = B.lang; } catch (e) { /* stil */ }
+    // build 97: Arabisch van rechts naar links
+    try { document.documentElement.dir = B.lang === 'ar' ? 'rtl' : 'ltr'; } catch (e) { /* stil */ }
   };
   B.languages = [
     ['', 'Automatic'], ['nl', 'Nederlands'], ['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'],

@@ -283,7 +283,7 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 /* Live TV */
 .page.live .page-head { flex-wrap: wrap; }
 .lv-select { display: none; }
-.lv-cols { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(300px, 380px); gap: 18px; height: calc(100vh - var(--top) - 100px); min-height: 460px; }
+.lv-cols { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(300px, 380px); gap: 18px; height: calc(100vh - var(--top) - 100px); height: calc(100dvh - var(--top) - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: 460px; } /* build 97: dvh (iOS Safari) met vh als terugval */
 .lv-groups { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 6px; scrollbar-width: thin; }
 .lv-group { display: flex; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 6px; color: #ccc; font-size: 14.5px; }
 .lv-group span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -384,9 +384,9 @@ button.st-row:hover { background: var(--card2); }
 .st-chev { width: 18px; height: 18px; color: var(--muted); }
 
 /* vensters */
-.dlg-layer { position: fixed; inset: 0; z-index: 200; background: #000000b3; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; transition: opacity .16s; }
+.dlg-layer { position: fixed; inset: 0; z-index: 200; background: #000000b3; display: flex; align-items: center; justify-content: center; padding: 16px; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); opacity: 0; transition: opacity .16s; }
 .dlg-layer.show { opacity: 1; }
-.dialog { background: #181818; border: 1px solid #ffffff1f; border-radius: 12px; padding: 26px; width: 100%; max-width: 480px; max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 30px 80px #000; transform: translateY(8px) scale(.98); transition: transform .16s; }
+.dialog { background: #181818; border: 1px solid #ffffff1f; border-radius: 12px; padding: 26px; width: 100%; max-width: 480px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; box-shadow: 0 30px 80px #000; transform: translateY(8px) scale(.98); transition: transform .16s; }
 .dlg-layer.show .dialog { transform: none; }
 .dlg-title { font-size: 21px; margin-bottom: 8px; }
 .dlg-text { color: #ccc; margin-bottom: 6px; }
@@ -558,7 +558,7 @@ html.playing #bingr-cookie-btn { display: none; }
   .lv-logo { width: 60px; height: 40px; }
   .dialog { padding: 20px; }
   .dlg-layer:has(.sheet-dlg), .dlg-layer:has(.choose) { align-items: flex-end; padding: 0; }
-  .dialog.sheet-dlg, .dialog.choose { max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; }
+  .dialog.sheet-dlg, .dialog.choose { max-width: none; border-radius: 16px 16px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom)); max-height: 85vh; max-height: calc(85dvh - env(safe-area-inset-top)); }
   .pl-top { padding: calc(10px + env(safe-area-inset-top)) 12px 50px; }
   .pl-title { font-size: 17px; }
   .pl-subtitle, .pl-epg { font-size: 13px; }
@@ -1033,3 +1033,20 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
   .person-pic { width: 128px; height: 128px; }
   .person-name { font-size: 24px; }
 }
+
+/* build 97: Arabisch (dir=rtl): kleine correcties voor rijen, pijlen en uitlijning */
+[dir=rtl] .top-right, [dir=rtl] .row-more, [dir=rtl] .lv-select, [dir=rtl] kbd { margin-left: 0; margin-right: auto; }
+[dir=rtl] .menu-it, [dir=rtl] .ccard, [dir=rtl] .lv-main, [dir=rtl] .ep, [dir=rtl] .st-row, [dir=rtl] .opt, [dir=rtl] .limit-list { text-align: right; }
+[dir=rtl] .row-arrow.left { left: auto; right: 0; border-radius: 6px 0 0 6px; }
+[dir=rtl] .row-arrow.right { right: auto; left: 0; border-radius: 0 6px 6px 0; }
+[dir=rtl] .ic-back, [dir=rtl] .ic-chevron { transform: scaleX(-1); }
+[dir=rtl] .row-arrow:hover .ic { transform: scale(-1.25, 1.25); }
+[dir=rtl] .dt-back { left: auto; right: calc(var(--gutter) - 10px); }
+[dir=rtl] .hero-poster { right: auto; left: calc(var(--gutter) + 2vw); transform: rotate(-2deg); }
+[dir=rtl] .top10-num { margin-right: 0; margin-left: -10px; text-align: left; }
+[dir=rtl] .dt-shade { background: linear-gradient(270deg, #000000d9, #00000066 70%), linear-gradient(180deg, transparent 50%, var(--bg)); }
+[dir=rtl] .lv-groups { padding-right: 0; padding-left: 6px; }
+[dir=rtl] .lv-gbtn { margin-right: 0; margin-left: 8px; }
+[dir=rtl] .lv-main { padding: 10px 14px 10px 6px; }
+/* tijdbalk en tijden van de speler blijven links-naar-rechts (doorspoelen rekent vanaf links) */
+[dir=rtl] .pl-prog { direction: ltr; }

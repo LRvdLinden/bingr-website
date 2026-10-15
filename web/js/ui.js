@@ -21,7 +21,7 @@
       if (v == null || v === false) return;
       if (k === 'style' && typeof v === 'object') Object.keys(v).forEach(function (s) { el.style[s] = v[s]; });
       else if (k.indexOf('on') === 0 && typeof v === 'function') el.addEventListener(k.slice(2), v);
-      else if (k === 'html') el.innerHTML = v;
+      // build 97: optie `html` (innerHTML) weg; niemand gebruikte hem
       else el.setAttribute(k, v === true ? '' : v);
     });
     U.append(el, kids);
@@ -119,7 +119,8 @@
     s.setAttribute('stroke-linecap', 'round');
     s.setAttribute('stroke-linejoin', 'round');
     s.setAttribute('aria-hidden', 'true');
-    s.setAttribute('class', 'ic' + (cls ? ' ' + cls : ''));
+    // build 97: ook ic-<naam>, zodat pijlen bij Arabisch (rtl) gespiegeld kunnen worden
+    s.setAttribute('class', 'ic ic-' + name + (cls ? ' ' + cls : ''));
     s.innerHTML = P[name] || '';
     return s;
   };
@@ -183,6 +184,11 @@
 
   var stack = [];
   U.dialogOpen = function () { return stack.length > 0; };
+  // build 97: naar een andere pagina (#/…) = open vensters dicht (eerder geregistreerd dan de router)
+  window.addEventListener('hashchange', function () {
+    for (var i = stack.length - 1; i >= 0; i--) { try { stack[i].close(true); } catch (e) { /* stil */ } }
+  });
+  var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
   /** Venster: {title, text, body (element), buttons: [{label, fn, primary, danger, icon}], cls, onClose}. */
   U.modal = function (o) {
     var prevFocus = document.activeElement;
@@ -195,6 +201,7 @@
       var i = stack.indexOf(api);
       if (i < 0) return;
       stack.splice(i, 1);
+      document.removeEventListener('keydown', trap, true);
       layer.classList.remove('show');
       setTimeout(function () { if (layer.parentNode) layer.parentNode.removeChild(layer); }, 160);
       if (o.onClose) o.onClose(fromKey);
@@ -209,6 +216,18 @@
       box.appendChild(row);
     }
     layer.addEventListener('click', function (e) { if (e.target === layer) close(true); });
+    /** build 97: Tab blijft in het bovenste venster (focus trap). */
+    function trap(e) {
+      if (e.key !== 'Tab' || stack[stack.length - 1] !== api) return;
+      var all = Array.prototype.filter.call(box.querySelectorAll(FOCUSABLE), function (x) { return x === document.activeElement || (x.getClientRects && x.getClientRects().length > 0); });
+      if (!all.length) { e.preventDefault(); try { box.focus({ preventScroll: true }); } catch (x) { /* stil */ } return; }
+      var first = all[0], last = all[all.length - 1], cur = document.activeElement;
+      var inside = box.contains(cur);
+      if (e.shiftKey && (cur === first || !inside)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (cur === last || !inside)) { e.preventDefault(); first.focus(); }
+    }
+    if (!box.hasAttribute('tabindex')) box.setAttribute('tabindex', '-1');
+    document.addEventListener('keydown', trap, true);
     var api = { close: close, el: box, layer: layer };
     stack.push(api);
     document.body.appendChild(layer);
@@ -401,12 +420,15 @@
     if (!cards || !cards.length) return null;
     var track = h('div.row-track');
     cards.forEach(function (c) { track.appendChild(c); });
-    var left = U.button('', function () { track.scrollBy({ left: -track.clientWidth * 0.85, behavior: 'smooth' }); }, { icon: 'back', cls: 'row-arrow left', title: L('Back') });
-    var right = U.button('', function () { track.scrollBy({ left: track.clientWidth * 0.85, behavior: 'smooth' }); }, { icon: 'chevron', cls: 'row-arrow right', title: L('Next') });
+    // build 97: bij rtl (Arabisch) loopt de rij van rechts naar links: scrollLeft is dan 0 of negatief
+    function dir() { return document.documentElement.dir === 'rtl' ? -1 : 1; }
+    var left = U.button('', function () { track.scrollBy({ left: -dir() * track.clientWidth * 0.85, behavior: 'smooth' }); }, { icon: 'back', cls: 'row-arrow left', title: L('Back') });
+    var right = U.button('', function () { track.scrollBy({ left: dir() * track.clientWidth * 0.85, behavior: 'smooth' }); }, { icon: 'chevron', cls: 'row-arrow right', title: L('Next') });
     left.tabIndex = -1; right.tabIndex = -1;
     function arrows() {
-      left.classList.toggle('hide', track.scrollLeft < 8);
-      right.classList.toggle('hide', track.scrollLeft + track.clientWidth >= track.scrollWidth - 8);
+      var pos = Math.abs(track.scrollLeft);
+      left.classList.toggle('hide', pos < 8);
+      right.classList.toggle('hide', pos + track.clientWidth >= track.scrollWidth - 8);
     }
     track.addEventListener('scroll', arrows, { passive: true });
     setTimeout(arrows, 50);
@@ -445,7 +467,9 @@
     var q = {}, path = raw, qi = raw.indexOf('?');
     if (qi >= 0) {
       path = raw.slice(0, qi);
-      raw.slice(qi + 1).split('&').forEach(function (p) { if (!p) return; var kv = p.split('='); q[decodeURIComponent(kv[0])] = decodeURIComponent((kv[1] || '').replace(/\+/g, ' ')); });
+      // build 97: kapotte codering (#/search?q=50%) breekt de router niet: dan de ruwe tekst
+      var dec = function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } };
+      raw.slice(qi + 1).split('&').forEach(function (p) { if (!p) return; var kv = p.split('='); q[dec(kv[0])] = dec((kv.slice(1).join('=') || '').replace(/\+/g, ' ')); });
     }
     var parts = path.split('/').filter(Boolean).map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
     return { path: '/' + parts.join('/'), parts: parts, query: q, hash: location.hash || '#/' };

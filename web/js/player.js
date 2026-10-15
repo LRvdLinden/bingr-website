@@ -190,6 +190,9 @@
     video.onended = function () { self.ev.ended(); };
     video.onerror = function () { if (self.started) { var e = mediaErr(video); self.note(e, true); self.ev.error(e); } };
     this.trace = []; this.hlsTried = false; this.url = null;
+    // build 97: generatie; stop() en elke nieuwe open() verhogen hem, zodat een lopende poging (bibliotheek laden,
+    // proxytoken) na een async stap niets meer aan de gedeelde <video> hangt
+    this.gen = 0; this._fail = null;
   }
   Engine.prototype.reset = function () {
     if (this.hls) { try { this.hls.destroy(); } catch (e) { /* stil */ } this.hls = null; }
@@ -200,7 +203,13 @@
     try { v.load(); } catch (e) { /* stil */ }
     this.started = false;
   };
-  Engine.prototype.stop = function () { this.reset(); this.stopped = true; };
+  Engine.prototype.stop = function () {
+    // build 97: lopende poging echt afbreken (timer, listeners) en latere async stappen ongeldig maken
+    this.stopped = true; this.gen++;
+    var f = this._fail; this._fail = null;
+    if (f) { try { f(new Error('stopped')); } catch (e) { /* stil */ } }
+    this.reset();
+  };
   /** Fout na het starten in het logboek (bij de laatste poging). */
   Engine.prototype.note = function (e, after) {
     var last = this.trace[this.trace.length - 1];
@@ -213,32 +222,49 @@
     var self = this, v = this.v;
     this.reset();
     this.how = step.how;
+    var gen = this.gen;
     return new Promise(function (resolve, reject) {
       // via de proxy komt een film in stukken van 8 MB: wat meer tijd voor het eerste beeld
       var done = false, timer = setTimeout(function () { fail(new Error('timeout')); }, opts.live ? 20000 : (step.orig ? 45000 : 25000));
-      function ok() {
-        if (done) return; done = true; clearTimeout(timer);
+      var onErr = null, once = null;
+      // build 97: alle listeners van deze poging weg, bij succes, fout én stop
+      function cleanup() {
+        clearTimeout(timer);
         v.removeEventListener('canplay', ok); v.removeEventListener('loadeddata', ok);
+        if (onErr) v.removeEventListener('error', onErr);
+        if (once) v.removeEventListener('loadedmetadata', once);
+        if (self._fail === fail) self._fail = null;
+      }
+      function ok() {
+        if (done) return; done = true; cleanup();
         resolve();
       }
       function fail(e) {
-        if (done) return; done = true; clearTimeout(timer);
-        v.removeEventListener('canplay', ok); v.removeEventListener('loadeddata', ok);
+        if (done) return; done = true; cleanup();
         reject(e || new Error('fail'));
+      }
+      /** build 97: na een async stap: is deze poging nog de actuele? Zo nee: afbreken zonder iets aan de <video> te hangen. */
+      function stale() {
+        if (done) return true;
+        if (self.stopped || self.gen !== gen) { fail(new Error('stopped')); return true; }
+        return false;
       }
       self._fail = fail;
       v.addEventListener('canplay', ok); v.addEventListener('loadeddata', ok);
-      var onErr = function () { if (!self.started) { v.removeEventListener('error', onErr); fail(mediaErr(v)); } };
+      onErr = function () { if (!self.started) fail(mediaErr(v)); };
       v.addEventListener('error', onErr);
       if (step.how === 'direct' || (step.how === 'hls' && isAppleNative(v))) {
         v.src = step.url;
-        if (opts.start > 5 && !opts.live) v.addEventListener('loadedmetadata', function once() { v.removeEventListener('loadedmetadata', once); try { v.currentTime = opts.start; } catch (e) { /* stil */ } });
+        if (opts.start > 5 && !opts.live) {
+          once = function () { v.removeEventListener('loadedmetadata', once); once = null; try { v.currentTime = opts.start; } catch (e) { /* stil */ } };
+          v.addEventListener('loadedmetadata', once);
+        }
         v.load();
         return;
       }
       if (step.how === 'hls') {
         B.loadHls().then(function () {
-          if (done) return;
+          if (stale()) return;
           var Hls = window.Hls;
           if (!Hls.isSupported()) { if (v.canPlayType('application/vnd.apple.mpegurl')) { v.src = step.url; v.load(); return; } fail(new Error('no_mse')); return; }
           var hls = self.hls = new Hls({
@@ -250,6 +276,7 @@
           hls.on(Hls.Events.ERROR, function (evt, data) {
             if (!data || !data.fatal) return;
             var code = data.response && data.response.code;
+            if (self.hls !== hls) return; // build 97: oude instantie
             if (!self.started) { fail(new Error('hls_' + data.details + (code ? ' (HTTP ' + code + ')' : ''))); return; }
             if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recovered < 2) { recovered++; hls.recoverMediaError(); return; }
             if (data.type === Hls.ErrorTypes.NETWORK_ERROR && recovered < 2) { recovered++; hls.startLoad(); return; }
@@ -267,12 +294,13 @@
       }
       if (step.how === 'mpegts') {
         loadMpegts().then(function () {
-          if (done) return;
+          if (stale()) return;
           var M = window.mpegts;
           if (!M.getFeatureList().mseLivePlayback) { fail(new Error('no_mse')); return; }
           var p = self.ts = M.createPlayer({ type: 'mpegts', isLive: !!opts.live, url: step.url },
             { enableWorker: false, lazyLoad: false, liveBufferLatencyChasing: true, autoCleanupSourceBuffer: true });
           p.on(M.Events.ERROR, function (type, detail) {
+            if (self.ts !== p) return; // build 97: oude instantie
             var me = new Error('mpegts ' + (type || '') + (detail ? ' ' + detail : ''));
             if (!self.started) fail(me); else { self.note(me, true); self.ev.error(me); }
           });
@@ -285,6 +313,9 @@
   Engine.prototype.open = function (url, opts) {
     var self = this;
     var PD = B.playdiag;
+    // build 97: eigen generatie per open(); een oudere keten die na stop()+open() terugkomt, stopt zichzelf
+    var gen = ++this.gen;
+    function alive() { return !self.stopped && self.gen === gen; }
     this.url = url; this.trace = []; this.hlsTried = false; this.hlsFound = false;
     var plan = B.playPlan(url, opts.live, opts.forceTry, opts.hls);
     if (plan.error) { this.trace.push({ how: 'format', ok: false, err: plan.error.message, url: PD.mask(url) }); return Promise.reject(plan.error); }
@@ -298,7 +329,7 @@
       if (hasHls) plan.steps = plan.steps.filter(function (st) { return st.how !== 'mpegts' || !/\/(live|timeshift)\//i.test(st.url); });
     }
     function next() {
-      if (self.stopped) return Promise.reject(new Error('stopped'));
+      if (!alive()) return Promise.reject(new Error('stopped'));
       if (i >= plan.steps.length) return Promise.reject(lastErr || new Error('fail'));
       var step = plan.steps[i++];
       if (step.how === 'fail') {
@@ -309,6 +340,7 @@
       if (step.probe) return probeHls(step);
       if (step.proxy || B.mustProxy(step.url)) {
         return B.ensureProxyToken().then(function () {
+          if (!alive()) return Promise.reject(new Error('stopped')); // build 97
           var pu = B.proxyGetURL(step.url);
           if (!pu) { lastErr = lastErr || new Error('proxy_token'); return next(); }
           return run({ how: step.how, url: pu, orig: step.url, vodHls: step.vodHls });
@@ -322,12 +354,12 @@
      * en segmenten herschrijft); hls.js valt zelf terug op de proxy. Zo nee: door naar de volgende poging.
      */
     function probeHls(step) {
-      if (hlsFound || self.stopped) return next();
+      if (hlsFound || !alive()) return next();
       var memoKey = hostOf(step.url) + '|' + step.kind;
       if (vodHlsMemo[memoKey] === false) return next();
       self.hlsTried = true;
       return PD.probe(step.url, 7000).then(function (p) {
-        if (self.stopped) return Promise.reject(new Error('stopped'));
+        if (!alive()) return Promise.reject(new Error('stopped'));
         var ok = PD.isHls(p);
         // deze sessie onthouden: geeft de server 4xx op deze vorm, dan niet bij elke titel opnieuw vragen
         if (ok) vodHlsMemo[memoKey] = true;
@@ -356,7 +388,9 @@
       var rec = { how: step.how + (step.vodHls ? ' (VOD)' : ''), via: step.orig ? 'proxy' : 'direct', url: PD.mask(step.orig || step.url), ok: false };
       var t0 = Date.now();
       self.trace.push(rec);
+      if (!alive()) return Promise.reject(new Error('stopped'));
       return self.attempt(step, opts).then(function () {
+        if (!alive()) return Promise.reject(new Error('stopped')); // build 97
         rec.ok = true; rec.ms = Date.now() - t0;
         self.started = true;
         if (opts.onReady) { try { opts.onReady(); } catch (e) { B.log('onReady', e); } }
@@ -364,6 +398,7 @@
         return p && p.then ? p.then(null, function (e) { if (e && e.name === 'NotAllowedError') self.ev.needsTap(); }) : null;
       }, function (e) {
         rec.ms = Date.now() - t0; rec.err = e && e.message; if (e && e.media) rec.media = e.media;
+        if (!alive()) return Promise.reject(new Error('stopped')); // build 97
         lastErr = e; return next();
       });
     }
@@ -421,6 +456,9 @@
    */
   B.player.open = function (item, ctx) {
     ctx = ctx || {};
+    // build 97: opnieuw openen vanuit de speler (bv. "Vanaf het begin" bij live): de bestaande geschiedenisregel van
+    // de speler vervangen in plaats van een tweede toe te voegen (anders een dode Terug-stap)
+    var reopened = !!B.player.current;
     if (B.player.current) B.player.current.close(true);
     var profile = B.app.profile;
     var engine = null;
@@ -663,6 +701,10 @@
         }, 1500);
         setTimeout(function () { if (!closed && engine === my && !audioChosen) applyTrackPrefs(); }, 5000);
         if (!isLive()) setTimeout(function () { if (!closed && engine === my) mediaHint(my); }, 6000);
+      }, function (e) {
+        // build 97: een afgebroken (gestopte of vervangen) poging is geen fout voor de gebruiker
+        if (closed || engine !== my || (e && e.message === 'stopped')) return;
+        throw e;
       });
     }
 
@@ -767,8 +809,11 @@
       var my = engine, id = item.id;
       var series = ctx.series || null;
       var imdb = item.imdbID || (item.type === 'episode' ? B.trakt.imdbFor(series || { title: item.title }, true) : B.trakt.imdbFor({ title: item.title, year: B.int(item.subtitle) }, false));
-      OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
-        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdbFor() }, [want]).then(function (list) {
+      tmdbFor().then(function (tmdb) {
+        if (closed || engine !== my || item.id !== id || extCues) return [];
+        return OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
+          season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdb }, [want]);
+      }).then(function (list) {
         list = list.filter(function (x) { return B.clang.norm(x.language) === want; });
         if (!list.length || closed || engine !== my || item.id !== id || extCues) return null;
         return OS.download(list[0]).then(function (cues) {
@@ -778,12 +823,21 @@
         });
       }).catch(function (e) { B.log('auto-ondertitels', e && e.message); });
     }
-    /** TMDB-id van de film of serie (uit de cache van leeftijden/trailers) voor OpenSubtitles (build 91). */
+    /**
+     * TMDB-id van de film of serie voor OpenSubtitles (build 91): uit de cache van leeftijden/trailers; build 97:
+     * anders het TMDB-id dat de Xtream-server meegeeft (get_vod_info tmdb_id / get_series_info tmdb), hooguit 4 s.
+     * Geeft altijd een Promise (id of null).
+     */
     function tmdbFor() {
-      var x = item.type === 'episode' ? ctx.series : (Lib.lib && Lib.lib.byId && Lib.lib.byId[item.id] ? Lib.lib.byId[item.id].item : null);
-      if (!x) return null;
-      var r = B.ageRatings.cached(x.rawTitle || x.title, x.year, item.type === 'episode');
-      return r && r.found !== false && r.id != null ? r.id : null;
+      var isShow = item.type === 'episode';
+      var x = isShow ? ctx.series : (Lib.lib && Lib.lib.byId && Lib.lib.byId[item.id] ? Lib.lib.byId[item.id].item : null);
+      if (!x) return Promise.resolve(null);
+      var r = B.ageRatings.cached(x.rawTitle || x.title, x.year, isShow);
+      if (r && r.found !== false && r.id != null) return Promise.resolve(r.id);
+      var pick = function (info) { var v = info && B.int(isShow ? (info.tmdb || info.tmdb_id) : (info.tmdb_id || info.tmdb)); return v > 0 ? v : null; };
+      var ask = isShow ? (x.id != null ? Lib.episodes(x).then(function (res) { return res && res.info; }) : Promise.resolve(null)) : Lib.movieInfo(x);
+      var cap = new Promise(function (res) { setTimeout(function () { res(null); }, 4000); });
+      return Promise.race([ask, cap]).then(pick, function () { return null; });
     }
     function showExtCues(cues) {
       try { engine.selectText(null); } catch (e) { /* stil */ }
@@ -1014,8 +1068,10 @@
       var series = ctx.series || null;
       var imdb = item.imdbID || (item.type === 'episode' ? B.trakt.imdbFor(series || { title: item.title }, true) : B.trakt.imdbFor({ title: item.title, year: B.int(item.subtitle) }, false));
       U.toast(L('Searching…'));
-      OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
-        season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdbFor() }, lang ? [lang] : []).then(function (list) {
+      tmdbFor().then(function (tmdb) {
+        return OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
+          season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdb }, lang ? [lang] : []);
+      }).then(function (list) {
         if (closed) return;
         if (!list.length) { U.toast(lang ? L('No subtitles found in %@.', B.clang.name(lang) || lang) : L('No subtitles found for this title.')); return; }
         U.choose('OpenSubtitles', list.slice(0, 30).map(function (x, i) {
@@ -1243,7 +1299,9 @@
       }
       if (k === 'ArrowUp' || k === 'ArrowDown') {
         e.preventDefault();
-        if (isLive() && (ctx.channels || []).length > 1) { zap(k === 'ArrowUp' ? -1 : 1); return; }
+        // build 97: op de volumeschuif verandert ↑/↓ het volume, niet de zender
+        var onVol = t && t.classList && t.classList.contains('pl-vol');
+        if (!onVol && isLive() && (ctx.channels || []).length > 1) { zap(k === 'ArrowUp' ? -1 : 1); return; }
         video.volume = B.clamp(video.volume + (k === 'ArrowUp' ? 0.1 : -0.1), 0, 1); video.muted = false; drawVolume();
         flash(Math.round(video.volume * 100) + '%');
         return;
@@ -1326,7 +1384,8 @@
     B.player.current = screen;
     B.emit('playerOpened');
     document.body.appendChild(root);
-    history.pushState({ bingrPlayer: true }, '', location.href);
+    if (reopened && history.state && history.state.bingrPlayer) history.replaceState({ bingrPlayer: true }, '', location.href);
+    else history.pushState({ bingrPlayer: true }, '', location.href);
     window.addEventListener('popstate', onPop);
     window.addEventListener('pagehide', onHide);
     tickTimer = setInterval(tick, 1000);
