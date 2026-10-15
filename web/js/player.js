@@ -7,6 +7,7 @@
  * Build 83: films en afleveringen van Xtream-servers eerst als HLS (…/<id>.m3u8, als de server dat levert; in Safari
  * altijd, elders bij MKV/AVI e.d.), elke poging komt in een logboek, en bij een fout zegt de diagnose (playdiag.js)
  * precies wat er mis is, met een knop "Details".
+ * Build 102: casten naar AirPlay en Chromecast met de W3C Remote Playback API (zie "MARK: casten").
  */
 (function () {
   'use strict';
@@ -472,6 +473,13 @@
 
     var video = h('video.pl-video', { playsinline: true, 'webkit-playsinline': true, preload: 'auto' });
     video.setAttribute('x-webkit-airplay', 'allow');
+    // build 102: `video` is de <video> die nu speelt (tijdens casten castVideo); localVideo blijft de eigen speler
+    var localVideo = video;
+    var castVideo = h('video.pl-castvid', { preload: 'none', playsinline: true, 'webkit-playsinline': true, 'aria-hidden': 'true', tabindex: '-1' });
+    castVideo.setAttribute('x-webkit-airplay', 'allow');
+    var castText = h('div.pl-cast-t'), castHint = h('div.pl-cast-h');
+    var castUI = h('div.pl-cast', { 'aria-live': 'polite' }, [U.icon(isSafariEngine() ? 'airplay' : 'cast', 'pl-cast-ic'), castText, castHint]);
+    castUI.style.display = 'none';
     var subtitle = h('div.pl-sub');
     var spinner = h('div.pl-spin', [U.spinner()]);
     var tap = h('div.pl-tap');
@@ -491,7 +499,7 @@
     var errorBox = h('div.pl-error', { role: 'alert' }); errorBox.style.display = 'none';
     var tapPlay = U.button(L('Play'), function () { tapPlay.style.display = 'none'; if (engine) engine.play(); }, { primary: true, icon: 'play', cls: 'pl-tapplay' });
     tapPlay.style.display = 'none';
-    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, subtitle, tap, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, errorBox]);
+    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, castVideo, castUI, subtitle, tap, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, errorBox]);
     var screen = { el: root, item: function () { return item; } };
 
     function isLive() { return item.type === 'live'; }
@@ -521,6 +529,8 @@
     vol.addEventListener('input', function () { video.volume = parseFloat(vol.value); video.muted = video.volume === 0; drawVolume(); });
     var pipBtn = iconBtn('pip', L('Picture in Picture'), function () { togglePip(); });
     var fsBtn = iconBtn('full', L('Full screen') + ' (F)', function () { toggleFullscreen(); });
+    var castBtn = iconBtn(isSafariEngine() ? 'airplay' : 'cast', isSafariEngine() ? L('AirPlay') : L('Cast'), function () { castClick(); }, 'pl-castbtn');
+    castBtn.style.display = 'none';
     function drawVolume() {
       U.clear(muteBtn); muteBtn.appendChild(U.icon(video.muted || video.volume === 0 ? 'mute' : 'volume'));
       vol.value = video.muted ? 0 : video.volume;
@@ -564,6 +574,7 @@
       }
       rightBtns.appendChild(iconBtn('audio', L('Audio'), chooseAudio));
       rightBtns.appendChild(iconBtn('subs', L('Subtitles'), chooseText));
+      if (castSupported) rightBtns.appendChild(castBtn);
       if (document.pictureInPictureEnabled || video.webkitSupportsPresentationMode) rightBtns.appendChild(pipBtn);
       rightBtns.appendChild(fsBtn);
       // aanraakscherm: grote knoppen in het midden
@@ -574,7 +585,7 @@
       if (!isLive()) center.appendChild(U.button('', function () { jump(10); }, { icon: 'fwd10', cls: 'pl-cb', title: L('10 seconds forward') }));
       else if ((ctx.channels || []).length > 1) center.appendChild(U.button('', function () { zap(1); }, { icon: 'chDown', cls: 'pl-cb', title: L('Next channel') }));
       bar.classList.toggle('live', isLive());
-      drawPlay(); drawVolume();
+      drawPlay(); drawVolume(); drawCast();
       mediaSession();
     }
     function mediaSession() {
@@ -673,6 +684,10 @@
       }
     }
     function openURL(url, resumeAt, gen) {
+      // build 102: nieuwe stream (volgende aflevering, zappen, opnieuw) tijdens het casten via castVideo: eerst lokaal
+      // starten; is de tv daarna nog verbonden, dan gaat de nieuwe stream meteen weer naar de tv (castResume)
+      if (cast.el === castVideo) { cast.keep = cast.mode === 'swap'; leaveCast(); }
+      setCastURL(null);
       if (engine) engine.stop();
       var events = {
         buffering: function (b) { if (engine === my) spinner.style.display = b ? 'flex' : 'none'; },
@@ -691,8 +706,10 @@
         if (closed || limited || engine !== my || (gen != null && gen !== startGen)) { if (engine === my && (closed || limited)) my.stop(); return; }
         attempts = 0;
         spinner.style.display = 'none';
+        prepareCast();
         renderInfo();
         showControls();
+        castResume();
         setTimeout(function () {
           if (closed || engine !== my) return;
           if (!audioChosen) applyTrackPrefs();
@@ -736,6 +753,227 @@
         v.mozHasAudio === false;
       if (noPicture) U.toast(L('No picture? The video in this file (often HEVC/H.265) can’t be played by your browser. Watch in the Bingr app.'), 7000);
       else if (noSound) U.toast(L('No sound? The audio in this file (often AC3 or DTS) can’t be played by your browser. Watch in the Bingr app.'), 7000);
+    }
+
+    // MARK: casten (build 102)
+
+    /*
+     * build 102: AirPlay en Chromecast zonder Google's Cast-SDK of andere scripts van derden (privacy): de W3C Remote
+     * Playback API (video.remote: watchAvailability/prompt/connect/disconnect; Safari = AirPlay, Chrome/Edge =
+     * Chromecast), met Safari's oude webkitShowPlaybackTargetPicker + webkitcurrentplaybacktargetiswireless als terugval.
+     * Een tv speelt alleen een gewone URL (src=), geen MSE (hls.js/mpegts.js). Daarom staat de directe URL van de
+     * huidige stream steeds klaar op een tweede, onzichtbare <video> (castVideo, preload none: geen verbinding met de
+     * server zolang er niet gecast wordt). prompt() moet synchroon in de klik, en Chrome kent de beschikbaarheid per bron
+     * en wisselt een bron async: prompt() vlak na src= op de MSE-<video> zou op de oude bron weigeren. Bij 'connect' gaat
+     * hls.js/mpegts.js weg en speelt castVideo op de tv (bediening, voortgang en Trakt lopen via engine = castVideo);
+     * bij 'disconnect' lokaal verder vanaf de positie van de tv. Annuleren verandert niets (lokaal speelde gewoon door).
+     * Speelt de speler al een gewone URL (Safari's eigen HLS, MP4), dan cast hij zelf ('self'), zonder wissel.
+     * URL voor de tv: https zoals hij is; http (of iets dat al via de proxy liep) via de GET-vorm van de proxy (https,
+     * CORS * voor de ontvanger, token 6 uur). MPEG-TS live: liever de HLS-variant (Xtream …/id.m3u8).
+     * Grenzen: geen DRM (komt bij IPTV niet voor). MPEG-TS zonder HLS-variant speelt de standaard-ontvanger van
+     * Chromecast niet betrouwbaar: een fout of geen beeld binnen 30 s → melding "Casten is niet mogelijk" en lokaal
+     * verder. De API geeft geen apparaatnaam, dus "je tv".
+     */
+    function hasRemote(el) { return !!(el && el.remote && typeof el.remote.prompt === 'function'); }
+    var castSupported = hasRemote(localVideo) || typeof localVideo.webkitShowPlaybackTargetPicker === 'function';
+    // mode: null | 'connecting' | 'self' (speler cast zelf) | 'swap' (castVideo cast, lokaal gestopt)
+    var cast = { avail: {}, url: null, src: null, orig: null, mode: null, el: null, pos: 0, ok: false, keep: false, watchdog: null, ids: [] };
+
+    function watchCast(el, key) {
+      try { el.disableRemotePlayback = false; } catch (e) { /* stil */ }
+      if (hasRemote(el)) {
+        var r = el.remote;
+        r.addEventListener('connecting', function () { onRemote(el, 'connecting'); });
+        r.addEventListener('connect', function () { onRemote(el, 'connect'); });
+        r.addEventListener('disconnect', function () { onRemote(el, 'disconnect'); });
+        if (typeof r.watchAvailability !== 'function') { cast.avail[key] = true; return; }
+        var p;
+        try { p = r.watchAvailability(function (a) { cast.avail[key] = !!a; drawCast(); }); } catch (e) { p = Promise.reject(e); }
+        p.then(function (id) { cast.ids.push({ r: r, id: id }); }, function (e) {
+          B.log('casten: watchAvailability', e && e.name);
+          // Chrome op Android e.d. kan niet doorlopend zoeken; prompt() werkt dan wel: knop tonen
+          if (e && e.name === 'NotSupportedError') { cast.avail[key] = true; drawCast(); }
+        });
+        return;
+      }
+      el.addEventListener('webkitplaybacktargetavailabilitychanged', function (ev) { cast.avail[key] = ev.availability === 'available'; drawCast(); });
+      el.addEventListener('webkitcurrentplaybacktargetiswireless', function () { onRemote(el, el.webkitCurrentPlaybackTargetIsWireless ? 'connect' : 'disconnect'); });
+    }
+    if (castSupported) { watchCast(localVideo, 'main'); watchCast(castVideo, 'cast'); }
+
+    /** Speelt de eigen <video> een gewone URL (geen MSE)? Dan kan hij zelf casten. */
+    function mainPlain() {
+      var e = engine;
+      if (!e || !e.started || e.v !== localVideo || e.hls || e.ts) return false;
+      var s = localVideo.currentSrc || localVideo.getAttribute('src') || '';
+      return !!s && !/^(blob|data|mediasource):/i.test(s);
+    }
+    /** Welke URL kan de tv zelf ophalen? {url (zonder proxy), how, proxy} of null. */
+    function castSource(e) {
+      var st = e && e.lastStep;
+      if (!st) return null;
+      var raw = String(st.orig || st.url || ''), how = st.how;
+      if (!/^https?:/i.test(raw)) return null;
+      if (how === 'mpegts') {
+        // liever HLS: de standaard-ontvanger van Chromecast speelt los MPEG-TS niet betrouwbaar (en via de proxy loopt
+        // een doorlopende .ts tegen de tijdslimiet aan). Niet als HLS hier al mislukte.
+        var hlsFailed = (e.trace || []).some(function (r) { return /^hls/.test(r.how) && !r.ok; });
+        var alt = null;
+        if (/\/(live|timeshift)\//i.test(raw) && /\.ts$/i.test(raw.split('?')[0])) alt = raw.replace(/\.ts(\?|$)/i, '.m3u8$1');
+        else if (!isLive()) { var c = B.providers.vodHlsCandidates(raw); if (c.length) alt = c[0].url; }
+        if (alt && !hlsFailed) { raw = alt; how = 'hls'; }
+      }
+      // Chromecast haalt HLS met MSE op (CORS nodig): servers zonder CORS ook via de proxy; AirPlay heeft dat niet nodig
+      var proxy = !!st.orig || B.mustProxy(raw) || (!isSafariEngine() && how === 'hls' && B.needsProxy(raw));
+      return { url: raw, how: how, proxy: proxy };
+    }
+    /** Na elke start: de URL voor de tv klaarzetten op castVideo (zo kan prompt() meteen in de klik). */
+    function prepareCast() {
+      if (!castSupported || !engine || !engine.started || engine.v !== localVideo) return;
+      var src = cast.src = castSource(engine), my = engine;
+      cast.orig = engine.url;
+      // speelt de speler al een gewone URL, dan cast hij zelf: castVideo leeg (geen tweede castbaar element)
+      if (!src || mainPlain()) { setCastURL(null); return; }
+      if (!src.proxy) { setCastURL(src.url); return; }
+      setCastURL(B.proxyGetURL(src.url));
+      B.ensureProxyToken().then(function () { if (!closed && engine === my && cast.src === src) setCastURL(B.proxyGetURL(src.url)); }, B.noop);
+    }
+    function setCastURL(u) {
+      cast.url = u || null;
+      if (cast.el !== castVideo) { // castVideo verbindt of cast: niet wisselen
+        if (!u) { if (castVideo.hasAttribute('src')) { castVideo.removeAttribute('src'); try { castVideo.load(); } catch (e) { /* stil */ } } }
+        else if (castVideo.getAttribute('src') !== u) castVideo.src = u;
+      }
+      drawCast();
+    }
+    function drawCast() {
+      if (!castSupported) return;
+      var on = cast.mode === 'self' || cast.mode === 'swap';
+      var ready = !!engine && engine.started && engine.v === localVideo && (mainPlain() || !!cast.url);
+      castBtn.style.display = cast.mode || ((cast.avail.main || cast.avail.cast) && ready) ? '' : 'none';
+      castBtn.classList.toggle('on', on);
+      castBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      root.classList.toggle('casting', !!cast.mode);
+      castUI.style.display = cast.mode ? 'flex' : 'none';
+      castText.textContent = cast.mode === 'connecting' ? L('Connecting to your TV…') : L('Playing on your TV');
+      castHint.textContent = on ? L('Use the controls here to pause, seek or change the volume.') : '';
+    }
+    /** Klik op de castknop: alles synchroon, zodat prompt() binnen de klik valt. */
+    function castClick() {
+      showControls();
+      // al verbonden of bezig: de keuzelijst van de browser opnieuw (daar stopt de gebruiker het casten)
+      if (cast.el) { promptOn(cast.el, true); return; }
+      if (!engine || !engine.started || engine.v !== localVideo) return;
+      var el = mainPlain() ? localVideo : (cast.url ? castVideo : null);
+      if (!el) { U.toast(L('Casting isn’t possible for this stream.')); return; }
+      cast.pos = isLive() ? 0 : engine.time();
+      if (el === castVideo) {
+        if (castVideo.getAttribute('src') !== cast.url) castVideo.src = cast.url;
+        if (!isLive()) { try { castVideo.currentTime = cast.pos; } catch (e) { /* stil */ } }
+      }
+      promptOn(el, false);
+    }
+    function promptOn(el, again) {
+      if (hasRemote(el)) {
+        var p;
+        try { el.disableRemotePlayback = false; p = el.remote.prompt(); } catch (e) { p = Promise.reject(e); }
+        Promise.resolve(p).then(B.noop, function (e) {
+          var n = e && e.name;
+          B.log('casten: prompt', n, e && e.message);
+          if (again || n === 'NotAllowedError' || n === 'AbortError') return; // zelf gesloten: lokaal speelt gewoon door
+          U.toast(n === 'NotFoundError' ? L('No TV found. Make sure your TV and this device are on the same network.') : L('Casting isn’t possible for this stream.'), 5000);
+        });
+        return;
+      }
+      if (typeof el.webkitShowPlaybackTargetPicker === 'function') { try { el.webkitShowPlaybackTargetPicker(); } catch (e) { /* stil */ } }
+    }
+    function onRemote(el, kind) {
+      if (closed) return;
+      B.log('casten: ' + kind + (el === castVideo ? ' (stream)' : ' (speler)'));
+      if (kind === 'connecting') {
+        if (!cast.mode) { cast.el = el; cast.mode = 'connecting'; drawCast(); }
+        return;
+      }
+      if (kind === 'connect') { castConnected(el); return; }
+      if (el !== cast.el) return;
+      if (cast.mode === 'swap') { resumeLocal(); return; }
+      cast.mode = null; cast.el = null; drawCast(); // 'self': de browser speelt zelf lokaal verder
+    }
+    function castConnected(el) {
+      if ((cast.mode === 'self' || cast.mode === 'swap') && cast.el === el) return;
+      clearTimeout(cast.watchdog);
+      cast.el = el;
+      if (el === localVideo) { cast.mode = 'self'; drawCast(); return; }
+      var old = engine;
+      if (!castVideo.getAttribute('src') || !cast.orig) {
+        cast.mode = null; cast.el = null; drawCast();
+        U.toast(L('Casting isn’t possible for this stream.'));
+        return;
+      }
+      var pos = !isLive() && old && old.started && old.v === localVideo ? old.time() : cast.pos;
+      // van MSE naar de gewone URL: hls.js/mpegts.js netjes weg, castVideo speelt op de tv
+      if (old && old.v === localVideo) { saveProgress(true); old.stop(); }
+      cast.mode = 'swap'; cast.pos = pos; cast.ok = false;
+      video = castVideo;
+      var my = engine = new Engine({
+        buffering: function (b) { if (engine === my) spinner.style.display = b ? 'flex' : 'none'; },
+        ended: function () { if (engine === my) onEnded(); },
+        error: function (e) { if (engine === my) castFailed(e); },
+        state: function () { if (engine !== my) return; if (my.playing) { cast.ok = true; clearTimeout(cast.watchdog); } drawPlay(); showControls(); },
+        tracks: B.noop,
+        needsTap: function () { if (engine === my) { spinner.style.display = 'none'; tapPlay.style.display = ''; showControls(); } }
+      }, castVideo);
+      my.url = cast.orig; my.started = true; my.stopped = false;
+      my.lastStep = { how: cast.src ? cast.src.how : 'direct', url: castVideo.getAttribute('src'), cast: true };
+      my.trace = old && old.trace ? old.trace : [];
+      castVideo.volume = localVideo.volume; castVideo.muted = localVideo.muted;
+      if (pos > 1 && !isLive()) {
+        try { castVideo.currentTime = pos; } catch (e) { /* stil */ }
+        var once = function () { castVideo.removeEventListener('loadedmetadata', once); if (engine === my && Math.abs(castVideo.currentTime - pos) > 3) my.seek(pos); };
+        castVideo.addEventListener('loadedmetadata', once);
+      }
+      // geen beeld op de tv binnen 30 s (bv. los MPEG-TS op Chromecast): lokaal verder
+      cast.watchdog = setTimeout(function () { if (engine === my && !cast.ok && tapPlay.style.display === 'none') castFailed(new Error('cast_timeout')); }, 30000);
+      spinner.style.display = 'flex';
+      var p = castVideo.play();
+      if (p && p.then) p.then(null, function (e) { if (e && e.name === 'NotAllowedError') my.ev.needsTap(); });
+      drawCast(); drawPlay(); showControls();
+    }
+    /** Weg uit het casten via castVideo (zonder lokaal opnieuw te starten). */
+    function leaveCast() {
+      clearTimeout(cast.watchdog);
+      if (engine && engine.v === castVideo) {
+        localVideo.volume = castVideo.volume; localVideo.muted = castVideo.muted;
+        engine.stop();
+      }
+      video = localVideo;
+      tapPlay.style.display = 'none';
+      cast.mode = null; cast.el = null; cast.ok = false;
+      drawCast();
+    }
+    /** Tv losgekoppeld of mislukt: lokaal verder vanaf de positie van de tv. */
+    function resumeLocal() {
+      var ce = engine, pos = cast.pos;
+      if (ce && ce.v === castVideo) { if (!isLive()) pos = ce.time() || pos; saveProgress(true); }
+      cast.keep = false;
+      leaveCast();
+      if (closed || !cast.orig) return;
+      spinner.style.display = 'flex';
+      var g = startGen;
+      openURL(cast.orig, pos, g).catch(function (e) { if (!closed && g === startGen) fail(e); });
+    }
+    function castFailed(e) {
+      if (closed || cast.mode !== 'swap') return;
+      B.log('casten mislukt', e && e.message);
+      U.toast(L('Casting isn’t possible for this stream.'), 6000);
+      resumeLocal();
+    }
+    /** Nieuwe stream tijdens het casten (volgende aflevering, zappen): is de tv nog verbonden, dan meteen weer daarheen. */
+    function castResume() {
+      if (!cast.keep) return;
+      cast.keep = false;
+      var connected = hasRemote(castVideo) ? castVideo.remote.state === 'connected' : !!castVideo.webkitCurrentPlaybackTargetIsWireless;
+      if (connected && cast.url && !cast.mode) castConnected(castVideo);
     }
 
     // MARK: taal
@@ -1362,6 +1600,10 @@
       clearTimeout(hideTimer); clearTimeout(zapTimer);
       if (scrobbled && !stopSent) scrobble('stop');
       stopEngine(true);
+      // build 102: casten opruimen (zoeken naar tv's stoppen, castVideo leeg)
+      clearTimeout(cast.watchdog);
+      cast.ids.forEach(function (w) { try { var p = w.r.cancelWatchAvailability(w.id); if (p && p.catch) p.catch(B.noop); } catch (e) { /* stil */ } });
+      castVideo.removeAttribute('src'); try { castVideo.load(); } catch (e) { /* stil */ }
       try { if (document.pictureInPictureElement === video) document.exitPictureInPicture().catch(B.noop); } catch (e) { /* stil */ }
       try { if (isFull()) (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* stil */ }
       document.removeEventListener('keydown', onKey);

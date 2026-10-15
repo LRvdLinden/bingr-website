@@ -92,6 +92,14 @@
     'No picture? The video in this file (often HEVC/H.265) can’t be played by your browser. Watch in the Bingr app.': 'Geen beeld? Je browser kan het beeld in dit bestand (vaak HEVC/H.265) niet afspelen. Kijk in de Bingr-app.',
     'No sound? The audio in this file (often AC3 or DTS) can’t be played by your browser. Watch in the Bingr app.': 'Geen geluid? Je browser kan het geluid in dit bestand (vaak AC3 of DTS) niet afspelen. Kijk in de Bingr-app.',
     'You can set a PIN after saving the profile.': 'Na het opslaan kun je een pincode instellen.',
+    // build 102: casten (AirPlay / Chromecast) in de webspeler
+    'Cast': 'Casten',
+    'AirPlay': 'AirPlay',
+    'Playing on your TV': 'Speelt af op je tv',
+    'Connecting to your TV…': 'Verbinden met je tv…',
+    'Casting isn’t possible for this stream.': 'Casten is niet mogelijk voor deze stream.',
+    'No TV found. Make sure your TV and this device are on the same network.': 'Geen tv gevonden. Zorg dat je tv en dit apparaat op hetzelfde netwerk zitten.',
+    'Use the controls here to pause, seek or change the volume.': 'Pauzeer, spoel of verander het volume hier met de knoppen.',
     'Support': 'Support',
     'Help, questions and support tickets': 'Hulp, vragen en supporttickets',
     'Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.': 'Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer. Vragen? Ga naar support.bingr.online.'

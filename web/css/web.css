@@ -485,6 +485,14 @@ html.playing #bingr-cookie-btn { display: none; }
 .pl-error h2 { font-size: 26px; }
 .pl-error p { max-width: 560px; color: #ddd; }
 .pl-err-ic { width: 52px; height: 52px; color: var(--sec); }
+/* build 102: casten (AirPlay / Chromecast) */
+.pl-castvid { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.player.casting .pl-video { opacity: .25; }
+.pl-cast { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; background: #000000a6; pointer-events: none; }
+.pl-cast-ic { width: 64px; height: 64px; color: var(--accent); }
+.pl-cast-t { font-size: 24px; font-weight: 800; }
+.pl-cast-h { color: #ccc; font-size: 15px; max-width: 460px; }
+.btn.pl-ib.pl-castbtn.on { color: var(--accent); }
 .limit-list { display: flex; flex-direction: column; gap: 8px; text-align: left; margin-top: 6px; }
 .limit-row { display: flex; gap: 12px; align-items: center; }
 
