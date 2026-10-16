@@ -91,6 +91,7 @@
 .form label{display:block;margin-top:14px;font-size:14px;font-weight:600;color:var(--sec)}
 .form label input,.form select{margin-top:6px}
 .sub-page .form input:not([type=checkbox]),.sub-page .form select{background:#262626}
+.namefields{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}@media (max-width:520px){.namefields{grid-template-columns:1fr}}
 .form .chk{display:flex;align-items:center;gap:8px;color:#e2e2e2;font-size:15px;font-weight:500}.form .chk input{margin:0}
 .chks{display:flex;gap:18px;flex-wrap:wrap}
 .colprof{display:flex;align-items:center;gap:10px;margin-top:6px;color:var(--sec);font-size:14px;font-weight:600}
@@ -101,12 +102,12 @@
 <body class="sub-page">
 <nav id="nav" aria-label="Hoofdmenu">
   <div class="wrap">
-    <a href="../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <a href="../" class="logo" aria-label="Bingr">BINGR</a>
     <div class="links">
-      <a href="../index.html#features" data-s="nav.features">Functies</a>
-      <a href="../index.html#start" data-s="nav.start">Wat heb je nodig</a>
-      <a href="../index.html#download" data-s="nav.platforms">Apparaten</a>
-      <a href="../index.html#faq">FAQ</a>
+      <a href="../#features" data-s="nav.features">Functies</a>
+      <a href="../#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../#faq">FAQ</a>
       <a href="https://support.bingr.online">Support</a>
     </div>
     <div class="right">
@@ -209,10 +210,27 @@
 
     <section class="panel">
       <h2 class="h3" data-t="account"></h2>
+      <!-- voor- en achternaam (user_metadata first_name / last_name): de mails beginnen dan met "Hoi <voornaam>," -->
+      <form id="nameForm" class="form" novalidate>
+        <h3 data-t="nameTitle"></h3>
+        <p class="muted" data-t="nameHelp"></p>
+        <div class="namefields">
+          <label><span data-t="firstName"></span><input id="firstName" type="text" autocomplete="given-name" autocapitalize="words" spellcheck="false" maxlength="50"></label>
+          <label><span data-t="lastName"></span><input id="lastName" type="text" autocomplete="family-name" autocapitalize="words" spellcheck="false" maxlength="50"></label>
+        </div>
+        <div class="row"><button class="btn" id="nameSave" type="submit" data-t="saveName"></button></div>
+        <div id="nameMsg" class="err" aria-live="polite"></div>
+      </form>
       <div class="row">
         <button class="btn ghost" id="resetPw" data-t="changePw"></button>
         <button class="btn ghost" id="signOut" data-t="signOut"></button>
         <button class="btn danger" id="delete" data-t="delete"></button>
+      </div>
+      <!-- H1: account verwijderen alleen met het huidige wachtwoord (de server controleert het) -->
+      <div id="delBox" class="form" style="display:none;margin-top:18px">
+        <p data-t="delConfirm"></p>
+        <label><span data-t="delPw"></span><input id="delPw" type="password" autocomplete="current-password"></label>
+        <div class="row"><button class="btn danger" id="delGo" data-t="delGo"></button><button class="btn ghost" id="delCancel" data-t="cancel"></button></div>
       </div>
       <div id="accErr" class="err" aria-live="polite"></div>
     </section>
@@ -222,9 +240,9 @@
 <footer>
   <div class="wrap">
     <div class="top">
-      <div><a href="../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div><a href="../" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
       <div class="flinks">
-        <a href="../index.html#faq">FAQ</a>
+        <a href="../#faq">FAQ</a>
         <a href="https://support.bingr.online">Support</a>
         <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
         <a href="../account/" data-s="foot.account" aria-current="page">Mijn Bingr</a>
@@ -241,11 +259,11 @@
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../assets/js/site.js?v=95" data-base="../"></script>
+<script src="../assets/js/site.js?v=110" data-base="../"></script>
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=1"></script>
+<script src="../assets/js/auth-forms.js?v=2"></script>
 <script src="../assets/js/userbtn.js?v=94" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
 <script src="../assets/js/console.js?v=89"></script>
@@ -266,8 +284,11 @@ const tr = t({
         profiles:"Profielen", profHelp:"Profielen beheer je in de app; ze staan op al je apparaten. Hier kun je een ander profiel hoofdprofiel maken.", makeMain:"Maak hoofdprofiel", makeMainAsk:"%s wordt het hoofdprofiel: profielen en servers beheren, Trakt en de instellingen gaan daarheen. Het huidige hoofdprofiel (%o) wordt een gewoon profiel. Doorgaan?", kids:"Kinderprofiel", main:"Hoofdprofiel", noProfiles:"Nog geen profielen. Open Bingr op een apparaat om te beginnen.",
         devices:"Apparaten", count:"%d van %d apparaten", devHelp:"Maximaal <span class=\"lim\">15</span> apparaten. Verwijder je een apparaat, dan wordt het automatisch uitgelogd.", linkTv:"Tv koppelen", watchWeb:"Kijk in je browser",
         linked:"Gekoppeld", lastUsed:"laatst gebruikt", remove:"Verwijderen", rename:"Naam wijzigen", devName:"Naam van het apparaat", confirm:"%s verwijderen? Het apparaat wordt uitgelogd.", none:"Nog geen apparaten gekoppeld.",
+        nameTitle:"Je naam", nameHelp:"Zo spreken we je aan in e-mails van Bingr.", firstName:"Voornaam", lastName:"Achternaam", saveName:"Naam opslaan",
+        nameSaved:"Je naam is opgeslagen.", noFirst:"Vul je voornaam in.", noLast:"Vul je achternaam in.", nameBad:"Deze naam kan niet worden opgeslagen. Gebruik geen links of e-mailadressen.",
         account:"Account", changePw:"Wachtwoord wijzigen", signOut:"Uitloggen", delete:"Account verwijderen",
         delConfirm:"Je Bingr-account verwijderen? Al je apparaten worden uitgelogd en je profielen op de server worden gewist. Dit kan niet ongedaan worden gemaakt.",
+        delPw:"Vul je wachtwoord in om te bevestigen", delGo:"Account definitief verwijderen", wrongPw:"Onjuist wachtwoord.", tooMany:"Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.",
         resetSent:"We hebben je een e-mail gestuurd om je wachtwoord te wijzigen. Na het wijzigen word je op al je apparaten uitgelogd.", justNow:"zojuist", minAgo:"%d min geleden", yesterday:"gisteren", waiting:"Even geduld…",
         banned:"Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk:"Vragen?",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
@@ -291,8 +312,11 @@ const tr = t({
         profiles:"Profiles", profHelp:"You manage profiles in the app; they're on all your devices. Here you can make another profile the main profile.", makeMain:"Make main profile", makeMainAsk:"%s becomes the main profile: managing profiles and servers, Trakt and the settings move there. The current main profile (%o) becomes a regular profile. Continue?", kids:"Kids profile", main:"Main profile", noProfiles:"No profiles yet. Open Bingr on a device to get started.",
         devices:"Devices", count:"%d of %d devices", devHelp:"Up to <span class=\"lim\">15</span> devices. Removing a device signs it out automatically.", linkTv:"Link a TV", watchWeb:"Watch in your browser",
         linked:"Linked", lastUsed:"last used", remove:"Remove", rename:"Rename", devName:"Device name", confirm:"Remove %s? It will be signed out.", none:"No devices linked yet.",
+        nameTitle:"Your name", nameHelp:"This is how we address you in emails from Bingr.", firstName:"First name", lastName:"Last name", saveName:"Save name",
+        nameSaved:"Your name has been saved.", noFirst:"Enter your first name.", noLast:"Enter your last name.", nameBad:"This name can't be saved. Don't use links or email addresses.",
         account:"Account", changePw:"Change password", signOut:"Sign out", delete:"Delete account",
         delConfirm:"Delete your Bingr account? All your devices will be signed out and your profiles on the server will be erased. This can't be undone.",
+        delPw:"Enter your password to confirm", delGo:"Delete account permanently", wrongPw:"Incorrect password.", tooMany:"Too many attempts. Wait a few minutes and try again.",
         resetSent:"We've sent you an email to change your password. After changing it you'll be signed out on all your devices.", justNow:"just now", minAgo:"%d min ago", yesterday:"yesterday", waiting:"One moment…",
         banned:"Your account has been blocked. You received an email with the reason and until when.", bannedAsk:"Questions?",
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", generic:"Something went wrong. Please try again.", badEmail:"Enter a valid email address.",
@@ -462,6 +486,9 @@ async function load() {
   if (!data.session) return show("auth");
   const email = data.session.user.email || "";
   $("who").textContent = email; BingrAvatar.paint($("ini"), email); show("acc"); $("accErr").textContent = "";
+  // naam uit de sessie, daarna vers van de server (het beheer kan hem ook invullen)
+  showName(data.session.user);
+  sb.auth.getUser().then((r) => { if (r && r.data && r.data.user) showName(r.data.user); }).catch(() => {});
   BingrAvatar.refresh(data.session, () => BingrAvatar.paint($("ini"), email));
   try { const [, , ent] = await Promise.all([loadProfiles(), loadDevices(), loadPlan()]); BingrConsole.loadAll(ent ? ent.features : null); }
   catch (e) { if (e.message === "banned") { show("auth"); bannedMsg(); } else if (e.message === "signed_out") show("auth"); else $("accErr").textContent = tr("generic"); }
@@ -474,6 +501,34 @@ $("authForm").onsubmit = async (e) => {
   if (ok) load();
 };
 $("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent2", trigger: $("forgot"), focusEl: $("email") });
+// ---- naam (user_metadata first_name / last_name): tonen en wijzigen; opschonen met BingrAuth.cleanName (max. 50 tekens) ----
+function showName(user) {
+  const m = (user && user.user_metadata) || {};
+  const f = BingrAuth.cleanName(m.first_name), l = BingrAuth.cleanName(m.last_name);
+  // niet overschrijven terwijl iemand aan het typen is
+  if (document.activeElement !== $("firstName") && document.activeElement !== $("lastName")) { $("firstName").value = f; $("lastName").value = l; }
+  const full = [f, l].filter(Boolean).join(" ");
+  $("who").textContent = full ? full + " · " + (user.email || "") : (user.email || "");
+}
+$("nameForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const first_name = BingrAuth.cleanName($("firstName").value), last_name = BingrAuth.cleanName($("lastName").value);
+  $("nameMsg").textContent = "";
+  if (!first_name) { $("firstName").focus(); $("nameMsg").textContent = tr("noFirst"); return; }
+  if (!last_name) { $("lastName").focus(); $("nameMsg").textContent = tr("noLast"); return; }
+  busy($("nameSave"), true, tr("waiting"));
+  try {
+    // PUT /auth/v1/user: data wordt samengevoegd met de bestaande user_metadata (lang blijft staan)
+    const { data, error } = await sb.auth.updateUser({ data: { first_name, last_name } });
+    if (error) throw error;
+    $("nameSave").focus(); showName(data.user);
+    $("nameMsg").innerHTML = '<span class="ok">' + BingrAuth.esc(tr("nameSaved")) + "</span>";
+  } catch (err) {
+    // de server weigert namen met een link, e-mailadres of HTML (trigger bingr_user_names)
+    const k = BingrAuth.errKind(err);
+    $("nameMsg").textContent = k === "offline" || k === "rateLimit" ? BingrAuth.errText(err, tr) : tr("nameBad");
+  } finally { busy($("nameSave"), false, tr("saveName")); }
+};
 $("resetPw").onclick = async () => {
   const { data } = await sb.auth.getSession(); if (!data.session) return;
   BingrAuth.sendReset({ email: data.session.user.email, errEl: $("accErr"), tr, sentKey: "resetSent", trigger: $("resetPw") });
@@ -498,9 +553,26 @@ $("signOut").onclick = async () => {
   // opnieuw laden: ook het poppetje rechtsboven en alle andere sessiestaat zijn dan weg
   location.replace(location.pathname);
 };
-$("delete").onclick = async () => {
-  if (!confirm(tr("delConfirm"))) return;
-  try { await call("delete_account"); await Bingr.hardSignOut(); BingrAvatar.clear(); show("auth"); } catch (e) { $("accErr").textContent = tr("generic"); }
+// H1: bevestigen met het huidige wachtwoord; geen of fout wachtwoord = 403 wrong_password, te vaak = 429 rate_limited
+function closeDelete() { $("delBox").style.display = "none"; $("delPw").value = ""; $("delete").disabled = false; }
+$("delete").onclick = () => {
+  $("accErr").textContent = ""; $("delBox").style.display = ""; $("delete").disabled = true; $("delPw").focus();
+};
+$("delCancel").onclick = closeDelete;
+$("delPw").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("delGo").click(); } });
+$("delGo").onclick = async () => {
+  const pw = $("delPw").value;
+  $("accErr").textContent = "";
+  if (!pw) { $("accErr").textContent = tr("wrongPw"); $("delPw").focus(); return; }
+  $("delGo").disabled = true;
+  try {
+    await call("delete_account", { password: pw });
+    $("delPw").value = ""; await Bingr.hardSignOut(); BingrAvatar.clear(); closeDelete(); show("auth");
+  } catch (e) {
+    const m = e && e.message;
+    $("accErr").textContent = m === "wrong_password" ? tr("wrongPw") : m === "rate_limited" ? tr("tooMany") : tr("generic");
+    if (m === "wrong_password") { $("delPw").value = ""; $("delPw").focus(); }
+  } finally { $("delGo").disabled = false; }
 };
 load();
 </script>

@@ -467,6 +467,7 @@
     var watchedSeconds = 0, recorded = false, lastSave = 0, attempts = 0, triedBackup = false;
     var nextShown = false, nextDismissed = false, countdownTimer = null;
     var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false;
+    var failPos = 0; // plek bij de laatste fout (films/afleveringen), voor "Opnieuw"
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
     var seeking = null;
@@ -659,6 +660,7 @@
 
     function start(resumeAt) {
       var gen = ++startGen;
+      failPos = 0;
       limited = false; audioChosen = false; autoSubsDone = false; subsStartedAt = Date.now(); clearTimeout(subsRetry); subsRetry = null;
       errorBox.style.display = 'none'; tapPlay.style.display = 'none';
       spinner.style.display = 'flex';
@@ -1124,6 +1126,8 @@
 
     function fail(e) {
       if (closed || limited) return;
+      // bewust gestopt (sluiten, zappen, foutscherm): geen fout
+      if (e && e.message === 'stopped') return;
       B.log('player error', e && e.message);
       spinner.style.display = 'none';
       if (e && e.insecure) { showError(e); return; }
@@ -1151,6 +1155,10 @@
       var PD = B.playdiag, g2 = startGen;
       var rep = { browser: PD.browser(), attempts: engine ? engine.trace.slice() : [], lastError: e, hlsTried: !!(engine && engine.hlsTried), hlsFound: !!(engine && engine.hlsFound),
         url: engine ? engine.url : null, title: item.title + (item.subtitle ? ' · ' + item.subtitle : '') };
+      // de mislukte stream meteen echt stoppen (hls.js/mpegts weg, verbinding met de provider dicht), niet pas na de
+      // diagnose; de plek eerst onthouden voor "Opnieuw"
+      if (engine && !isLive() && engine.time() > 0) failPos = engine.time();
+      if (engine) engine.stop();
       // limiet van de IPTV-provider expliciet controleren (Xtream: max_connections / active_cons); los van Bingr
       var provider = B.providers.providerLimit.failureMessage(Lib.source);
       spinner.style.display = 'flex';
@@ -1174,9 +1182,11 @@
       });
     }
     /** Fout "limiet van je IPTV-provider bereikt" (specifiek: geen algemene tekst eronder). */
-    function providerError(m) { var pe = new Error(m); pe.specific = true; pe.conn = true; return pe; }
+    function providerError(m) { var pe = new Error(m); pe.specific = true; pe.conn = true; pe.tip = B.providers.providerLimit.tip(); return pe; }
     function showError(e, rep) {
       if (closed) return;
+      // plek onthouden vóór het stoppen (daarna staat de video op 0), zodat "Opnieuw" daar verder gaat
+      if (engine && !isLive() && engine.time() > 0) failPos = engine.time();
       if (engine) engine.stop();
       spinner.style.display = 'none';
       U.clear(errorBox);
@@ -1185,12 +1195,14 @@
       errorBox.appendChild(h('h2', insecure ? L('Not available in the browser') : unsup ? L('Not available in the browser') : L("Can't play this")));
       var msg = insecure || unsup || server ? e.message : (isLive() ? L('This channel is not available right now.') : L('This title could not be loaded.'));
       errorBox.appendChild(h('p', msg));
+      // providerlimiet: tip eronder (andere apparaat stoppen, of even wachten tot de provider de verbinding vrijgeeft)
+      if (e && e.conn && e.tip) errorBox.appendChild(h('p.muted.small', e.tip));
       if (!insecure && !unsup && !server) errorBox.appendChild(h('p.muted.small', L('Some servers block playback in the browser. If it works in the app, watch it there.')));
       var row = h('div.dlg-buttons');
       // "Toch proberen" alleen als er nog niets geprobeerd is (formaat vooraf afgewezen), niet na een codecfout
       if (unsup && !e.codec) row.appendChild(U.button(L('Try anyway'), function () { forceTry = true; attempts = 0; start(ctx.resume || 0); }, { primary: true }));
       else if (unsup) row.appendChild(U.button(L('Try again'), function () { attempts = 0; start(ctx.resume || 0); }));
-      else if (!insecure) row.appendChild(U.button(L('Try again'), function () { attempts = 0; triedBackup = false; start(engine && !isLive() ? engine.time() : (ctx.resume || 0)); }, { primary: true }));
+      else if (!insecure) row.appendChild(U.button(L('Try again'), function () { attempts = 0; triedBackup = false; start(!isLive() ? (failPos || ctx.resume || 0) : 0); }, { primary: true }));
       if (isLive() && item.channel && !insecure) row.appendChild(U.button(L('Other source'), chooseBackup, { icon: 'layers' }));
       row.appendChild(U.button(L('Close'), function () { close(); }));
       errorBox.appendChild(row);
@@ -1606,6 +1618,8 @@
     }
     function onPop() { if (!closed) close(true); }
     function onHide() { saveProgress(true); if (scrobbled && !stopSent) scrobble('stop'); A.streamStopBeacon(); D.flush(); }
+    // terug uit de back-forward-cache: de stream was afgemeld (pagehide), meteen weer aanmelden (niet pas na een ping)
+    function onShow(ev) { if (ev && ev.persisted && !closed && !limited) streamStart(); }
     function close(fromPop) {
       if (closed) return;
       closed = true;
@@ -1624,6 +1638,7 @@
       document.removeEventListener('webkitfullscreenchange', onFsChange);
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('pagehide', onHide);
+      window.removeEventListener('pageshow', onShow);
       document.documentElement.classList.remove('playing');
       if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; } catch (e) { /* stil */ } }
       root.remove();
@@ -1643,6 +1658,7 @@
     else history.pushState({ bingrPlayer: true }, '', location.href);
     window.addEventListener('popstate', onPop);
     window.addEventListener('pagehide', onHide);
+    window.addEventListener('pageshow', onShow);
     tickTimer = setInterval(tick, 1000);
     start(ctx.resume || 0);
     setTimeout(function () { try { playBtn.focus({ preventScroll: true }); } catch (e) { /* stil */ } }, 50);

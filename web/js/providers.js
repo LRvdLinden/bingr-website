@@ -186,6 +186,10 @@
       if (e && Date.now() - e.at < 60000) return;
       x.connections().then(B.noop, B.noop);
     },
+    /** Tip onder de providermelding: een net gesloten verbinding telt bij de provider vaak nog even mee. */
+    tip: function () {
+      return L('Stop the stream on your other device, or wait a moment: your provider sometimes only releases a connection you just closed after a minute.');
+    },
     /** Na een mislukte stream: melding als alle verbindingen van de provider in gebruik zijn, anders null (M3U: null). */
     failureMessage: function (src) {
       var self = this, x = this.client(src);

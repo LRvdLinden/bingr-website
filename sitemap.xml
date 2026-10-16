@@ -1,11 +1,132 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://bingr.online/</loc></url>
-  <url><loc>https://bingr.online/web/</loc></url>
-  <url><loc>https://bingr.online/upgrade/</loc></url>
-  <url><loc>https://bingr.online/changelog/</loc></url>
-  <url><loc>https://bingr.online/status/</loc></url>
-  <url><loc>https://bingr.online/status/history/</loc></url>
-  <url><loc>https://bingr.online/privacy.html</loc></url>
-  <url><loc>https://bingr.online/voorwaarden/</loc></url>
+<!-- Alleen publieke, indexeerbare pagina's. Per pagina drie URL's: x-default (volgt de browsertaal), ?lang=nl en ?lang=en,
+     met dezelfde hreflang-set als in de <head>. Niet: account/, koppelen/, bevestigen/, reset/, unsubscribe/, tv/, trailer/,
+     status/incident/ (noindex) en web/ (de webspeler, een app achter een login). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://bingr.online/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/changelog/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/changelog/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/changelog/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/changelog/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/changelog/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/changelog/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/changelog/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/changelog/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/changelog/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/changelog/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/changelog/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/changelog/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/history/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/history/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/history/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/history/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/history/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/history/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/history/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/history/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/status/history/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/status/history/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/status/history/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/status/history/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/upgrade/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/upgrade/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/upgrade/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/upgrade/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/upgrade/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/upgrade/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/upgrade/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/upgrade/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/upgrade/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/upgrade/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/upgrade/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/upgrade/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/privacy.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/privacy.html?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/privacy.html?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/privacy.html?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/privacy.html?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/privacy.html?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/privacy.html?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/privacy.html?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/privacy.html?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/privacy.html"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/voorwaarden/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/voorwaarden/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/voorwaarden/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/voorwaarden/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/voorwaarden/?lang=nl</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/voorwaarden/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/voorwaarden/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/voorwaarden/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/voorwaarden/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/voorwaarden/?lang=nl"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/voorwaarden/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/voorwaarden/"/>
+  </url>
 </urlset>

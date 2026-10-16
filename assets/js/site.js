@@ -13,6 +13,25 @@
   var lang = (q || saved || navigator.language || "nl").toLowerCase().indexOf("nl") === 0 ? "nl" : "en";
   document.documentElement.lang = lang;
 
+  // SEO: NL en EN delen één pagina. ?lang=nl en ?lang=en zijn de taalversies, zonder ?lang= volgt de pagina de browsertaal
+  // (x-default); zie de <link rel="alternate" hreflang> in de <head>. De canonical staat daarom niet vast in de HTML maar
+  // wordt hier gezet: de x-default-URL, plus ?lang= als die nl of en is. Alleen op pagina's met een x-default en zonder
+  // eigen canonical (Google: één canonical, niet een bestaande wijzigen).
+  (function () {
+    var xd = document.querySelector('link[rel="alternate"][hreflang="x-default"]');
+    if (!xd || document.querySelector('link[rel="canonical"]')) return;
+    var ql = (q || "").toLowerCase(), c = document.createElement("link");
+    c.rel = "canonical";
+    c.href = xd.href + (ql === "nl" || ql === "en" ? "?lang=" + ql : "");
+    document.head.appendChild(c);
+  })();
+  // Engelse paginatitel en -beschrijving: data-en op <title> en op de meta's description, og:title en og:description
+  function metaEn() {
+    if (lang !== "en") return;
+    var t = document.querySelector("title[data-en]"); if (t) document.title = t.getAttribute("data-en");
+    document.querySelectorAll('meta[data-en]').forEach(function (m) { m.setAttribute("content", m.getAttribute("data-en")); });
+  }
+
   // gedeelde teksten (nav en footer); NL staat in de HTML
   var EN = {
     "nav.features": "Features", "nav.start": "What you need", "nav.platforms": "Devices", "nav.web": "Watch in your browser",
@@ -81,6 +100,6 @@
     // breder dan 980px: het gewone menu, dus de open-stand opheffen
     if (mq) { var h = function () { if (!mq.matches) set(false, false); }; if (mq.addEventListener) mq.addEventListener("change", h); else if (mq.addListener) mq.addListener(h); }
   }
-  if (!navOnly) { window.BingrSite = { lang: lang, base: base }; apply(); }
+  if (!navOnly) { window.BingrSite = { lang: lang, base: base }; metaEn(); apply(); }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", navMenu); else navMenu();
 })();

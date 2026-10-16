@@ -42,6 +42,7 @@
     // limiet van de IPTV-provider (Xtream), los van Bingr
     'Your IPTV subscription allows 1 connection at a time and it is in use. This is a limit of your provider, not of Bingr.': 'Je IPTV-abonnement staat maximaal 1 verbinding tegelijk toe en die is in gebruik. Dit is een limiet van je provider, niet van Bingr.',
     'Your IPTV subscription allows up to %d connections at the same time and they are all in use. This is a limit of your provider, not of Bingr.': 'Je IPTV-abonnement staat maximaal %d verbindingen tegelijk toe en die zijn allemaal in gebruik. Dit is een limiet van je provider, niet van Bingr.',
+    'Stop the stream on your other device, or wait a moment: your provider sometimes only releases a connection you just closed after a minute.': 'Stop de stream op je andere apparaat, of wacht even: een net gesloten verbinding wordt soms pas na een minuut vrijgegeven door je provider.',
     'Statistics are part of Lifetime': 'Statistieken horen bij Lifetime',
     'Who’s watching now': 'Wie kijkt er nu',
     'Servers are added on bingr.online/account.': 'Servers voeg je toe op bingr.online/account.',

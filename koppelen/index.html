@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="../assets/css/site.css?v=95">
 <script src="../assets/js/consent.js" data-base="../"></script>
 <style>.namerow input{letter-spacing:0}.namehint{font-size:13px;line-height:1.45;margin-top:7px}</style>
+<style>.paircheck{margin:20px 0 4px;padding:14px 16px;border-radius:10px;background:#ffffff0d;border:1px solid #ffffff1f;font-size:15px;line-height:1.5}.paircheck p{margin:0 0 6px}.paircheck b{overflow-wrap:anywhere}.pcwarn{margin:10px 0 0!important;padding:10px 12px;border-radius:8px;background:#e509141f;border:1px solid #e5091466;color:#fff}.pcsee{display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;font-weight:600}.pcsee input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:#e50914}</style>
+<style>.namefields{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}@media(max-width:420px){.namefields{grid-template-columns:1fr}}</style>
 </head>
 <body class="sub-page">
 <nav id="nav" aria-label="Hoofdmenu">
@@ -37,6 +39,11 @@
     <h1 id="authTitle" data-t="signIn"></h1>
     <p class="muted" data-t="authIntro"></p>
     <form id="authForm" class="fields" novalidate>
+      <!-- voor- en achternaam: alleen bij account maken (user_metadata first_name / last_name, voor "Hoi <voornaam>," in de mails) -->
+      <div id="nameFields" class="namefields hidden">
+        <label><span class="sr" data-t="firstName"></span><input id="firstName" type="text" autocomplete="given-name" autocapitalize="words" spellcheck="false" maxlength="50" data-ph="firstName"></label>
+        <label><span class="sr" data-t="lastName"></span><input id="lastName" type="text" autocomplete="family-name" autocapitalize="words" spellcheck="false" maxlength="50" data-ph="lastName"></label>
+      </div>
       <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email" required></label>
       <label class="pw"><span class="sr" data-t="password"></span><input id="password" type="password" autocomplete="current-password" data-ph="password" required><button type="button"></button></label>
       <div id="authErr" class="err" aria-live="polite"></div>
@@ -58,6 +65,14 @@
       <div id="nameRow" class="namerow hidden">
         <label><p style="margin:20px 0 8px"><span data-t="nameLbl"></span> <span class="muted" data-t="nameOpt"></span></p><input id="devName" maxlength="40" autocomplete="off" autocapitalize="sentences" spellcheck="false"></label>
         <p class="namehint muted" data-t="nameHint"></p>
+      </div>
+      <!-- H1: bevestigen vóór het koppelen: welk apparaat (zoals het dat zelf opgaf), hoe oud de code is en een waarschuwing
+           tegen doorgestuurde links/codes. Komt de code uit de link (?code=), dan eerst aanvinken dat hij op je eigen tv staat. -->
+      <div id="pairCheck" class="paircheck hidden">
+        <p><span data-t="pcDevice"></span> <b id="pcDev"></b> <span class="muted" data-t="pcGiven"></span></p>
+        <p id="pcAgeRow"><span data-t="pcCreated"></span> <b id="pcAge"></b></p>
+        <p class="pcwarn" data-t="pcWarn"></p>
+        <label id="pcSeeRow" class="pcsee hidden"><input type="checkbox" id="pcSee"> <span data-t="pcSee"></span></label>
       </div>
       <div id="linkErr" class="err" aria-live="polite"></div>
       <button id="linkBtn" class="btn full" type="submit" data-t="linkBtn"></button>
@@ -105,12 +120,16 @@
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=1"></script>
+<script src="../assets/js/auth-forms.js?v=2"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
   nl: { docTitle:"Apparaat koppelen · Bingr", signIn:"Inloggen", signUp:"Account maken", authIntro:"Log in met je Bingr-account om je tv, tablet of computer te koppelen.", email:"E-mailadres", password:"Wachtwoord",
         show:"Tonen", hide:"Verbergen", forgot:"Wachtwoord vergeten?", newTo:"Nieuw bij Bingr?", signUpNow:"Maak nu een account.", haveAcc:"Heb je al een account?", signInNow:"Log in.",
+        firstName:"Voornaam", lastName:"Achternaam", noFirst:"Vul je voornaam in.", noLast:"Vul je achternaam in.",
+        pcDevice:"Apparaat:", pcGiven:"(opgegeven door het apparaat)", pcCreated:"Code aangemaakt:", pcJustNow:"zojuist", pcMin1:"1 minuut geleden", pcMins:"%d minuten geleden",
+        pcWarn:"Koppel alleen als deze code nu op je eigen scherm staat. Heeft iemand je deze link of code gestuurd? Koppel dan niet.",
+        pcSee:"Ik zie deze code op mijn eigen tv", pcSeeFirst:"Vink eerst aan dat je deze code nu op je eigen tv ziet.", pcFramed:"Open deze pagina zelf op bingr.online/koppelen om te koppelen.",
         linkTitle:"Apparaat koppelen", signedInAs:"Ingelogd als", notYou:"Niet jij?", enterCode:"Voer de code in die op je scherm staat:", linkBtn:"Koppelen",
         doneTitle:"Je tv is ingelogd", doneText:"%s is nu ingelogd met je Bingr-account. Kies op je tv wie er kijkt en veel kijkplezier!",
         confirmTitle:"Bevestig je e-mailadres", confirmText:"We hebben je een e-mail gestuurd. Klik op de link daarin; daarna kom je hier terug om je tv te koppelen.",
@@ -120,6 +139,10 @@ const tr = t({
         noCode:"Vul de code van je tv in.", nameLbl:"Naam van dit apparaat", nameOpt:"(optioneel)", nameHint:"Bijv. Woonkamer. Zo herken je het apparaat in Mijn Bingr. Je kunt de hele naam aanpassen.", nameLong:"De naam mag maximaal 40 tekens hebben.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
   en: { docTitle:"Link a device · Bingr", signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV, tablet or computer.", email:"Email", password:"Password",
         show:"Show", hide:"Hide", forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.", haveAcc:"Already have an account?", signInNow:"Sign in.",
+        firstName:"First name", lastName:"Last name", noFirst:"Enter your first name.", noLast:"Enter your last name.",
+        pcDevice:"Device:", pcGiven:"(as reported by the device)", pcCreated:"Code created:", pcJustNow:"just now", pcMin1:"1 minute ago", pcMins:"%d minutes ago",
+        pcWarn:"Only link if this code is on your own screen right now. Did someone send you this link or code? Then don't link.",
+        pcSee:"I can see this code on my own TV", pcSeeFirst:"First confirm that you can see this code on your own TV right now.", pcFramed:"Open bingr.online/koppelen yourself to link a device.",
         linkTitle:"Link a device", signedInAs:"Signed in as", notYou:"Not you?", enterCode:"Enter the code shown on your screen:", linkBtn:"Link",
         doneTitle:"Your TV is signed in", doneText:"%s is now signed in with your Bingr account. Pick who's watching on your TV and enjoy!",
         confirmTitle:"Confirm your email", confirmText:"We sent you an email. Click the link in it; you'll come back here to link your TV.",
@@ -132,7 +155,46 @@ pwToggles(tr);
 let mode = "signin";
 const fmt = (c) => { c = c.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6); return c.length > 3 ? c.slice(0, 3) + "-" + c.slice(3) : c; };
 $("code").value = fmt(params.get("code") || "");
-$("code").addEventListener("input", (e) => { e.target.value = fmt(e.target.value); lookup(); });
+// H1: code uit de link (?code=) = mogelijk doorgestuurd; zodra de gebruiker zelf typt, geldt hij als zelf ingevoerd
+let codeFromUrl = $("code").value.length === 7;
+$("code").addEventListener("input", (e) => { codeFromUrl = false; e.target.value = fmt(e.target.value); lookup(); });
+
+// ---- H1: bevestigingsstap vóór het koppelen (apparaat, leeftijd van de code, waarschuwing, vinkje bij een code uit de link) ----
+// In een frame (clickjacking) nooit koppelen; de server stuurt ook frame-ancestors 'none' / X-Frame-Options: DENY.
+let framed = true;
+try { framed = window.top !== window.self; } catch (e) { framed = true; }
+let pair = null; // {code, created (lokale ms), expires (lokale ms)} na een geslaagde code_info
+function pairAge() {
+  if (!pair || pair.created == null) return;
+  const m = Math.floor(Math.max(0, Date.now() - pair.created) / 60000);
+  $("pcAge").textContent = m < 1 ? tr("pcJustNow") : m === 1 ? tr("pcMin1") : tr("pcMins").replace("%d", m);
+}
+function pairGate() {
+  const needSee = !!pair && codeFromUrl;
+  $("pcSeeRow").classList.toggle("hidden", !needSee);
+  $("linkBtn").disabled = framed || !pair || (needSee && !$("pcSee").checked);
+}
+function pairReset() {
+  pair = null; $("pcSee").checked = false; $("pairCheck").classList.add("hidden"); pairGate();
+}
+function pairShow(code, j) {
+  const now = Date.now();
+  const age = Number.isFinite(j.age_s) ? j.age_s : null, left = Number.isFinite(j.expires_in) ? j.expires_in : null;
+  pair = { code, created: age == null ? null : now - age * 1000, expires: left == null ? null : now + left * 1000 };
+  $("pcDev").textContent = String(j.device || j.label || "TV").slice(0, 60);
+  $("pcAgeRow").classList.toggle("hidden", age == null);
+  pairAge();
+  $("pairCheck").classList.remove("hidden");
+  pairGate();
+}
+$("pcSee").addEventListener("change", () => { if ($("pcSee").checked && $("linkErr").textContent === tr("pcSeeFirst")) $("linkErr").textContent = ""; pairGate(); });
+setInterval(() => {
+  if (!pair) return;
+  if (pair.expires != null && Date.now() > pair.expires) { pairReset(); nameFor = ""; $("linkErr").textContent = tr("badCode"); return; }
+  pairAge();
+}, 15000);
+if (framed) $("linkErr").textContent = tr("pcFramed");
+pairGate();
 
 // ---- eigen naam: zodra de code klopt, de soort apparaat ophalen (device-auth code_info) en "Apple TV - " voorinvullen ----
 let nameFor = "", nameEdited = false, prefix = "", lookupN = 0;
@@ -151,6 +213,7 @@ async function lookup() {
   const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   if (code === nameFor) return;
   const n = ++lookupN;
+  if (!pair || pair.code !== code) pairReset();
   if (code.length !== 6) { nameFor = ""; $("nameRow").classList.add("hidden"); return; }
   try {
     const { data: s } = await sb.auth.getSession();
@@ -163,14 +226,16 @@ async function lookup() {
     const j = await r.json().catch(() => ({}));
     if (n !== lookupN) return;
     if (isBanned(j)) return bannedOut();
+    if (r.status === 404) { nameFor = code; $("nameRow").classList.add("hidden"); $("linkErr").textContent = tr("badCode"); return; }
+    // H1: zonder geslaagde code_info geen bevestigingsstap en dus niet koppelen (opnieuw proberen = de code opnieuw invoeren)
+    if (!r.ok || !j.ok) { $("nameRow").classList.add("hidden"); $("linkErr").textContent = tr("generic"); return; }
     nameFor = code;
-    if (r.status === 404) { $("nameRow").classList.add("hidden"); $("linkErr").textContent = tr("badCode"); return; }
-    if (!r.ok || !j.ok) { $("nameRow").classList.add("hidden"); return; } // geen naamveld; koppelen werkt gewoon
-    $("linkErr").textContent = "";
+    $("linkErr").textContent = framed ? tr("pcFramed") : "";
     prefix = (j.label || "TV") + " - ";
     if (!nameEdited) $("devName").value = prefix;
     $("nameRow").classList.remove("hidden");
-    $("devName").focus();
+    pairShow(code, j);
+    (codeFromUrl ? $("pcSee") : $("devName")).focus();
   } catch (e) { if (n === lookupN) $("nameRow").classList.add("hidden"); }
 }
 
@@ -181,6 +246,7 @@ function setMode(m) {
   $("switchText").textContent = tr(m === "signin" ? "newTo" : "haveAcc");
   $("switchMode").textContent = tr(m === "signin" ? "signUpNow" : "signInNow");
   $("password").autocomplete = m === "signin" ? "current-password" : "new-password";
+  $("nameFields").classList.toggle("hidden", m === "signin");
   $("authErr").textContent = "";
 }
 $("switchMode").onclick = () => setMode(mode === "signin" ? "signup" : "signin");
@@ -197,6 +263,10 @@ async function refresh() {
 $("authForm").onsubmit = async (e) => {
   e.preventDefault();
   const email = $("email").value.trim(), password = $("password").value;
+  // account maken: voor- en achternaam verplicht (opgeschoond, max. 50 tekens; zie BingrAuth.cleanName)
+  const first_name = BingrAuth.cleanName($("firstName").value), last_name = BingrAuth.cleanName($("lastName").value);
+  if (mode !== "signin" && !first_name) { $("firstName").focus(); return ($("authErr").textContent = tr("noFirst")); }
+  if (mode !== "signin" && !last_name) { $("lastName").focus(); return ($("authErr").textContent = tr("noLast")); }
   if (!/^\S+@\S+\.\S+$/.test(email)) return ($("authErr").textContent = tr("badEmail"));
   if (password.length < 6) return ($("authErr").textContent = tr("shortPw"));
   busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
@@ -208,7 +278,7 @@ $("authForm").onsubmit = async (e) => {
       // zonder koppelcode (account maken vanaf de homepage of Mijn Bingr) daarna naar Mijn Bingr, anders terug naar koppelen
       const code = $("code").value.replace("-", "").trim();
       const back = code ? location.origin + location.pathname + "?code=" + encodeURIComponent(code) : location.origin + "/account/";
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang }, emailRedirectTo: back } });
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang, first_name, last_name }, emailRedirectTo: back } });
       if (error) throw error;
       if (data.user && data.user.identities && data.user.identities.length === 0) throw { code: "user_already_exists" };
       if (!data.session) { show("confirm"); return; }
@@ -224,6 +294,10 @@ $("linkForm").onsubmit = async (e) => {
   e.preventDefault();
   const code = $("code").value.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   if (code.length !== 6) return ($("linkErr").textContent = tr("noCode"));
+  // H1: alleen na de bevestigingsstap voor precies deze code, niet in een frame, en bij een code uit de link met het vinkje
+  if (framed) return ($("linkErr").textContent = tr("pcFramed"));
+  if (!pair || pair.code !== code) { nameFor = ""; lookup(); return; }
+  if (codeFromUrl && !$("pcSee").checked) { $("linkErr").textContent = tr("pcSeeFirst"); $("pcSee").focus(); return; }
   // naam: alleen als het veld zichtbaar is en meer is dan alleen de soort ("Apple TV - " zonder iets erachter)
   const name = $("nameRow").classList.contains("hidden") ? "" : cleanName($("devName").value);
   if (name.length > 40) { $("linkErr").textContent = tr("nameLong"); $("devName").focus(); return; }
@@ -242,8 +316,11 @@ $("linkForm").onsubmit = async (e) => {
     if (!r.ok || !j.ok) throw new Error(j.error || "x");
     $("doneText").textContent = tr("doneText").replace("%s", j.name || j.device || "TV");
     show("done");
-  } catch (err) { $("linkErr").textContent = err.message === "invalid_code" ? tr("badCode") : err.message === "name_too_long" ? tr("nameLong") : tr("generic"); }
-  finally { busy($("linkBtn"), false, tr("linkBtn")); }
+  } catch (err) {
+    $("linkErr").textContent = err.message === "invalid_code" ? tr("badCode") : err.message === "name_too_long" ? tr("nameLong") : tr("generic");
+    if (err.message === "invalid_code") { pairReset(); nameFor = code; }
+  }
+  finally { busy($("linkBtn"), false, tr("linkBtn")); pairGate(); }
 };
 sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_IN") setTimeout(refresh, 0); });
 refresh();

@@ -1,5 +1,11 @@
+# bingr.online
+# Privé- en accountpagina's (account/, koppelen/, web/, status/incident/) hebben zelf <meta name="robots" content="noindex">;
+# die blijven hier crawlbaar, anders ziet een zoekmachine die noindex niet. Alleen pagina's die je via een (geheime)
+# link uit een e-mail opent, worden hier helemaal niet opgehaald.
 User-agent: *
 Disallow: /unsubscribe/
+Disallow: /bevestigen/
+Disallow: /reset/
 Disallow: /trailer/
 
 Sitemap: https://bingr.online/sitemap.xml

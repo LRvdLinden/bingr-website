@@ -143,9 +143,17 @@
       throw generic();
     }, function () { throw offline(); });
   };
-  /** Account maken: 'ok' (meteen ingelogd) of 'confirm' (eerst de e-mail bevestigen). */
-  A.signUp = function (email, password) {
-    return sb.auth.signUp({ email: email, password: password, options: { data: { lang: B.lang }, emailRedirectTo: 'https://bingr.online/web/' } }).then(function (r) {
+  /** Voor- of achternaam opschonen: stuurtekens en < > weg, witruimte samengevoegd en getrimd, max. 50 tekens
+   *  (gelijk aan BingrAuth.cleanName op de site en personName() in de functies). */
+  A.cleanName = function (s) {
+    var v = String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim();
+    return Array.from(v).slice(0, 50).join('').trim();
+  };
+  /** Account maken: 'ok' (meteen ingelogd) of 'confirm' (eerst de e-mail bevestigen).
+   *  Voor- en achternaam gaan mee als user_metadata first_name / last_name (aanhef in de e-mails). */
+  A.signUp = function (email, password, firstName, lastName) {
+    var data = { lang: B.lang, first_name: A.cleanName(firstName), last_name: A.cleanName(lastName) };
+    return sb.auth.signUp({ email: email, password: password, options: { data: data, emailRedirectTo: 'https://bingr.online/web/' } }).then(function (r) {
       if (r.error) {
         var e = r.error;
         if (e.status === 0) throw offline();

@@ -181,6 +181,41 @@ jobs:
           # feeds van de statuspagina: bingr.online/status/feed(.en).atom|rss -> de functie status (URL uit assets/config.js)
           FN = re.search(r'url:\s*"([^"]+)"', open("assets/config.js").read()).group(1).rstrip("/") + "/functions/v1/status"
           s = re.sub(r"\n?# BEGIN bingr-redirects.*?# END bingr-redirects\n?", "\n", s, flags=re.S).strip("\n")
+          s = re.sub(r"\n?# BEGIN bingr-security.*?# END bingr-security\n?", "\n", s, flags=re.S).strip("\n")
+          # M5/L15: beveiligingsheaders en http -> https naar hetzelfde pad (eerst, vóór de regels van de hoster).
+          # - Het pad komt uit THE_REQUEST (de oorspronkelijke aanvraagregel), niet uit REQUEST_URI of $1: de oude doorverwijzing
+          #   van de hoster stuurde http://bingr.online/ naar https://bingr.online/bingr.online/ (intern pad van de map).
+          #   NE: het pad staat al gecodeerd in de aanvraag; de querystring gaat automatisch mee.
+          # - Alleen voor bingr.online en www (submappen als beheer.bingr.online/ hebben hun eigen RewriteEngine en regels).
+          # - frame-ancestors 'none' / X-Frame-Options DENY overal behalve /trailer/: die pagina wordt bewust in een frame
+          #   geladen door de Samsung TV-app (doorgeefpagina voor YouTube). De webspeler zet YouTube zelf in een iframe;
+          #   dat is frame-src en blijft werken. Alleen frame-ancestors, base-uri en object-src: een volledige CSP met
+          #   script-src kan pas als de inline scripts weg zijn.
+          # - Referrer-Policy voor de hele site; gevoelige pagina's houden hun eigen <meta name="referrer" content="no-referrer">.
+          redirect = ("<IfModule mod_rewrite.c>\n"
+                      "RewriteEngine On\n"
+                      "RewriteCond %{HTTPS} !=on\n"
+                      "RewriteCond %{HTTP:X-Forwarded-Proto} !=https\n"
+                      "RewriteCond %{HTTP_HOST} ^(www\\.)?bingr\\.online$ [NC]\n"
+                      "RewriteCond %{THE_REQUEST} ^[A-Z]+\\s(/[^\\s?]*)\n"
+                      "RewriteRule ^ https://%{HTTP_HOST}%1 [R=301,L,NE]\n"
+                      "</IfModule>\n")
+          headers = ("<IfModule mod_setenvif.c>\n"
+                     "SetEnvIf Request_URI \"/trailer/\" BINGR_FRAME_OK\n"
+                     "</IfModule>\n"
+                     "<IfModule mod_headers.c>\n"
+                     "Header always set Strict-Transport-Security \"max-age=31536000\"\n"
+                     "Header always set X-Content-Type-Options \"nosniff\"\n"
+                     "Header always set Referrer-Policy \"strict-origin-when-cross-origin\"\n"
+                     "Header always set Permissions-Policy \"camera=(), microphone=(), geolocation=()\"\n"
+                     "Header always set X-Frame-Options \"DENY\" env=!BINGR_FRAME_OK\n"
+                     "Header always set Content-Security-Policy \"frame-ancestors 'none'; base-uri 'self'; object-src 'none'\" env=!BINGR_FRAME_OK\n"
+                     "Header always set Content-Security-Policy \"base-uri 'self'; object-src 'none'\" env=BINGR_FRAME_OK\n"
+                     "</IfModule>\n")
+          def security(with_redirect):
+              return ("# BEGIN bingr-security (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
+                      + (redirect if with_redirect else "") + headers
+                      + "ErrorDocument 404 /404.html\n" + "# END bingr-security\n")
           block = ("# BEGIN bingr-redirects (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
                    "<IfModule mod_alias.c>\n"
                    "Redirect 301 /support.html https://support.bingr.online/hulp/\n"
@@ -190,11 +225,24 @@ jobs:
                    "RedirectMatch 302 ^/status/feed\\.en\\.rss$ " + FN + "?action=feed&format=rss&lang=en\n"
                    "</IfModule>\n"
                    "# END bingr-redirects\n")
-          open(p + ".new", "w", encoding="utf-8", errors="surrogateescape").write(block + ("\n" + s + "\n" if s else ""))
+          rest = ("\n" + s + "\n" if s else "")
+          open(p + ".new", "w", encoding="utf-8", errors="surrogateescape").write(security(True) + block + rest)
+          # zonder de https-doorverwijzing: terugval als de server achter een proxy zit die HTTPS niet doorgeeft (lus)
+          open(p + ".nossl", "w", encoding="utf-8", errors="surrogateescape").write(security(False) + block + rest)
           PY
-            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; put /tmp/htaccess.txt.new -o \"$TARGET/.htaccess\"; chmod 644 \"$TARGET/.htaccess\"; bye" >/dev/null 2>&1 \
-              && echo "::notice::.htaccess bijgewerkt (doorverwijzing /support.html → support.bingr.online/hulp/ en de statusfeeds)" \
-              || echo "::warning::.htaccess kon niet worden geüpload; support.html stuurt dan zelf door"
+            if lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; put /tmp/htaccess.txt.new -o \"$TARGET/.htaccess\"; chmod 644 \"$TARGET/.htaccess\"; bye" >/dev/null 2>&1; then
+              echo "::notice::.htaccess bijgewerkt (beveiligingsheaders, http → https, /support.html → support.bingr.online/hulp/ en de statusfeeds)"
+              # vangnet: stuurt https://bingr.online/ naar zichzelf door (lus), dan de versie zonder https-doorverwijzing
+              sleep 3
+              loc=$(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' https://bingr.online/ || true)
+              case "$loc" in
+                30[1278]\ https://bingr.online/|30[1278]\ https://www.bingr.online/)
+                  lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; put /tmp/htaccess.txt.nossl -o \"$TARGET/.htaccess\"; chmod 644 \"$TARGET/.htaccess\"; bye" >/dev/null 2>&1 || true
+                  echo "::warning::https://bingr.online/ stuurde naar zichzelf door (de server ziet https niet); .htaccess zonder http → https-regel gezet. De headers blijven." ;;
+              esac
+            else
+              echo "::warning::.htaccess kon niet worden geüpload; support.html stuurt dan zelf door"
+            fi
           else
             echo "::warning::Bestaande .htaccess niet gelezen; niet aangepast (support.html stuurt zelf door)"
           fi
@@ -224,6 +272,24 @@ jobs:
           else
             echo "::notice::bingr.online/admindashboard/ is weg"
           fi
+          # M5/L15: beveiligingsheaders live (gezet via het blok bingr-security in .htaccess) en http -> https naar hetzelfde pad
+          bad=0
+          curl -s -o /dev/null -D /tmp/h.txt --max-time 20 https://bingr.online/koppelen/ || true
+          for h in 'strict-transport-security: max-age=31536000' 'x-content-type-options: nosniff' \
+                   'referrer-policy: strict-origin-when-cross-origin' 'permissions-policy: camera=(), microphone=(), geolocation=()' \
+                   'x-frame-options: deny' "content-security-policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"; do
+            if tr -d '\r' < /tmp/h.txt | grep -qiF "$h"; then :; else echo "::error::Header ontbreekt op https://bingr.online/koppelen/: $h"; bad=1; fi
+          done
+          [ "$bad" = 0 ] && echo "::notice::Beveiligingsheaders staan live (HSTS, nosniff, Referrer-Policy, Permissions-Policy, frame-ancestors/X-Frame-Options)"
+          # /trailer/ wordt bewust in een frame geladen (Samsung TV-app): daar geen frame-ancestors/X-Frame-Options
+          curl -s -o /dev/null -D /tmp/ht.txt --max-time 20 "https://bingr.online/trailer/?v=x" || true
+          if tr -d '\r' < /tmp/ht.txt | grep -qiE '^x-frame-options:|frame-ancestors'; then echo "::error::/trailer/ mag niet frame-beperkt zijn (Samsung TV-trailer)"; bad=1
+          else echo "::notice::/trailer/ blijft in een frame te laden"; fi
+          for path in "/" "/koppelen/?code=TEST12" "/web/"; do
+            r=$(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' "http://bingr.online$path" || true)
+            if [ "$r" = "301 https://bingr.online$path" ]; then echo "::notice::http://bingr.online$path stuurt door naar https (zelfde pad)"
+            else echo "::error::http://bingr.online$path gaf '$r', verwacht '301 https://bingr.online$path'"; bad=1; fi
+          done
           for url in https://bingr.online/ http://bingr.online/ https://www.bingr.online/; do
             code=$(curl -sL --max-time 20 -o /tmp/site.html -w '%{http_code}' "$url" || true)
             if grep -q 'data-build' /tmp/site.html 2>/dev/null; then
@@ -232,3 +298,4 @@ jobs:
               echo "::warning::$url geeft HTTP $code, nog niet de Bingr-site: $(head -c 160 /tmp/site.html 2>/dev/null | tr '\n' ' ')"
             fi
           done
+          [ "$bad" = 0 ] || exit 1

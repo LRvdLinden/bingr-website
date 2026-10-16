@@ -95,6 +95,10 @@
   S.emailForm = function (onDone, onQR) {
     var signup = false, busy = false;
     var title = h('h1');
+    // account maken: voor- en achternaam (verplicht; user_metadata first_name / last_name, voor de aanhef in de e-mails)
+    var first = h('input', { type: 'text', autocomplete: 'given-name', autocapitalize: 'words', spellcheck: 'false', maxlength: '50', placeholder: L('First name'), 'aria-label': L('First name') });
+    var last = h('input', { type: 'text', autocomplete: 'family-name', autocapitalize: 'words', spellcheck: 'false', maxlength: '50', placeholder: L('Last name'), 'aria-label': L('Last name') });
+    var nameFields = h('div.name-fields', [h('label.field', [first]), h('label.field', [last])]);
     var email = h('input', { type: 'email', autocomplete: 'email', placeholder: L('Email'), 'aria-label': L('Email'), required: true });
     var pw = h('input', { type: 'password', autocomplete: 'current-password', placeholder: L('Password'), 'aria-label': L('Password'), minlength: '6', required: true });
     var show = h('button.pw-toggle', { type: 'button' }, L('Show'));
@@ -103,7 +107,7 @@
     var submit = h('button.btn.primary.wide', { type: 'submit' });
     var forgot = h('button.linkbtn', { type: 'button' }, L('Forgot password?'));
     var switchLine = h('div.login-switch');
-    var form = h('form.login-form', { novalidate: true }, [title, h('label.field', [email]), h('label.field.pw', [pw, show]), err, submit]);
+    var form = h('form.login-form', { novalidate: true }, [title, nameFields, h('label.field', [email]), h('label.field.pw', [pw, show]), err, submit]);
     var card = h('div.login-card.email', [form, h('div.login-links', [forgot, switchLine,
       onQR ? h('button.linkbtn.qrback', { type: 'button', onclick: onQR }, [U.icon('back'), L('Sign in with your phone')]) : null])]);
     function draw() {
@@ -111,6 +115,7 @@
       submit.textContent = signup ? L('Create account') : L('Sign In');
       pw.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
       forgot.style.display = signup ? 'none' : '';
+      nameFields.style.display = signup ? '' : 'none';
       U.clear(switchLine);
       switchLine.appendChild(h('span.muted', (signup ? L('Already have an account?') : L('New to Bingr?')) + ' '));
       var a = h('button.linkbtn.strong', { type: 'button' }, signup ? L('Sign in.') : L('Sign up now.'));
@@ -122,11 +127,14 @@
       e.preventDefault();
       if (busy) return;
       var em = email.value.trim(), p = pw.value;
+      var fn = A.cleanName(first.value), ln = A.cleanName(last.value);
+      if (signup && !fn) { err.textContent = L('Enter your first name.'); first.focus(); return; }
+      if (signup && !ln) { err.textContent = L('Enter your last name.'); last.focus(); return; }
       if (!validEmail(em)) { err.textContent = L('Enter a valid email address.'); email.focus(); return; }
       if (p.length < 6) { err.textContent = L('Password must be at least 6 characters.'); pw.focus(); return; }
       busy = true; err.textContent = '';
       submit.disabled = true; U.clear(submit); submit.appendChild(U.spinner());
-      var req = signup ? A.signUp(em, p) : A.signIn(em, p);
+      var req = signup ? A.signUp(em, p, fn, ln) : A.signIn(em, p);
       req.then(function (r) {
         if (r === 'confirm') {
           err.textContent = ''; signup = false; draw();

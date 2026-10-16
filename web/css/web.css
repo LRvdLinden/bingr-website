@@ -115,6 +115,8 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .login-ortext { color: var(--sec); font-weight: 700; letter-spacing: .1em; }
 .login-err { color: #ff9a62; min-height: 22px; font-size: 14px; margin-top: 10px; }
 .login-form .field { display: block; position: relative; margin-bottom: 16px; }
+.login-form .name-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+@media (max-width: 420px) { .login-form .name-fields { grid-template-columns: 1fr; } }
 .login-form input, .field-dlg input { width: 100%; height: 54px; padding: 0 16px; border-radius: 6px; border: 1px solid #ffffff2e; background: #161616cc; color: #fff; font: inherit; font-size: 16px; }
 .login-form input:focus, .field-dlg input:focus { outline: none; border-color: #fff; background: #222; }
 .field.pw input { padding-right: 84px; }

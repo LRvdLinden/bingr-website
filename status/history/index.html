@@ -3,14 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Incidentgeschiedenis · Status · Bingr</title>
-<meta name="description" content="Alle storingen en al het onderhoud van Bingr, nieuwste eerst.">
+<title data-en="Incident history · Status · Bingr">Incidentgeschiedenis · Status · Bingr</title>
+<meta name="description" content="Alle storingen en al het onderhoud van Bingr, nieuwste eerst." data-en="All Bingr outages and maintenance, newest first.">
 <meta name="bingr-app" content="status">
-<link rel="canonical" href="https://bingr.online/status/history/">
-<meta property="og:title" content="Incidentgeschiedenis · Status · Bingr">
-<meta property="og:description" content="Alle storingen en al het onderhoud van Bingr, nieuwste eerst.">
+<!-- NL/EN: ?lang=nl en ?lang=en zijn de taalversies, zonder ?lang= de browsertaal; canonical via assets/js/site.js -->
+<link rel="alternate" hreflang="nl" href="https://bingr.online/status/history/?lang=nl">
+<link rel="alternate" hreflang="en" href="https://bingr.online/status/history/?lang=en">
+<link rel="alternate" hreflang="x-default" href="https://bingr.online/status/history/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Bingr">
+<meta property="og:locale" content="nl_NL">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:title" content="Incidentgeschiedenis · Status · Bingr" data-en="Incident history · Status · Bingr">
+<meta property="og:description" content="Alle storingen en al het onderhoud van Bingr, nieuwste eerst." data-en="All Bingr outages and maintenance, newest first.">
 <meta property="og:url" content="https://bingr.online/status/history/">
-<meta property="og:image" content="https://bingr.online/assets/img/en/tv_home.jpg">
+<meta property="og:image" content="https://bingr.online/assets/img/nl/tv_home.jpg">
+<meta property="og:image:width" content="1400">
+<meta property="og:image:height" content="788">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#000000">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <link rel="alternate" type="application/atom+xml" title="Bingr-status (Atom)" href="https://bingr.online/status/feed.atom">
@@ -24,12 +34,12 @@
 <body class="sub-page" data-view="history">
 <nav id="nav" aria-label="Hoofdmenu">
   <div class="wrap">
-    <a href="../../index.html" class="logo" aria-label="Bingr">BINGR</a>
+    <a href="../../" class="logo" aria-label="Bingr">BINGR</a>
     <div class="links">
-      <a href="../../index.html#features" data-s="nav.features">Functies</a>
-      <a href="../../index.html#start" data-s="nav.start">Wat heb je nodig</a>
-      <a href="../../index.html#download" data-s="nav.platforms">Apparaten</a>
-      <a href="../../index.html#faq">FAQ</a>
+      <a href="../../#features" data-s="nav.features">Functies</a>
+      <a href="../../#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../../#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../../#faq">FAQ</a>
       <a href="https://support.bingr.online">Support</a>
     </div>
     <div class="right">
@@ -79,9 +89,9 @@
 <footer>
   <div class="wrap">
     <div class="top">
-      <div><a href="../../index.html" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div><a href="../../" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
       <div class="flinks">
-        <a href="../../index.html#faq">FAQ</a>
+        <a href="../../#faq">FAQ</a>
         <a href="https://support.bingr.online">Support</a>
         <a href="../../koppelen/" data-s="foot.pair">Tv koppelen</a>
         <a href="../../account/" data-s="foot.account">Mijn Bingr</a>
@@ -98,7 +108,7 @@
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>
 </footer>
-<script src="../../assets/js/site.js?v=95" data-base="../../"></script>
+<script src="../../assets/js/site.js?v=110" data-base="../../"></script>
 <script src="../../assets/config.js"></script>
 <script src="../../status/status.js?v=78"></script>
 <script src="../../assets/js/userbtn.js?v=94" data-base="../../"></script>

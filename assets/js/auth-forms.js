@@ -35,6 +35,13 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
   }
   function isEmail(s) { return /^\S+@\S+\.\S+$/.test(s || ""); }
+  // Voor- of achternaam bij het aanmaken van een account (user_metadata first_name / last_name):
+  // stuurtekens en < > weg, witruimte samengevoegd en getrimd, max. 50 tekens. Gelijk aan personName() in de functies.
+  var NAME_MAX = 50;
+  function cleanName(s) {
+    var v = String(s == null ? "" : s).replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim();
+    return Array.from(v).slice(0, NAME_MAX).join("").trim();
+  }
   function isBanned(e) { return !!e && (e.code === "user_banned" || e.error === "user_banned" || /banned/i.test(e.message || "")); }
   function kind(e) {
     var c = (e && (e.code || e.error_code)) || "", m = ((e && e.message) || "").toLowerCase(), st = e && e.status;
@@ -90,5 +97,5 @@
       return false;
     } finally { busy(o.trigger, false, label); }
   }
-  window.BingrAuth = { esc: esc, isEmail: isEmail, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, text: function (k) { return txt(null, k); } };
+  window.BingrAuth = { esc: esc, isEmail: isEmail, cleanName: cleanName, NAME_MAX: NAME_MAX, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, text: function (k) { return txt(null, k); } };
 })();
