@@ -285,6 +285,11 @@ jobs:
           curl -s -o /dev/null -D /tmp/ht.txt --max-time 20 "https://bingr.online/trailer/?v=x" || true
           if tr -d '\r' < /tmp/ht.txt | grep -qiE '^x-frame-options:|frame-ancestors'; then echo "::error::/trailer/ mag niet frame-beperkt zijn (Samsung TV-trailer)"; bad=1
           else echo "::notice::/trailer/ blijft in een frame te laden"; fi
+          # pushmeldingen: de service worker van de webspeler (scope /web/) moet als JavaScript komen (nosniff staat aan)
+          curl -s -o /dev/null -D /tmp/sw.txt --max-time 20 https://bingr.online/web/sw.js || true
+          if tr -d '\r' < /tmp/sw.txt | head -1 | grep -q ' 200' && tr -d '\r' < /tmp/sw.txt | grep -qiE '^content-type: *(application|text)/(x-)?javascript'; then
+            echo "::notice::/web/sw.js staat live als JavaScript (service worker voor pushmeldingen)"
+          else echo "::error::/web/sw.js gaf geen 200 met Content-Type JavaScript: de service worker voor pushmeldingen kan niet registreren"; bad=1; fi
           for path in "/" "/koppelen/?code=TEST12" "/web/"; do
             r=$(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' "http://bingr.online$path" || true)
             if [ "$r" = "301 https://bingr.online$path" ]; then echo "::notice::http://bingr.online$path stuurt door naar https (zelfde pad)"

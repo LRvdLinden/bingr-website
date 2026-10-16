@@ -1,0 +1,14 @@
+{
+  "name": "Bingr",
+  "short_name": "Bingr",
+  "description": "Bingr in je browser: je zenders, films en series van je eigen servers.",
+  "id": "/web/",
+  "start_url": "/web/",
+  "scope": "/web/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

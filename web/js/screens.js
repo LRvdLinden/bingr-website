@@ -1748,6 +1748,8 @@
           B.app.setLanguage(v);
         });
       });
+      // pushmeldingen (berichten van Bingr en herinneringen), per browser; toestemming pas na deze klik
+      if (B.push) B.push.settingsRow(sec, row, render);
       // build 83: trailer zonder geluid in de kop van film- en seriepagina's (per browser, zoals per apparaat in de apps)
       var trOn = S.autoplayTrailers();
       row(sec, L('Play trailers automatically'), null, function () { S.setAutoplayTrailers(!trOn); render(); },
@@ -1789,7 +1791,8 @@
     }
     pg.refresh = render;
     var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
-      B.on('settings', function () { if (el.parentNode) render(); }), B.on('plan', function () { if (el.parentNode) render(); })];
+      B.on('settings', function () { if (el.parentNode) render(); }), B.on('plan', function () { if (el.parentNode) render(); }),
+      B.on('push', function () { if (el.parentNode) render(); })];
     pg.onCollections = render;
     pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();

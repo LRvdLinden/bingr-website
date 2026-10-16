@@ -108,6 +108,8 @@
 
   function start() {
     B.migrate();
+    // pushmeldingen: service worker (alleen push) en een zender uit een herinnering (#/live?channel=…)
+    if (B.push) B.push.init();
     B.setLanguage(D.shared('appLanguage', '') || '');
     setAccentVars(B.store.get('lastAccent', 'red'));
     root = document.getElementById('app');
@@ -159,6 +161,8 @@
       return withTimeout(sync, haveCache ? 50 : 8000).then(showProfiles);
     });
     startHeartbeat();
+    // pushmeldingen: opnieuw registreren als token, taal, build of account anders is (alleen als ze aan staan)
+    if (B.push) B.push.sync();
   }
   function showLimit(info) {
     show(S.deviceLimit(info, function () {
@@ -211,6 +215,7 @@
     show(main);
     main.start();
     Lib.select(src).then(function () {
+      if (B.push && app.profile === p) B.push.tryPending();
       B.whenQuiet(function () { warmAges(); }, 2500);
     });
     D.syncState().then(function () { if (app.profile === p) { Lib.applyFilters(); B.trakt.refresh(false); } });
@@ -229,7 +234,8 @@
 
   app.signOut = function () {
     if (B.player.current) B.player.current.close();
-    D.flush().then(function () { return A.signOut(); });
+    // eerst push afmelden (unregister) zolang de sessie er nog is, dan het apparaat en de sessie
+    D.flush().then(function () { return B.push ? B.push.signOut() : null; }).then(function () { return A.signOut(); });
   };
 
   /** Taal wijzigen (settings.shared.appLanguage): de schermen opnieuw opbouwen. */
