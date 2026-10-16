@@ -42,7 +42,7 @@ window.BingrPlans = (function () {
   // [label, hint, gratis, lifetime] — getallen als tekst, true/false als vinkje/streepje
   function rows(t) {
     return [
-      [t.streams, "", "2", "6"],
+      [t.streams, "", "1", "3"],
       [t.devices, "", "8", "15"],
       [t.servers, "", "1", t.unlimited],
       [t.stats, t.statsHint, false, true],

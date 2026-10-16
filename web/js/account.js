@@ -455,7 +455,7 @@
     });
   };
 
-  // MARK: tegelijk kijken (max. 6)
+  // MARK: tegelijk kijken (limiet van het abonnement: Gratis 1, Lifetime 3, of een eigen limiet)
 
   function parseStreams(list) {
     return (list || []).filter(function (s) { return s && s.device_id; }).map(function (s) {
@@ -479,7 +479,7 @@
     return authed(body).then(function (r) {
       if (!r) return { failed: true };
       var j = r.json || {};
-      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 6, streams: parseStreams(j.streams), plan: j.plan || null };
+      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 3, streams: parseStreams(j.streams), plan: j.plan || null };
       return r.ok ? { ok: true } : { failed: true };
     });
   };
@@ -498,7 +498,7 @@
       if (!r) return null;
       if (B.plan && B.plan.isLockedResponse(r)) return { locked: true };
       if (!r.ok || !r.json) return null;
-      return { limit: r.json.limit || 6, streams: parseStreams(r.json.streams) };
+      return { limit: r.json.limit || 3, streams: parseStreams(r.json.streams) };
     });
   };
   A.streamStop = function () { return authed({ action: 'stream_stop', device_id: A.deviceId() }).catch(B.noop); };

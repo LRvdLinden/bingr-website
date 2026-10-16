@@ -671,6 +671,8 @@
       clearExtSubs();
       scrobbled = false; stopSent = false;
       streamStart().then(function (ok) { if (ok === false && gen === startGen) limited = true; }, B.noop);
+      // limiet van de IPTV-provider (alleen Xtream) alvast ophalen; blokkeert niets
+      B.providers.providerLimit.prime(Lib.source);
       var resolve = isCatchup() ? (item.streamURL ? Promise.resolve(item.streamURL) : Lib.catchupURL(item.channel, item.program).then(function (u) { item.streamURL = u; return u; }))
         : (B.media.webStream(Lib.source, item) ? Promise.resolve(B.media.webStream(Lib.source, item)) : Lib.resolveURL(item, isLive()));
       resolve.then(function (url) {
@@ -1149,20 +1151,30 @@
       var PD = B.playdiag, g2 = startGen;
       var rep = { browser: PD.browser(), attempts: engine ? engine.trace.slice() : [], lastError: e, hlsTried: !!(engine && engine.hlsTried), hlsFound: !!(engine && engine.hlsFound),
         url: engine ? engine.url : null, title: item.title + (item.subtitle ? ' · ' + item.subtitle : '') };
+      // limiet van de IPTV-provider expliciet controleren (Xtream: max_connections / active_cons); los van Bingr
+      var provider = B.providers.providerLimit.failureMessage(Lib.source);
+      spinner.style.display = 'flex';
       if (!isLive() && !isCatchup() && rep.url && !/^(stopped)$/.test(String(e && e.message))) {
-        spinner.style.display = 'flex';
-        PD.inspect(rep.url).then(function (p) {
+        Promise.all([PD.inspect(rep.url), provider]).then(function (res) {
           if (closed || g2 !== startGen) return;
           spinner.style.display = 'none';
-          rep.probe = p;
+          rep.probe = res[0];
+          rep.connHint = !!res[1];
           var d = PD.explain(rep);
           B.log('diagnose', PD.text(rep));
+          // provider vol en de server weigert (401/403/458/509/429) of de stream start niet: melding van de provider
+          if (res[1] && (!d || d.conn || d.server === 401 || d.server === 403)) { showError(providerError(res[1]), rep); return; }
           showError(d || e, rep);
         });
         return;
       }
-      showError(e, rep);
+      provider.then(function (m) {
+        if (closed || g2 !== startGen) return;
+        showError(m ? providerError(m) : e, rep);
+      });
     }
+    /** Fout "limiet van je IPTV-provider bereikt" (specifiek: geen algemene tekst eronder). */
+    function providerError(m) { var pe = new Error(m); pe.specific = true; pe.conn = true; return pe; }
     function showError(e, rep) {
       if (closed) return;
       if (engine) engine.stop();
@@ -1455,7 +1467,8 @@
       U.clear(errorBox);
       errorBox.appendChild(U.icon('users', 'pl-err-ic'));
       errorBox.appendChild(h('h2', L('Too many people are watching')));
-      errorBox.appendChild(h('p', L('Your account can be used on up to %d screens at the same time.', r.limit)));
+      errorBox.appendChild(h('p', r.limit === 1 ? L('Your account can be used on 1 screen at a time.')
+        : L('Your account can be used on up to %d screens at the same time.', r.limit)));
       var list = h('div.limit-list');
       r.streams.forEach(function (s) {
         list.appendChild(h('div.limit-row', [B.screens.platformIcon(s.platform), h('div', [h('div', s.deviceName + ' · ' + s.profileName), h('div.muted.small', s.title)])]));

@@ -32,7 +32,6 @@
     </div>
     <div class="right">
       <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
-      <a class="btn red sm navweb" href="../web/" data-s="nav.web">Kijk in je browser</a>
       <span data-userbtn style="display:inline-flex"></span>
     </div>
   </div>
@@ -209,7 +208,7 @@ function done(icon, title, text, buttons) {
 function signupDone() {
   const n = nextButton();
   done("✓", tr("signupDone"), tr("signupDoneP"), n ? [n, btn("../account/", tr("toAccount"), true)]
-    : [btn("../account/", tr("toAccount")), btn("../index.html#download", tr("getApp"), true)]);
+    : [btn("../account/", tr("toAccount")), btn("../web/", tr("toWeb"), true)]);
   // account gemaakt zonder koppelcode: na de bevestiging vanzelf door naar Mijn Bingr
   if (!n) setTimeout(() => location.replace("../account/"), 1800);
 }
@@ -302,7 +301,7 @@ $("pwForm").onsubmit = async (e) => {
   busy($("saveBtn"), false, tr("save"));
   if (error) { $("pwErr").textContent = error.code === "weak_password" ? tr("shortPw") : tr("generic"); return; }
   const n = nextButton();
-  done("✓", tr("inviteDone"), tr("inviteDoneP"), [n || btn("../account/", tr("toAccount")), btn("../index.html#download", tr("getApp"), true)]);
+  done("✓", tr("inviteDone"), tr("inviteDoneP"), [n || btn("../account/", tr("toAccount")), btn("../web/", tr("toWeb"), true)]);
 };
 
 $("resendForm").onsubmit = async (e) => {

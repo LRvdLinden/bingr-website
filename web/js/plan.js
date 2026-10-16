@@ -16,8 +16,9 @@
 
   var UPGRADE_URL = 'https://bingr.online/upgrade/';
   var FEATURES = ['stats', 'now_watching', 'trakt', 'multi_server', 'themes'];
-  P.FREE = { streams: 2, devices: 8, servers: 1 };
-  P.LIFETIME = { streams: 6, devices: 15, servers: null };
+  // gelijktijdige kijkers: Bingr-telling op de server, los van de limiet van de IPTV-provider
+  P.FREE = { streams: 1, devices: 8, servers: 1 };
+  P.LIFETIME = { streams: 3, devices: 15, servers: null };
 
   var cur = null;      // laatste antwoord van de server (genormaliseerd), of null
   var curUser = null;
@@ -249,11 +250,11 @@
     ]);
   };
 
-  /** Waarde voor de rij Abonnement: "Gratis · 2 schermen tegelijk · 8 apparaten · 1 server". */
+  /** Waarde voor de rij Abonnement: "Gratis · 1 scherm tegelijk · 8 apparaten · 1 server". */
   P.summary = function () {
     var p = P.get(), l = p.limits;
     var srv = l.servers == null ? L('unlimited servers') : (l.servers === 1 ? L('1 server') : L('%d servers', l.servers));
-    return [L('%d screens at once', l.streams), L('%d devices', l.devices), srv].join(' · ');
+    return [l.streams === 1 ? L('1 screen at once') : L('%d screens at once', l.streams), L('%d devices', l.devices), srv].join(' · ');
   };
   P.name = function () { return P.isFree() ? L('Free') : 'Lifetime'; };
 })();

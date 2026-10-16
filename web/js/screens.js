@@ -191,6 +191,7 @@
     if (plan !== 'free') return null;
     var limit = (info && info.limit) || P.limit(kind);
     var text = kind === 'devices' ? L('Free: up to %d devices. Lifetime: %d.', limit, P.LIFETIME.devices)
+      : limit === 1 ? L('Free: 1 screen at a time. Lifetime: %d.', P.LIFETIME.streams)
       : L('Free: up to %d screens at the same time. Lifetime: %d.', limit, P.LIFETIME.streams);
     return h('div.plan-upsell', [P.badge(), h('span.plan-upsell-t', text),
       U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'lifetime' })]);

@@ -36,6 +36,12 @@
     'With Lifetime you can use Bingr on %d devices.': 'Met Lifetime gebruik je Bingr op %d apparaten.',
     'Free: up to %d screens at the same time. Lifetime: %d.': 'Gratis: maximaal %d schermen tegelijk. Lifetime: %d.',
     'Free: up to %d devices. Lifetime: %d.': 'Gratis: maximaal %d apparaten. Lifetime: %d.',
+    'Free: 1 screen at a time. Lifetime: %d.': 'Gratis: 1 scherm tegelijk. Lifetime: %d.',
+    '1 screen at once': '1 scherm tegelijk',
+    'Your account can be used on 1 screen at a time.': 'Je account kan op 1 scherm tegelijk worden gebruikt.',
+    // limiet van de IPTV-provider (Xtream), los van Bingr
+    'Your IPTV subscription allows 1 connection at a time and it is in use. This is a limit of your provider, not of Bingr.': 'Je IPTV-abonnement staat maximaal 1 verbinding tegelijk toe en die is in gebruik. Dit is een limiet van je provider, niet van Bingr.',
+    'Your IPTV subscription allows up to %d connections at the same time and they are all in use. This is a limit of your provider, not of Bingr.': 'Je IPTV-abonnement staat maximaal %d verbindingen tegelijk toe en die zijn allemaal in gebruik. Dit is een limiet van je provider, niet van Bingr.',
     'Statistics are part of Lifetime': 'Statistieken horen bij Lifetime',
     'Who’s watching now': 'Wie kijkt er nu',
     'Servers are added on bingr.online/account.': 'Servers voeg je toe op bingr.online/account.',

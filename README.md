@@ -17,7 +17,7 @@ Op [bingr.online/web](https://bingr.online/web/) kijk je Bingr zonder iets te in
 - **Formaten**: HLS (.m3u8), MP4/WebM en live MPEG-TS. Plex, Jellyfin en Emby zetten andere formaten zelf om.
 - **Servers zonder CORS**: veel IPTV-servers staan geen browsers toe; Bingr haalt de lijst en streams dan op via een beveiligde doorgeefdienst, alleen voor de servers in je eigen account. Alleen https-servers en -streams werken in de browser.
 - **Sneltoetsen**: spatie (afspelen/pauze), ← → (10 seconden), ↑ ↓ (volume of andere zender), F (volledig scherm), M (geluid), Esc (sluiten) en / (zoeken).
-- De browser telt als apparaat (max. 15 per account) en als scherm (max. 6 tegelijk).
+- De browser telt als apparaat en als scherm (limieten van het abonnement: Gratis 8 apparaten / 1 scherm, Lifetime 15 / 3).
 
 ## /koppelen: je tv koppelen
 
