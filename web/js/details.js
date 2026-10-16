@@ -128,6 +128,8 @@
     p.catch(function () { if (idxP === p) { idxP = null; idxPVer = -1; } });
     return p;
   };
+  /** build 111: titelindex al klaar voor deze bibliotheek? (rijen Binnenkort / Nieuw op streamingdiensten) */
+  DT.indexReadyNow = function () { return !!indexNow(); };
   /** Titel uit je bibliotheek bij een TMDB-titel (titel in de app-taal of origineel, met hetzelfde jaar als dat bekend is). */
   DT.match = function (r) {
     var ix = indexNow();

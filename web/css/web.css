@@ -1,6 +1,7 @@
 /* Bingr in de browser (bingr.online/web): responsief, donker, Netflix-stijl. Accentkleur per profiel via --accent. */
 :root {
   --accent: #E50914;
+  --on-accent: #fff; /* tekst/iconen op een vlak in de accentkleur (bij goud donker; zie app.applyAccent) */
   --red: #E50914; /* Bingr-rood (vast, ook als het profiel een andere accentkleur heeft) */
   --bg: #0a0a0a;
   --bg2: #141414;
@@ -68,7 +69,7 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .btn:hover { background: #ffffff3d; }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; cursor: default; }
-.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.12); box-shadow: 0 0 0 2px #ffffff40; }
 .btn.ghost { background: #6d6d6eb3; }
 .btn.ghost:hover { background: #6d6d6e66; }
@@ -360,7 +361,7 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .ep-play { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; transition: opacity .2s; background: #0006; }
 .ep-play .ic { width: 40px; height: 40px; padding: 8px; border: 2px solid #fff; border-radius: 50%; background: #0008; }
 .ep:hover .ep-play, .ep:focus-visible .ep-play { opacity: 1; }
-.ep-watched { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; }
+.ep-watched { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
 .ep-watched .ic { width: 15px; height: 15px; stroke-width: 3; }
 .ep-txt { flex: 1; min-width: 0; }
 .ep-title { font-weight: 700; font-size: 16px; }
@@ -661,10 +662,10 @@ html.playing #bingr-cookie-btn { display: none; }
 
 /* build 69: bekeken, contextmenu, collecties, Mijn Bingr, profielen beheren, Trakt */
 .card, .ccard, .ep, .lv-main, .hist-main, .coll-main { -webkit-touch-callout: none; }
-.card-watched { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; box-shadow: 0 2px 6px #0008; }
+.card-watched { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; box-shadow: 0 2px 6px #0008; }
 .card-watched .ic { width: 14px; height: 14px; stroke-width: 3; }
-/* labels Serie/Film en "N bekeken": accentkleur (rood, of de kleur van het profiel) met witte tekst, zoals PosterCard op iOS */
-.card-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: 3px 6px; border-radius: 2px; background: var(--accent); box-shadow: 0 1px 4px #0006; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* labels Serie/Film en "N bekeken": accentkleur (rood, of de kleur van het profiel) met witte tekst (goud: donker), zoals PosterCard op iOS */
+.card-badge { position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: 3px 6px; border-radius: 2px; background: var(--accent); box-shadow: 0 1px 4px #0006; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: var(--on-accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Voor jou: label Serie/Film linksboven (zoals iOS build 74); het aantal bekeken eronder */
 .card-badge.card-kind { max-width: calc(100% - 40px); }
 .card-badge.card-badge-below { top: 30px; }
@@ -972,7 +973,8 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
 /* Lifetime-icoon: badge met uitgespaard vinkje in Bingr-rood; op een rode ondergrond (knop, badge) wit */
 .ic.ic-lifetime { stroke: none; }
 .ic.ic-lifetime path { fill: var(--red); }
-.btn.primary .ic-lifetime path, .plan-badge .ic-lifetime path { fill: #fff; }
+.btn.primary .ic-lifetime path { fill: var(--on-accent); }
+.plan-badge .ic-lifetime path { fill: #fff; }
 .plan-badge-ic { width: 13px; height: 13px; }
 .st-value .plan-badge { margin-left: 2px; }
 .plan-pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; letter-spacing: .04em; background: #ffffff1f; color: #fff; }
@@ -1065,3 +1067,9 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 [dir=rtl] .lv-main { padding: 10px 14px 10px 6px; }
 /* tijdbalk en tijden van de speler blijven links-naar-rechts (doorspoelen rekent vanaf links) */
 [dir=rtl] .pl-prog { direction: ltr; }
+
+/* build 111: rijen Binnenkort / Nieuw op streamingdiensten (TMDB): datum op de poster, bronvermelding onder de rij */
+.card-badge.card-date { top: auto; bottom: 6px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; }
+.discover-attr { margin: 2px 0 0; padding: 0 var(--gutter); font-size: 11px; color: #8c8c8c; }
+.page:not(.home) .discover-attr { padding: 0; }
+.dt-note { margin: 14px 0 0; line-height: 1.5; max-width: 680px; }

@@ -11,6 +11,17 @@
   var app = B.app = { profile: null };
   var root = null, current = null, main = null;
 
+  // Accentkleur goud (nieuw; past bij het gouden app-icoon). D.accents is dezelfde lijst als ACCENTS in sync.js
+  // (accentKey, setAccent en de migratie kennen hem daardoor ook). Oudere apps kennen "gold" niet en tekenen rood.
+  if (!D.accents.gold) D.accents.gold = '#F5B30B';
+  // tekst/iconen óp een vlak in de accentkleur: wit, maar donker op een licht accent (wit op goud is onleesbaar)
+  var ON_ACCENT = { gold: '#1A1400' };
+  function setAccentVars(k) {
+    var st = document.documentElement.style;
+    st.setProperty('--accent', D.accents[k] || D.accents.red);
+    st.setProperty('--on-accent', D.accents[k] && ON_ACCENT[k] ? ON_ACCENT[k] : '#fff');
+  }
+
   function withTimeout(p, ms) { return Promise.race([p, new Promise(function (r) { setTimeout(function () { r(null); }, ms); })]); }
   function show(scr) {
     if (scr === current) return;
@@ -70,8 +81,7 @@
     var k = key || D.accentKey(app.profile);
     // accentkleuren horen bij Lifetime: met Gratis blijft Bingr rood
     if (B.plan && !B.plan.has('themes')) k = 'red';
-    var c = D.accents[k] || D.accents.red;
-    document.documentElement.style.setProperty('--accent', c);
+    setAccentVars(k);
     B.store.set('lastAccent', k);
   };
   app.startPage = function () {
@@ -99,7 +109,7 @@
   function start() {
     B.migrate();
     B.setLanguage(D.shared('appLanguage', '') || '');
-    document.documentElement.style.setProperty('--accent', D.accents[B.store.get('lastAccent', 'red')] || D.accents.red);
+    setAccentVars(B.store.get('lastAccent', 'red'));
     root = document.getElementById('app');
     var intro = introSplash(true);
     show(intro);

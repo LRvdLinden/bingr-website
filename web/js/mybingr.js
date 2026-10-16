@@ -41,6 +41,8 @@
     if (type === 'movie' || type === 'series') {
       var inList = D.inSet('myList', D.key(srcId(), x.id));
       items.push({ icon: inList ? 'check' : 'plus', label: inList ? L('Remove from My List') : L('Add to My List'), fn: function () { S.toggleMyList(x, type); } });
+      // build 111: titel uit TMDB (niet in je bibliotheek): alleen Mijn lijst en Meer info
+      if (x.external) return items.concat([{ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } }]);
       if (type === 'movie') {
         var w = S.movieWatched(x);
         items.push({ icon: w ? 'eyeOff' : 'checkCircle', label: w ? L('Mark as unwatched') : L('Mark as watched'), fn: function () { S.setMovieWatched(x, !w); } });
@@ -101,7 +103,8 @@
   // 'browse' (build 86) = rij "Categorieën" met genretegels; standaard direct na 'live' (= op Home 5 rijen tussen "Nu live" en
   // "Categorieën", zie screens.js). Zelfde sleutel als iOS/tvOS/macOS en Android/Samsung TV; oudere sleutels 'genres' (web)
   // en 'categorytiles' (Android) worden bij het lezen 'browse' (plek en aan/uit blijven, dubbele vervallen).
-  var KNOWN = ['continue', 'mylist', 'recent', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
+  // build 111: 'upcoming' (Binnenkort) en 'streaming' (Nieuw op streamingdiensten), TMDB; standaard aan, na 'recent'
+  var KNOWN = ['continue', 'mylist', 'recent', 'upcoming', 'streaming', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
   var ALIAS = { genres: 'browse', categorytiles: 'browse' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
   S.homeKnownKeys = KNOWN;
@@ -139,7 +142,8 @@
     return edited.concat(keep);
   };
   S.homeRowTitle = function (key, colls) {
-    var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), foryou: L('For you'), top10: L('Top 10'),
+    var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), upcoming: L('Coming soon'),
+      streaming: L('New on streaming'), foryou: L('For you'), top10: L('Top 10'),
       live: L('Favorite channels'), browse: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {

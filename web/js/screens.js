@@ -694,7 +694,14 @@
           return [U.row(kids ? L('Top 10 kids series') : L('Top 10 series today'), Lib.top10(lib.series).map(function (s, i) { return top10Card(s, 'series', i); }), 'top10row'),
             U.row(kids ? L('Top 10 kids movies') : L('Top 10 movies today'), Lib.top10(lib.movies).map(function (m, i) { return top10Card(m, 'movie', i); }), 'top10row')];
         },
-        'recent': function () { return U.row(L('Recently added'), Lib.recent(lib.movies, 30).map(function (m) { return posterCard(m, 'movie'); })); },
+        // build 111: "Nieuw toegevoegd": films én series van de laatste 30 dagen (max. 30), nieuwste eerst
+        'recent': function () {
+          var list = B.discover ? B.discover.recentTitles() : Lib.recent(lib.movies, 30).map(function (m) { return { type: 'movie', item: m }; });
+          return U.row(L('Recently added'), list.map(function (e) { return posterCard(e.item, e.type); }));
+        },
+        // build 111: Binnenkort / Nieuw op streamingdiensten (TMDB), met bronvermelding onder de rij
+        'upcoming': function () { return B.discover ? B.discover.row('upcoming') : null; },
+        'streaming': function () { return B.discover ? B.discover.row('streaming') : null; },
         'movies': function () { return U.row(L('Movies'), lib.movies.slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, '#/movies'); },
         'series': function () { return U.row(L('Series'), lib.series.slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, '#/series'); },
         // rij met genretegels (build 86); 'categories' hieronder = rijen per categorie van de server
@@ -769,7 +776,20 @@
         keysBuilt[k] = true;
       });
       placeGenres();
+      loadDiscover();
     }
+    /** build 111: TMDB-rijen en de titelindex op de achtergrond; daarna alleen die rijen opnieuw. */
+    var discJob = 0;
+    function loadDiscover() {
+      if (!B.discover || !rows) return;
+      var my = ++discJob;
+      B.discover.resolveMissing();
+      B.discover.loadAll().then(function (changed) {
+        if (changed && my === discJob && el.isConnected !== false) refreshRows(['upcoming', 'streaming']);
+      }, B.noop);
+    }
+    var offDiscover = B.on('discover', function () { if (rows) refreshRows(['mylist', 'upcoming', 'streaming']); });
+    pg.destroy = function () { offDiscover(); };
     function refreshRows(keys) {
       var b = builders();
       // eerst de rij Categorieën losmaken (hij kan in een andere groep staan), daarna opnieuw op zijn plek
@@ -810,6 +830,8 @@
       var hit = lib.byId && lib.byId[parts.slice(1).join('|')];
       if (hit && hit.type !== 'channel') out.push(hit);
     });
+    // build 111: TMDB-titels (Binnenkort / Nieuw op streamingdiensten) die niet in je bibliotheek staan
+    if (B.discover) out = out.concat(B.discover.myListHits());
     return out;
   }
 
@@ -1163,6 +1185,8 @@
   S.pages.title = function (r) {
     var type = r.parts[1] === 'series' ? 'series' : 'movie';
     var id = r.parts[2] || '';
+    // build 111: titel uit TMDB (Binnenkort / Nieuw op streamingdiensten), niet in je bibliotheek
+    if (B.discover && B.discover.isExternal(id)) return B.discover.page(type, id);
     var el = h('div.page.detail');
     var pg = { el: el };
     var x = null, episodes = [], season = null, currentEp = null, versions = [];
