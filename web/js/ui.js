@@ -47,6 +47,8 @@
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    // Mijn lijst en favoriete zenders: plus en vinkje in één icoon; klasse "on" wisselt met animatie (U.plusCheckButton)
+    pluscheck: '<g class="pc-plus"><path d="M12 5v14M5 12h14"/></g><path class="pc-check" d="M5 12.5l4.5 4.5L19 7.5"/>',
     search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
     back: '<path d="M15 5l-7 7 7 7"/>',
     chevron: '<path d="M9 5l7 7-7 7"/>',
@@ -142,6 +144,47 @@
     if (t) { b.title = t; b.setAttribute('aria-label', t); }
     if (fn) b.addEventListener('click', function (e) { e.stopPropagation(); fn(e); });
     return b;
+  };
+  /** Icoonnaam voor menu's: plus (nog niet) of vinkje (staat er al in). Mijn lijst en favoriete zenders. */
+  U.plusCheckIcon = function (on) { return on ? 'check' : 'plus'; };
+  var PC_LABELS = {
+    mylist: function () { return [L('Add to My List'), L('In My List')]; },
+    favorite: function () { return [L('Add to favorites'), L('In favorites')]; }
+  };
+  /**
+   * Aan/uit-knop plus ↔ vinkje voor Mijn lijst (kind 'mylist') en favoriete zenders ('favorite'). fn() zet de waarde om
+   * en geeft de nieuwe staat terug; de knop blijft staan en alleen het icoon animeert (plus draait 90° weg, het vinkje
+   * tekent zich, kleine bounce bij toevoegen). opts: zoals U.button, plus labels: [tekst uit, tekst aan] voor de knoptekst.
+   */
+  U.plusCheckButton = function (kind, label, on, fn, opts) {
+    opts = opts || {};
+    var b = U.button(label, function () {
+      var now = fn();
+      if (typeof now === 'boolean') U.setPlusCheck(b, now);
+    }, { icon: 'pluscheck', cls: opts.cls, primary: opts.primary });
+    b._pc = { kind: kind, labels: opts.labels || null };
+    b.querySelector('.ic').classList.add('pc');
+    U.setPlusCheck(b, on, true);
+    return b;
+  };
+  /** Staat van een plus/vinkje-knop zetten; instant = zonder animatie (eerste keer tekenen). */
+  U.setPlusCheck = function (b, on, instant) {
+    var ic = b && b.querySelector('.ic.pc');
+    if (!ic) return;
+    var pc = b._pc || {};
+    var a11y = (PC_LABELS[pc.kind] || PC_LABELS.mylist)();
+    b.title = a11y[on ? 1 : 0];
+    b.setAttribute('aria-label', a11y[on ? 1 : 0]);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('on', on);
+    if (pc.labels) { var sp = b.querySelector('span'); if (sp) sp.textContent = pc.labels[on ? 1 : 0]; }
+    var was = ic.classList.contains('on');
+    ic.classList.toggle('on', on);
+    ic.classList.remove('pop');
+    if (!instant && on && !was) {
+      void ic.getBoundingClientRect(); // animatie opnieuw starten
+      ic.classList.add('pop');
+    }
   };
   U.spinner = function () { return h('div.spinner', { role: 'status', 'aria-label': L('Loading…') }); };
   U.logo = function () { return h('div.logo', 'BINGR'); };

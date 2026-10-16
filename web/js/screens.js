@@ -958,9 +958,10 @@
       if (!q.trim()) { results.appendChild(h('p.muted.search-hint', L('Type to search your channels, movies and series.'))); return; }
       var res = Lib.search(q, 60);
       if (!res.channels.length && !res.movies.length && !res.series.length) { results.appendChild(h('div.state', [h('p.muted', L('No results for "%@"', q))])); return; }
-      if (res.channels.length) results.appendChild(U.row(L('Channels'), res.channels.map(function (c) { return channelCard(c, res.channels); }), 'live'));
       if (res.movies.length) { results.appendChild(h('h2.row-title.grid-title', L('Movies'))); results.appendChild(U.grid(res.movies, function (m) { return posterCard(m, 'movie'); }, 'posters')); }
       if (res.series.length) { results.appendChild(h('h2.row-title.grid-title', L('Series'))); results.appendChild(U.grid(res.series, function (s) { return posterCard(s, 'series'); }, 'posters')); }
+      // Live TV (zenders) altijd als laatste, na films en series
+      if (res.channels.length) results.appendChild(U.row(L('Channels'), res.channels.map(function (c) { return channelCard(c, res.channels); }), 'live'));
     }
     var deb = B.debounce(run, 220);
     input.addEventListener('input', deb);
@@ -1064,7 +1065,10 @@
       var fav = D.inSet('favorites', favKey(ch));
       var btns = h('div.lv-g-btns', [
         U.button(L('Watch live'), function () { B.player.playChannel(ch, currentList); }, { primary: true, icon: 'play' }),
-        U.button(fav ? L('Favorite') : L('Add to favorites'), function () { D.toggleSet('favorites', favKey(ch)); fillGuide(box, ch); refreshList(); }, { icon: fav ? 'starFill' : 'star' }),
+        // plus / vinkje met animatie (was een ster); de knop blijft staan, de lijst werkt de ster in de rij bij
+        U.plusCheckButton('favorite', fav ? L('Favorite') : L('Add to favorites'), fav, function () {
+          D.toggleSet('favorites', favKey(ch)); refreshList(); return D.inSet('favorites', favKey(ch));
+        }, { labels: [L('Add to favorites'), L('Favorite')] }),
         U.button('', function () { S.addToCollection({ type: 'channel', id: ch.id }, ch.name); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
       ]);
       if (nn.now && Lib.canCatchup(ch, nn.now)) btns.appendChild(U.button(L('From the start'), function () { B.player.playCatchup(ch, nn.now, currentList); }, { icon: 'replay' }));
@@ -1355,8 +1359,8 @@
     }
 
     function listButton() {
-      var on = D.inSet('myList', listKey);
-      return U.button(L('My List'), function () { S.toggleMyList(x, type); drawButtons(); }, { icon: on ? 'check' : 'plus', cls: on ? 'on' : null, title: on ? L('Remove from My List') : L('Add to My List') });
+      // plus / vinkje met animatie; de knop blijft staan (geen drawButtons)
+      return U.plusCheckButton('mylist', L('My List'), D.inSet('myList', listKey), function () { S.toggleMyList(x, type); return D.inSet('myList', listKey); });
     }
     function collectionButton() {
       var item = { type: type, id: x.id };

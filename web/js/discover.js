@@ -348,9 +348,9 @@
       function drawButtons() {
         U.clear(buttons);
         if (Lib.source) {
-          var on = D.inSet('myList', listKey);
-          buttons.appendChild(U.button(L('My List'), function () { S.toggleMyList(x, type); drawButtons(); },
-            { icon: on ? 'check' : 'plus', cls: on ? 'on' : null, title: on ? L('Remove from My List') : L('Add to My List') }));
+          // plus / vinkje met animatie; de knop blijft staan
+          buttons.appendChild(U.plusCheckButton('mylist', L('My List'), D.inSet('myList', listKey),
+            function () { S.toggleMyList(x, type); return D.inSet('myList', listKey); }));
         }
         buttons.appendChild(trailerSlot);
         buttons.appendChild(h('a.btn', { href: '#/search?q=' + encodeURIComponent(x.title) }, [U.icon('search'), h('span', L('Search'))]));

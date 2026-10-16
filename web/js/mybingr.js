@@ -40,7 +40,7 @@
     var items = [];
     if (type === 'movie' || type === 'series') {
       var inList = D.inSet('myList', D.key(srcId(), x.id));
-      items.push({ icon: inList ? 'check' : 'plus', label: inList ? L('Remove from My List') : L('Add to My List'), fn: function () { S.toggleMyList(x, type); } });
+      items.push({ icon: U.plusCheckIcon(inList), label: inList ? L('Remove from My List') : L('Add to My List'), fn: function () { S.toggleMyList(x, type); } });
       // build 111: titel uit TMDB (niet in je bibliotheek): alleen Mijn lijst en Meer info
       if (x.external) return items.concat([{ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } }]);
       if (type === 'movie') {
@@ -51,7 +51,7 @@
     } else if (type === 'channel') {
       var fk = D.key(srcId(), x.id), fav = D.inSet('favorites', fk);
       items.push({ icon: 'play', label: L('Watch live'), fn: function () { B.player.playChannel(x, [x]); } });
-      items.push({ icon: fav ? 'starFill' : 'star', label: fav ? L('Remove from favorites') : L('Add to favorites'), fn: function () { D.toggleSet('favorites', fk); } });
+      items.push({ icon: U.plusCheckIcon(fav), label: fav ? L('Remove from favorites') : L('Add to favorites'), fn: function () { D.toggleSet('favorites', fk); } });
     }
     items.push({ icon: 'stackAdd', label: L('Add to collection…'), fn: function () { S.addToCollection({ type: type, id: x.id }, x.title || x.name); } });
     var c = opts.collection;

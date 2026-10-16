@@ -78,6 +78,18 @@ kbd { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; backgroun
 .btn.wide { width: 100%; }
 .btn.on { background: #ffffff3d; }
 .btn .ic { width: 20px; height: 20px; }
+/* plus ↔ vinkje (Mijn lijst, favoriete zenders; U.plusCheckButton): de plus draait 90° en krimpt weg, het vinkje tekent
+   zich (stroke-dasharray, padlengte ≈ 19,8), bij toevoegen een kleine bounce. Samen ± 0,3 s. */
+.ic.pc .pc-plus { transform-origin: 12px 12px; transition: transform .2s ease-in, opacity .18s ease; transition-delay: .08s; }
+.ic.pc .pc-check { stroke-dasharray: 20; stroke-dashoffset: 20; transition: stroke-dashoffset .2s ease-out; }
+.ic.pc.on .pc-plus { transform: rotate(90deg) scale(.2); opacity: 0; transition-delay: 0s; }
+.ic.pc.on .pc-check { stroke-dashoffset: 0; transition-delay: .1s; }
+.ic.pc.pop { animation: pcPop .34s ease-out; }
+@keyframes pcPop { 0% { transform: scale(1); } 20% { transform: scale(.9); } 55% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .ic.pc .pc-plus, .ic.pc .pc-check { transition: none !important; }
+  .ic.pc.pop { animation: none !important; }
+}
 .btn.icon-only { padding: 0; width: 40px; min-height: 40px; background: transparent; }
 .btn.icon-only:hover { background: #ffffff1f; }
 .btn.icon-only.small { width: 32px; min-height: 32px; }
