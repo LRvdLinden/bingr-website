@@ -103,7 +103,7 @@
   // 'browse' (build 86) = rij "Categorieën" met genretegels; standaard direct na 'live' (= op Home 5 rijen tussen "Nu live" en
   // "Categorieën", zie screens.js). Zelfde sleutel als iOS/tvOS/macOS en Android/Samsung TV; oudere sleutels 'genres' (web)
   // en 'categorytiles' (Android) worden bij het lezen 'browse' (plek en aan/uit blijven, dubbele vervallen).
-  // build 111: 'upcoming' (Binnenkort) en 'streaming' (Nieuw op streamingdiensten), TMDB; standaard aan, na 'recent'
+  // build 111: 'upcoming' (Binnenkort op Bingr) en 'streaming' (Nieuw op Bingr; namen build 112), TMDB; standaard aan, na 'recent'
   var KNOWN = ['continue', 'mylist', 'recent', 'upcoming', 'streaming', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
   var ALIAS = { genres: 'browse', categorytiles: 'browse' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
@@ -142,8 +142,8 @@
     return edited.concat(keep);
   };
   S.homeRowTitle = function (key, colls) {
-    var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), upcoming: L('Coming soon'),
-      streaming: L('New on streaming'), foryou: L('For you'), top10: L('Top 10'),
+    var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), upcoming: L('Coming soon to Bingr'),
+      streaming: L('New on Bingr'), foryou: L('For you'), top10: L('Top 10'),
       live: L('Favorite channels'), browse: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {

@@ -312,10 +312,12 @@
     if (pr == null && !isShow) { var pe = D.progress(x.id); pr = pe && pe.fraction > 0 ? pe.fraction : null; }
     var watched = !isShow && !opts.continueKeys && S.movieWatched(x);
     var wc = isShow ? S.seriesWatchedCount(x) : 0;
+    // label linksboven: Serie/Film (Voor jou) of, build 112, een eigen tekst (opts.badge, bv. de datum bij Binnenkort op Bingr)
+    var top = opts.kindBadge ? (isShow ? L('SERIES') : L('MOVIE')) : (opts.badge || null);
     return { watched: watched, nodes: [
       watched ? h('div.card-watched.mark', { title: L('Watched') }, [U.icon('check')]) : null,
-      opts.kindBadge ? h('div.card-badge.card-kind', isShow ? L('SERIES') : L('MOVIE')) : null,
-      wc > 0 ? h('div.card-badge.mark' + (opts.kindBadge ? '.card-badge-below' : ''), L('%d WATCHED', wc)) : null,
+      top ? h('div.card-badge.card-kind', top) : null,
+      wc > 0 ? h('div.card-badge.mark' + (top ? '.card-badge-below' : ''), L('%d WATCHED', wc)) : null,
       pr ? h('div.card-progress.mark', [h('div', { style: { width: Math.round(B.clamp(pr, 0, 1) * 100) + '%' } })]) : null] };
   }
   function cardLabel(x, watched) { return x.title + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : ''); }
@@ -699,7 +701,7 @@
           var list = B.discover ? B.discover.recentTitles() : Lib.recent(lib.movies, 30).map(function (m) { return { type: 'movie', item: m }; });
           return U.row(L('Recently added'), list.map(function (e) { return posterCard(e.item, e.type); }));
         },
-        // build 111: Binnenkort / Nieuw op streamingdiensten (TMDB), met bronvermelding onder de rij
+        // build 111: Binnenkort op Bingr / Nieuw op Bingr (TMDB), met bronvermelding onder de rij
         'upcoming': function () { return B.discover ? B.discover.row('upcoming') : null; },
         'streaming': function () { return B.discover ? B.discover.row('streaming') : null; },
         'movies': function () { return U.row(L('Movies'), lib.movies.slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, '#/movies'); },
@@ -830,7 +832,7 @@
       var hit = lib.byId && lib.byId[parts.slice(1).join('|')];
       if (hit && hit.type !== 'channel') out.push(hit);
     });
-    // build 111: TMDB-titels (Binnenkort / Nieuw op streamingdiensten) die niet in je bibliotheek staan
+    // build 111: TMDB-titels (Binnenkort op Bingr / Nieuw op Bingr) die niet in je bibliotheek staan
     if (B.discover) out = out.concat(B.discover.myListHits());
     return out;
   }
@@ -1185,7 +1187,7 @@
   S.pages.title = function (r) {
     var type = r.parts[1] === 'series' ? 'series' : 'movie';
     var id = r.parts[2] || '';
-    // build 111: titel uit TMDB (Binnenkort / Nieuw op streamingdiensten), niet in je bibliotheek
+    // build 111: titel uit TMDB (Binnenkort op Bingr / Nieuw op Bingr), niet in je bibliotheek
     if (B.discover && B.discover.isExternal(id)) return B.discover.page(type, id);
     var el = h('div.page.detail');
     var pg = { el: el };
@@ -1780,7 +1782,8 @@
         r2.appendChild(h('kbd', k[0]));
       });
 
-      sec = section(L('About'));
+      // build 112: verplichte bronvermelding van TMDB en JustWatch onder Over (stond eerder onder de Home-rijen)
+      sec = section(L('About'), B.discover ? B.discover.attribution() : null);
       row(sec, 'Bingr ' + B.config.version + (B.config.build ? ' (build ' + B.config.build + ')' : ''), L('Browser') + ' · ' + A.deviceDisplayName(), null);
       row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
     }

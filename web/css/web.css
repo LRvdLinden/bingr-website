@@ -1068,8 +1068,6 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 /* tijdbalk en tijden van de speler blijven links-naar-rechts (doorspoelen rekent vanaf links) */
 [dir=rtl] .pl-prog { direction: ltr; }
 
-/* build 111: rijen Binnenkort / Nieuw op streamingdiensten (TMDB): datum op de poster, bronvermelding onder de rij */
-.card-badge.card-date { top: auto; bottom: 6px; left: 50%; transform: translateX(-50%); background: #000c; color: #fff; }
-.discover-attr { margin: 2px 0 0; padding: 0 var(--gutter); font-size: 11px; color: #8c8c8c; }
-.page:not(.home) .discover-attr { padding: 0; }
+/* build 111: rijen Binnenkort op Bingr / Nieuw op Bingr (TMDB). Build 112: de datum is het gewone rode .card-badge
+   linksboven; de bronvermelding staat niet meer onder de rij maar in Instellingen → Over (.st-foot) */
 .dt-note { margin: 14px 0 0; line-height: 1.5; max-width: 680px; }
