@@ -219,6 +219,7 @@ jobs:
           block = ("# BEGIN bingr-redirects (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
                    "<IfModule mod_alias.c>\n"
                    "Redirect 301 /support.html https://support.bingr.online/hulp/\n"
+                   "RedirectMatch 302 ^/apk/?$ https://beheer.bingr.online/dl.php?app=android\n"
                    "RedirectMatch 302 ^/status/feed\\.atom$ " + FN + "?action=feed&format=atom&lang=nl\n"
                    "RedirectMatch 302 ^/status/feed\\.en\\.atom$ " + FN + "?action=feed&format=atom&lang=en\n"
                    "RedirectMatch 302 ^/status/feed\\.rss$ " + FN + "?action=feed&format=rss&lang=nl\n"
