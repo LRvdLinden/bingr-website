@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Titel · Bingr</title>
+<meta name="robots" content="noindex,nofollow">
+<!-- universele link uit de nieuwsbrief (docs/NEWSLETTER.md in iptv-ios-appletv): opent de app via apple-app-site-association /
+     assetlinks.json; staat de app er niet op, dan deze pagina en daarna de webspeler -->
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
+</head>
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../#features" data-s="nav.features">Functies</a>
+      <a href="../#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap"><div class="panel authcard titel">
+  <section id="show" class="hidden">
+    <p class="muted" id="kind"></p>
+    <h1 id="name"></h1>
+    <p data-t="text"></p>
+    <a id="app" class="btn red full" href="#" data-t="openApp"></a>
+    <a id="web" class="btn ghost full" href="../web/" data-t="openWeb" style="margin-top:12px"></a>
+    <p class="muted" id="count" aria-live="polite" style="margin-top:16px"></p>
+  </section>
+  <section id="invalid" class="done hidden"><div class="big" aria-hidden="true">!</div><h1 data-t="badTitle"></h1><p data-t="badText"></p>
+    <a class="btn red full" href="../web/" data-t="openWeb"></a></section>
+</div></div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=110" data-base="../"></script>
+<script>
+(() => {
+  const T = {
+    nl: { movie: "Film", tv: "Serie", text: "Open de titel in de Bingr-app, of kijk in je browser. Bingr levert zelf geen films of series: of een titel bij jou te zien is, hangt af van je eigen bron.",
+          openApp: "Open in de app", openWeb: "Kijk in je browser", count: "Je gaat zo door naar de webspeler…",
+          badTitle: "Link onvolledig", badText: "Deze link mist gegevens. Open Bingr en zoek de titel zelf op." },
+    en: { movie: "Movie", tv: "Series", text: "Open the title in the Bingr app, or watch in your browser. Bingr doesn't provide any movies or series itself: whether you can watch a title depends on your own source.",
+          openApp: "Open in the app", openWeb: "Watch in your browser", count: "Taking you to the web player…",
+          badTitle: "Incomplete link", badText: "This link is missing information. Open Bingr and search for the title yourself." },
+  };
+  const lang = BingrSite.lang === "en" ? "en" : "nl";
+  const $ = (id) => document.getElementById(id);
+  document.querySelectorAll("[data-t]").forEach((el) => (el.textContent = T[lang][el.dataset.t]));
+  const p = new URLSearchParams(location.search);
+  const type = p.get("type"), id = p.get("id") || "";
+  const q = (p.get("q") || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 200);
+  const y = /^(18|19|20|21)\d{2}$/.test(p.get("y") || "") ? p.get("y") : "";
+  if (!(type === "movie" || type === "tv") || !/^[1-9]\d{0,9}$/.test(id)) { $("invalid").classList.remove("hidden"); return; }
+  const qs = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  const web = `../web/#/titel?${qs({ type, id, q, y })}`;
+  const app = `bingr://title?${qs({ type, id, q })}`;
+  $("kind").textContent = [T[lang][type], y].filter(Boolean).join(" · ");
+  $("name").textContent = q || T[lang][type];
+  document.title = `${q || T[lang][type]} · Bingr`;
+  $("web").href = web;
+  $("app").href = app;
+  $("show").classList.remove("hidden");
+  // kans op de app: telefoon of tablet (iPhone, iPad, Android). Op een computer meteen door naar de webspeler.
+  const ua = navigator.userAgent || "";
+  const mobile = /iPhone|iPad|iPod|Android/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (!mobile) { $("app").classList.add("hidden"); location.replace(web); return; }
+  let left = 3, stopped = false;
+  const tick = () => {
+    if (stopped) return;
+    if (left <= 0) { location.replace(web); return; }
+    $("count").textContent = T[lang].count;
+    left--; setTimeout(tick, 1000);
+  };
+  // wie op "Open in de app" tikt, gaat niet alsnog naar de webspeler (de app neemt het over of de gebruiker kiest zelf)
+  $("app").addEventListener("click", () => { stopped = true; $("count").textContent = ""; });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) stopped = true; });
+  tick();
+})();
+</script>
+</body>
+</html>

@@ -110,6 +110,8 @@
     B.migrate();
     // pushmeldingen: service worker (alleen push) en een zender uit een herinnering (#/live?channel=…)
     if (B.push) B.push.init();
+    // link naar een titel uit de nieuwsbrief (#/titel?…): onthouden tot er een profiel en bibliotheek is
+    if (B.titleLink) B.titleLink.init();
     B.setLanguage(D.shared('appLanguage', '') || '');
     setAccentVars(B.store.get('lastAccent', 'red'));
     root = document.getElementById('app');
@@ -216,6 +218,7 @@
     main.start();
     Lib.select(src).then(function () {
       if (B.push && app.profile === p) B.push.tryPending();
+      if (B.titleLink && app.profile === p) B.titleLink.tryPending();
       B.whenQuiet(function () { warmAges(); }, 2500);
     });
     D.syncState().then(function () { if (app.profile === p) { Lib.applyFilters(); B.trakt.refresh(false); } });

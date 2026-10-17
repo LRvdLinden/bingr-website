@@ -145,6 +145,23 @@
     return null;
   };
 
+  /**
+   * Alle goede kandidaten uit je bibliotheek (link uit de nieuwsbrief, #/titel): titel of originele titel, bij films met
+   * hetzelfde jaar als dat bekend is (een film zonder jaar telt alleen als er geen met het jaar is). null = index nog niet klaar.
+   */
+  DT.matchAll = function (r) {
+    var ix = indexNow();
+    if (!ix) return null;
+    var tab = r.isShow ? ix.series : ix.movie;
+    var out = [], seen = Object.create(null);
+    [r.title, r.original].filter(Boolean).map(norm).forEach(function (k) {
+      (tab[k] || []).forEach(function (x) { if (!seen[x.id]) { seen[x.id] = true; out.push(x); } });
+    });
+    if (r.isShow || !r.year) return out;
+    var exact = out.filter(function (m) { return m.year === r.year; });
+    return exact.length ? exact : out.filter(function (m) { return !m.year; });
+  };
+
   // MARK: blokken op de detailpagina
 
   function initials(n) { return String(n || '?').split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join(''); }

@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "nl.lrvdlinden.bingr",
+      "sha256_cert_fingerprints": ["9E:D5:B7:30:C7:A4:B4:57:B8:0E:F9:91:A4:C6:FA:46:9C:9B:29:28:5B:9B:39:08:A8:93:6D:57:D0:C5:53:6B"]
+    }
+  }
+]

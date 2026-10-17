@@ -1,0 +1,22 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "EU3UY476T6.nl.lrvdlinden.bingr",
+        "appIDs": [
+          "EU3UY476T6.nl.lrvdlinden.bingr"
+        ],
+        "components": [
+          {
+            "/": "/titel/*",
+            "comment": "Link naar een titel (nieuwsbrief): opent Bingr"
+          }
+        ],
+        "paths": [
+          "/titel/*"
+        ]
+      }
+    ]
+  }
+}

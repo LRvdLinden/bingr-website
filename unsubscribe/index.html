@@ -63,7 +63,18 @@
 <script src="../assets/config.js"></script>
 <script>
 (() => {
-  const T = {
+  // k=news: afmelden voor de nieuwsbrief (functie newsletter, docs/NEWSLETTER.md in iptv-ios-appletv); zonder k: berichten (functie admin)
+  const news = new URLSearchParams(location.search).get("k") === "news";
+  const T = news ? {
+    nl: { title: "Afmelden voor de nieuwsbrief", ask: "Wil je de nieuwsbrief van Bingr (nieuwe films en series) niet meer ontvangen? Andere berichten en mails over je account blijven gewoon komen.",
+          button: "Afmelden", doneTitle: "Je bent afgemeld", doneText: "Je krijgt de nieuwsbrief van Bingr niet meer.",
+          badTitle: "Link ongeldig", badText: "Deze afmeldlink klopt niet. Gebruik de link uit de laatste nieuwsbrief, of neem contact op via Support.",
+          err: "Er ging iets mis. Probeer het opnieuw." },
+    en: { title: "Unsubscribe from the newsletter", ask: "Don't want to receive the Bingr newsletter (new movies and series) anymore? Other announcements and account emails will still be sent.",
+          button: "Unsubscribe", doneTitle: "You're unsubscribed", doneText: "You won't receive the Bingr newsletter anymore.",
+          badTitle: "Invalid link", badText: "This unsubscribe link isn't valid. Use the link from the latest newsletter, or contact Support.",
+          err: "Something went wrong. Please try again." },
+  } : {
     nl: { title: "Afmelden voor berichten", ask: "Wil je geen berichten van Bingr meer per e-mail ontvangen? Mails over je account (bevestigen, wachtwoord) blijven gewoon komen.",
           button: "Afmelden", doneTitle: "Je bent afgemeld", doneText: "Je krijgt geen berichten van Bingr meer per e-mail. Pushmeldingen van de app krijg je nog wel, als je die aan hebt staan.",
           badTitle: "Link ongeldig", badText: "Deze afmeldlink klopt niet. Gebruik de link uit de laatste e-mail, of neem contact op via Support.",
@@ -89,7 +100,7 @@
     const cfg = window.BINGR_SUPABASE || {};
     $("go").disabled = true; $("err").textContent = "";
     try {
-      const r = await fetch(`${cfg.url}/functions/v1/admin`, { method: "POST", headers: { "Content-Type": "application/json", apikey: cfg.anonKey || "" },
+      const r = await fetch(`${cfg.url}/functions/v1/${news ? "newsletter" : "admin"}`, { method: "POST", headers: { "Content-Type": "application/json", apikey: cfg.anonKey || "" },
         body: JSON.stringify({ action: "unsubscribe", t }) });
       const b = await r.json().catch(() => ({}));
       if (r.ok && b.ok) show("done"); else if (b.error === "invalid_token") show("invalid"); else $("err").textContent = T[lang].err;

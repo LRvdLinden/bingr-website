@@ -291,6 +291,19 @@ jobs:
           if tr -d '\r' < /tmp/sw.txt | head -1 | grep -q ' 200' && tr -d '\r' < /tmp/sw.txt | grep -qiE '^content-type: *(application|text)/(x-)?javascript'; then
             echo "::notice::/web/sw.js staat live als JavaScript (service worker voor pushmeldingen)"
           else echo "::error::/web/sw.js gaf geen 200 met Content-Type JavaScript: de service worker voor pushmeldingen kan niet registreren"; bad=1; fi
+          # universele links (nieuwsbrief): apple-app-site-association en assetlinks.json als JSON, direct (geen doorverwijzing)
+          for f in apple-app-site-association assetlinks.json; do
+            r=$(curl -s -o /tmp/wk.json -D /tmp/wk.txt --max-time 20 -w '%{http_code}' "https://bingr.online/.well-known/$f" || true)
+            if [ "$r" = 200 ] && tr -d '\r' < /tmp/wk.txt | grep -qiE '^content-type: *application/json' && python3 -c 'import json,sys; json.load(open("/tmp/wk.json"))' 2>/dev/null; then
+              echo "::notice::/.well-known/$f staat live als JSON"
+            else echo "::error::/.well-known/$f gaf HTTP $r zonder Content-Type application/json of geldige JSON: universele links werken dan niet"; bad=1; fi
+          done
+          curl -s --max-time 20 https://bingr.online/.well-known/apple-app-site-association | grep -q 'EU3UY476T6.nl.lrvdlinden.bingr' \
+            || { echo "::error::apple-app-site-association bevat het appID van Bingr niet"; bad=1; }
+          curl -s --max-time 20 https://bingr.online/.well-known/assetlinks.json | grep -q 'nl.lrvdlinden.bingr' \
+            || { echo "::error::assetlinks.json bevat het package van Bingr niet"; bad=1; }
+          r=$(curl -s -o /tmp/titel.html --max-time 20 -w '%{http_code}' "https://bingr.online/titel/?type=movie&id=603&q=Test&y=1999" || true)
+          if [ "$r" = 200 ] && grep -q 'noindex' /tmp/titel.html; then echo "::notice::/titel/ staat live (noindex)"; else echo "::error::/titel/ gaf HTTP $r"; bad=1; fi
           for path in "/" "/koppelen/?code=TEST12" "/web/"; do
             r=$(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' "http://bingr.online$path" || true)
             if [ "$r" = "301 https://bingr.online$path" ]; then echo "::notice::http://bingr.online$path stuurt door naar https (zelfde pad)"

@@ -1,0 +1,10 @@
+# Apple universal links en Android app links (zie docs/NEWSLETTER.md in iptv-ios-appletv): als JSON, zonder doorverwijzing
+<Files "apple-app-site-association">
+  ForceType application/json
+</Files>
+<Files "assetlinks.json">
+  ForceType application/json
+</Files>
+<IfModule mod_headers.c>
+  Header set Cache-Control "max-age=3600"
+</IfModule>
