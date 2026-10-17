@@ -291,6 +291,13 @@
 .dl.soon h3,.dl.soon .os,.dl.soon .devs{opacity:.55}
 .dl .badge-soon{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px dashed var(--line);color:var(--sec);font-size:15px;font-weight:700;cursor:default}
 .dl.live{border-color:var(--red)}
+.tf-badge{display:inline-flex;align-items:center;gap:12px;padding:8px 18px 8px 12px;border-radius:12px;background:#000;color:#fff;text-decoration:none;box-shadow:inset 0 0 0 1.5px #ffffffcc;transition:box-shadow .15s,background .15s}
+.tf-badge:hover{background:#141414;box-shadow:inset 0 0 0 1.5px #fff}
+.tf-badge:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+.tf-badge svg{width:34px;height:34px;flex:none;padding:6px;border-radius:9px;background:var(--red);color:#fff}
+.tf-badge span{display:flex;flex-direction:column;line-height:1.1}
+.tf-badge small{font-size:12px;font-weight:600;letter-spacing:.01em}
+.tf-badge b{font-size:22px;font-weight:800;letter-spacing:-.02em}
 .pair{margin-top:18px;color:var(--sec);font-size:15px}
 .pair a,#download .sub a{color:#fff;font-weight:600}
 
@@ -477,7 +484,7 @@
         <h3 data-i18n="dl.apple.t">iPhone, iPad, Apple TV en Mac</h3>
         <p class="os">iOS 17+, iPadOS 17+, tvOS 17+, macOS 14+</p>
         <div class="acts">
-          <a class="btn red sm" href="https://testflight.apple.com/join/JW915fdA" target="_blank" rel="noopener" data-i18n="dl.tf">Doe mee met de bèta (TestFlight)</a>
+          <a class="tf-badge" href="https://testflight.apple.com/join/JW915fdA" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.6 18.4A1.7 1.7 0 0 0 6.1 21h11.8a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"/><path d="M7.2 14h9.6"/></svg><span><small data-i18n="dl.tf">Doe mee met de bèta via</small><b>TestFlight</b></span></a>
           <span class="badge-soon" data-i18n="dl.soon.apple">Binnenkort in de App Store</span>
         </div>
         <p class="note" data-i18n="dl.tf.note">Installeer eerst de gratis app TestFlight van Apple en open daarna de link op je iPhone, iPad, Apple TV of Mac.</p>
@@ -591,7 +598,7 @@ const EN = {
  "s1.t":"Your own IPTV server","s1.p":"An IPTV subscription with Xtream Codes details, an M3U playlist or a MAC portal. Or your own Plex, Jellyfin, Emby, Stremio or a folder on your NAS.",
  "s2.t":"A free Bingr account","s2.p":"With your email address and a password. You use it to sign in on all your devices. <a href=\"koppelen/?mode=signup\">Create an account</a>",
  "s3.t":"The app on your device","s3.p":"Watch right away in your browser and add your server. The apps are coming soon to the App Store, Google Play, the Amazon Appstore and Samsung Smart TV apps. <a href=\"https://support.bingr.online/hulp/afspeellijst/#server\">How to add your server</a>",
- "dl.title":"Download Bingr","dl.more":"See what's new in each build in the <a href=\"changelog/\">changelog</a>. Check whether everything is working on the <a href=\"status/\">status page</a>.","dl.sub":"The apps are coming soon to the App Store, Google Play, the Amazon Appstore and Samsung Smart TV apps. Until then, watch right away in your browser with your free account, or join the beta via TestFlight on iPhone, iPad, Apple TV and Mac. <a href=\"https://support.bingr.online/hulp/installeren/\">How to install Bingr</a>","dl.soon.apple":"Coming soon to the App Store","dl.tf":"Join the beta (TestFlight)","dl.tf.note":"First install Apple's free TestFlight app, then open the link on your iPhone, iPad, Apple TV or Mac.","dl.soon.android":"Coming soon to Google Play and the Amazon Appstore","dl.soon.tizen":"Coming soon to Samsung Smart TV apps",
+ "dl.title":"Download Bingr","dl.more":"See what's new in each build in the <a href=\"changelog/\">changelog</a>. Check whether everything is working on the <a href=\"status/\">status page</a>.","dl.sub":"The apps are coming soon to the App Store, Google Play, the Amazon Appstore and Samsung Smart TV apps. Until then, watch right away in your browser with your free account, or join the beta via TestFlight on iPhone, iPad, Apple TV and Mac. <a href=\"https://support.bingr.online/hulp/installeren/\">How to install Bingr</a>","dl.soon.apple":"Coming soon to the App Store","dl.tf":"Get the beta on","dl.tf.note":"First install Apple's free TestFlight app, then open the link on your iPhone, iPad, Apple TV or Mac.","dl.soon.android":"Coming soon to Google Play and the Amazon Appstore","dl.soon.tizen":"Coming soon to Samsung Smart TV apps",
  "dl.apple.t":"iPhone, iPad, Apple TV and Mac",
  "dl.android.t":"Android, Android TV, Google TV and Fire TV","dl.android.os":"Phones, tablets and TVs with Android 7 or later",
  "dl.tizen.os":"Smart TVs with Tizen (2018 and later)",
