@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="Add an M3U playlist or Xtream Codes · Bingr">M3U-afspeellijst of Xtream Codes toevoegen · Bingr</title>
+<meta name="description" content="Zo zet je je IPTV-abonnement in Bingr: een M3U-link of Xtream Codes-login, met de tv-gids (EPG-url). Het verschil uitgelegd, en de stappen voor app en computer." data-en="How to add your IPTV subscription to Bingr: an M3U link or Xtream Codes login, with the TV guide (EPG URL). The difference explained, plus the steps for app and computer.">
+<!-- NL/EN: de schone URL is Nederlands, ?lang=en Engels, zonder ?lang= de browsertaal; canonical via assets/js/site.js -->
+<link rel="alternate" hreflang="nl" href="https://bingr.online/m3u-xtream-toevoegen/">
+<link rel="alternate" hreflang="en" href="https://bingr.online/m3u-xtream-toevoegen/?lang=en">
+<link rel="alternate" hreflang="x-default" href="https://bingr.online/m3u-xtream-toevoegen/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Bingr">
+<meta property="og:locale" content="nl_NL">
+<meta property="og:locale:alternate" content="en_GB">
+<meta property="og:title" content="M3U-afspeellijst of Xtream Codes toevoegen · Bingr" data-en="Add an M3U playlist or Xtream Codes · Bingr">
+<meta property="og:description" content="Zo zet je je IPTV-abonnement in Bingr: een M3U-link of Xtream Codes-login, met de tv-gids (EPG-url). Het verschil uitgelegd, en de stappen voor app en computer." data-en="How to add your IPTV subscription to Bingr: an M3U link or Xtream Codes login, with the TV guide (EPG URL). The difference explained, plus the steps for app and computer.">
+<meta property="og:url" content="https://bingr.online/m3u-xtream-toevoegen/">
+<meta property="og:image" content="https://bingr.online/assets/img/nl/tv_guide.jpg">
+<meta property="og:image:width" content="1400">
+<meta property="og:image:height" content="788">
+<meta property="og:image:alt" content="Tv-gids van Bingr" data-en="Bingr&#x27;s TV guide">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#000000">
+<script type="application/ld+json" id="ld-crumbs">
+{
+ "@context": "https://schema.org",
+ "@type": "BreadcrumbList",
+ "@id": "https://bingr.online/m3u-xtream-toevoegen/#breadcrumb",
+ "itemListElement": [
+  {
+   "@type": "ListItem",
+   "position": 1,
+   "name": "Bingr",
+   "item": "https://bingr.online/"
+  },
+  {
+   "@type": "ListItem",
+   "position": 2,
+   "name": "M3U of Xtream toevoegen",
+   "item": "https://bingr.online/m3u-xtream-toevoegen/"
+  }
+ ]
+}
+</script>
+<script type="application/ld+json" id="ld-howto">
+{
+ "@context": "https://schema.org",
+ "@type": "HowTo",
+ "@id": "https://bingr.online/m3u-xtream-toevoegen/#howto",
+ "url": "https://bingr.online/m3u-xtream-toevoegen/",
+ "inLanguage": "nl",
+ "name": "Een M3U-afspeellijst of Xtream Codes-login toevoegen in Bingr",
+ "step": [
+  {
+   "@type": "HowToStep",
+   "position": 1,
+   "name": "Zet je gegevens klaar",
+   "text": "Voor Xtream Codes : het server-adres (met poort, bijvoorbeeld http://server.example:8080 ), je gebruikersnaam en je wachtwoord. Voor M3U : de link naar je afspeellijst. Je krijgt deze gegevens van je eigen aanbieder, meestal per e-mail of in je klantportaal."
+  },
+  {
+   "@type": "HowToStep",
+   "position": 2,
+   "name": "Open Bingr met het hoofdprofiel",
+   "text": "Log in met je gratis Bingr-account en kies het hoofdprofiel (het profiel met het rode rondje). Alleen het hoofdprofiel voegt servers toe; de andere profielen gebruiken daarna vanzelf dezelfde server."
+  },
+  {
+   "@type": "HowToStep",
+   "position": 3,
+   "name": "Kies Server instellen",
+   "text": "Kies Server instellen en daarna bij Kies het type afspeellijst voor Xtream Codes of M3U . Geef de server een naam, zoals Thuis ."
+  },
+  {
+   "@type": "HowToStep",
+   "position": 4,
+   "name": "Vul de gegevens in",
+   "text": "Bij Xtream Codes vul je Server , Gebruikersnaam en Wachtwoord in. Bij M3U plak je de link bij URL naar je M3U8-bestand . Let op de poort achter het adres en op hoofdletters in je gebruikersnaam en wachtwoord."
+  },
+  {
+   "@type": "HowToStep",
+   "position": 5,
+   "name": "Voeg eventueel een tv-gids toe",
+   "text": "Bij Xtream Codes laat je EPG (optioneel) leeg: Bingr haalt de gids dan van je server. Bij M3U vul je bij URL naar je EPG-bestand de XMLTV-link in ( .xml of .xml.gz ), als je aanbieder die apart geeft."
+  },
+  {
+   "@type": "HowToStep",
+   "position": 6,
+   "name": "Kies Opslaan",
+   "text": "Bingr test de verbinding en laadt je zenders, films en series. Bij een grote afspeellijst duurt de eerste keer even. Daarna staat de server via je account ook op je andere apparaten."
+  }
+ ],
+ "totalTime": "PT5M",
+ "tool": [
+  {
+   "@type": "HowToTool",
+   "name": "Bingr"
+  }
+ ]
+}
+</script>
+<script type="application/ld+json" id="ld-faq">
+{
+ "@context": "https://schema.org",
+ "@type": "FAQPage",
+ "@id": "https://bingr.online/m3u-xtream-toevoegen/#faq",
+ "url": "https://bingr.online/m3u-xtream-toevoegen/",
+ "inLanguage": "nl",
+ "isPartOf": {
+  "@id": "https://bingr.online/#website"
+ },
+ "publisher": {
+  "@id": "https://pixelforges.nl/#organization"
+ },
+ "mainEntity": [
+  {
+   "@type": "Question",
+   "name": "Wat is beter: M3U of Xtream Codes?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Heb je de keuze, neem dan Xtream Codes. Bingr haalt dan zenders, films, series, de tv-gids en terugkijken per categorie op bij je server, en dat is meestal sneller en vollediger dan één grote M3U-lijst. M3U is handig als je alleen een link hebt, of een eigen lijst met zenders."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Waar vind ik mijn M3U-link of Xtream-gegevens?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Bij je eigen IPTV-aanbieder: meestal in de bevestigingsmail of in je klantportaal. Bingr levert of verkoopt geen abonnementen en kan je gegevens niet opzoeken."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Kan ik meer dan één afspeellijst toevoegen?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Met Gratis gebruik je 1 server of afspeellijst, met Lifetime onbeperkt. Bingr zoekt dan in al je afspeellijsten tegelijk."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Mijn server werkt in de app, maar niet in de browser. Hoe kan dat?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "In de browser werken alleen servers en streams via https . Begint je adres met http:// , kijk dan in de app. Meer uitleg in wat er in de browser werkt ."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Hoeveel apparaten kunnen tegelijk kijken?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Met Gratis 1 scherm tegelijk, met Lifetime 3. Hoeveel streams je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder: Bingr laat er zoveel toe als je abonnement bij Bingr, maar je aanbieder bepaalt hoeveel verbindingen jouw abonnement daar heeft."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Werkt een MAC-portal ook?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Ja. Kies bij het type MAC-portal en vul de Portal-URL en het MAC-adres in dat je aanbieder voor je heeft geregistreerd."
+   }
+  }
+ ]
+}
+</script>
+<link rel="icon" href="../favicon.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/css/site.css?v=95">
+<link rel="stylesheet" href="../assets/css/guide.css?v=1">
+<script src="../assets/js/consent.js" data-base="../"></script>
+</head>
+<body class="sub-page g-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../#features" data-s="nav.features">Functies</a>
+      <a href="../#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap">
+<div data-l="nl">
+<div class="crumbs" role="navigation" aria-label="Kruimelpad"><a href="../">Bingr</a><span aria-hidden="true">›</span><span aria-current="page">M3U of Xtream toevoegen</span></div>
+<header class="g-head phead">
+<h1 class="ttl">M3U-afspeellijst of Xtream Codes toevoegen</h1>
+<p class="sub">Je IPTV-abonnement in Bingr zetten duurt een paar minuten. Hier lees je wat het verschil is tussen een M3U-link en een Xtream Codes-login, welke je kiest, en hoe je ook de tv-gids (EPG) erbij krijgt.</p>
+<div class="g-cta"><a class="btn red" href="../web/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M10 9v6l5-3z"/></svg><span>Kijk in je browser</span></a><a class="btn ghost" href="https://testflight.apple.com/join/JW915fdA" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.6 18.4A1.7 1.7 0 0 0 6.1 21h11.8a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"/><path d="M7.2 14h9.6"/></svg><span>TestFlight-bèta (Apple)</span></a><a class="btn ghost" href="https://beheer.bingr.online/dl.php?app=android" rel="nofollow noopener" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg><span>APK voor Android</span></a><a class="lnk" href="https://support.bingr.online/hulp/afspeellijst/">Hulp nodig? support.bingr.online</a></div>
+<div class="need" role="note"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1.5"/><rect x="3" y="14" width="18" height="7" rx="1.5"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span><div><p><b>Bingr levert geen zenders.</b> Bingr is alleen de speler. Je zenders, films en series komen van je eigen IPTV-abonnement, afspeellijst of mediaserver (Plex, Jellyfin of Emby). Bingr verkoopt geen abonnementen en raadt geen aanbieders aan.</p></div></div>
+</header>
+<div class="prose">
+<h2 id="verschil">M3U of Xtream Codes: wat is het verschil?</h2>
+<p>Een <b>M3U-afspeellijst</b> (ook M3U8) is een tekstbestand met per regel een zender of video en het adres van de stream. Je krijgt er één link voor. Dat is eenvoudig, maar alles zit in één lijst: bij duizenden zenders en films is dat een groot bestand, en de tv-gids moet apart komen.</p>
+<p><b>Xtream Codes</b> is geen bestand maar een login bij de server van je aanbieder: een server-adres, een gebruikersnaam en een wachtwoord. Bingr vraagt daarmee zenders, films, series, de tv-gids en terugkijken op, netjes per categorie. Krijg je beide van je aanbieder, kies dan Xtream Codes.</p>
+</div>
+<div class="g-tablewrap" role="region" tabindex="0" aria-label="Verschil tussen M3U en Xtream Codes"><table class="g-table"><thead><tr><th scope="col"></th><th scope="col">M3U</th><th scope="col">Xtream Codes</th></tr></thead><tbody><tr><th scope="row">Wat je krijgt</th><td>Eén link naar een tekstbestand met al je zenders en video's</td><td>Een login: server-adres, gebruikersnaam en wachtwoord</td></tr><tr><th scope="row">Films en series</th><td>Staan in de lijst als losse items; Bingr groepeert ze</td><td>Met categorieën, seizoenen en afleveringen van de server</td></tr><tr><th scope="row">Tv-gids (EPG)</th><td>Via een aparte XMLTV-link, of uit de kop van de lijst</td><td>Komt vanzelf van de server</td></tr><tr><th scope="row">Terugkijken</th><td>Alleen als de lijst het per zender aangeeft</td><td>Als je server het aanbiedt</td></tr><tr><th scope="row">Snelheid</th><td>Grote lijsten laden in één keer</td><td>Per categorie, meestal sneller</td></tr></tbody></table></div>
+<div class="prose">
+<p><b>Tip:</b> staan er in je M3U-link de woorden <code>username=</code> en <code>password=</code>? Dan heb je vaak ook Xtream-gegevens. Het server-adres is meestal het deel vóór <code>/get.php</code>, met de poort erbij.</p>
+</div>
+<section class="g-sec" aria-labelledby="steps-nl"><h2 class="h2" id="steps-nl">Zo voeg je hem toe in de app</h2>
+<p class="sub">Op iPhone, iPad, Apple TV, Mac, Android en Android TV werkt het op dezelfde manier.</p>
+<ol class="g-steps" data-howto="Een M3U-afspeellijst of Xtream Codes-login toevoegen in Bingr"><li><h3>Zet je gegevens klaar</h3><p>Voor <b>Xtream Codes</b>: het server-adres (met poort, bijvoorbeeld <code>http://server.example:8080</code>), je gebruikersnaam en je wachtwoord. Voor <b>M3U</b>: de link naar je afspeellijst. Je krijgt deze gegevens van je eigen aanbieder, meestal per e-mail of in je klantportaal.</p></li><li><h3>Open Bingr met het hoofdprofiel</h3><p>Log in met je gratis <a href="../koppelen/?mode=signup">Bingr-account</a> en kies het hoofdprofiel (het profiel met het rode rondje). Alleen het hoofdprofiel voegt servers toe; de andere profielen gebruiken daarna vanzelf dezelfde server.</p></li><li><h3>Kies Server instellen</h3><p>Kies <b>Server instellen</b> en daarna bij <b>Kies het type afspeellijst</b> voor <b>Xtream Codes</b> of <b>M3U</b>. Geef de server een naam, zoals <i>Thuis</i>.</p></li><li><h3>Vul de gegevens in</h3><p>Bij Xtream Codes vul je <b>Server</b>, <b>Gebruikersnaam</b> en <b>Wachtwoord</b> in. Bij M3U plak je de link bij <b>URL naar je M3U8-bestand</b>. Let op de poort achter het adres en op hoofdletters in je gebruikersnaam en wachtwoord.</p></li><li><h3>Voeg eventueel een tv-gids toe</h3><p>Bij Xtream Codes laat je <b>EPG (optioneel)</b> leeg: Bingr haalt de gids dan van je server. Bij M3U vul je bij <b>URL naar je EPG-bestand</b> de XMLTV-link in (<code>.xml</code> of <code>.xml.gz</code>), als je aanbieder die apart geeft.</p></li><li><h3>Kies Opslaan</h3><p>Bingr test de verbinding en laadt je zenders, films en series. Bij een grote afspeellijst duurt de eerste keer even. Daarna staat de server via je account ook op je andere apparaten.</p></li></ol>
+</section>
+<div class="g-shots"><figure><picture><source type="image/webp" srcset="../assets/img/nl/tv_guide.webp"><img src="../assets/img/nl/tv_guide.jpg" width="1400" height="788" loading="lazy" decoding="async" alt="De tv-gids van je eigen afspeellijst in Bingr"></picture><figcaption><b>Tv</b> Tv-gids uit je EPG</figcaption></figure><figure class="p"><picture><source type="image/webp" srcset="../assets/img/nl/ios_categories.webp"><img src="../assets/img/nl/ios_categories.jpg" width="600" height="1300" loading="lazy" decoding="async" alt="Categorieën aan- en uitzetten op iPhone"></picture><figcaption><b>iPhone</b> Categorieën kiezen</figcaption></figure></div>
+<div class="prose">
+<h2 id="computer">Of op je computer</h2>
+<p>Typen op een tv is lastig. Op <a href="../account/">bingr.online/account</a> (Mijn Bingr) voeg je onder <b>Servers en afspeellijsten</b> met <b>Server toevoegen</b> een M3U-lijst, Xtream Codes-login of MAC-portal toe met je toetsenbord. Binnen een paar minuten staat hij op al je apparaten. Plex, Jellyfin, Emby en Stremio voeg je toe in de app.</p>
+<h2 id="epg">De tv-gids: de EPG-url</h2>
+<p>EPG staat voor <i>electronic programme guide</i>: wat er nu en straks op elke zender is. Bingr leest gidsen in het XMLTV-formaat, ook ingepakt als <code>.xml.gz</code>.</p>
+<ul>
+<li><b>Xtream Codes:</b> laat het EPG-veld leeg, dan komt de gids van je server. Vul alleen een eigen link in als je een andere gids wilt.</li>
+<li><b>M3U:</b> staat de gids in de kop van je lijst (<code>url-tvg</code> of <code>x-tvg-url</code>), dan gebruikt Bingr die vanzelf. Anders vul je de XMLTV-link van je aanbieder in.</li>
+<li>Bingr koppelt programma's aan zenders via de <code>tvg-id</code> in je lijst. Blijft een zender leeg in de gids, dan past die id niet bij de gids; dat regelt je aanbieder.</li>
+</ul>
+<h2 id="werkt-niet">Werkt het niet?</h2>
+<ul>
+<li>Controleer het adres, de poort en hoofdletters in je gebruikersnaam en wachtwoord.</li>
+<li>Controleer of je abonnement bij je aanbieder nog actief is, en of er niet al op te veel apparaten tegelijk wordt gekeken.</li>
+<li>Ververs je lijst via <b>Mijn Bingr → Nu vernieuwen</b>, of kies onder <b>Mijn Bingr → Speler</b> de andere speler (Apple of VLC) als één stream niet afspeelt.</li>
+<li>Meer oplossingen staan in de <a href="https://support.bingr.online/hulp/afspeellijst/">hulp over je afspeellijst</a>. Kom je er niet uit, stuur dan een <a href="https://support.bingr.online/nieuw/">supportticket</a>.</li>
+</ul>
+<p>Je wachtwoorden en tokens van servers worden versleuteld bij je Bingr-account bewaard. Na opnieuw installeren of op een nieuw apparaat staat alles na het inloggen weer klaar.</p>
+<div class="g-note" role="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5h.01"/></svg><p>Hoeveel streams je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder: Bingr laat er zoveel toe als je abonnement bij Bingr, maar je aanbieder bepaalt hoeveel verbindingen jouw abonnement daar heeft.</p></div>
+</div>
+<section class="g-sec" aria-labelledby="faq-nl"><h2 class="h2" id="faq-nl">Veelgestelde vragen</h2><div class="faq"><details><summary>Wat is beter: M3U of Xtream Codes?</summary><div class="a">Heb je de keuze, neem dan Xtream Codes. Bingr haalt dan zenders, films, series, de tv-gids en terugkijken per categorie op bij je server, en dat is meestal sneller en vollediger dan één grote M3U-lijst. M3U is handig als je alleen een link hebt, of een eigen lijst met zenders.</div></details><details><summary>Waar vind ik mijn M3U-link of Xtream-gegevens?</summary><div class="a">Bij je eigen IPTV-aanbieder: meestal in de bevestigingsmail of in je klantportaal. Bingr levert of verkoopt geen abonnementen en kan je gegevens niet opzoeken.</div></details><details><summary>Kan ik meer dan één afspeellijst toevoegen?</summary><div class="a">Met Gratis gebruik je 1 server of afspeellijst, met <a href="../upgrade/">Lifetime</a> onbeperkt. Bingr zoekt dan in al je afspeellijsten tegelijk.</div></details><details><summary>Mijn server werkt in de app, maar niet in de browser. Hoe kan dat?</summary><div class="a">In de browser werken alleen servers en streams via <b>https</b>. Begint je adres met <code>http://</code>, kijk dan in de app. Meer uitleg in <a href="https://support.bingr.online/hulp/browser/">wat er in de browser werkt</a>.</div></details><details><summary>Hoeveel apparaten kunnen tegelijk kijken?</summary><div class="a">Met Gratis 1 scherm tegelijk, met Lifetime 3. Hoeveel streams je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder: Bingr laat er zoveel toe als je abonnement bij Bingr, maar je aanbieder bepaalt hoeveel verbindingen jouw abonnement daar heeft.</div></details><details><summary>Werkt een MAC-portal ook?</summary><div class="a">Ja. Kies bij het type <b>MAC-portal</b> en vul de <b>Portal-URL</b> en het <b>MAC-adres</b> in dat je aanbieder voor je heeft geregistreerd.</div></details></div></section>
+<section class="g-sec" aria-labelledby="more-nl"><h2 class="h2" id="more-nl">Meer over Bingr</h2><div class="g-more"><a href="../iptv-app/"><b>IPTV-app voor Apple</b><span>iPhone, iPad, Apple TV en Mac: functies en versies</span></a><a href="../iptv-samsung-tv/"><b>IPTV op Samsung TV</b><span>Tizen 2018+, de stand van zaken en wat nu al kan</span></a><a href="../m3u-xtream-toevoegen/" aria-current="page"><b>M3U of Xtream toevoegen</b><span>Je afspeellijst en tv-gids in Bingr zetten, stap voor stap</span></a><a href="../vergelijking/"><b>Bingr vs. Smarters en TiviMate</b><span>Eerlijk naast elkaar: platforms, prijs en functies</span></a></div></section>
+</div>
+<div data-l="en" hidden>
+<div class="crumbs" role="navigation" aria-label="Breadcrumb"><a href="../">Bingr</a><span aria-hidden="true">›</span><span aria-current="page">Add M3U or Xtream</span></div>
+<header class="g-head phead">
+<h1 class="ttl">Add an M3U playlist or Xtream Codes</h1>
+<p class="sub">Getting your IPTV subscription into Bingr takes a few minutes. Here's the difference between an M3U link and an Xtream Codes login, which one to pick, and how to get the TV guide (EPG) as well.</p>
+<div class="g-cta"><a class="btn red" href="../web/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2.5"/><path d="M10 9v6l5-3z"/></svg><span>Watch in your browser</span></a><a class="btn ghost" href="https://testflight.apple.com/join/JW915fdA" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6.2L4.6 18.4A1.7 1.7 0 0 0 6.1 21h11.8a1.7 1.7 0 0 0 1.5-2.6L14 9.2V3"/><path d="M7.2 14h9.6"/></svg><span>TestFlight beta (Apple)</span></a><a class="btn ghost" href="https://beheer.bingr.online/dl.php?app=android" rel="nofollow noopener" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 20h14"/></svg><span>APK for Android</span></a><a class="lnk" href="https://support.bingr.online/hulp/afspeellijst/">Need help? support.bingr.online</a></div>
+<div class="need" role="note"><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="7" rx="1.5"/><rect x="3" y="14" width="18" height="7" rx="1.5"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span><div><p><b>Bingr doesn't provide channels.</b> Bingr is only the player. Your channels, movies and series come from your own IPTV subscription, playlist or media server (Plex, Jellyfin or Emby). Bingr doesn't sell subscriptions or recommend providers.</p></div></div>
+</header>
+<div class="prose">
+<h2 id="difference">M3U or Xtream Codes: what's the difference?</h2>
+<p>An <b>M3U playlist</b> (also M3U8) is a text file with one channel or video per line and the address of its stream. You get a single link for it. That's simple, but everything is in one list: with thousands of channels and movies that's a big file, and the TV guide has to come separately.</p>
+<p><b>Xtream Codes</b> isn't a file but a login to your provider's server: a server address, a username and a password. Bingr uses it to fetch channels, movies, series, the TV guide and catch-up, neatly per category. If your provider gives you both, choose Xtream Codes.</p>
+</div>
+<div class="g-tablewrap" role="region" tabindex="0" aria-label="Difference between M3U and Xtream Codes"><table class="g-table"><thead><tr><th scope="col"></th><th scope="col">M3U</th><th scope="col">Xtream Codes</th></tr></thead><tbody><tr><th scope="row">What you get</th><td>One link to a text file listing all your channels and videos</td><td>A login: server address, username and password</td></tr><tr><th scope="row">Movies and series</th><td>Listed as separate items; Bingr groups them</td><td>With categories, seasons and episodes from the server</td></tr><tr><th scope="row">TV guide (EPG)</th><td>Via a separate XMLTV link, or from the list header</td><td>Comes from the server automatically</td></tr><tr><th scope="row">Catch-up</th><td>Only if the list marks it per channel</td><td>If your server offers it</td></tr><tr><th scope="row">Speed</th><td>Large lists load in one go</td><td>Per category, usually faster</td></tr></tbody></table></div>
+<div class="prose">
+<p><b>Tip:</b> does your M3U link contain <code>username=</code> and <code>password=</code>? Then you often have Xtream details too. The server address is usually the part before <code>/get.php</code>, including the port.</p>
+</div>
+<section class="g-sec" aria-labelledby="steps-en"><h2 class="h2" id="steps-en">How to add it in the app</h2>
+<p class="sub">It works the same way on iPhone, iPad, Apple TV, Mac, Android and Android TV.</p>
+<ol class="g-steps" data-howto="Add an M3U playlist or Xtream Codes login in Bingr"><li><h3>Get your details ready</h3><p>For <b>Xtream Codes</b>: the server address (with port, for example <code>http://server.example:8080</code>), your username and your password. For <b>M3U</b>: the link to your playlist. You get these details from your own provider, usually by email or in your customer portal.</p></li><li><h3>Open Bingr with the main profile</h3><p>Sign in with your free <a href="../koppelen/?mode=signup">Bingr account</a> and choose the main profile (the one with the red circle). Only the main profile adds servers; the other profiles then use the same server automatically.</p></li><li><h3>Choose Set up server</h3><p>Choose <b>Set up server</b>, then under <b>Choose the playlist type</b> pick <b>Xtream Codes</b> or <b>M3U</b>. Give the server a name, such as <i>Home</i>.</p></li><li><h3>Enter your details</h3><p>For Xtream Codes, fill in <b>Server</b>, <b>Username</b> and <b>Password</b>. For M3U, paste the link into <b>URL to your M3U8 file</b>. Watch out for the port after the address and for capital letters in your username and password.</p></li><li><h3>Add a TV guide if you like</h3><p>For Xtream Codes, leave <b>EPG (optional)</b> empty: Bingr then gets the guide from your server. For M3U, enter the XMLTV link under <b>URL to your EPG file</b> (<code>.xml</code> or <code>.xml.gz</code>) if your provider gives you one separately.</p></li><li><h3>Choose Save</h3><p>Bingr tests the connection and loads your channels, movies and series. With a large playlist the first time takes a moment. After that the server is on your other devices too, through your account.</p></li></ol>
+</section>
+<div class="g-shots"><figure><picture><source type="image/webp" srcset="../assets/img/en/tv_guide.webp"><img src="../assets/img/en/tv_guide.jpg" width="1400" height="788" loading="lazy" decoding="async" alt="Your own playlist&#x27;s TV guide in Bingr"></picture><figcaption><b>TV</b> TV guide from your EPG</figcaption></figure><figure class="p"><picture><source type="image/webp" srcset="../assets/img/en/ios_categories.webp"><img src="../assets/img/en/ios_categories.jpg" width="600" height="1300" loading="lazy" decoding="async" alt="Turning categories on and off on iPhone"></picture><figcaption><b>iPhone</b> Choosing categories</figcaption></figure></div>
+<div class="prose">
+<h2 id="computer">Or on your computer</h2>
+<p>Typing on a TV is a pain. At <a href="../account/">bingr.online/account</a> (My Bingr), under <b>Servers and playlists</b>, use <b>Add server</b> to add an M3U list, Xtream Codes login or MAC portal with your keyboard. Within a few minutes it's on all your devices. Add Plex, Jellyfin, Emby and Stremio in the app.</p>
+<h2 id="epg-en">The TV guide: the EPG URL</h2>
+<p>EPG stands for <i>electronic programme guide</i>: what's on every channel now and later. Bingr reads guides in the XMLTV format, also compressed as <code>.xml.gz</code>.</p>
+<ul>
+<li><b>Xtream Codes:</b> leave the EPG field empty and the guide comes from your server. Only enter a link of your own if you want a different guide.</li>
+<li><b>M3U:</b> if the guide is in your list's header (<code>url-tvg</code> or <code>x-tvg-url</code>), Bingr uses it automatically. Otherwise, enter your provider's XMLTV link.</li>
+<li>Bingr matches programmes to channels using the <code>tvg-id</code> in your list. If a channel stays empty in the guide, its id doesn't match the guide; that's for your provider to fix.</li>
+</ul>
+<h2 id="not-working">Not working?</h2>
+<ul>
+<li>Check the address, the port and capital letters in your username and password.</li>
+<li>Check that your subscription with your provider is still active, and that you're not already watching on too many devices at once.</li>
+<li>Refresh your list via <b>My Bingr → Refresh now</b>, or pick the other player (Apple or VLC) under <b>My Bingr → Player</b> if one stream won't play.</li>
+<li>More fixes are in the <a href="https://support.bingr.online/hulp/afspeellijst/">help about your playlist</a>. Still stuck? Send a <a href="https://support.bingr.online/nieuw/">support ticket</a>.</li>
+</ul>
+<p>Your server passwords and tokens are stored encrypted with your Bingr account. After reinstalling or on a new device, everything is ready again once you sign in.</p>
+<div class="g-note" role="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6M12 7.5h.01"/></svg><p>How many streams you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.</p></div>
+</div>
+<section class="g-sec" aria-labelledby="faq-en"><h2 class="h2" id="faq-en">Frequently asked questions</h2><div class="faq"><details><summary>Which is better: M3U or Xtream Codes?</summary><div class="a">If you have the choice, go for Xtream Codes. Bingr then fetches channels, movies, series, the TV guide and catch-up per category from your server, which is usually faster and more complete than one big M3U list. M3U is handy when you only have a link, or your own list of channels.</div></details><details><summary>Where do I find my M3U link or Xtream details?</summary><div class="a">From your own IPTV provider: usually in the confirmation email or your customer portal. Bingr doesn't provide or sell subscriptions and can't look up your details.</div></details><details><summary>Can I add more than one playlist?</summary><div class="a">With Free you use 1 server or playlist, with <a href="../upgrade/">Lifetime</a> as many as you like. Bingr then searches all your playlists at once.</div></details><details><summary>My server works in the app but not in the browser. Why?</summary><div class="a">Only servers and streams over <b>https</b> work in the browser. If your address starts with <code>http://</code>, watch in the app. More in <a href="https://support.bingr.online/hulp/browser/">what works in the browser</a>.</div></details><details><summary>How many devices can watch at once?</summary><div class="a">1 screen at a time with Free, 3 with Lifetime. How many streams you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.</div></details><details><summary>Does a MAC portal work too?</summary><div class="a">Yes. Choose <b>MAC portal</b> as the type and fill in the <b>Portal URL</b> and the <b>MAC address</b> your provider registered for you.</div></details></div></section>
+<section class="g-sec" aria-labelledby="more-en"><h2 class="h2" id="more-en">More about Bingr</h2><div class="g-more"><a href="../iptv-app/"><b>IPTV app for Apple</b><span>iPhone, iPad, Apple TV and Mac: features and versions</span></a><a href="../iptv-samsung-tv/"><b>IPTV on Samsung TV</b><span>Tizen 2018+, where things stand and what works now</span></a><a href="../m3u-xtream-toevoegen/" aria-current="page"><b>Add M3U or Xtream</b><span>Your playlist and TV guide in Bingr, step by step</span></a><a href="../vergelijking/"><b>Bingr vs. Smarters and TiviMate</b><span>Side by side: platforms, price and features</span></a></div></section>
+</div>
+</div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../web/" data-s="foot.web">Webspeler</a>
+        <a href="../changelog/">Changelog</a>
+        <a href="../status/">Status</a>
+        <a href="/presskit">PressKit</a>
+        <a href="../iptv-app/" data-s="foot.iptvapp">IPTV-app voor Apple</a>
+        <a href="../iptv-samsung-tv/" data-s="foot.samsung">IPTV op Samsung TV</a>
+        <a href="../m3u-xtream-toevoegen/" data-s="foot.m3u" aria-current="page">M3U of Xtream toevoegen</a>
+        <a href="../vergelijking/" data-s="foot.compare">Bingr vs. Smarters en TiviMate</a>
+        <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../assets/js/site.js?v=111" data-base="../"></script>
+<script src="../assets/js/guide.js?v=1"></script>
+<script src="../assets/js/userbtn.js?v=94" data-base="../"></script>
+</body>
+</html>

@@ -25,6 +25,8 @@
 .pl-table tfoot .life{border-radius:0 0 16px 16px;box-shadow:inset 1px 0 0 #e5091480,inset -1px 0 0 #e5091480,inset 0 -1px 0 #e5091480}
 .pl-table tbody td.life .pl-ic:not(.no){color:var(--red-hi)}
 .pl-cta{white-space:normal;width:100%;max-width:220px}
+/* voetnoot onder de tabel (tegelijk kijken hangt ook af van de IPTV-aanbieder) */
+.pl-fn{color:var(--dim);font-size:13.5px;line-height:1.55;margin:14px auto 0;max-width:720px;text-align:center}
 /* huidig abonnement (op /upgrade/): wit kader in plaats van rood */
 .pl-table thead .cur:not(.life){box-shadow:inset 0 0 0 1px #ffffff40;border-radius:16px 16px 0 0}
 

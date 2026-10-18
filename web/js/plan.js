@@ -212,6 +212,9 @@
     }, { primary: true, icon: 'link', cls: 'plan-cta' });
   };
 
+  // Tegelijk kijken: de limiet van Bingr is niet de enige; ook de IPTV-aanbieder bepaalt het aantal verbindingen
+  var PROVIDER_NOTE = 'How many streams you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.';
+
   /** Upgradevenster; reason = het onderdeel waarom het opent (stats, now_watching, trakt, servers, themes, streams, devices). */
   P.sheet = function (reason) {
     var u = U(), h = u.h, p = P.get();
@@ -221,6 +224,7 @@
       body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), h('div', [h('div.plan-title', 'Bingr Lifetime'),
         h('div.muted.small', L('You have Lifetime. Thanks for supporting Bingr!'))])]));
       body.appendChild(P.compareTable(null));
+      body.appendChild(h('p.muted.small.plan-note', L(PROVIDER_NOTE)));
       body.appendChild(h('div.dlg-buttons', [u.button(L('Close'), function () { dlg.close(); }, { primary: true })]));
       dlg = u.modal({ title: '', body: body, cls: 'plan-dlg' });
       return dlg;
@@ -233,6 +237,7 @@
     if (line) body.appendChild(h('p.plan-why', line));
     body.appendChild(P.compareTable(reason));
     body.appendChild(h('p.muted.small.plan-note', L('Pay once, no subscription. Applies to your whole account, on all your devices.')));
+    body.appendChild(h('p.muted.small.plan-note', L(PROVIDER_NOTE)));
     body.appendChild(h('div.dlg-buttons', [P.upgradeAction(function () { dlg.close(); }), u.button(L('Close'), function () { dlg.close(); })]));
     dlg = u.modal({ title: '', body: body, cls: 'plan-dlg' });
     return dlg;

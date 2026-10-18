@@ -16,6 +16,54 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/"/>
   </url>
   <url>
+    <loc>https://bingr.online/iptv-app/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-app/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-app/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-app/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/iptv-app/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-app/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-app/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-app/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/iptv-samsung-tv/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-samsung-tv/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-samsung-tv/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-samsung-tv/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/iptv-samsung-tv/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-samsung-tv/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-samsung-tv/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-samsung-tv/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/m3u-xtream-toevoegen/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/m3u-xtream-toevoegen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/m3u-xtream-toevoegen/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/m3u-xtream-toevoegen/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/m3u-xtream-toevoegen/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/m3u-xtream-toevoegen/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/m3u-xtream-toevoegen/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/m3u-xtream-toevoegen/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/vergelijking/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/vergelijking/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/vergelijking/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/vergelijking/"/>
+  </url>
+  <url>
+    <loc>https://bingr.online/vergelijking/?lang=en</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/vergelijking/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/vergelijking/?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/vergelijking/"/>
+  </url>
+  <url>
     <loc>https://bingr.online/changelog/</loc>
     <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/changelog/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/changelog/?lang=en"/>
