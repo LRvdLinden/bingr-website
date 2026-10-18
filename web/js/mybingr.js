@@ -387,6 +387,8 @@
       drawPosters();
       if (st.kind === 'manual') drawKind();
     }, 250);
+    // build 129: catalogus van een andere server binnen → aantallen en posters bijwerken
+    var offCat = B.on('xsCatalog', function () { if (!document.body.contains(kindBox)) { offCat(); return; } if (st.kind === 'smart') recalc(); });
     function drawPosters() {
       U.clear(posters);
       var urls = [];
@@ -422,7 +424,9 @@
           });
         }));
         var lib = Lib.lib, groups = [];
-        lib.channelGroups.concat(lib.movieGroups, lib.seriesGroups).forEach(function (g) { if (groups.indexOf(g) < 0) groups.push(g); });
+        // build 129: categorieën van alle servers (of van de gekozen server), zoals de collectie zelf zoekt
+        if (B.xs) groups = B.xs.groups(st.sourceID || null);
+        else lib.channelGroups.concat(lib.movieGroups, lib.seriesGroups).forEach(function (g) { if (groups.indexOf(g) < 0) groups.push(g); });
         if (st.group && groups.indexOf(st.group) < 0) groups.unshift(st.group);
         var gs = h('select.form-select', { 'aria-label': L('Category') }, [h('option', { value: '' }, L('All categories'))].concat(groups.map(function (g) {
           var o = h('option', { value: g }, g); if (g === st.group) o.selected = true; return o;
@@ -435,7 +439,7 @@
           var ss = h('select.form-select', { 'aria-label': L('Server') }, [h('option', { value: '' }, L('All servers'))].concat(D.sources.map(function (s) {
             var o = h('option', { value: s.id }, s.name); if (String(s.id).toLowerCase() === String(st.sourceID).toLowerCase()) o.selected = true; return o;
           })));
-          ss.addEventListener('change', function () { st.sourceID = ss.value; recalc(); });
+          ss.addEventListener('change', function () { st.sourceID = ss.value; drawKind(); recalc(); });
           kindBox.appendChild(h('div.form-row', [fieldLabel(L('Server')), ss]));
         }
         kindBox.appendChild(countLine);
@@ -753,6 +757,7 @@
       pg.title = c.name;
       var editBtn = U.button(L('Edit'), function () { S.collectionEditor(c); }, { icon: 'edit', cls: 'small' });
       el.appendChild(h('div.page-head.coll-head', [S.collectionArt(c.image, 'small'), h('h1', c.name), editBtn]));
+      shown = B.xs ? B.xs.version : 0;
       var items = Lib.collectionItems(c, 400);
       if (!items.length) { el.appendChild(h('div.state', [h('p.muted', L('Nothing in this collection yet.'))])); return; }
       var chans = items.filter(function (x) { return x.type === 'channel'; }).map(function (x) { return x.item; });
@@ -761,8 +766,11 @@
       if (titles.length) grid = U.grid(titles, function (x) { return S.posterCard(x.item, x.type, { collection: c }); }, 'posters');
       if (grid) el.appendChild(grid);
     }
+    var shown = -1;
     pg.refresh = render;
     pg.onCollections = render;
+    // build 129: catalogus van een andere server binnen (slimme collectie over alle servers): opnieuw tekenen
+    pg.onData = function () { if (B.xs && B.xs.version !== shown && !el.querySelector(':focus')) render(); };
     pg.destroy = function () { if (grid && grid.destroy) grid.destroy(); };
     render();
     return pg;

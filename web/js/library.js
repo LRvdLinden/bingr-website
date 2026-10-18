@@ -276,7 +276,8 @@
   /** Programma's van een zender (gesorteerd op start). De sleutel wordt per zender één keer bepaald. */
   Lib.epgFor = function (ch) {
     // build 128: zender van een andere server: zijn gids uit de cache (als die er is)
-    var e = ch && ch._src && B.xs ? B.xs.epgOf(ch._src.id) : (Lib.raw.epg || {});
+    // build 129: een item dat nog _src van de inmiddels actieve server draagt, gebruikt gewoon de actieve gids
+    var e = ch && ch._src && B.xs && !B.xs.isActive(ch._src.id) ? B.xs.epgOf(ch._src.id) : (Lib.raw.epg || {});
     var k = ch._ek || (ch._ek = String(ch.epgID || ch.id).toLowerCase());
     return e[k] || e[String(ch.id).toLowerCase()] || [];
   };
@@ -567,20 +568,28 @@
   };
   var IPTV = ['M3U / M3U8', 'Xtream Codes', 'Stalker / MAC-portal'];
   Lib.backupChannels = function (ch) {
-    var cur = Lib.source ? Lib.source.id : null;
-    var others = D.sources.filter(function (s) { return s.id !== cur && IPTV.indexOf(s.kind) >= 0; });
+    // build 129: "andere bron" = elke andere server dan die van de zender zelf (ook de actieve, als de zender van een
+    // andere server komt); server-id hoofdletterongevoelig. Is de catalogus van die server geladen, dan de gefilterde
+    // weergave (kinderslot, leeftijd en verborgen categorieën van het profiel), anders de zenderlijst uit de cache.
+    var own = ch && ch._src && !(B.xs && B.xs.isActive(ch._src.id)) ? ch._src : Lib.source;
+    var cur = own ? String(own.id).toLowerCase() : null;
+    var others = D.sources.filter(function (s) { return String(s.id).toLowerCase() !== cur && IPTV.indexOf(s.kind) >= 0; });
+    // actieve server eerst, daarna de rest in de volgorde van het account
+    others.sort(function (a, b) { return (B.xs && B.xs.isActive(b.id) ? 1 : 0) - (B.xs && B.xs.isActive(a.id) ? 1 : 0); });
     var epg = ch.epgID ? String(ch.epgID).trim().toLowerCase() : null;
     var norm = Lib.normalizeName(ch.name);
     if (!epg && norm.length < 2) return Promise.resolve([]);
     return Promise.all(others.map(function (src) {
-      return B.idb.get('chan:' + src.id).then(function (list) {
+      var view = B.xs ? B.xs.view(src.id) : null;
+      var pending = view && view.channels ? Promise.resolve(view.channels) : B.idb.get('chan:' + src.id);
+      return pending.then(function (list) {
         if (!list) return null;
         var hit = null, byEpg = false;
         if (epg) for (var i = 0; i < list.length; i++) if (list[i].epgID && String(list[i].epgID).trim().toLowerCase() === epg) { hit = list[i]; byEpg = true; break; }
         if (!hit) for (var j = 0; j < list.length; j++) if (Lib.normalizeName(list[j].name) === norm) { hit = list[j]; break; }
         if (!hit || (!hit.streamURL && !hit.stalkerCmd)) return null;
         return { source: src, name: hit.name, url: hit.streamURL, stalkerCmd: hit.stalkerCmd, byEpg: byEpg };
-      });
+      }).catch(function () { return null; });
     })).then(function (r) { return r.filter(Boolean).sort(function (a, b) { return (b.byEpg ? 1 : 0) - (a.byEpg ? 1 : 0); }); });
   };
   Lib.resolveBackup = function (h) {
@@ -641,7 +650,7 @@
     return Lib.memo(key, function () { return B.xs ? B.xs.collectionItems(c, limit) : collectionItems(c, limit); });
   };
   /** Zonder cache (voorbeeld in het formulier). */
-  Lib.resolveCollection = function (c, limit) { return collectionItems(c, limit || 200); };
+  Lib.resolveCollection = function (c, limit) { return B.xs ? B.xs.collectionItems(c, limit || 200) : collectionItems(c, limit || 200); };
   function collectionItems(c, limit) {
     var lib = Lib.lib, out = [];
     var src = Lib.source ? String(Lib.source.id).toLowerCase() : '';

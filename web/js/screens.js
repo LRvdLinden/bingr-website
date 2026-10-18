@@ -990,7 +990,9 @@
       var st = stateBox();
       if (st) { results.appendChild(st); return; }
       if (!q.trim()) { results.appendChild(h('p.muted.search-hint', L('Type to search your channels, movies and series.'))); return; }
-      var res = Lib.search(q, 60);
+      // build 129: over alle servers van het account (zonder te wisselen; dezelfde titel op twee servers is één treffer)
+      shownVersion = B.xs ? B.xs.version : 0;
+      var res = B.xs ? B.xs.searchAll(q, 60) : Lib.search(q, 60);
       if (!res.channels.length && !res.movies.length && !res.series.length) { results.appendChild(h('div.state', [h('p.muted', L('No results for "%@"', q))])); return; }
       if (res.movies.length) { results.appendChild(h('h2.row-title.grid-title', L('Movies'))); results.appendChild(U.grid(res.movies, function (m) { return posterCard(m, 'movie'); }, 'posters')); }
       if (res.series.length) { results.appendChild(h('h2.row-title.grid-title', L('Series'))); results.appendChild(U.grid(res.series, function (s) { return posterCard(s, 'series'); }, 'posters')); }
@@ -1000,7 +1002,10 @@
     var deb = B.debounce(run, 220);
     input.addEventListener('input', deb);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { deb.cancel(); run(); input.blur(); } });
+    var shownVersion = -1;
     pg.refresh = function () { run(); };
+    // catalogus van een andere server binnen: resultaten bijwerken (alleen als er iets veranderde)
+    pg.onData = function () { if (B.xs && B.xs.version !== shownVersion && input.value.trim()) run(); };
     pg.destroy = function () { deb.cancel(); };
     run();
     setTimeout(function () { input.focus(); }, 30);
@@ -1105,7 +1110,8 @@
         U.plusCheckButton('favorite', fav ? L('Favorite') : L('Add to favorites'), fav, function () {
           D.toggleSet('favorites', favKey(ch)); refreshList(); return D.inSet('favorites', favKey(ch));
         }, { labels: [L('Add to favorites'), L('Favorite')] }),
-        U.button('', function () { S.addToCollection({ type: 'channel', id: ch.id }, ch.name); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
+        // build 129: met de server van de zender (sid), ook als die niet de actieve is
+        U.button('', function () { S.addToCollection(S.collItem(ch, 'channel'), ch.name); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
       ]);
       if (nn.now && Lib.canCatchup(ch, nn.now)) btns.appendChild(U.button(L('From the start'), function () { B.player.playCatchup(ch, nn.now, currentList); }, { icon: 'replay' }));
       box.appendChild(h('div.lv-g-head', [h('div.lv-g-logo', [U.img(ch.logo, 'logo', ch.name)]), h('div', [h('h2', ch.name), h('div.muted', ch.group || '')])]));

@@ -15,6 +15,8 @@
  * - `catalogmeta` {items, remap, updatedAt}: per sleutel wint de nieuwste `at`; begrensd (6000 items / ~1 MB; items
  *   waar niets meer naar verwijst na 90 dagen weg, remap na 180 dagen).
  * - Migratie bij de eerste start (vlag per apparaat): meta aanvullen voor alles in de lijsten van alle profielen.
+ * - Build 129: slimme collecties, zoeken en de categorieën in het collectieformulier over alle servers (ontbrekende
+ *   catalogi rustig geladen, zelfde ontdubbeling: de actieve server gaat voor); openen en afspelen via de eigen server.
  *
  * De pure logica (normaliseren, matchen, remap-ketens, samenvoegen, opruimen) staat bovenaan en wordt ook met node getest
  * en met een Playwright-test met nepservers (build 128).
@@ -340,6 +342,83 @@
     var nt = X.normTitle(x.rawTitle || x.title);
     return nt ? type + '|' + nt + '|' + (X.yearOf(x) || '') : null;
   };
+  /** Dubbele treffers ({type, item}) weg: zelfde werk (TMDB, titel + jaar, zendernaam) op twee servers = één; de eerste blijft. */
+  X.dedupeHits = function (list) {
+    var seen = Object.create(null);
+    return list.filter(function (hit) {
+      if (!hit) return false;
+      var wk = X.workKey(hit.type, hit.item);
+      if (!wk) return true;
+      if (seen[wk]) return false;
+      seen[wk] = true;
+      return true;
+    });
+  };
+  /** Opgevouwen veld (zelfde cache-sleutels als library.js). */
+  function foldOf(x, field) {
+    var k = field === 'name' ? '_fn' : field === 'group' ? '_fg' : '_ft';
+    return x[k] != null ? x[k] : (x[k] = B.fold(x[field] || ''));
+  }
+  var POOLS = [['channel', 'channels', 'name'], ['movie', 'movies', 'title'], ['series', 'series', 'title']];
+  /**
+   * Build 129: slimme collectie over meerdere bibliotheken (op volgorde van voorrang: actieve server eerst). Zoals
+   * CollectionResolver: een zoekwoord in de titel óf de categorie, alleen de gekozen soorten en (optioneel) categorie.
+   * Per soort hooguit `limit`, zonder dubbele (dezelfde titel/zender op twee servers is één item; de eerste server gaat voor).
+   */
+  X.smartPick = function (libs, c, limit) {
+    limit = limit || 60;
+    var words = String((c && c.query) || '').split(',').map(function (w) { return B.fold(w).trim(); }).filter(Boolean);
+    if (!words.length) return [];
+    var types = Array.isArray(c.types) && c.types.length ? c.types : ['channel', 'movie', 'series'];
+    var out = [];
+    POOLS.forEach(function (pl) {
+      if (types.indexOf(pl[0]) < 0) return;
+      var hits = [];
+      (libs || []).forEach(function (lib) {
+        var pool = (lib && lib[pl[1]]) || [], n = 0;
+        for (var i = 0; i < pool.length && n < limit; i++) {
+          var x = pool[i];
+          if (c.group && x.group !== c.group) continue;
+          var t = foldOf(x, pl[2]), g = foldOf(x, 'group');
+          for (var w = 0; w < words.length; w++) if (t.indexOf(words[w]) >= 0 || g.indexOf(words[w]) >= 0) { hits.push({ type: pl[0], item: x }); n++; break; }
+        }
+      });
+      out = out.concat(X.dedupeHits(hits).slice(0, limit));
+    });
+    return out;
+  };
+  /**
+   * Build 129: zoeken over meerdere bibliotheken (actieve server eerst). Eerst wat met de zoekterm begint (alle servers),
+   * dan wat hem bevat; zonder dubbele. {channels, movies, series} zoals Lib.search.
+   */
+  X.searchPick = function (libs, q, limit) {
+    limit = limit || 40;
+    var f = B.fold(q || '').trim();
+    var out = { channels: [], movies: [], series: [] };
+    if (!f) return out;
+    POOLS.forEach(function (pl) {
+      var starts = [], contains = [];
+      (libs || []).forEach(function (lib) {
+        var list = (lib && lib[pl[1]]) || [], s = 0, cn = 0;
+        for (var i = 0; i < list.length && s < limit; i++) {
+          var idx = foldOf(list[i], pl[2]).indexOf(f);
+          if (idx === 0) { starts.push(list[i]); s++; } else if (idx > 0 && cn < limit) { contains.push(list[i]); cn++; }
+        }
+      });
+      out[pl[1]] = X.dedupeHits(starts.concat(contains).map(function (x) { return { type: pl[0], item: x }; })).slice(0, limit).map(function (hh) { return hh.item; });
+    });
+    return out;
+  };
+  /** Categorienamen van meerdere bibliotheken (zelfde naam = één), op volgorde. */
+  X.groupsOf = function (libs) {
+    var seen = Object.create(null), out = [];
+    (libs || []).forEach(function (lib) {
+      POOLS.forEach(function (pl) {
+        ((lib && lib[pl[1]]) || []).forEach(function (x) { var g = x.group; if (g && !seen[g]) { seen[g] = true; out.push(g); } });
+      });
+    });
+    return out;
+  };
 
   // test- en browserloze modus: hieronder alleen met een DOM
   if (!B.data || !B.lib || typeof document === 'undefined') return;
@@ -654,17 +733,7 @@
     if (cat.idx.byId[p.item]) return null; // staat er wel, maar verborgen (kinderslot, categorie) voor dit profiel
     return placeholder(key, hint === 'title' ? null : hint, 'missing', field, fb);
   };
-  function dedupe(list) {
-    var seen = {};
-    return list.filter(function (hit) {
-      if (!hit) return false;
-      var wk = X.workKey(hit.type, hit.item);
-      if (!wk) return true;
-      if (seen[wk]) return false;
-      seen[wk] = true;
-      return true;
-    });
-  }
+  var dedupe = X.dedupeHits;
   X.dedupe = dedupe;
   /** Mijn lijst / favorieten / recente zenders over alle servers, nieuwste eerst, zonder dubbele. kind: 'title' | 'channel'. */
   X.listTiles = function (field, kind) {
@@ -755,34 +824,14 @@
   /**
    * Inhoud van een collectie over alle servers. Handmatig: per item {type, id, sid?}: sid → die server; anders
    * collection.sourceID; anders de actieve server en daarna de andere (eerste die hem heeft). Slim: zoekwoorden in de
-   * catalogi van alle (of alleen sourceID) servers. Zonder resultaat in een catalogus: tegel uit catalogmeta.
+   * catalogi van alle servers (build 129), of alleen sourceID als die gezet is. Zonder resultaat in een catalogus: tegel
+   * uit catalogmeta.
    */
   X.collectionItems = function (c, limit) {
     limit = limit || 60;
     var out = [];
     var sids = orderedSources().map(function (s) { return s.id; });
-    if (c.kind === 'smart') {
-      var words = String(c.query || '').split(',').map(function (w) { return B.fold(w).trim(); }).filter(Boolean);
-      if (!words.length) return [];
-      var types = Array.isArray(c.types) ? c.types : ['channel', 'movie', 'series'];
-      var count = { channel: 0, movie: 0, series: 0 };
-      // slim: in de actieve server, of in sourceID als die gezet is (contract build 128)
-      var want = c.sourceID && D.sourceById(c.sourceID) ? D.sourceById(c.sourceID).id : (Lib.source ? Lib.source.id : null);
-      sids.forEach(function (sid) {
-        if (!want || lower(want) !== lower(sid)) return;
-        var v = viewOf(sid);
-        if (!v) { if (!isActive(sid)) kick(800); return; }
-        [['channel', v.channels, 'name'], ['movie', v.movies, 'title'], ['series', v.series, 'title']].forEach(function (pl) {
-          if (types.indexOf(pl[0]) < 0) return;
-          var pool = c.group ? pl[1].filter(function (x) { return x.group === c.group; }) : pl[1];
-          for (var i = 0; i < pool.length && count[pl[0]] < limit; i++) {
-            var x = pool[i], t = B.fold(x[pl[2]] || ''), g = B.fold(x.group || '');
-            for (var w = 0; w < words.length; w++) if (t.indexOf(words[w]) >= 0 || g.indexOf(words[w]) >= 0) { out.push({ type: pl[0], item: x }); count[pl[0]]++; break; }
-          }
-        });
-      });
-      return dedupe(out);
-    }
+    if (c.kind === 'smart') return X.smartItems(c, limit);
     var field = 'collection:' + c.id;
     (c.items || []).forEach(function (it) {
       if (!it || it.id == null || out.length >= limit) return;
@@ -827,6 +876,51 @@
     return [act].concat(list.filter(function (s) { return lower(s.id) !== lower(act.id); }));
   }
   X.orderedSources = orderedSources;
+
+  // MARK: build 129: slimme collecties, zoeken en categorieën over alle servers
+
+  function usable(s) { return !D.supportedKinds || D.supportedKinds.indexOf(s.kind) >= 0; }
+  var wantBusy = false;
+  /**
+   * Catalogi van servers die nog niet geladen zijn rustig laden (cache eerst, één tegelijk, niet tijdens afspelen, met
+   * time-out; bij een fout 30 minuten niet opnieuw). Daarna tekenen de pagina's opnieuw (xsCatalog / profileData).
+   */
+  X.wantAll = function (list) {
+    if (wantBusy || (B.player && B.player.current)) return;
+    list = (list || orderedSources()).filter(function (s) {
+      var lid = lower(s.id);
+      return s && usable(s) && !isActive(s.id) && !cats[lid] && !loading[lid] && !(failed[lid] && Date.now() - failed[lid] < 30 * 60000);
+    });
+    if (!list.length) return;
+    wantBusy = true;
+    var chain = Promise.resolve();
+    list.forEach(function (s) {
+      chain = chain.then(function () { if (B.player && B.player.current) return null; return X.loadCatalog(s, true); }).catch(B.noop);
+    });
+    chain.then(function () { wantBusy = false; });
+  };
+  /** Gefilterde bibliotheken (kinderslot, leeftijd, verborgen categorieën per server), actieve eerst; ontbrekende worden geladen. */
+  function libsFor(onlySid) {
+    var only = onlySid ? D.sourceById(onlySid) : null;
+    var list = only ? [only] : orderedSources();
+    var libs = [], missing = [];
+    list.forEach(function (s) {
+      var v = viewOf(s.id);
+      if (v && v.channels) libs.push(v); else if (!isActive(s.id)) missing.push(s);
+    });
+    if (missing.length) X.wantAll(missing);
+    return libs;
+  }
+  X.libs = libsFor;
+  /** Slimme collectie: alle servers van het account, of alleen `sourceID` als die gezet is (en nog bestaat). */
+  X.smartItems = function (c, limit) {
+    var only = c.sourceID && D.sourceById(c.sourceID) ? c.sourceID : null;
+    return X.smartPick(libsFor(only), c, limit || 60);
+  };
+  /** Zoeken over alle servers (zonder te wisselen); items van een andere server hebben _src. */
+  X.searchAll = function (q, limit) { return X.searchPick(libsFor(null), q, limit || 40); };
+  /** Categorieën voor het collectieformulier: van alle servers, of van één. */
+  X.groups = function (onlySid) { return X.groupsOf(libsFor(onlySid && D.sourceById(onlySid) ? onlySid : null)); };
 
   // MARK: zoeken op andere servers en remap
 
