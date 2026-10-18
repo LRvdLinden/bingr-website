@@ -1746,10 +1746,17 @@
         });
       }
 
-      sec = section(L('Server'), main ? null : L('The server and all settings are managed in the main account.'));
+      // build 130: elk profiel ziet en gebruikt alle servers van het account (kiezen, zoeken, andere bron, vernieuwen);
+      // toevoegen, wijzigen en verwijderen blijft bij het hoofdprofiel
+      sec = section(L('Server'), main ? null : L('Every profile uses all servers of the account. Servers are added and changed in the main profile.'));
       var src = Lib.source;
       row(sec, L('Active server'), src ? src.name : L('None'), function () { if (!D.sources.length) { U.toast(L('No servers yet')); return; } chooseServer(); });
-      row(sec, L('Refresh now'), null, function () { if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); } }, { icon: 'refresh' });
+      // build 130: alle servers van het account (actieve eerst, de rest op de achtergrond), niet alleen de actieve
+      var rs = B.xs && B.xs.refreshing();
+      row(sec, L('Refresh now'), rs ? L('Updating…') : null, function () {
+        if (!D.sources.length) { U.toast(L('No servers yet')); return; }
+        if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
+      }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
       if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
       // nog een server erbij: met Gratis maar één (bestaande servers blijven bruikbaar)
       if (main) {
@@ -1855,7 +1862,10 @@
     pg.refresh = render;
     var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
       B.on('settings', function () { if (el.parentNode) render(); }), B.on('plan', function () { if (el.parentNode) render(); }),
-      B.on('push', function () { if (el.parentNode) render(); })];
+      B.on('push', function () { if (el.parentNode) render(); }),
+      // build 130: "Nu vernieuwen" begint of is klaar (de regel toont "Bijwerken…" zolang het loopt)
+      B.on('xsRefresh', function () { var busy = !!(B.xs && B.xs.refreshing()); if (el.parentNode && busy !== lastBusy) { lastBusy = busy; render(); } })];
+    var lastBusy = !!(B.xs && B.xs.refreshing());
     pg.onCollections = render;
     pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();

@@ -18,6 +18,11 @@
  * - Build 129: slimme collecties, zoeken en de categorieën in het collectieformulier over alle servers (ontbrekende
  *   catalogi rustig geladen, zelfde ontdubbeling: de actieve server gaat voor); openen en afspelen via de eigen server.
  *
+ * - Build 130: "Nu vernieuwen" werkt alle servers bij (X.refreshAll): eerst de actieve (met de bestaande indicator), daarna
+ *   de andere één voor één op de achtergrond, met een time-out per server; een fout bij één server houdt de rest niet
+ *   tegen. Daarna catalogmeta/remap en slimme collecties. Achtergrondwerk voor andere servers (catalogi, migratie, zoeken)
+ *   wacht tot de actieve server geladen is, gebruikt de cache als die vers is en loopt nooit in een lus.
+ *
  * De pure logica (normaliseren, matchen, remap-ketens, samenvoegen, opruimen) staat bovenaan en wordt ook met node getest
  * en met een Playwright-test met nepservers (build 128).
  */
@@ -590,6 +595,23 @@
   function withTimeout(p, t) {
     return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, t); })]);
   }
+  /**
+   * Build 130: achtergrondwerk voor andere servers wacht tot de actieve server geladen is (de indicator hoort alleen bij
+   * de actieve; geen concurrentie om de verbinding of de proxy). Hooguit 5 minuten wachten, daarna gewoon door.
+   */
+  function activeLoaded() {
+    if (!Lib.loading) return Promise.resolve();
+    return new Promise(function (resolve) {
+      var t0 = Date.now();
+      (function check() { if (!Lib.loading || Date.now() - t0 > 300000) resolve(); else setTimeout(check, 1000); })();
+    });
+  }
+  X._activeLoaded = activeLoaded;
+  function storeLib(src, lib) {
+    lib.epg = lib.epg || {};
+    B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
+    B.idb.set('chan:' + src.id, lib.channels.map(function (x) { return { name: x.name, epgID: x.epgID, streamURL: x.streamURL, stalkerCmd: x.stalkerCmd || null }; }));
+  }
   /** Catalogus van een server laden (cache eerst). fetch=false: alleen uit de cache. */
   X.loadCatalog = function (src, fetch) {
     if (!src) return Promise.resolve(null);
@@ -604,10 +626,9 @@
       }
       if (!fetch) return cats[lid] || null;
       if (failed[lid] && Date.now() - failed[lid] < 30 * 60000) return cats[lid] || null;
-      return withTimeout(Lib.fetchLibrary(src), LOAD_TIMEOUT).then(function (lib) {
-        lib.epg = lib.epg || {};
-        B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
-        B.idb.set('chan:' + src.id, lib.channels.map(function (x) { return { name: x.name, epgID: x.epgID, streamURL: x.streamURL, stalkerCmd: x.stalkerCmd || null }; }));
+      // build 130: pas ophalen als de actieve server geladen is
+      return activeLoaded().then(function () { return withTimeout(Lib.fetchLibrary(src), LOAD_TIMEOUT); }).then(function (lib) {
+        storeLib(src, lib);
         put(src, lib, Date.now());
         cats[lid].fresh = true;
         return cats[lid];
@@ -886,7 +907,8 @@
    * time-out; bij een fout 30 minuten niet opnieuw). Daarna tekenen de pagina's opnieuw (xsCatalog / profileData).
    */
   X.wantAll = function (list) {
-    if (wantBusy || (B.player && B.player.current)) return;
+    // build 130: niet terwijl de actieve server laadt (daarna tekenen de pagina's opnieuw en vragen ze het opnieuw)
+    if (wantBusy || fetchingAll() || Lib.loading || (B.player && B.player.current)) return;
     list = (list || orderedSources()).filter(function (s) {
       var lid = lower(s.id);
       return s && usable(s) && !isActive(s.id) && !cats[lid] && !loading[lid] && !(failed[lid] && Date.now() - failed[lid] < 30 * 60000);
@@ -1190,9 +1212,13 @@
    * catalogus tegelijk); voortgang/geschiedenis hebben al titel en artwork: die als terugval; (2) items van verwijderde
    * servers of die niet meer op hun server staan zoeken op de andere servers en remappen.
    */
+  var runP = null;
   function run() {
-    if (running || !B.app || !B.app.profile || !A.isSignedIn()) return;
-    if (B.player && B.player.current) { kick(30000); return; }
+    if (running) return runP;
+    if (!B.app || !B.app.profile || !A.isSignedIn()) return Promise.resolve();
+    if (B.player && B.player.current) { kick(30000); return Promise.resolve(); }
+    // build 130: eerst de actieve server (die laadt zelf, met de indicator); daarna rustig verder
+    if (Lib.loading || fetchingAll()) { kick(5000); return Promise.resolve(); }
     running = true;
     var keys = allKeys();
     var bySid = {}, orphans = [];
@@ -1235,7 +1261,7 @@
         });
       });
     });
-    chain.then(function () {
+    runP = chain.then(function () {
       // verwijderde servers: meta-terugval (titel uit voortgang/geschiedenis), daarna zoeken
       orphans.forEach(function (e) { if (!X.meta(e.key) && e.info && e.info.fb && e.info.fb.title) fallbackMeta(e.key, e.info); });
       return searchAll(orphans);
@@ -1245,6 +1271,7 @@
       if (!unloaded && !B.store.get(MIG_FLAG, false) && D.syncedOnce) B.store.set(MIG_FLAG, B.iso());
       if (work) changedSoon();
     });
+    return runP;
   }
   X.run = run;
   X.migrated = function () { return !!B.store.get(MIG_FLAG, false); };
@@ -1287,6 +1314,95 @@
     });
     return chain;
   }
+
+  // MARK: build 130: alle servers vernieuwen ("Nu vernieuwen")
+
+  var refreshing = null, refreshState = null, REFRESH_TIMEOUT = 120000, ACTIVE_TIMEOUT = 180000;
+  X.refreshing = function () { return refreshState; };
+  /** Haalt "Nu vernieuwen" nog servers op? (dan geen ander achtergrondwerk ernaast) */
+  function fetchingAll() { return !!(refreshState && refreshState.cur); }
+  function quoteName(s) { var q = B.lang === 'nl' ? ['‘', '’'] : ['“', '”']; return q[0] + ((s && s.name) || '') + q[1]; }
+  function progressToast() {
+    var r = refreshState;
+    if (!r || !r.cur) return;
+    U().toast(L('Updating %@ (%d of %d)…', quoteName(r.cur), r.step, r.total), ACTIVE_TIMEOUT);
+  }
+  X.showProgress = progressToast;
+  /** Andere (niet-actieve) server opnieuw ophalen, ook als de cache vers is; gids opnieuw als die al gebruikt werd. */
+  function refreshOther(src) {
+    var lid = lower(src.id);
+    var before = loading[lid] ? loading[lid].catch(B.noop) : Promise.resolve();
+    var p = before.then(function () {
+      return withTimeout(Lib.fetchLibrary(src), REFRESH_TIMEOUT);
+    }).then(function (lib) {
+      var old = cats[lid];
+      storeLib(src, lib);
+      put(src, lib, Date.now());
+      cats[lid].fresh = true;
+      delete failed[lid];
+      if (old && old.epg && lib.epgURL && !B.media.isMediaServer(src.kind)) {
+        var c = cats[lid];
+        return withTimeout(Lib.fetchEpg(src, lib, true), REFRESH_TIMEOUT).then(function (epg) {
+          if (cats[lid] === c && epg && Object.keys(epg).length) { c.epg = epg; c.epgFresh = true; c.epgAsked = true; B.emit('epg'); }
+        }, B.noop).then(function () { return true; });
+      }
+      return true;
+    }, function (e) {
+      failed[lid] = Date.now();
+      B.log('xs vernieuwen', src.name, e && e.message);
+      return false;
+    });
+    loading[lid] = p.then(function () { return cats[lid] || null; });
+    return p.then(function (ok) { delete loading[lid]; return ok; });
+  }
+  /**
+   * Alle servers van het account vernieuwen: eerst de actieve (Lib.select met force, zelfde indicator als altijd), daarna
+   * de andere één voor één, elk met een time-out; een fout bij één server houdt de rest niet tegen. Daarna catalogmeta en
+   * remap (opnieuw zoeken naar wat ontbrak) en de slimme collecties. Een tweede druk tijdens het vernieuwen toont alleen de
+   * voortgang. Geeft {ok: [namen], failed: [namen]}.
+   */
+  X.refreshAll = function () {
+    if (refreshing) { progressToast(); return refreshing; }
+    var act = Lib.source;
+    var others = orderedSources().filter(function (s) { return s && usable(s) && !(act && lower(s.id) === lower(act.id)); });
+    var list = (act ? [act] : []).concat(others);
+    var result = { ok: [], failed: [] };
+    if (!list.length) return Promise.resolve(result);
+    refreshState = { total: list.length, step: 0, cur: null };
+    B.emit('xsRefresh');
+    function begin(src) { refreshState.step++; refreshState.cur = src; progressToast(); B.emit('xsRefresh'); }
+    var chain = Promise.resolve();
+    if (act) {
+      chain = chain.then(function () {
+        begin(act);
+        return withTimeout(new Promise(function (resolve) { Lib.select(act, true, { onLib: resolve }); }), ACTIVE_TIMEOUT)
+          .then(function (ok) { (ok === false ? result.failed : result.ok).push(act); }, function () { result.failed.push(act); });
+      });
+    }
+    others.forEach(function (src) {
+      chain = chain.then(function () {
+        if (!D.sourceById(src.id)) return; // intussen verwijderd
+        begin(src);
+        return refreshOther(src).then(function (ok) { (ok ? result.ok : result.failed).push(src); });
+      });
+    });
+    refreshing = chain.then(function () {
+      refreshState.cur = null;
+      // opnieuw zoeken naar wat ontbrak of verdween, met de nieuwe catalogi; daarna meta/remap uploaden
+      searched = {};
+      return (running && runP ? runP.catch(B.noop) : Promise.resolve()).then(function () { return run(); }).catch(B.noop).then(function () { return X.flush(); }).catch(B.noop);
+    }).then(function () {
+      refreshing = null; refreshState = null;
+      X.version++; // slimme collecties en tegels opnieuw (Lib.collectionItems cachet per X.version)
+      B.emit('xsCatalog'); B.emit('profileData'); B.emit('xsRefresh');
+      var names = result.failed.map(quoteName).join(', ');
+      if (!result.failed.length) U().toast(list.length > 1 ? L('All servers are up to date.') : L('Updated.'), 4000);
+      else if (result.failed.length === list.length) U().toast(L('Couldn’t update %@.', names), 7000);
+      else U().toast(L('Couldn’t update %@. Your other servers are up to date.', names), 7000);
+      return { ok: result.ok.map(function (s) { return s.name; }), failed: result.failed.map(function (s) { return s.name; }) };
+    });
+    return refreshing;
+  };
 
   // MARK: openen (aanklikken van een tegel uit catalogmeta)
 

@@ -15,7 +15,15 @@
     'the collection “%@”',
     'a removed server',
     'Show categories',
-    'Turn categories on or off for this profile. Applies to all your servers.'
+    'Turn categories on or off for this profile. Applies to all your servers.',
+    // build 130: "Nu vernieuwen" over alle servers
+    'Updating %@ (%d of %d)…',
+    'All servers are up to date.',
+    'Updated.',
+    'Couldn’t update %@.',
+    'Couldn’t update %@. Your other servers are up to date.',
+    'Updates all your servers, the active one first.',
+    'Every profile uses all servers of the account. Servers are added and changed in the main profile.'
   ];
   var V = {
     nl: ['Onbekende titel',
@@ -79,6 +87,30 @@
       '‘%@’ 已不在 ‘%@’ 上，而且你没有其他可供搜索的服务器。',
       '从%@中移除', '已移除', '合集 ‘%@’', '已删除的服务器', '显示分类', '为此个人资料开启或关闭分类。适用于你的所有服务器。']
   };
+  // build 130 (zelfde volgorde als de laatste zes sleutels hierboven)
+  var V130 = {
+    nl: ['Bijwerken: %@ (%d van %d)…', 'Alle servers zijn bijgewerkt.', 'Bijgewerkt.', '%@ kon niet worden bijgewerkt.',
+      '%@ kon niet worden bijgewerkt. Je andere servers zijn bijgewerkt.', 'Werkt al je servers bij, de actieve eerst.', 'Elk profiel gebruikt alle servers van het account. Servers voeg je toe en wijzig je in het hoofdprofiel.'],
+    de: ['Aktualisiere %@ (%d von %d)…', 'Alle Server sind aktuell.', 'Aktualisiert.', '%@ konnte nicht aktualisiert werden.',
+      '%@ konnte nicht aktualisiert werden. Deine anderen Server sind aktuell.', 'Aktualisiert alle deine Server, den aktiven zuerst.', 'Jedes Profil nutzt alle Server des Kontos. Server fügst du im Hauptprofil hinzu und änderst sie dort.'],
+    fr: ['Mise à jour de %@ (%d sur %d)…', 'Tous les serveurs sont à jour.', 'Mis à jour.', 'Impossible de mettre à jour %@.',
+      'Impossible de mettre à jour %@. Tes autres serveurs sont à jour.', 'Met à jour tous tes serveurs, l’actif en premier.', 'Chaque profil utilise tous les serveurs du compte. Les serveurs s’ajoutent et se modifient dans le profil principal.'],
+    es: ['Actualizando %@ (%d de %d)…', 'Todos los servidores están actualizados.', 'Actualizado.', 'No se pudo actualizar %@.',
+      'No se pudo actualizar %@. Tus otros servidores están actualizados.', 'Actualiza todos tus servidores, primero el activo.', 'Cada perfil usa todos los servidores de la cuenta. Los servidores se añaden y cambian en el perfil principal.'],
+    it: ['Aggiornamento di %@ (%d di %d)…', 'Tutti i server sono aggiornati.', 'Aggiornato.', 'Impossibile aggiornare %@.',
+      'Impossibile aggiornare %@. Gli altri tuoi server sono aggiornati.', 'Aggiorna tutti i tuoi server, prima quello attivo.', 'Ogni profilo usa tutti i server dell’account. I server si aggiungono e si modificano nel profilo principale.'],
+    pt: ['A atualizar %@ (%d de %d)…', 'Todos os servidores estão atualizados.', 'Atualizado.', 'Não foi possível atualizar %@.',
+      'Não foi possível atualizar %@. Os teus outros servidores estão atualizados.', 'Atualiza todos os teus servidores, primeiro o ativo.', 'Cada perfil usa todos os servidores da conta. Os servidores adicionam-se e alteram-se no perfil principal.'],
+    pl: ['Aktualizowanie: %@ (%d z %d)…', 'Wszystkie serwery są aktualne.', 'Zaktualizowano.', 'Nie udało się zaktualizować: %@.',
+      'Nie udało się zaktualizować: %@. Pozostałe serwery są aktualne.', 'Aktualizuje wszystkie Twoje serwery, najpierw aktywny.', 'Każdy profil korzysta ze wszystkich serwerów konta. Serwery dodajesz i zmieniasz w profilu głównym.'],
+    tr: ['%@ güncelleniyor (%d / %d)…', 'Tüm sunucular güncel.', 'Güncellendi.', '%@ güncellenemedi.',
+      '%@ güncellenemedi. Diğer sunucuların güncel.', 'Tüm sunucularını günceller, önce etkin olanı.', 'Her profil hesabın tüm sunucularını kullanır. Sunucular ana profilde eklenir ve değiştirilir.'],
+    ar: ['جارٍ تحديث %@ (%d من %d)…', 'كل الخوادم محدّثة.', 'تم التحديث.', 'تعذّر تحديث %@.',
+      'تعذّر تحديث %@. خوادمك الأخرى محدّثة.', 'يحدّث كل خوادمك، النشط أولًا.', 'كل ملف شخصي يستخدم كل خوادم الحساب. تُضاف الخوادم وتُعدَّل في الملف الشخصي الرئيسي.'],
+    'zh-Hans': ['正在更新 %@（第 %d 个，共 %d 个）…', '所有服务器均已更新。', '已更新。', '无法更新 %@。',
+      '无法更新 %@。你的其他服务器均已更新。', '更新你的所有服务器，先更新当前服务器。', '每个个人资料都使用该账户的所有服务器。服务器在主个人资料中添加和更改。']
+  };
+  Object.keys(V130).forEach(function (lang) { if (V[lang]) { while (V[lang].length < K.length - 7) V[lang].push(null); V[lang] = V[lang].concat(V130[lang]); } });
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
   Object.keys(V).forEach(function (lang) {
     var tab = all[lang] = all[lang] || {};

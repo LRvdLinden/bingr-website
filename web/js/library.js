@@ -370,7 +370,8 @@
     }
     if (kind === 'Stalker / MAC-portal') {
       var st = new P.Stalker(src);
-      Lib.stalker = st;
+      // build 130: alleen voor de actieve server; een andere server (xs.js) mag de portal van de actieve niet vervangen
+      if (Lib.source && String(Lib.source.id).toLowerCase() === String(src.id).toLowerCase()) Lib.stalker = st;
       return st.connect().then(function () { return st.library(); }).then(function (lib) {
         lib.epgURL = P.urlValue(src.epgURL);
         return lib;
@@ -408,8 +409,12 @@
 
   /** build 128: bibliotheek van een willekeurige server ophalen (catalogi van andere servers, xs.js). */
   Lib.fetchLibrary = function (src) { return fetchLibrary(src); };
-  /** Server kiezen en laden: eerst de cache (meteen zichtbaar), daarna verversen als hij oud is. */
-  Lib.select = function (src, force) {
+  /**
+   * Server kiezen en laden: eerst de cache (meteen zichtbaar), daarna verversen als hij oud is.
+   * build 130: opts.onLib(ok) zodra de bibliotheek binnen is (true), mislukt (false) of ingehaald door een andere keuze
+   * (null); de gids laadt daarna verder.
+   */
+  Lib.select = function (src, force, opts) {
     var my = ++gen;
     var prev = Lib.source;
     Lib.source = src;
@@ -417,7 +422,7 @@
     Lib.episodeCache = {};
     movieInfoCache.clear(); // build 97
     Lib.stalker = null;
-    if (!src) { Lib.raw = { channels: [], movies: [], series: [], epg: {} }; Lib.applyFilters(); return Promise.resolve(); }
+    if (!src) { Lib.raw = { channels: [], movies: [], series: [], epg: {} }; Lib.applyFilters(); libDone(opts, null); return Promise.resolve(); }
     // eenmalige uitleg: een http-server loopt in de browser via de server van Bingr
     if (B.isInsecure(src.serverURL || src.m3uURL || '') && !B.store.get('httpNoteShown', false) && B.ui && B.ui.toast) {
       B.store.set('httpNoteShown', true);
@@ -426,13 +431,14 @@
     Lib.loading = true;
     B.emit('loading');
     return B.idb.get('lib:' + src.id).then(function (cached) {
-      if (my !== gen) return;
+      if (my !== gen) { libDone(opts, null); return; }
       if (cached && cached.lib && !force) {
         Lib.raw = cached.lib; Lib.raw.epg = Lib.raw.epg || {};
         Lib.loading = false;
         Lib.applyFilters();
         loadEpg(src, Lib.raw, false);
         if (Date.now() - cached.at > LIB_TTL) Lib.refresh(src, my);
+        libDone(opts, true);
         return;
       }
       // andere server zonder cache: niet de bibliotheek van de vorige server laten staan (browser)
@@ -440,10 +446,11 @@
         Lib.raw = { channels: [], movies: [], series: [], epg: {} };
         Lib.applyFilters(true);
       }
-      return Lib.refresh(src, my);
+      return Lib.refresh(src, my, opts);
     });
   };
-  Lib.refresh = function (src, my) {
+  function libDone(opts, ok) { if (opts && opts.onLib) { var f = opts.onLib; opts.onLib = null; try { f(ok); } catch (e) { /* stil */ } } }
+  Lib.refresh = function (src, my, opts) {
     my = my || gen;
     Lib.loading = true;
     B.emit('loading');
@@ -454,16 +461,18 @@
       B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
       // alleen de zenders apart, voor de reservebron op andere servers
       B.idb.set('chan:' + src.id, lib.channels.map(function (c) { return { name: c.name, epgID: c.epgID, streamURL: c.streamURL, stalkerCmd: c.stalkerCmd || null }; }));
-      if (my !== gen) return;
+      if (my !== gen) { libDone(opts, null); return; }
       var epg = Lib.raw && Lib.source && Lib.source.id === src.id ? Lib.raw.epg : {};
       lib.epg = ownEpg || epg || {};
       Lib.raw = lib;
       Lib.loading = false;
       Lib.applyFilters();
+      libDone(opts, true);
       return loadEpg(src, lib, true);
     }, function (e) {
-      if (my !== gen) return;
+      if (my !== gen) { libDone(opts, null); return; }
       Lib.loading = false;
+      libDone(opts, false);
       if (!Lib.raw.channels.length && !Lib.raw.movies.length && !Lib.raw.series.length) Lib.error = (e && e.message) || L('Something went wrong. Please try again.');
       B.emit('library');
     });
