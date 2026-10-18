@@ -1,0 +1,15 @@
+name: PHP-probe
+on:
+  push:
+    branches: [php-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          a=$(getent ahostsv4 bingr.online | awk 'NR==1{print $1}'); b=$(getent ahostsv4 beheer.bingr.online | awk 'NR==1{print $1}')
+          echo "::notice::zelfde IP: $([ "$a" = "$b" ] && echo ja || echo nee)"
+          for u in https://bingr.online/titel/ https://beheer.bingr.online/dl.php?ping=1 https://bingr.online/x-probe-404.php; do
+            h=$(curl -s -o /dev/null -D - --max-time 20 "$u" | tr -d '\r' | grep -iE '^(HTTP/|server:|x-powered-by:|content-type:|platform:|x-turbo)' | tr '\n' ' ')
+            echo "::notice::$u -> $h"
+          done
