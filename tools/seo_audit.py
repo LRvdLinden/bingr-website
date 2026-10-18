@@ -85,9 +85,16 @@ def main():
     save("lighthouse", lh)
 
     # 3. zoekwoorden (Nederland, Nederlands) en of bingr.online al gevonden wordt
-    seeds = ["iptv speler", "iptv app", "iptv apple tv", "iptv samsung tv", "m3u speler", "xtream codes app", "iptv player"]
-    ideas = res(call("dataforseo_labs/google/keyword_ideas/live", [{"keywords": seeds, "location_code": 2528, "language_code": "nl",
-                                                                     "limit": 150, "order_by": ["keyword_info.search_volume,desc"]}]))
+    seeds = ["iptv", "iptv speler", "iptv app", "iptv apple tv", "iptv samsung", "m3u", "xtream", "iptv player"]
+    seen, items = set(), []
+    for sd in seeds:
+        r = res(call("dataforseo_labs/google/keyword_suggestions/live", [{"keyword": sd, "location_code": 2528, "language_code": "nl",
+                                                                         "limit": 40, "order_by": ["keyword_info.search_volume,desc"]}]))
+        for i in (r.get("items") or []):
+            if i.get("keyword") not in seen:
+                seen.add(i.get("keyword")); items.append(i)
+    items.sort(key=lambda i: -((i.get("keyword_info") or {}).get("search_volume") or 0))
+    ideas = {"items": items}
     save("keyword_ideas", ideas)
     ranked = res(call("dataforseo_labs/google/ranked_keywords/live", [{"target": TARGET, "location_code": 2528, "language_code": "nl", "limit": 100}]))
     save("ranked_keywords", ranked)
@@ -104,7 +111,7 @@ def main():
     pm = summary.get("page_metrics") or {}
     L += ["## Controles (aantal pagina's met probleem)", f"- onpage-score: {pm.get('onpage_score')}", f"- kapotte links: {pm.get('broken_links')} · kapotte bronnen: {pm.get('broken_resources')}",
           f"- dubbele titels: {pm.get('duplicate_title')} · dubbele omschrijvingen: {pm.get('duplicate_description')} · dubbele inhoud: {pm.get('duplicate_content')}", f"- niet indexeerbaar: {pm.get('non_indexable')}"]
-    for k, v in sorted((pm.get("checks") or {}).items(), key=lambda kv: -kv[1]):
+    for k, v in sorted((pm.get("checks") or {}).items(), key=lambda kv: -(kv[1] or 0)):
         if v:
             L.append(f"  - {k}: {v}")
     L += ["", "## Pagina's"]
