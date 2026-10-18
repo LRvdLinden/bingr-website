@@ -326,6 +326,18 @@ jobs:
             || { echo "::error::assetlinks.json bevat het package van Bingr niet"; bad=1; }
           r=$(curl -s -o /tmp/titel.html --max-time 20 -w '%{http_code}' "https://bingr.online/titel/?type=movie&id=603&q=Test&y=1999" || true)
           if [ "$r" = 200 ] && grep -q 'noindex' /tmp/titel.html; then echo "::notice::/titel/ staat live (noindex)"; else echo "::error::/titel/ gaf HTTP $r"; bad=1; fi
+          # build 132: deelpreview. titel/index.php rendert de Open Graph-/Twitter-tags server-side (crawlers voeren geen JS uit);
+          # gegevens uit de functie title-meta (iptv-ios-appletv). Controle met de user-agents van Facebook/WhatsApp.
+          if grep -q '<?php' /tmp/titel.html; then echo "::error::/titel/ geeft de PHP-broncode in plaats van HTML (PHP draait niet)"; bad=1; fi
+          for ua in "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)" "WhatsApp/2.23.20.0 A"; do
+            r=$(curl -s -A "$ua" -o /tmp/og.html --max-time 25 -w '%{http_code}' "https://bingr.online/titel/?type=movie&id=603&q=The%20Matrix&y=1999" || true)
+            tags=$(grep -oE '<meta (property|name)="(og:[a-z_:]+|twitter:[a-z]+)" content="[^"]{0,90}' /tmp/og.html | sed -E 's/<meta (property|name)="//; s/" content="/=/' | tr '\n' ' ')
+            echo "::notice::/titel/ voor ${ua%% *} (HTTP $r): ${tags:0:900}"
+            for t in 'og:title" content="The Matrix (1999)' 'og:type" content="video.movie' 'og:image" content="https://image.tmdb.org/t/p/w1280/' 'og:image:width" content="1280' 'twitter:card" content="summary_large_image' 'og:site_name" content="Bingr'; do
+              grep -qF "$t" /tmp/og.html || { echo "::warning::/titel/ mist voor ${ua%% *}: ${t%%\"*} (terugval op de algemene preview?)"; }
+            done
+          done
+          curl -s --max-time 20 "https://bingr.online/titel/?type=nope" | grep -q 'og:title" content="Bingr' && echo "::notice::/titel/ ongeldige link: algemene Bingr-preview" || echo "::warning::/titel/ ongeldige link gaf geen algemene preview"
           for path in "/" "/koppelen/?code=TEST12" "/web/"; do
             r=$(curl -s -o /dev/null --max-time 20 -w '%{http_code} %{redirect_url}' "http://bingr.online$path" || true)
             if [ "$r" = "301 https://bingr.online$path" ]; then echo "::notice::http://bingr.online$path stuurt door naar https (zelfde pad)"

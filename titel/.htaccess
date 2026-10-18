@@ -1,0 +1,2 @@
+# build 132: de titelpagina is PHP (Open Graph-tags server-side voor de deelpreview); index.html is de oude statische versie
+DirectoryIndex index.php index.html
