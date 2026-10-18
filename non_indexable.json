@@ -1,0 +1,28 @@
+{
+ "crawl_progress": "finished",
+ "crawl_status": {
+  "max_crawl_pages": 120,
+  "pages_in_queue": 0,
+  "pages_crawled": 23
+ },
+ "total_items_count": 4,
+ "items_count": 4,
+ "items": [
+  {
+   "reason": "meta_tag",
+   "url": "https://bingr.online/account/"
+  },
+  {
+   "reason": "meta_tag",
+   "url": "https://bingr.online/koppelen/"
+  },
+  {
+   "reason": "meta_tag",
+   "url": "https://bingr.online/koppelen/?mode=signup"
+  },
+  {
+   "reason": "meta_tag",
+   "url": "https://bingr.online/web/"
+  }
+ ]
+}

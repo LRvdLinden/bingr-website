@@ -1,0 +1,103 @@
+{
+ "https://bingr.online/ mobiel": {
+  "scores": {
+   "performance": 93,
+   "accessibility": 95,
+   "best-practices": 100,
+   "seo": 100,
+   "agentic-browsing": 100
+  },
+  "fails": [
+   [
+    "Background and foreground colors do not have a sufficient contrast ratio.",
+    0
+   ],
+   [
+    "Heading elements are not in a sequentially-descending order",
+    0
+   ],
+   [
+    "LCP request discovery",
+    0
+   ],
+   [
+    "Network dependency tree",
+    0
+   ],
+   [
+    "Largest Contentful Paint",
+    0.73
+   ]
+  ]
+ },
+ "https://bingr.online/ desktop": {
+  "scores": {
+   "performance": 100,
+   "accessibility": 95,
+   "best-practices": 100,
+   "seo": 100,
+   "agentic-browsing": 100
+  },
+  "fails": [
+   [
+    "Background and foreground colors do not have a sufficient contrast ratio.",
+    0
+   ],
+   [
+    "Heading elements are not in a sequentially-descending order",
+    0
+   ],
+   [
+    "LCP request discovery",
+    0
+   ],
+   [
+    "Network dependency tree",
+    0
+   ]
+  ]
+ },
+ "https://bingr.online/web/ mobiel": {
+  "scores": {
+   "performance": 59,
+   "accessibility": 100,
+   "best-practices": 100,
+   "seo": 63,
+   "agentic-browsing": 100
+  },
+  "fails": [
+   [
+    "Page is blocked from indexing",
+    0
+   ],
+   [
+    "Page prevented back/forward cache restoration",
+    0
+   ],
+   [
+    "Use efficient cache lifetimes",
+    0
+   ],
+   [
+    "Render-blocking requests",
+    0
+   ],
+   [
+    "First Contentful Paint",
+    0.01
+   ],
+   [
+    "Largest Contentful Paint",
+    0.02
+   ],
+   [
+    "Speed Index",
+    0.3
+   ],
+   [
+    "Time to Interactive",
+    0.42
+   ]
+  ]
+ }
+}
