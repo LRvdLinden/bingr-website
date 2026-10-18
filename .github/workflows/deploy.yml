@@ -216,6 +216,22 @@ jobs:
                      "Header always set X-Frame-Options \"DENY\" env=!BINGR_FRAME_OK\n"
                      "Header always set Content-Security-Policy \"frame-ancestors 'none'; base-uri 'self'; object-src 'none'\" env=!BINGR_FRAME_OK\n"
                      "Header always set Content-Security-Policy \"base-uri 'self'; object-src 'none'\" env=BINGR_FRAME_OK\n"
+                     "</IfModule>\n"
+                     # SEO-audit: compressie (gzip) en cachen van statische bestanden; scripts en stijlen 1 dag (niet alle hebben ?v=)
+                     "<IfModule mod_deflate.c>\n"
+                     "AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript text/javascript application/json application/xml application/rss+xml application/atom+xml image/svg+xml application/manifest+json\n"
+                     "</IfModule>\n"
+                     "<IfModule mod_expires.c>\n"
+                     "ExpiresActive On\n"
+                     "ExpiresByType text/css \"access plus 1 day\"\n"
+                     "ExpiresByType application/javascript \"access plus 1 day\"\n"
+                     "ExpiresByType text/javascript \"access plus 1 day\"\n"
+                     "ExpiresByType image/webp \"access plus 7 days\"\n"
+                     "ExpiresByType image/jpeg \"access plus 7 days\"\n"
+                     "ExpiresByType image/png \"access plus 7 days\"\n"
+                     "ExpiresByType image/svg+xml \"access plus 7 days\"\n"
+                     "ExpiresByType font/woff2 \"access plus 1 year\"\n"
+                     "ExpiresByType text/html \"access plus 0 seconds\"\n"
                      "</IfModule>\n")
           def security(with_redirect):
               return ("# BEGIN bingr-security (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"

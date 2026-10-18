@@ -13,7 +13,7 @@
   var lang = (q || saved || navigator.language || "nl").toLowerCase().indexOf("nl") === 0 ? "nl" : "en";
   document.documentElement.lang = lang;
 
-  // SEO: NL en EN delen één pagina. ?lang=nl en ?lang=en zijn de taalversies, zonder ?lang= volgt de pagina de browsertaal
+  // SEO: NL en EN delen één pagina. De schone URL (NL) en ?lang=en zijn de taalversies, zonder ?lang= volgt de pagina de browsertaal
   // (x-default); zie de <link rel="alternate" hreflang> in de <head>. De canonical staat daarom niet vast in de HTML maar
   // wordt hier gezet: de x-default-URL, plus ?lang= als die nl of en is. Alleen op pagina's met een x-default en zonder
   // eigen canonical (Google: één canonical, niet een bestaande wijzigen).
@@ -22,7 +22,8 @@
     if (!xd || document.querySelector('link[rel="canonical"]')) return;
     var ql = (q || "").toLowerCase(), c = document.createElement("link");
     c.rel = "canonical";
-    c.href = xd.href + (ql === "nl" || ql === "en" ? "?lang=" + ql : "");
+    // Nederlands is de schone URL (ook voor ?lang=nl); Engels is ?lang=en
+    c.href = xd.href + (ql === "en" ? "?lang=en" : "");
     document.head.appendChild(c);
   })();
   // Engelse paginatitel en -beschrijving: data-en op <title> en op de meta's description, og:title en og:description

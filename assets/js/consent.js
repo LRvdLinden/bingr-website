@@ -31,7 +31,7 @@
     if (document.getElementById("bingr-consent")) return;
     var st = document.createElement("style");
     st.textContent = "#bingr-consent{position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;max-width:560px;margin:0 auto;background:#141414f2;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid #ffffff22;border-radius:14px;padding:20px 22px;color:#fff;font:15px/1.5 Inter,-apple-system,'Helvetica Neue',Arial,sans-serif;box-shadow:0 20px 60px #000a}" +
-      "#bingr-consent h4{font-size:17px;margin:0 0 6px}#bingr-consent p{margin:0;color:#c8c8c8;font-size:14px}#bingr-consent a{color:#fff}" +
+      "#bingr-consent .t{font-size:17px;font-weight:700;margin:0 0 6px;color:#fff}#bingr-consent p{margin:0;color:#c8c8c8;font-size:14px}#bingr-consent a{color:#fff}" +
       "#bingr-consent .b{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}#bingr-consent button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:11px 18px;cursor:pointer}" +
       "#bingr-consent .y{background:#E50914;color:#fff}#bingr-consent .n{background:#ffffff1f;color:#fff}#bingr-consent:focus{outline:none}#bingr-consent:focus-visible{outline:3px solid #fff;outline-offset:3px}";
     document.head.appendChild(st);
@@ -39,7 +39,7 @@
     var prev = document.activeElement;
     var d = document.createElement("div"); d.id = "bingr-consent"; d.setAttribute("role", "dialog");
     d.setAttribute("aria-labelledby", "bingr-consent-t"); d.setAttribute("aria-describedby", "bingr-consent-p"); d.tabIndex = -1;
-    d.innerHTML = '<h4 id="bingr-consent-t">' + T.t + '</h4><p id="bingr-consent-p">' + T.p + ' <a href="' + base + 'privacy.html#cookies">' + T.m + '</a></p><div class="b"><button type="button" class="y">' + T.a + '</button><button type="button" class="n">' + T.r + "</button></div>";
+    d.innerHTML = '<div class="t" id="bingr-consent-t">' + T.t + '</div><p id="bingr-consent-p">' + T.p + ' <a href="' + base + 'privacy.html#cookies">' + T.m + '</a></p><div class="b"><button type="button" class="y">' + T.a + '</button><button type="button" class="n">' + T.r + "</button></div>";
     function close(choice) {
       save(choice); if (choice === "all") fonts();
       var hadFocus = d.contains(document.activeElement);
