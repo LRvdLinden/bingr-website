@@ -17,6 +17,8 @@ def call(path, body=None):
         d = json.load(r)
     if d.get("status_code") != 20000:
         raise SystemExit(f"API-fout {path}: {d.get('status_code')} {d.get('status_message')}")
+    global spent
+    spent += d.get("cost") or 0
     t = (d.get("tasks") or [{}])[0]
     if t.get("status_code") not in (20000, 20100):
         print(f"::warning::{path}: {t.get('status_code')} {t.get('status_message')}")
@@ -30,10 +32,13 @@ def res(t):
     return r[0] if r else {}
 
 cost = 0.0
+spent = 0.0
 # 1. on-page crawl
-t = call("on_page/task_post", [{"target": TARGET, "max_crawl_pages": 300, "load_resources": True,
-                                 "enable_javascript": True, "enable_browser_rendering": True,
-                                 "store_raw_html": False, "check_spell": False}])
+# zonder JavaScript/browserweergave: de site is gewone HTML, en dat is vele malen goedkoper
+t = call("on_page/task_post", [{"target": TARGET, "max_crawl_pages": int(os.environ.get("SEO_MAX_PAGES", "120")),
+                                 "load_resources": True, "store_raw_html": False, "check_spell": False}])
+if t.get("status_code") != 20100:
+    raise SystemExit(f"on-page taak niet gestart: {t.get('status_code')} {t.get('status_message')}")
 cost += t.get("cost") or 0
 tid = t["id"]
 print("::notice::on-page taak gestart")
@@ -41,6 +46,8 @@ summary = {}
 for _ in range(120):
     time.sleep(20)
     s = call(f"on_page/summary/{tid}")
+    if s.get("status_code") == 40401:
+        continue  # taak nog niet zichtbaar
     summary = res(s)
     if summary.get("crawl_progress") == "finished":
         break
@@ -61,6 +68,8 @@ save("broken_resources", broken_res)
 lh = {}
 for url in [f"https://{TARGET}/", f"https://{TARGET}/web/"]:
     for mobile in (True, False):
+        if url.endswith("/web/") and not mobile:
+            continue
         try:
             r = res(call("on_page/lighthouse/live/json", [{"url": url, "for_mobile": mobile}]))
             cats = {k: round((v or {}).get("score", 0) * 100) for k, v in (r.get("categories") or {}).items()}
@@ -118,4 +127,4 @@ for i in (ideas.get("items") or [])[:80]:
     ki = i.get("keyword_info") or {}
     L.append(f"- {i.get('keyword')}: {ki.get('search_volume')} · {ki.get('competition_level')}")
 (OUT / "report.md").write_text("\n".join(L) + "\n")
-print("::notice::rapport klaar")
+print(f"::notice::rapport klaar (kosten DataForSEO: ${spent:.3f})")
