@@ -551,7 +551,26 @@
     views[lid] = null;
     changedSoon();
   }
-  X.epgOf = function (sid) { var c = cats[lower(sid)]; return (c && c.epg) || {}; };
+  /**
+   * Gids van een andere server (voor nu/straks en terugkijken). Eerst de cache; ontbreekt hij of is hij oud, dan rustig
+   * ophalen (XMLTV van die server, met zijn eigen gegevens), hooguit eens per 30 minuten per server bij een fout.
+   */
+  var epgBusy = {};
+  X.epgOf = function (sid) {
+    var lid = lower(sid), c = cats[lid];
+    if (!c) return {};
+    if ((!c.epg || !c.epgFresh) && !epgBusy[lid] && !(c.epgFailed && Date.now() - c.epgFailed < 30 * 60000)) {
+      epgBusy[lid] = true;
+      var src = D.sourceById(sid) || c.src;
+      setTimeout(function () {
+        withTimeout(Lib.fetchEpg(src, c.raw, false), 180000).then(function (epg) {
+          if (cats[lid] !== c) return;
+          if (epg && Object.keys(epg).length) { c.epg = epg; c.epgFresh = true; B.emit('epg'); } else { c.epgFailed = Date.now(); c.epgFresh = true; }
+        }, function () { c.epgFailed = Date.now(); }).then(function () { delete epgBusy[lid]; });
+      }, 0);
+    }
+    return c.epg || {};
+  };
   var changeTimer = null;
   function changedSoon() {
     clearTimeout(changeTimer);

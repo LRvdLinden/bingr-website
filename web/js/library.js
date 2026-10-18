@@ -301,28 +301,34 @@
   // MARK: terugkijken (catch-up / timeshift)
 
   /** Kan dit programma teruggekeken worden? (afgelopen of bezig, binnen catchupDays, Xtream of MAC-portal) */
+  // build 128: zender van een andere (niet-actieve) server: terugkijken via die server (eigen inloggegevens en gids)
+  function catchSrc(ch) { return (ch && ch._src) || Lib.source; }
+  function isOther(src) { return !!(src && Lib.source && String(src.id).toLowerCase() !== String(Lib.source.id).toLowerCase()); }
+  var catchStalkers = {};
   Lib.canCatchup = function (ch, p) {
-    if (!ch || !p || !(ch.catchupDays > 0) || !Lib.source) return false;
-    // build 128: zender van een andere (niet-actieve) server: terugkijken alleen via de actieve server
-    if (ch._src && String(ch._src.id).toLowerCase() !== String(Lib.source.id).toLowerCase()) return false;
-    var kind = Lib.source.kind;
+    var src = catchSrc(ch);
+    if (!ch || !p || !(ch.catchupDays > 0) || !src) return false;
+    var kind = src.kind;
     if (kind !== 'Xtream Codes' && kind !== 'Stalker / MAC-portal') return false;
     var now = Date.now();
     return p.start < now && p.start > now - ch.catchupDays * 86400000;
   };
   /** Afspeel-URL voor terugkijken, met de terugkijk-correctie van de zender (catchupOffsets, minuten). */
   Lib.catchupURL = function (ch, p) {
-    var src = Lib.source;
+    var src = catchSrc(ch), other = isOther(src);
     if (!Lib.canCatchup(ch, p)) return Promise.resolve(null);
     var raw = null;
-    for (var i = 0; i < Lib.raw.channels.length; i++) if (Lib.raw.channels[i].id === ch.id) { raw = Lib.raw.channels[i]; break; }
+    var cat = other && B.xs ? B.xs.catalog(src.id) : null;
+    var pool = other ? (cat ? cat.raw.channels : []) : Lib.raw.channels;
+    for (var i = 0; i < pool.length; i++) if (pool[i].id === ch.id) { raw = pool[i]; break; }
     raw = raw || ch;
     var shift = D.catchupOffset(D.sourceById(src.id) || src, ch.id) * 60000;
     var start = p.start + shift, end = Math.min(p.end, Date.now()) + shift;
     if (p.end > Date.now()) end = p.end + shift;
     if (src.kind === 'Xtream Codes') return Promise.resolve(new P.Xtream(src, D.secret(src, 'password')).catchupURL(raw, start, end));
-    var st = Lib.stalker || new P.Stalker(src);
-    Lib.stalker = st;
+    var st;
+    if (other) { var lk = String(src.id).toLowerCase(); st = catchStalkers[lk] || (catchStalkers[lk] = new P.Stalker(src)); }
+    else { st = Lib.stalker || new P.Stalker(src); Lib.stalker = st; }
     return st.archiveLink(raw, start, end).catch(function () { return null; });
   };
 
@@ -380,16 +386,21 @@
     }
     return Promise.reject(new Error(L('This kind of server is not supported in the browser yet.')));
   }
-  function loadEpg(src, lib, force) {
-    if (!lib.epgURL) return Promise.resolve();
-    if (B.media.isMediaServer(src.kind)) return Promise.resolve();
+  /** build 128: gids van een server (cache in IndexedDB, anders XMLTV); ook voor andere servers (xs.js). */
+  Lib.fetchEpg = function (src, lib, force) {
+    if (!lib || !lib.epgURL || B.media.isMediaServer(src.kind)) return Promise.resolve(null);
     return B.idb.get('epg:' + src.id).then(function (c) {
       if (c && !force && Date.now() - c.at < EPG_TTL) return c.epg;
       return P.loadXMLTV(lib.epgURL, wantedEpg(lib)).then(function (epg) {
         if (Object.keys(epg).length) B.idb.set('epg:' + src.id, { at: Date.now(), epg: epg });
         return Object.keys(epg).length ? epg : (c ? c.epg : {});
       });
-    }).then(function (epg) {
+    });
+  };
+  function loadEpg(src, lib, force) {
+    if (!lib.epgURL) return Promise.resolve();
+    if (B.media.isMediaServer(src.kind)) return Promise.resolve();
+    return Lib.fetchEpg(src, lib, force).then(function (epg) {
       if (Lib.source && Lib.source.id === src.id && epg) { Lib.raw.epg = epg; Lib.lib.epg = epg; B.emit('epg'); }
     }).catch(B.noop);
   }
