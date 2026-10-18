@@ -244,12 +244,14 @@
   /** TMDB-titels uit Mijn lijst van deze bron ([{type, item}]); niet bij een leeftijdsgrens. */
   X.myListHits = function () {
     if (ageLimited()) return [];
-    var src = Lib.source ? Lib.source.id : '', out = [];
+    // build 128: Mijn lijst over alle servers (een TMDB-titel hoort bij geen server; één keer per titel)
+    var out = [], seen = {};
     D.setList('myList').forEach(function (k) {
       var bar = k.indexOf('|');
-      if (bar < 0 || k.slice(0, bar).toLowerCase() !== String(src).toLowerCase()) return;   // server-id hoofdletterongevoelig
+      if (bar < 0) return;
       var id = k.slice(bar + 1);
-      if (!X.isExternal(id)) return;
+      if (!X.isExternal(id) || seen[id]) return;
+      seen[id] = true;
       var t = X.known(id);
       if (t) out.push({ type: t.isShow ? 'series' : 'movie', item: X.asItem(t) });
     });
@@ -259,10 +261,8 @@
   /** TMDB-titels in Mijn lijst die deze browser nog niet kent (op een ander apparaat toegevoegd) opzoeken. */
   X.resolveMissing = function () {
     if (resolving || !AR.hasKey()) return;
-    var src = Lib.source ? Lib.source.id : '';
-    var pre = String(src).toLowerCase() + '|';
-    var ids = D.setList('myList').filter(function (k) { return k.toLowerCase().indexOf(pre) === 0; }).map(function (k) { return k.slice(pre.length); })
-      .filter(function (id) { return X.isExternal(id) && !X.known(id); }).slice(0, 20);
+    var ids = D.setList('myList').filter(function (k) { return k.indexOf('|') > 0; }).map(function (k) { return k.slice(k.indexOf('|') + 1); })
+      .filter(function (id, i, all) { return X.isExternal(id) && !X.known(id) && all.indexOf(id) === i; }).slice(0, 20);
     if (!ids.length) return;
     resolving = true;
     Promise.all(ids.map(function (id) {
@@ -339,7 +339,6 @@
       var x = X.asItem(t);
       pg.title = x.title;
       document.title = x.title + ' · Bingr';
-      var listKey = D.key(Lib.source ? Lib.source.id : '', x.id);
       var meta = h('div.dt-meta', [x.year ? String(x.year) : '', isShow ? L('Series') : L('Movie')].filter(Boolean).join('  ·  '));
       var plot = h('p.dt-plot', x.plot || '');
       var creditsSlot = h('div.dt-credits-slot'), extraSlot = h('div.dt-extra-slot'), buttons = h('div.dt-btns');
@@ -349,8 +348,8 @@
         U.clear(buttons);
         if (Lib.source) {
           // plus / vinkje met animatie; de knop blijft staan
-          buttons.appendChild(U.plusCheckButton('mylist', L('My List'), D.inSet('myList', listKey),
-            function () { S.toggleMyList(x, type); return D.inSet('myList', listKey); }));
+          buttons.appendChild(U.plusCheckButton('mylist', L('My List'), S.inMyList(x),
+            function () { S.toggleMyList(x, type); return S.inMyList(x); }));
         }
         buttons.appendChild(trailerSlot);
         buttons.appendChild(h('a.btn', { href: '#/search?q=' + encodeURIComponent(x.title) }, [U.icon('search'), h('span', L('Search'))]));

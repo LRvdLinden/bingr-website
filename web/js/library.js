@@ -96,15 +96,17 @@
 
   // MARK: filteren (= Playlists.apply)
 
-  function context() {
+  function context(srcArg) {
     var p = B.app && B.app.profile;
-    var src = Lib.source;
+    var src = srcArg || Lib.source;
     return {
       custom: D.customization(src), playlist: src ? src.id : '',
       ageLimit: D.ageLimit(p), strict: D.strict(p),
       parentalEnabled: !!B.bool(D.shared('parentalControl', false)),
       autoLockAdult: B.bool(D.shared('parentalAutoLockAdult', true)) !== false,
-      lockedGroups: D.lockedGroups(src), unlocked: PC.isUnlocked()
+      lockedGroups: D.lockedGroups(src), unlocked: PC.isUnlocked(),
+      // build 128: categorieën uit voor dit profiel (profile.<id>.hiddenCategories, per server)
+      hiddenCats: D.hiddenCategoryNames ? D.hiddenCategoryNames(src && src.id) : {}
     };
   }
   /** Filter per item (= Playlists.apply): geeft per soort een functie item → gefilterde kopie of null. */
@@ -114,6 +116,7 @@
     // en alleen eigen sleutels opzoeken
     function own(o, k) { return o && B.has(o, k) ? o[k] : undefined; }
     var hidden = Object.create(null); (c.hidden || []).forEach(function (h) { hidden[h] = true; });
+    var hc = ctx.hiddenCats || {};
     var locked = Object.create(null); (ctx.lockedGroups || []).forEach(function (g) { locked[g] = true; });
     var ageLimit = ctx.unlocked ? null : ctx.ageLimit;
     function isLocked(g) {
@@ -130,7 +133,8 @@
       if (hidden[id]) return false;
       if (B.has(groupOK, g)) return groupOK[g];
       var m = own(c.merged, g) || g;
-      var ok = !hidden['group:' + g] && !hidden['group:' + m] && !isLocked(g) && !isLocked(m);
+      // build 128: categorie aan/uit per profiel (hiddenCategories); het oude "group:"-blok van de bron telt niet meer
+      var ok = !own(hc, g) && !own(hc, m) && !isLocked(g) && !isLocked(m);
       groupOK[g] = ok;
       return ok;
     }
@@ -176,6 +180,8 @@
       }
     };
   }
+  /** build 128: filterregels van een andere server (kinderslot, leeftijd, verborgen categorieën van die server). */
+  Lib.contextFor = function (src) { return context(src); };
   /** In één keer filteren (tests en kleine bibliotheken). */
   Lib.apply = function (raw, ctx) {
     var f = makeFilter(ctx);
@@ -269,7 +275,8 @@
 
   /** Programma's van een zender (gesorteerd op start). De sleutel wordt per zender één keer bepaald. */
   Lib.epgFor = function (ch) {
-    var e = Lib.raw.epg || {};
+    // build 128: zender van een andere server: zijn gids uit de cache (als die er is)
+    var e = ch && ch._src && B.xs ? B.xs.epgOf(ch._src.id) : (Lib.raw.epg || {});
     var k = ch._ek || (ch._ek = String(ch.epgID || ch.id).toLowerCase());
     return e[k] || e[String(ch.id).toLowerCase()] || [];
   };
@@ -296,6 +303,8 @@
   /** Kan dit programma teruggekeken worden? (afgelopen of bezig, binnen catchupDays, Xtream of MAC-portal) */
   Lib.canCatchup = function (ch, p) {
     if (!ch || !p || !(ch.catchupDays > 0) || !Lib.source) return false;
+    // build 128: zender van een andere (niet-actieve) server: terugkijken alleen via de actieve server
+    if (ch._src && String(ch._src.id).toLowerCase() !== String(Lib.source.id).toLowerCase()) return false;
     var kind = Lib.source.kind;
     if (kind !== 'Xtream Codes' && kind !== 'Stalker / MAC-portal') return false;
     var now = Date.now();
@@ -339,8 +348,9 @@
       if (!u) return Promise.reject(new Error(L('Invalid URL')));
       return B.getText(u, null, 180000).then(function (text) {
         var lib = P.m3uLibrary(text, src.id);
-        text = null;
+        // build 128: gids-URL uit de kop lezen vóór de tekst wordt vrijgegeven (anders faalde een M3U zonder eigen gids-URL)
         lib.epgURL = P.urlValue(src.epgURL) || P.m3uEpgURL(text);
+        text = null;
         return lib;
       });
     }
@@ -384,6 +394,8 @@
     }).catch(B.noop);
   }
 
+  /** build 128: bibliotheek van een willekeurige server ophalen (catalogi van andere servers, xs.js). */
+  Lib.fetchLibrary = function (src) { return fetchLibrary(src); };
   /** Server kiezen en laden: eerst de cache (meteen zichtbaar), daarna verversen als hij oud is. */
   Lib.select = function (src, force) {
     var my = ++gen;
@@ -447,37 +459,43 @@
 
   /** Afleveringen van een serie (M3U: al in de lijst; Xtream: get_series_info; Plex/Jellyfin/Emby/Stremio: hun API). */
   var epPending = {};
+  // build 128: een serie van een andere server (s._src) haalt zijn afleveringen bij die server; afleveringen krijgen _src
+  function tagEps(s, r) {
+    if (s._src && r && r.episodes) r.episodes.forEach(function (e) { if (e && !e._src) e._src = s._src; });
+    return r;
+  }
   Lib.episodes = function (s) {
-    if (s.episodes && s.episodes.length) return Promise.resolve({ episodes: s.episodes, info: null });
-    if (Lib.episodeCache[s.id]) return Promise.resolve(Lib.episodeCache[s.id]);
+    if (s.episodes && s.episodes.length) return Promise.resolve(tagEps(s, { episodes: s.episodes, info: null }));
+    var ck = (s._src ? String(s._src.id).toLowerCase() + '|' : '') + s.id;
+    if (Lib.episodeCache[ck]) return Promise.resolve(Lib.episodeCache[ck]);
     // één verzoek tegelijk per serie (de detailpagina vraagt afleveringen en info tegelijk op)
-    if (!epPending[s.id]) {
-      epPending[s.id] = episodesNow(s);
-      var done = function () { delete epPending[s.id]; };
-      epPending[s.id].then(done, done);
+    if (!epPending[ck]) {
+      epPending[ck] = episodesNow(s, ck).then(function (r) { return tagEps(s, r); });
+      var done = function () { delete epPending[ck]; };
+      epPending[ck].then(done, done);
     }
-    return epPending[s.id];
+    return epPending[ck];
   };
-  function episodesNow(s) {
-    var src = Lib.source;
+  function episodesNow(s, ck) {
+    var src = s._src || Lib.source;
     if (src && B.media.isMediaServer(src.kind)) {
       return B.media.episodes(src, s).then(function (eps) {
         var r = { episodes: eps || [], info: null };
-        if (r.episodes.length) Lib.episodeCache[s.id] = r;
+        if (r.episodes.length) Lib.episodeCache[ck] = r;
         return r;
       }, function () { return { episodes: [], info: null }; });
     }
     if (!src || src.kind !== 'Xtream Codes') return Promise.resolve({ episodes: [], info: null });
     var x = new P.Xtream(src, D.secret(src, 'password'));
     return x.episodes(s).then(function (r) {
-      if (r.episodes.length) Lib.episodeCache[s.id] = r;
+      if (r.episodes.length) Lib.episodeCache[ck] = r;
       return r;
     }, function () { return { episodes: [], info: null }; });
   };
   /** build 97: Xtream-filminfo per xtreamVodID onthouden (zoals episodeCache), hooguit ~200; per server, geleegd bij een andere server. */
   var movieInfoCache = new Map(), MOVIE_INFO_CAP = 200;
   Lib.movieInfo = function (m) {
-    var src = Lib.source;
+    var src = (m && m._src) || Lib.source;
     if (!src || src.kind !== 'Xtream Codes' || !m || m.xtreamVodID == null) return Promise.resolve(null);
     var key = src.id + '|' + m.xtreamVodID;
     if (movieInfoCache.has(key)) {
@@ -496,26 +514,31 @@
   };
   /** build 97: al opgehaalde Xtream-info zonder netwerk (of null). */
   Lib.movieInfoCached = function (m) {
-    var src = Lib.source;
+    var src = (m && m._src) || Lib.source;
     if (!src || !m || m.xtreamVodID == null) return null;
     var p = movieInfoCache.get(src.id + '|' + m.xtreamVodID);
     return p && p._v !== undefined ? p._v : null;
   };
 
   /** Stremio: alle directe streams van een titel ("movie|tt…" of "series|tt…:s:e"). */
-  Lib.stremioStreams = function (ref) {
-    var src = Lib.source;
+  Lib.stremioStreams = function (ref, srcArg) {
+    var src = srcArg || Lib.source;
     if (!src || src.kind !== 'Stremio' || !ref) return Promise.resolve([]);
     return B.media.stremioFor(src).then(function (st) { return st.streams(ref); }, function () { return []; });
   };
   /** Afspeel-URL (MAC-portal: eerst een link aanmaken; Stremio: gekozen of eerste directe stream). */
+  var otherStalkers = {};
   Lib.resolveURL = function (item, live) {
+    // build 128: item van een andere server (afspelen via die server, zonder te wisselen)
+    var src = (item && item._src) || Lib.source;
+    var own = !item._src || (Lib.source && String(Lib.source.id).toLowerCase() === String(item._src.id).toLowerCase());
     if (item.stremio && !item.streamURL) {
-      return Lib.stremioStreams(item.stremio).then(function (list) { return list.length ? list[0].url : null; });
+      return Lib.stremioStreams(item.stremio, src).then(function (list) { return list.length ? list[0].url : null; });
     }
-    if (item.stalkerCmd && Lib.source && Lib.source.kind === 'Stalker / MAC-portal') {
-      var st = Lib.stalker || new P.Stalker(Lib.source);
-      Lib.stalker = st;
+    if (item.stalkerCmd && src && src.kind === 'Stalker / MAC-portal') {
+      var st;
+      if (own) { st = Lib.stalker || new P.Stalker(src); Lib.stalker = st; }
+      else { var lk = String(src.id).toLowerCase(); st = otherStalkers[lk] || (otherStalkers[lk] = new P.Stalker(src)); }
       return st.createLink(item.stalkerCmd, live).then(function (u) { return u || item.streamURL; }, function () { return item.streamURL; });
     }
     return Promise.resolve(item.streamURL);
@@ -602,8 +625,9 @@
    */
   Lib.collectionItems = function (c, limit) {
     limit = limit || 60;
-    var key = 'coll:' + c.id + '|' + (c.updatedAt || '') + '|' + limit + '|' + (Lib.source ? Lib.source.id : '');
-    return Lib.memo(key, function () { return collectionItems(c, limit); });
+    // build 128: over alle servers (xs.js), per bibliotheek-, catalogus- en remapversie gecachet
+    var key = 'coll:' + c.id + '|' + (c.updatedAt || '') + '|' + limit + '|' + (Lib.source ? Lib.source.id : '') + '|' + (B.xs ? B.xs.version + '|' + B.xs.rulesVersion() : '');
+    return Lib.memo(key, function () { return B.xs ? B.xs.collectionItems(c, limit) : collectionItems(c, limit); });
   };
   /** Zonder cache (voorbeeld in het formulier). */
   Lib.resolveCollection = function (c, limit) { return collectionItems(c, limit || 200); };

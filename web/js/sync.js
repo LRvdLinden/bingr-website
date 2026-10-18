@@ -12,7 +12,8 @@
   var L = function () { return B.L.apply(null, arguments); };
   var D = B.data = {};
 
-  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels'];
+  // build 128: hiddenCategories = categorieën die uit staan voor dit profiel ("<server-id>|<categorienaam>"), zoals myList
+  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories'];
   var REMOVED_DAYS = 90, MAX_RECENT = 20, MAX_PROGRESS = 300, MAX_HISTORY = 500;
   var lower = function (s) { return String(s || '').toLowerCase(); };
 
@@ -259,6 +260,7 @@
   function applySources(r) {
     D.sources = r.sources.filter(function (s) { return s.deleted !== true; });
     D.mainSourceID = r.mainSourceID;
+    D.sourcesSynced = true; // build 128: de lijst komt van de server (opruimen van categorieën van verwijderde servers mag)
     save();
     B.emit('sources');
   }
@@ -563,7 +565,23 @@
     P.base = (saved && saved.base) || null;
     P.names = (saved && saved.names) || [];
     P.dirty = !!(saved && saved.dirty);
+    // build 128: remap (catalogmeta) op dit profiel
+    if (applyTransforms(P.st)) { P.st = normalize(P.st); P.dirty = true; persistP(); }
     B.emit('profileData');
+  };
+  /** build 128: haken op het model van het actieve profiel (xs.js: remap); true = er veranderde iets. */
+  D.stateTransforms = D.stateTransforms || [];
+  function applyTransforms(st) {
+    var any = false;
+    D.stateTransforms.forEach(function (fn) { try { if (fn(st)) any = true; } catch (e) { B.log('transform', e); } });
+    return any;
+  }
+  /** build 128: remap meteen toepassen (na een nieuwe remap-regel) en uploaden. */
+  D.applyRemapNow = function () {
+    if (!P.st || !applyTransforms(P.st)) return false;
+    P.st = normalize(P.st);
+    changed(false);
+    return true;
   };
 
   /** Pincodes van alle profielen uit de state (pin staat in profile.<id>). */
@@ -610,6 +628,7 @@
       B.emit('settings');
       // connections (Trakt/OpenSubtitles) en herinneringen voegen zelf samen
       B.emit('state', all);
+      D.syncedOnce = true;
       if (!P.id) return true;
       return mergeActive(all);
     }).catch(function (e) { B.log('sync', e); return false; }).then(function (r) { syncing = null; return r; });
@@ -648,6 +667,7 @@
     if (names.length) P.names = names;
     var srv = server ? normalize(server) : null;
     var merged = normalize(srv ? mergeState(P.st, srv) : P.st);
+    if (applyTransforms(merged)) merged = normalize(merged);
     var changed = stateKey(merged) !== stateKey(P.st);
     P.st = merged;
     var needUpload = prefsNewer || (!srv ? hasAny(merged) : stateKey(merged) !== stateKey(srv));
@@ -756,6 +776,15 @@
       .filter(function (e) { var n = normKey(historyId(e)); if (seen[n]) return false; seen[n] = true; return true; });
   };
   D.isWatched = function (k) { return D.inSet('watched', k); };
+  /** build 128: namen (zoals de server ze levert) van de categorieën die voor dit profiel uit staan op server sid. */
+  D.hiddenCategoryNames = function (sid) {
+    var out = {};
+    if (!P.st || !sid) return out;
+    var pre = lower(sid) + '|';
+    liveKeys(P.st.sets.hiddenCategories).forEach(function (k) { if (lower(k).indexOf(pre) === 0) out[k.slice(pre.length)] = true; });
+    return out;
+  };
+  D.setCategoryHidden = function (sid, name, hidden) { D.toggleSet('hiddenCategories', D.key(sid, name), !!hidden); };
 
   // schrijven
   D.toggleSet = function (field, k, on) {
@@ -1120,7 +1149,8 @@
       o.order = max + 1;
     }
     o.kind = o.kind === 'smart' ? 'smart' : 'manual';
-    if (o.kind === 'manual') { o.query = ''; o.items = (o.items || []).map(function (x) { return { type: x.type, id: String(x.id) }; }); }
+    // build 128: optioneel sid (server van het item) blijft staan
+    if (o.kind === 'manual') { o.query = ''; o.items = (o.items || []).map(function (x) { var it = { type: x.type, id: String(x.id) }; if (x.sid) it.sid = String(x.sid); return it; }); }
     else o.items = [];
     if (!Array.isArray(o.types) || !o.types.length) o.types = ['channel', 'movie', 'series'];
     if (!o.group) delete o.group;
@@ -1148,16 +1178,24 @@
     });
     return out.length ? D.saveCollections(profileId, out) : Promise.resolve(true);
   };
+  /** Zelfde item: type en id, en (build 128) dezelfde server als beide een server hebben (sid, anders collection.sourceID). */
+  function sameColItem(c, x, item) {
+    if (!x || x.type !== item.type || String(x.id) !== String(item.id)) return false;
+    var a = x.sid || c.sourceID, b = item.sid || c.sourceID;
+    return !a || !b || lower(a) === lower(b);
+  }
   D.collectionHas = function (c, item) {
-    return (c.items || []).some(function (x) { return x && x.type === item.type && String(x.id) === String(item.id); });
+    return (c.items || []).some(function (x) { return sameColItem(c, x, item); });
   };
   /** Item in een handmatige collectie zetten of eruit halen. */
   D.toggleInCollection = function (profileId, id, item) {
     var c = rawCollection(profileId, id);
     if (!c || c.deleted === true || c.kind === 'smart') return Promise.resolve(false);
     var has = D.collectionHas(c, item);
-    c.items = has ? (c.items || []).filter(function (x) { return !(x && x.type === item.type && String(x.id) === String(item.id)); })
-      : (c.items || []).concat([{ type: item.type, id: String(item.id) }]);
+    var add = { type: item.type, id: String(item.id) };
+    if (item.sid) add.sid = String(item.sid);
+    c.items = has ? (c.items || []).filter(function (x) { return !sameColItem(c, x, item); })
+      : (c.items || []).concat([add]);
     c.updatedAt = B.iso();
     return D.saveCollections(profileId, [c]).then(function () { return !has; });
   };

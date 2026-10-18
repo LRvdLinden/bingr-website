@@ -11,7 +11,7 @@
   var h = U.h, R = U.router;
   var L = function () { return B.L.apply(null, arguments); };
 
-  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'settings', 'stats', 'categorie'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
+  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'catprefs', 'settings', 'stats', 'categorie'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
 
   function prof() { return B.app.profile; }
   function srcId() { return Lib.source ? Lib.source.id : ''; }
@@ -20,10 +20,20 @@
   // MARK: Mijn lijst, bekeken en het contextmenu (zoals de contextMenu's in de apps)
 
   /** Mijn lijst aan/uit; bij het hoofdprofiel volgt de Trakt-watchlist mee (zoals toggleMyList op iOS). */
+  /** build 128: sleutel van een item (andere server: x._src; tegel uit catalogmeta: x._key). */
+  function keyOf(x) { return B.xs ? B.xs.keyOf(x) : D.key(srcId(), x.id); }
+  S.keyOf = keyOf;
+  /** Sleutels in Mijn lijst voor dit item: de eigen sleutel, en bij een TMDB-titel die op elke server (hoort bij geen server). */
+  function listKeys(x) {
+    if (x.external) return D.setList('myList').filter(function (k) { var i = k.indexOf('|'); return i > 0 && k.slice(i + 1) === String(x.id); });
+    return D.inSet('myList', keyOf(x)) ? [keyOf(x)] : [];
+  }
+  S.inMyList = function (x) { return listKeys(x).length > 0; };
   S.toggleMyList = function (x, type) {
-    var key = D.key(srcId(), x.id);
-    var on = !D.inSet('myList', key);
-    D.toggleSet('myList', key, on);
+    var keys = listKeys(x);
+    var on = !keys.length;
+    if (on) D.toggleSet('myList', keyOf(x), true);
+    else keys.forEach(function (k) { D.toggleSet('myList', k, false); });
     if (isMain() && B.trakt.isLoggedIn()) B.trakt.setWatchlist(x, type === 'series', on);
     U.toast(on ? L('Added to My List') : L('Removed from My List'));
   };
@@ -39,24 +49,28 @@
     opts = opts || {};
     var items = [];
     if (type === 'movie' || type === 'series') {
-      var inList = D.inSet('myList', D.key(srcId(), x.id));
+      var inList = S.inMyList(x);
       items.push({ icon: U.plusCheckIcon(inList), label: inList ? L('Remove from My List') : L('Add to My List'), fn: function () { S.toggleMyList(x, type); } });
       // build 111: titel uit TMDB (niet in je bibliotheek): alleen Mijn lijst en Meer info
       if (x.external) return items.concat([{ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } }]);
+      // build 128: tegel uit catalogmeta (server verwijderd of titel weg): Mijn lijst, Meer info (= zoeken) en uit de rij halen
+      if (x._key || x._noKey) return items.concat(phMenu(x, type, opts));
       if (type === 'movie') {
         var w = S.movieWatched(x);
         items.push({ icon: w ? 'eyeOff' : 'checkCircle', label: w ? L('Mark as unwatched') : L('Mark as watched'), fn: function () { S.setMovieWatched(x, !w); } });
       }
       items.push({ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } });
     } else if (type === 'channel') {
-      var fk = D.key(srcId(), x.id), fav = D.inSet('favorites', fk);
+      if (x._key || x._noKey) return phMenu(x, type, opts);
+      var fk = keyOf(x), fav = D.inSet('favorites', fk);
       items.push({ icon: 'play', label: L('Watch live'), fn: function () { B.player.playChannel(x, [x]); } });
       items.push({ icon: U.plusCheckIcon(fav), label: fav ? L('Remove from favorites') : L('Add to favorites'), fn: function () { D.toggleSet('favorites', fk); } });
     }
-    items.push({ icon: 'stackAdd', label: L('Add to collection…'), fn: function () { S.addToCollection({ type: type, id: x.id }, x.title || x.name); } });
+    var ci = S.collItem(x, type);
+    items.push({ icon: 'stackAdd', label: L('Add to collection…'), fn: function () { S.addToCollection(ci, x.title || x.name); } });
     var c = opts.collection;
-    if (c && c.kind !== 'smart' && D.collectionHas(c, { type: type, id: x.id })) {
-      items.push({ icon: 'minus', label: L('Remove from collection'), danger: true, fn: function () { D.toggleInCollection(prof().id, c.id, { type: type, id: x.id }); } });
+    if (c && c.kind !== 'smart' && D.collectionHas(c, x._collItem || ci)) {
+      items.push({ icon: 'minus', label: L('Remove from collection'), danger: true, fn: function () { D.toggleInCollection(prof().id, c.id, x._collItem || ci); } });
     }
     if (opts.continueKeys && opts.continueKeys.length) {
       items.push({ icon: 'close', label: L('Remove from Continue watching'), danger: true, fn: function () { opts.continueKeys.forEach(function (k) { D.clearProgress(k); }); } });
@@ -64,10 +78,33 @@
     return items;
   };
 
+  /** build 128: collectie-item {type, id, sid} (sid = server van het item). */
+  S.collItem = function (x, type) {
+    var src = B.xs ? B.xs.srcOf(x) : Lib.source;
+    var o = { type: type, id: String(x.id) };
+    if (src) o.sid = src.id;
+    return o;
+  };
+  /** Menu van een tegel uit catalogmeta. */
+  function phMenu(x, type, opts) {
+    var items = [];
+    var tile = { type: type, item: x };
+    items.push({ icon: type === 'channel' ? 'play' : 'info', label: type === 'channel' ? L('Watch live') : L('More info'), fn: function () { B.xs.open(tile); } });
+    var f = x._field;
+    if (type === 'channel' && x._key && D.inSet('favorites', x._key)) items.push({ icon: U.plusCheckIcon(true), label: L('Remove from favorites'), fn: function () { D.toggleSet('favorites', x._key, false); } });
+    var c = opts && opts.collection;
+    if (c && x._collItem) items.push({ icon: 'minus', label: L('Remove from collection'), danger: true, fn: function () { D.toggleInCollection(prof().id, c.id, x._collItem); } });
+    if (f === 'continue' && x._progressKeys) items.push({ icon: 'close', label: L('Remove from Continue watching'), danger: true, fn: function () { x._progressKeys.forEach(function (k) { D.clearProgress(k); }); } });
+    if (f === 'recentChannels' && x._key) items.push({ icon: 'close', label: L('Remove'), danger: true, fn: function () { D.toggleSet('recentChannels', x._key, false); } });
+    return items;
+  }
+
   // MARK: rijen (Verder kijken, collecties, Voor jou)
 
   /** Verder kijken: films met voortgang en per serie één kaart (alle sleutels van die serie, om te verwijderen). */
   S.continueCards = function (max) {
+    // build 128: over alle servers
+    if (B.xs) return B.xs.continueEntries(max || 20).map(function (c) { return S.posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); });
     var lib = Lib.lib, out = [];
     var byTitle = Lib.memo('seriesByTitle', function () { var m = {}; lib.series.forEach(function (s) { if (!m[s.title]) m[s.title] = s; }); return m; });
     var seen = {}, seriesKeys = {};
@@ -366,6 +403,7 @@
     }
     function itemTitle(it) {
       var hit = Lib.lib.byId && Lib.lib.byId[it.id];
+      if (!hit && B.xs) { var t = B.xs.tileFor((it.sid || (Lib.source && Lib.source.id) || '') + '|' + it.id, it.type); if (t) return t.item.title || t.item.name; }
       return hit ? (hit.item.title || hit.item.name) : it.id;
     }
     function drawKind() {
@@ -484,29 +522,17 @@
       var src = srcId();
       var cont = S.continueCards(20);
       if (cont.length) rowsBox.appendChild(U.row(L('Continue watching'), cont));
-      var my = [];
-      D.setList('myList').forEach(function (k) {
-        var parts = k.split('|');
-        if (parts[0] !== src) return;
-        var hit = lib.byId && lib.byId[parts.slice(1).join('|')];
-        if (hit && hit.type !== 'channel') my.push(hit);
-      });
+      var my = S.myListItems();
       var myRow = U.row(L('My List'), my.slice(0, 40).map(function (x) { return S.posterCard(x.item, x.type); }), null, '#/mylist');
       rowsBox.appendChild(myRow || h('section.mb-empty', [h('h2.row-title', L('My List')), h('p.muted.small', L("Add titles with + My List and they'll appear here."))]));
-      var chans = [];
-      D.setList('favorites').forEach(function (k) {
-        var parts = k.split('|');
-        if (parts[0] !== src) return;
-        var hit = lib.byId && lib.byId[parts.slice(1).join('|')];
-        if (hit && hit.type === 'channel') chans.push(hit.item);
-      });
+      var chans = B.xs.listTiles('favorites', 'channel').map(function (x) { return x.item; });
       if (chans.length) rowsBox.appendChild(U.row(L('Favorite channels'), chans.slice(0, 30).map(function (c) { return S.channelCard(c, chans); }), 'live'));
     }
     function drawList() {
       U.clear(list);
       var row = S.stRow;
       var sec = S.stSection(list, L('Library'));
-      var hist = D.history().filter(function (e) { return !e.playlistID || String(e.playlistID).toLowerCase() === String(srcId()).toLowerCase(); });
+      var hist = D.history(); // build 128: over alle servers
       row(sec, L('Watch history'), hist.length ? String(hist.length) : null, function () { location.hash = '#/history'; }, { icon: 'history' });
       row(sec, L('Collections'), String(D.collectionsFor(prof().id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
       // Categorieën (build 86): het overzicht met genres en de categorieën van je server (stond eerst bovenin de navigatie)
@@ -517,6 +543,7 @@
       sec = S.stSection(list, L('Profile'));
       if (isMain()) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users' });
       row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
+      row(sec, L('Show categories'), null, function () { location.hash = '#/catprefs'; }, { icon: 'grid' });
       row(sec, L('Settings'), null, function () { location.hash = '#/settings'; }, { icon: 'gear' });
       row(sec, L('Account and devices'), null, function () { location.href = '../account/'; }, { icon: 'account' });
       S.supportRow(sec);
@@ -601,6 +628,24 @@
       try { return d.toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return d.toDateString(); }
     }
     function open(e) {
+      // build 128: item van elke server (ook niet-actief of verwijderd)
+      if (e.playlistID && !B.xs.isActive(e.playlistID)) {
+        var live0 = e.type === 'live';
+        var key = e.playlistID + '|' + (live0 ? (e.channelID || e.itemID) : e.itemID);
+        var hit0 = B.xs.tileFor(key, live0 ? 'channel' : null, 'history', { title: e.title, artwork: e.artwork, type: live0 ? 'channel' : (e.type === 'episode' ? 'series' : e.type) });
+        if (hit0 && !hit0.item._key) {
+          if (hit0.type === 'channel') B.player.playChannel(hit0.item, [hit0.item]); else R.go(S.titleLink(hit0.type, hit0.item).slice(1));
+          return;
+        }
+        if (hit0 && e.type === 'episode' && hit0.item._xs !== 'orphan') {
+          var v = B.xs.view(e.playlistID);
+          var s0 = v && v.series.filter(function (s) { return s.title === e.title; })[0];
+          if (s0) { R.go(S.titleLink('series', s0).slice(1)); return; }
+        }
+        if (hit0) { hit0.item._hist = e; B.xs.open(hit0); return; }
+        U.toast(L('This title is not in the library of this server.'));
+        return;
+      }
       var lib = Lib.lib;
       if (e.type === 'live') {
         var ch = lib.byId[e.channelID || e.itemID];
@@ -616,8 +661,8 @@
     }
     function render() {
       U.clear(box);
-      var src = srcId();
-      var entries = D.history().filter(function (e) { return !e.playlistID || !src || String(e.playlistID).toLowerCase() === String(src).toLowerCase(); });
+      var src = null; // build 128: geschiedenis van alle servers; wissen = alles
+      var entries = D.history();
       if (!entries.length) { box.appendChild(h('div.state', [U.icon('history', 'state-ic'), h('p.muted', L('Nothing watched yet on this profile.'))])); return; }
       var days = [], byDay = {};
       entries.forEach(function (e) {
@@ -724,6 +769,68 @@
   };
 
   // MARK: startscherm (HomeLayoutView op iOS): rijen aan/uit en in je eigen volgorde, per profiel
+
+  /**
+   * build 128: categorieën aan/uit per profiel, over alle servers (profile.<id>.hiddenCategories). Dezelfde naam op
+   * twee servers = één regel die voor beide geldt; met meer servers staat eronder op welke server(s) hij staat.
+   */
+  S.pages.catprefs = function () {
+    var box = h('div.st-list');
+    var el = h('div.page.settings.catprefs-page', [subHead(L('Show categories')), box]);
+    var pg = { el: el, title: L('Show categories') };
+    var kind = B.store.get('catprefsKind', 'channel') || 'channel';
+    var alive = true;
+    function groups() {
+      var out = [], byName = {}, loadingAny = false;
+      B.xs.orderedSources().forEach(function (src) {
+        var cat = B.xs.catalog(src.id);
+        if (!cat) { loadingAny = true; return; }
+        var list = kind === 'movie' ? cat.raw.movies : kind === 'series' ? cat.raw.series : cat.raw.channels;
+        var seen = {};
+        list.forEach(function (x) {
+          var g = x.group;
+          if (g == null || seen[g]) return;
+          seen[g] = true;
+          var e = byName[g];
+          if (!e) { e = byName[g] = { name: g, srcs: [] }; out.push(e); }
+          e.srcs.push(src);
+        });
+      });
+      return { list: out, loading: loadingAny };
+    }
+    function isHidden(e) { return e.srcs.every(function (src) { return !!D.hiddenCategoryNames(src.id)[e.name]; }); }
+    function render() {
+      U.clear(box);
+      var sec = S.stSection(box, null, L('Turn categories on or off for this profile. Applies to all your servers.'));
+      sec.appendChild(h('div.st-row.catprefs-seg', [seg([['channel', L('Live TV')], ['movie', L('Movies')], ['series', L('Series')]], kind, function (v) {
+        kind = v; B.store.set('catprefsKind', v); render();
+      })]));
+      var g = groups();
+      if (g.loading) sec.appendChild(h('div.st-row.info', [U.spinner()]));
+      if (!g.list.length && !g.loading) sec.appendChild(h('div.st-row.info', [h('span.st-label.muted', L('Nothing here yet'))]));
+      var many = D.sources.length > 1;
+      g.list.forEach(function (e) {
+        var on = !isHidden(e);
+        var label = many ? h('span.st-label', [h('span', e.name), h('span.st-sub', e.srcs.map(function (x) { return x.name; }).join(', '))]) : h('span.st-label', e.name);
+        var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' }, [label, h('span.switch' + (on ? '.on' : ''), [h('i')])]);
+        tg.addEventListener('click', function () {
+          e.srcs.forEach(function (src) { D.setCategoryHidden(src.id, e.name, on); });
+          render();
+        });
+        sec.appendChild(h('div.st-row.hl-row', [tg]));
+      });
+    }
+    // catalogi van alle servers (actieve: geladen; andere: cache of op de achtergrond)
+    B.xs.orderedSources().forEach(function (src) {
+      if (!B.xs.catalog(src.id) && !B.xs.isActive(src.id)) B.xs.loadCatalog(src, true).then(function () { if (alive) render(); });
+    });
+    var off = B.on('xsCatalog', function () { if (alive && !el.querySelector(':focus')) render(); });
+    pg.refresh = render;
+    pg.onData = function () { if (!el.querySelector(':focus')) render(); };
+    pg.destroy = function () { alive = false; off(); };
+    render();
+    return pg;
+  };
 
   S.pages.homelayout = function () {
     var box = h('div.st-list');

@@ -9,9 +9,9 @@ window.BingrPlans = (function () {
     nl: {
       caption: "Vergelijk Gratis en Lifetime", feature: "Functie",
       free: "Gratis", lifetime: "Lifetime", freePrice: "€ 0", lifePrice: "€ 4,99", freeNote: "voor altijd", lifeNote: "eenmalig",
-      best: "Beste keuze", yours: "Jouw abonnement", yes: "Ja", no: "Nee", unlimited: "Onbeperkt",
+      best: "Beste keuze", upTo: "tot %d", yours: "Jouw abonnement", yes: "Ja", no: "Nee", unlimited: "Onbeperkt",
       streams: "Tegelijk kijken", streamsHint: "schermen tegelijk", streamsDep: "hangt ook af van je IPTV-aanbieder*",
-      streamsNote: "* Hoeveel streams je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder: Bingr laat er zoveel toe als je abonnement bij Bingr, maar je aanbieder bepaalt hoeveel verbindingen jouw abonnement daar heeft.",
+      streamsNote: "* Hoeveel je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder: Bingr laat er zoveel toe als je abonnement bij Bingr, maar je aanbieder bepaalt hoeveel verbindingen jouw abonnement daar heeft.",
       devices: "Ingelogde apparaten", servers: "Servers en afspeellijsten",
       stats: "Statistieken", statsHint: "hoeveel je kijkt, per profiel",
       watching: "Nu aan het kijken", watchingHint: "wie kijkt er nu, en kijkgeschiedenis van 7 dagen",
@@ -24,9 +24,9 @@ window.BingrPlans = (function () {
     en: {
       caption: "Compare Free and Lifetime", feature: "Feature",
       free: "Free", lifetime: "Lifetime", freePrice: "€0", lifePrice: "€4.99", freeNote: "forever", lifeNote: "one-time",
-      best: "Best value", yours: "Your plan", yes: "Yes", no: "No", unlimited: "Unlimited",
+      best: "Best value", upTo: "up to %d", yours: "Your plan", yes: "Yes", no: "No", unlimited: "Unlimited",
       streams: "Watch at the same time", streamsHint: "screens at once", streamsDep: "also depends on your IPTV provider*",
-      streamsNote: "* How many streams you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.",
+      streamsNote: "* How many you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.",
       devices: "Signed-in devices", servers: "Servers and playlists",
       stats: "Statistics", statsHint: "how much you watch, per profile",
       watching: "Watching now", watchingHint: "who's watching now, and 7-day watch history",
@@ -45,7 +45,7 @@ window.BingrPlans = (function () {
   // [label, hint, gratis, lifetime] — getallen als tekst, true/false als vinkje/streepje
   function rows(t) {
     return [
-      [t.streams, t.streamsDep, "1", "3"],
+      [t.streams, t.streamsDep, "1", t.upTo.replace("%d", "3")],
       [t.devices, "", "8", "15"],
       [t.servers, "", "1", t.unlimited],
       [t.stats, t.statsHint, false, true],

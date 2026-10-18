@@ -460,6 +460,8 @@
     // build 97: opnieuw openen vanuit de speler (bv. "Vanaf het begin" bij live): de bestaande geschiedenisregel van
     // de speler vervangen in plaats van een tweede toe te voegen (anders een dode Terug-stap)
     var reopened = !!B.player.current;
+    // build 128: server van dit item (andere server: item._src; afspelen via die server zonder te wisselen)
+    function isrc() { return (item && (item._src || (item.channel && item.channel._src))) || Lib.source; }
     if (B.player.current) B.player.current.close(true);
     var profile = B.app.profile;
     var engine = null;
@@ -667,24 +669,25 @@
       nextShown = false; nextDismissed = false; nextCard.style.display = 'none';
       clearInterval(countdownTimer);
       subtitle.textContent = '';
-      marker = item.type === 'episode' && item.seriesID && Lib.source ? D.introMarker(Lib.source.id, item.seriesID) : null;
+      marker = item.type === 'episode' && item.seriesID && isrc() ? D.introMarker(isrc().id, item.seriesID) : null;
       renderInfo();
       showControls();
       clearExtSubs();
       scrobbled = false; stopSent = false;
       streamStart().then(function (ok) { if (ok === false && gen === startGen) limited = true; }, B.noop);
       // limiet van de IPTV-provider (alleen Xtream) alvast ophalen; blokkeert niets
-      B.providers.providerLimit.prime(Lib.source);
+      B.providers.providerLimit.prime(isrc());
+      if (B.xs) B.xs.notePlayed(item, ctx);
       var resolve = isCatchup() ? (item.streamURL ? Promise.resolve(item.streamURL) : Lib.catchupURL(item.channel, item.program).then(function (u) { item.streamURL = u; return u; }))
-        : (B.media.webStream(Lib.source, item) ? Promise.resolve(B.media.webStream(Lib.source, item)) : Lib.resolveURL(item, isLive()));
+        : (B.media.webStream(isrc(), item) ? Promise.resolve(B.media.webStream(isrc(), item)) : Lib.resolveURL(item, isLive()));
       resolve.then(function (url) {
         if (closed || gen !== startGen || limited) return;
         if (!url) throw new Error('no_url');
         return openURL(url, resumeAt, gen);
       }).catch(function (e) { if (gen === startGen) fail(e); });
-      if (isLive() && item.channel && Lib.source) {
-        D.pushRecentChannel(Lib.source.id, item.channel.id);
-        B.store.set('lastChannel.' + String(profile.id).toLowerCase(), { sourceId: Lib.source.id, channelId: item.channel.id });
+      if (isLive() && item.channel && isrc()) {
+        D.pushRecentChannel(isrc().id, item.channel.id);
+        B.store.set('lastChannel.' + String(profile.id).toLowerCase(), { sourceId: isrc().id, channelId: item.channel.id });
       }
     }
     function openURL(url, resumeAt, gen) {
@@ -735,7 +738,7 @@
      */
     function vodHls(url) {
       if (isLive() || isCatchup() || !B.providers.vodHlsCandidates(url).length) return Promise.resolve(null);
-      var src = Lib.source;
+      var src = isrc();
       var info = src && src.kind === 'Xtream Codes' && B.normalizedServer(src.serverURL) && String(url).indexOf(B.normalizedServer(src.serverURL)) === 0
         ? new B.providers.Xtream(src, D.secret(src, 'password')).serverInfo() : Promise.resolve(null);
       var capped = Promise.race([info, new Promise(function (r) { setTimeout(function () { r(null); }, 4000); })]);
@@ -1137,7 +1140,7 @@
         var g = startGen;
         setTimeout(function () {
           if (closed || g !== startGen) return;
-          var again = isCatchup() && item.streamURL ? Promise.resolve(item.streamURL) : (B.media.webStream(Lib.source, item) ? Promise.resolve(B.media.webStream(Lib.source, item)) : Lib.resolveURL(item, isLive()));
+          var again = isCatchup() && item.streamURL ? Promise.resolve(item.streamURL) : (B.media.webStream(isrc(), item) ? Promise.resolve(B.media.webStream(isrc(), item)) : Lib.resolveURL(item, isLive()));
           again.then(function (u) { if (!closed && g === startGen) return openURL(u, at, g); }).catch(function (e2) { showError(e2); });
         }, 1500);
         return;
@@ -1160,7 +1163,7 @@
       if (engine && !isLive() && engine.time() > 0) failPos = engine.time();
       if (engine) engine.stop();
       // limiet van de IPTV-provider expliciet controleren (Xtream: max_connections / active_cons); los van Bingr
-      var provider = B.providers.providerLimit.failureMessage(Lib.source);
+      var provider = B.providers.providerLimit.failureMessage(isrc());
       spinner.style.display = 'flex';
       if (!isLive() && !isCatchup() && rep.url && !/^(stopped)$/.test(String(e && e.message))) {
         Promise.all([PD.inspect(rep.url), provider]).then(function (res) {
@@ -1433,14 +1436,14 @@
         D.setWatched(item.id, true);
         if (item.type === 'episode' && item.seriesID && item.season != null && item.episode != null) D.setWatched(D.episodeKey(item.seriesID, item.season, item.episode), true);
       } else if (pos > 0.02) {
-        D.setProgress(item.id, { fraction: pos, position: t, title: item.title, artwork: item.artwork || null, playlistID: Lib.source ? Lib.source.id : null });
+        D.setProgress(item.id, { fraction: pos, position: t, title: item.title, artwork: item.artwork || null, playlistID: isrc() ? isrc().id : null });
       }
     }
     function recordHistory() {
       if (recorded || watchedSeconds < 60 || isCatchup()) return;
       recorded = true;
       D.addHistory({
-        itemID: item.channel ? item.channel.id : item.id, playlistID: Lib.source ? Lib.source.id : null, title: item.title,
+        itemID: item.channel ? item.channel.id : item.id, playlistID: isrc() ? isrc().id : null, title: item.title,
         subtitle: item.subtitle || null, artwork: item.artwork || null, type: item.type, channelID: item.channel ? item.channel.id : null, date: Date.now()
       });
     }
@@ -1668,22 +1671,23 @@
   // MARK: items maken
 
   function channelItem(ch) {
-    return { type: 'live', id: ch.id, title: ch.name, subtitle: ch.group, streamURL: ch.streamURL, stalkerCmd: ch.stalkerCmd || null, artwork: ch.logo || null, channel: ch };
+    return { type: 'live', id: ch.id, title: ch.name, subtitle: ch.group, streamURL: ch.streamURL, stalkerCmd: ch.stalkerCmd || null, artwork: ch.logo || null, channel: ch, _src: ch._src || null };
   }
   function episodeItem(ep, series) {
     return {
       type: 'episode', id: ep.id, title: series ? series.title : ep.title, subtitle: 'S' + ep.season + ':E' + ep.number + ' · ' + ep.title,
       streamURL: ep.streamURL, artwork: (series && series.poster) || ep.still || null, seriesID: ep.seriesID, season: ep.season, episode: ep.number,
-      imdbID: (series && series.imdbID) || null, stremio: ep.stremio || null, year: series ? series.year : null
+      imdbID: (series && series.imdbID) || null, stremio: ep.stremio || null, year: series ? series.year : null,
+      _src: ep._src || (series && series._src) || null
     };
   }
   function movieItem(m) {
     return { type: 'movie', id: m.id, title: m.title, subtitle: m.year ? String(m.year) : '', streamURL: m.streamURL, stalkerCmd: m.stalkerCmd || null,
-      artwork: m.poster || null, imdbID: m.imdbID || null, stremio: m.stremio || null, year: m.year || null };
+      artwork: m.poster || null, imdbID: m.imdbID || null, stremio: m.stremio || null, year: m.year || null, _src: m._src || null };
   }
   function catchupItem(ch, p) {
     return { type: 'catchup', id: ch.id + '-cu-' + Math.floor(p.start / 1000), title: p.title || ch.name, subtitle: ch.name, streamURL: null,
-      artwork: ch.logo || null, channel: ch, program: p };
+      artwork: ch.logo || null, channel: ch, program: p, _src: ch._src || null };
   }
   B.player.channelItem = channelItem;
   B.player.episodeItem = episodeItem;

@@ -164,7 +164,8 @@
         return n === 1 ? L('With Free you can use %d server. Servers you already have keep working.', n) : L('With Free you can use %d servers. Servers you already have keep working.', n);
       }
       case 'themes': return L('Choose your own accent color for each profile. With Free, Bingr stays red.');
-      case 'streams': return L('With Lifetime you can watch on %d screens at the same time.', P.LIFETIME.streams);
+      // build 128: "tot 3": de limiet van Bingr; de IPTV-aanbieder kan minder toestaan
+      case 'streams': return L('With Lifetime you can watch on up to %d screens at the same time.', P.LIFETIME.streams);
       case 'devices': return L('With Lifetime you can use Bingr on %d devices.', P.LIFETIME.devices);
       default: return null;
     }
@@ -179,7 +180,7 @@
     function no() { return h('span.plan-no', '–'); }
     function num(v) { return v == null ? L('Unlimited') : String(v); }
     var rows = [
-      ['streams', L('Screens at the same time'), num(free.streams), num(life.streams)],
+      ['streams', L('Screens at the same time'), num(free.streams), life.streams > 1 ? L('up to %d', life.streams) : num(life.streams)],
       ['devices', L('Devices'), num(free.devices), num(life.devices)],
       ['servers', L('Servers'), num(free.servers), num(life.servers)],
       ['stats', L('Statistics'), null, null],
@@ -213,7 +214,7 @@
   };
 
   // Tegelijk kijken: de limiet van Bingr is niet de enige; ook de IPTV-aanbieder bepaalt het aantal verbindingen
-  var PROVIDER_NOTE = 'How many streams you can watch at once also depends on your IPTV provider: Bingr allows as many as your Bingr plan, but your provider decides how many connections your subscription has there.';
+  var PROVIDER_NOTE = 'How many you can watch at once also depends on your IPTV provider.';
 
   /** Upgradevenster; reason = het onderdeel waarom het opent (stats, now_watching, trakt, servers, themes, streams, devices). */
   P.sheet = function (reason) {
@@ -259,7 +260,7 @@
   P.summary = function () {
     var p = P.get(), l = p.limits;
     var srv = l.servers == null ? L('unlimited servers') : (l.servers === 1 ? L('1 server') : L('%d servers', l.servers));
-    return [l.streams === 1 ? L('1 screen at once') : L('%d screens at once', l.streams), L('%d devices', l.devices), srv].join(' · ');
+    return [l.streams === 1 ? L('1 screen at once') : L('up to %d screens at once', l.streams), L('%d devices', l.devices), srv].join(' · ');
   };
   P.name = function () { return P.isFree() ? L('Free') : 'Lifetime'; };
 })();
