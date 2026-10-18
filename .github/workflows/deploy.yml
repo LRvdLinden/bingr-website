@@ -162,7 +162,12 @@ jobs:
             lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; rm -r -f \"$TARGET/admindashboard\"; bye" \
               && echo "::notice::Oude map admindashboard/ van de server verwijderd" || echo "::warning::Oude map admindashboard/ kon niet worden verwijderd"
           fi
-          lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
+          # hulpscripts (tools/) horen niet op de site; een eerder meegekomen map weghalen
+          if lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 \"$TARGET/tools/\" ; bye" >/dev/null 2>&1; then
+            lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; rm -r -f \"$TARGET/tools\"; bye" >/dev/null 2>&1 \
+              && echo "::notice::Map tools/ van de server verwijderd" || echo "::warning::Map tools/ kon niet worden verwijderd"
+          fi
+          lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; mirror -R --verbose --parallel=4 --only-newer --exclude-glob .DS_Store --exclude ^\\.git/ --exclude ^\\.github/ --exclude ^tools/ --exclude-glob README.md --exclude-glob .gitignore ./ \"$TARGET\"; bye"
           # doorverwijzingen in .htaccess op de server (bestaat er al een van de hoster, dan blijft die inhoud staan):
           # alleen het blok tussen de markeringen wordt (opnieuw) gezet. De hulp van /support.html staat nu op support.bingr.online.
           lftp -e "$base; open --env-password -u \"$USER_OK\" \"$SERVER_OK\"; cls -1 -a \"$TARGET/\"; bye" > /tmp/ls-all.txt 2>/dev/null || true
