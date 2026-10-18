@@ -353,6 +353,8 @@
         }
         buttons.appendChild(trailerSlot);
         buttons.appendChild(h('a.btn', { href: '#/search?q=' + encodeURIComponent(x.title) }, [U.icon('search'), h('span', L('Search'))]));
+        // build 132: eigen Bingr-link delen
+        if (B.titleLink) buttons.appendChild(U.button(L('Share'), function () { B.titleLink.share(x, type, p.id); }, { icon: 'share' }));
       }
       var back = h('button.icon-btn.dt-back', { type: 'button', 'aria-label': L('Back'), title: L('Back') }, [U.icon('back')]);
       back.addEventListener('click', function () { if (history.length > 1) history.back(); else R.go('/home'); });

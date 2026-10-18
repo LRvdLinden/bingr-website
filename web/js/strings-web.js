@@ -101,6 +101,11 @@
     'No TV found. Make sure your TV and this device are on the same network.': 'Geen tv gevonden. Zorg dat je tv en dit apparaat op hetzelfde netwerk zitten.',
     'Use the controls here to pause, seek or change the volume.': 'Pauzeer, spoel of verander het volume hier met de knoppen.',
     'Support': 'Support',
+    'Share': 'Delen',
+    'Link copied': 'Link gekopieerd',
+    'Couldn’t copy the link.': 'Kopiëren van de link is niet gelukt.',
+    'Movie tip: %@': 'Filmtip: %@',
+    'Series tip: %@': 'Serietip: %@',
     'Help, questions and support tickets': 'Hulp, vragen en supporttickets',
     'Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.': 'Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer. Vragen? Ga naar support.bingr.online.'
   };

@@ -1445,6 +1445,8 @@
       buttons.appendChild(listButton());
       if (type === 'movie') buttons.appendChild(watchedButton());
       buttons.appendChild(collectionButton());
+      // build 132: eigen Bingr-link delen (bingr.online/titel/…)
+      if (B.titleLink && B.titleLink.canShare(x, type)) buttons.appendChild(U.button(L('Share'), function () { B.titleLink.share(x, type); }, { icon: 'share' }));
       if (type === 'movie') {
         var p2 = D.progress(x.id);
         if (p2 && p2.fraction > 0.02) buttons.appendChild(h('div.dt-progress', [h('div.card-progress.inline', [h('div', { style: { width: Math.round(p2.fraction * 100) + '%' } })]),

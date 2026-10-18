@@ -70,6 +70,7 @@
       return tmdbDetails(id, isShow).then(function (f) {
         if (!f) return d;
         d.tmdbID = id;
+        if (B.titleLink && B.titleLink.note) B.titleLink.note(x, isShow, id);
         var o = str(f.overview);
         if (o && (B.lang !== 'en' || !d.overview)) d.overview = o;
         if (!d.genres.length) d.genres = (f.genres || []).map(function (g) { return g.name; }).filter(Boolean);

@@ -44,6 +44,10 @@
     if (B.trakt.isLoggedIn()) B.trakt.setWatched(B.player.movieItem(m), on);
   };
 
+  /** build 132: Delen (eigen Bingr-link, bingr.online/titel/…) voor een film of serie, als er een titel is. */
+  function shareItem(x, type) {
+    return B.titleLink && B.titleLink.canShare(x, type) ? [{ icon: 'share', label: L('Share'), fn: function () { B.titleLink.share(x, type); } }] : [];
+  }
   /** Acties voor een kaart: film, serie of zender. opts: {continueKeys, collection}. */
   S.cardMenu = function (x, type, opts) {
     opts = opts || {};
@@ -52,14 +56,15 @@
       var inList = S.inMyList(x);
       items.push({ icon: U.plusCheckIcon(inList), label: inList ? L('Remove from My List') : L('Add to My List'), fn: function () { S.toggleMyList(x, type); } });
       // build 111: titel uit TMDB (niet in je bibliotheek): alleen Mijn lijst en Meer info
-      if (x.external) return items.concat([{ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } }]);
+      if (x.external) return items.concat([{ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } }], shareItem(x, type));
       // build 128: tegel uit catalogmeta (server verwijderd of titel weg): Mijn lijst, Meer info (= zoeken) en uit de rij halen
-      if (x._key || x._noKey) return items.concat(phMenu(x, type, opts));
+      if (x._key || x._noKey) return items.concat(phMenu(x, type, opts), shareItem(x, type));
       if (type === 'movie') {
         var w = S.movieWatched(x);
         items.push({ icon: w ? 'eyeOff' : 'checkCircle', label: w ? L('Mark as unwatched') : L('Mark as watched'), fn: function () { S.setMovieWatched(x, !w); } });
       }
       items.push({ icon: 'info', label: L('More info'), fn: function () { R.go(S.titleLink(type, x).slice(1)); } });
+      items = items.concat(shareItem(x, type));
     } else if (type === 'channel') {
       if (x._key || x._noKey) return phMenu(x, type, opts);
       var fk = keyOf(x), fav = D.inSet('favorites', fk);
