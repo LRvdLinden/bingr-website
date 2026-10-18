@@ -1,0 +1,39 @@
+name: SEO-audit
+
+# Handmatige SEO-audit van bingr.online met DataForSEO (tools/seo_audit.py): on-page-crawl, Lighthouse, zoekwoorden NL
+# en vindbaarheid in Google. Secrets: DATAFORSEO_LOGIN en DATAFORSEO_PASSWORD (API-login van DataForSEO; nooit loggen).
+# Het rapport (alleen openbare gegevens over de eigen site) komt op de branch seo-report.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seo-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (v5.1.0)
+      - name: Audit
+        env:
+          DATAFORSEO_LOGIN: ${{ secrets.DATAFORSEO_LOGIN }}
+          DATAFORSEO_PASSWORD: ${{ secrets.DATAFORSEO_PASSWORD }}
+        run: |
+          [ -n "$DATAFORSEO_LOGIN" ] && [ -n "$DATAFORSEO_PASSWORD" ] || { echo "::error::Secrets DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD ontbreken"; exit 1; }
+          python3 tools/seo_audit.py
+      - name: Rapport op de branch seo-report
+        run: |
+          mkdir -p /tmp/r && cp -r seo-report /tmp/r/
+          git config user.name github-actions; git config user.email actions@github.com
+          git checkout -q --orphan seo-report
+          git rm -rqf . >/dev/null 2>&1 || true
+          rm -rf ./* .github 2>/dev/null || true
+          cp -r /tmp/r/seo-report/* .
+          git add -A && git commit -qm "SEO-audit $(date -u +%F)" && git push -qf origin HEAD:seo-report
+          echo "::notice::Rapport op de branch seo-report"
