@@ -4,6 +4,8 @@
 //   if (await BingrAuth.signIn({ email, password, btn, label, errEl, tr, onBanned })) …ingelogd…
 //   BingrAuth.sendReset({ email, errEl, tr, sentKey, trigger, focusEl })
 //   BingrAuth.errText(err, tr) en BingrAuth.esc(s)
+//   BingrAuth.resendSignup({ email, errEl, tr, trigger, redirectTo }) en BingrAuth.offerResend(errEl, email, tr, redirectTo):
+//   bevestigingsmail opnieuw sturen (POST /auth/v1/resend type signup); signIn biedt die knop zelf aan bij "Bevestig eerst".
 // `tr` is de vertaalfunctie van de pagina (Bingr.t); sleutels die de pagina niet heeft vallen terug op de teksten hieronder.
 (function () {
   var B = window.Bingr || {};
@@ -16,6 +18,8 @@
       badEmail: "Vul een geldig e-mailadres in.",
       badCreds: "Onjuist e-mailadres of wachtwoord.",
       notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.",
+      resend: "Stuur de mail opnieuw",
+      resent: "Verstuurd. Kijk in je inbox en ook bij ongewenste e-mail (spam). Het kan een paar minuten duren.",
       waiting: "Even geduld…"
     },
     en: {
@@ -25,6 +29,8 @@
       badEmail: "Enter a valid email address.",
       badCreds: "Incorrect email or password.",
       notConfirmed: "Confirm your email address first. Check your inbox.",
+      resend: "Send the email again",
+      resent: "Sent. Check your inbox and your spam folder too. It can take a few minutes.",
       waiting: "One moment…"
     }
   };
@@ -75,7 +81,11 @@
       return true;
     } catch (err) {
       if (isBanned(err) && o.onBanned) o.onBanned(err);
-      else if (o.errEl) o.errEl.textContent = errText(err, tr);
+      else if (o.errEl) {
+        o.errEl.textContent = errText(err, tr);
+        // nog niet bevestigd: meteen de knop om de bevestigingsmail opnieuw te sturen
+        if (kind(err) === "notConfirmed") offerResend(o.errEl, o.email, tr, o.redirectTo || location.origin + location.pathname);
+      }
       return false;
     } finally { busy(o.btn, false, o.label); }
   }
@@ -97,5 +107,32 @@
       return false;
     } finally { busy(o.trigger, false, label); }
   }
-  window.BingrAuth = { esc: esc, isEmail: isEmail, cleanName: cleanName, NAME_MAX: NAME_MAX, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, text: function (k) { return txt(null, k); } };
+  // Bevestigingsmail opnieuw sturen. Onbekend of al bevestigd adres: de server meldt geen fout (geen lek). Te snel na de vorige
+  // mail (eigen SMTP: 1 per 60 s per adres) of te veel pogingen = 429 → melding "Even wachten".
+  async function resendSignup(o) {
+    var tr = o.tr, email = String(o.email || "").trim(), el = o.errEl;
+    if (!isEmail(email)) { if (el) el.textContent = txt(tr, "badEmail"); return false; }
+    if (o.trigger && o.trigger.getAttribute("aria-disabled") === "true") return false;
+    var label = o.trigger && o.trigger.tagName === "BUTTON" ? o.trigger.textContent : null;
+    busy(o.trigger, true, label ? txt(tr, "waiting") : null);
+    try {
+      var r = await B.sb.auth.resend({ type: "signup", email: email, options: o.redirectTo ? { emailRedirectTo: o.redirectTo } : {} });
+      if (r && r.error) throw r.error;
+      if (el) el.innerHTML = '<span class="ok">' + esc(txt(tr, "resent")) + "</span>";
+      return true;
+    } catch (err) {
+      if (el) { el.textContent = errText(err, tr); if (kind(err) !== "rateLimit") offerResend(el, email, tr, o.redirectTo); }
+      return false;
+    } finally { busy(o.trigger, false, label); }
+  }
+  // zet achter de melding in errEl een knop "Stuur de mail opnieuw"
+  function offerResend(el, email, tr, redirectTo) {
+    if (!el || !isEmail(String(email || "").trim())) return;
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "btn ghost sm resend-btn"; b.textContent = txt(tr, "resend");
+    b.style.display = "flex"; b.style.marginTop = "12px";
+    b.onclick = function () { resendSignup({ email: email, errEl: el, tr: tr, trigger: b, redirectTo: redirectTo }); };
+    el.appendChild(b);
+  }
+  window.BingrAuth = { esc: esc, isEmail: isEmail, cleanName: cleanName, NAME_MAX: NAME_MAX, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, resendSignup: resendSignup, offerResend: offerResend, text: function (k) { return txt(null, k); } };
 })();

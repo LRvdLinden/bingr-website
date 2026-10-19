@@ -91,6 +91,10 @@
     <div class="big" aria-hidden="true">✉︎</div>
     <h1 data-t="confirmTitle"></h1>
     <p data-t="confirmText"></p>
+    <!-- geen mail gekregen: opnieuw sturen (POST /auth/v1/resend type signup, zelfde terugkeeradres) -->
+    <p class="muted" style="margin-top:18px" data-t="noMail"></p>
+    <button id="resendBtn" class="btn ghost" type="button" data-t="resendBtn"></button>
+    <div id="resendMsg" class="err" aria-live="polite"></div>
   </section>
 </div></div></main>
 <footer>
@@ -125,7 +129,7 @@
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=2"></script>
+<script src="../assets/js/auth-forms.js?v=3"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -138,6 +142,7 @@ const tr = t({
         linkTitle:"Apparaat koppelen", signedInAs:"Ingelogd als", notYou:"Niet jij?", enterCode:"Voer de code in die op je scherm staat:", linkBtn:"Koppelen",
         doneTitle:"Je tv is ingelogd", doneText:"%s is nu ingelogd met je Bingr-account. Kies op je tv wie er kijkt en veel kijkplezier!",
         confirmTitle:"Bevestig je e-mailadres", confirmText:"We hebben je een e-mail gestuurd. Klik op de link daarin; daarna kom je hier terug om je tv te koppelen.",
+        noMail:"Geen mail gekregen? Kijk ook bij ongewenste e-mail (spam), of laat hem opnieuw sturen.", resendBtn:"Stuur de mail opnieuw",
         banned:"Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer. Vragen? Ga naar support.bingr.online.",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", exists:"Er bestaat al een account met dit e-mailadres.",
         badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
@@ -151,6 +156,7 @@ const tr = t({
         linkTitle:"Link a device", signedInAs:"Signed in as", notYou:"Not you?", enterCode:"Enter the code shown on your screen:", linkBtn:"Link",
         doneTitle:"Your TV is signed in", doneText:"%s is now signed in with your Bingr account. Pick who's watching on your TV and enjoy!",
         confirmTitle:"Confirm your email", confirmText:"We sent you an email. Click the link in it; you'll come back here to link your TV.",
+        noMail:"No email? Check your spam folder too, or have it sent again.", resendBtn:"Send the email again",
         banned:"Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.",
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", exists:"An account with this email already exists.",
         badEmail:"Enter a valid email address.", shortPw:"Password must be at least 6 characters.", badCode:"That code is invalid or has expired. Check your TV for the new code.",
@@ -257,6 +263,13 @@ function setMode(m) {
 $("switchMode").onclick = () => setMode(mode === "signin" ? "signup" : "signin");
 setMode(params.get("mode") === "signup" ? "signup" : "signin");
 
+// terugkeeradres na het bevestigen: met koppelcode terug naar koppelen, anders Mijn Bingr (of ?next=upgrade de betaalpagina)
+let pendingEmail = "", pendingBack = "";
+function backUrl() {
+  const code = $("code").value.replace("-", "").trim();
+  const after = params.get("next") === "upgrade" ? "/upgrade/" : "/account/";
+  return code ? location.origin + location.pathname + "?code=" + encodeURIComponent(code) : location.origin + after;
+}
 function show(id) { ["auth", "link", "done", "confirm"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
 // foutmeldingen (ook te veel pogingen en geen verbinding): assets/js/auth-forms.js
 const errText = (e) => BingrAuth.errText(e, tr);
@@ -278,24 +291,29 @@ $("authForm").onsubmit = async (e) => {
   try {
     if (mode === "signin") {
       const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      if (error) { pendingEmail = email; pendingBack = backUrl(); throw error; }
     } else {
       // zonder koppelcode (account maken vanaf de homepage of Mijn Bingr) daarna naar Mijn Bingr, anders terug naar koppelen
       const code = $("code").value.replace("-", "").trim();
       // build 133: ?next=upgrade (vanaf bingr.online/upgrade/) daarna terug naar de betaalpagina
       const after = params.get("next") === "upgrade" ? "/upgrade/" : "/account/";
-      const back = code ? location.origin + location.pathname + "?code=" + encodeURIComponent(code) : location.origin + after;
+      const back = backUrl();
       const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang, first_name, last_name }, emailRedirectTo: back } });
       if (error) throw error;
       if (data.user && data.user.identities && data.user.identities.length === 0) throw { code: "user_already_exists" };
-      if (!data.session) { show("confirm"); return; }
+      if (!data.session) { pendingEmail = email; pendingBack = back; $("resendMsg").textContent = ""; show("confirm"); return; }
       if (!code) { location.href = after; return; }
     }
     if (params.get("next") === "upgrade" && !$("code").value.replace("-", "").trim()) { location.href = "/upgrade/"; return; }
     await refresh();
-  } catch (err) { $("authErr").textContent = errText(err); }
+  } catch (err) {
+    $("authErr").textContent = errText(err);
+    // nog niet bevestigd: knop "Stuur de mail opnieuw" onder de melding
+    if (BingrAuth.errKind(err) === "notConfirmed") BingrAuth.offerResend($("authErr"), pendingEmail, tr, pendingBack);
+  }
   finally { busy($("authBtn"), false, tr(mode === "signin" ? "signIn" : "signUp")); }
 };
+$("resendBtn").onclick = () => BingrAuth.resendSignup({ email: pendingEmail, errEl: $("resendMsg"), tr, trigger: $("resendBtn"), redirectTo: pendingBack });
 $("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent", trigger: $("forgot"), focusEl: $("email") });
 $("signOut").onclick = async (e) => { e.preventDefault(); await Bingr.hardSignOut(); show("auth"); };
 $("linkForm").onsubmit = async (e) => {
