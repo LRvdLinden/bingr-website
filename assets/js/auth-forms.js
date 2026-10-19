@@ -6,6 +6,8 @@
 //   BingrAuth.errText(err, tr) en BingrAuth.esc(s)
 //   BingrAuth.resendSignup({ email, errEl, tr, trigger, redirectTo }) en BingrAuth.offerResend(errEl, email, tr, redirectTo):
 //   bevestigingsmail opnieuw sturen (POST /auth/v1/resend type signup); signIn biedt die knop zelf aan bij "Bevestig eerst".
+//   var hp = BingrAuth.honeypot(form); … hp.start() bij het tonen van "account maken"; signUp({… options: { data: Object.assign({…}, hp.data()) } });
+//   bij een fout hp.clear(). Verborgen veld tegen bots + tijdmeting (build 138, hook bingr_before_user_created in iptv-ios-appletv).
 // `tr` is de vertaalfunctie van de pagina (Bingr.t); sleutels die de pagina niet heeft vallen terug op de teksten hieronder.
 (function () {
   var B = window.Bingr || {};
@@ -20,7 +22,8 @@
       notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.",
       resend: "Stuur de mail opnieuw",
       resent: "Verstuurd. Kijk in je inbox en ook bij ongewenste e-mail (spam). Het kan een paar minuten duren.",
-      waiting: "Even geduld…"
+      waiting: "Even geduld…",
+      hpLabel: "Laat dit veld leeg"
     },
     en: {
       rateLimit: "Please wait: there have been too many attempts. Try again in a few minutes.",
@@ -31,7 +34,8 @@
       notConfirmed: "Confirm your email address first. Check your inbox.",
       resend: "Send the email again",
       resent: "Sent. Check your inbox and your spam folder too. It can take a few minutes.",
-      waiting: "One moment…"
+      waiting: "One moment…",
+      hpLabel: "Leave this field empty"
     }
   };
   // tekst van de pagina als die er is, anders de eigen tekst
@@ -69,6 +73,39 @@
     // links die als knop werken (Wachtwoord vergeten?): niet dubbel laten klikken
     if (on) { btn.setAttribute("aria-disabled", "true"); btn.style.pointerEvents = "none"; btn.style.opacity = ".6"; }
     else { btn.removeAttribute("aria-disabled"); btn.style.pointerEvents = ""; btn.style.opacity = ""; }
+  }
+  // Honeypot en tijdmeting bij account maken (build 138). Een verborgen veld "website" (buiten beeld via de CSS-klasse hp-field
+  // in site.css: geen inline styles; niet focusbaar, geen autofill, verborgen voor schermlezers met als terugval het label
+  // "Laat dit veld leeg"). Mensen laten het leeg, bots vullen het in. data() = {fill_ms} (ms sinds start(), het tonen van het
+  // formulier) plus {hp} alleen als het veld gevuld is; de hook weigert dan (hp) of bij fill_ms < 1500 (te snel). De apps sturen
+  // niets mee en blijven gewoon werken. clear() na een fout: een autofill bij een echte gebruiker kost dan maar één poging.
+  var hpN = 0;
+  function now() { return typeof performance !== "undefined" && performance.now ? performance.now() : Date.now(); }
+  function honeypot(form) {
+    var id = "hp-website-" + (++hpN);
+    var wrap = document.createElement("div");
+    wrap.className = "hp-field";
+    wrap.setAttribute("aria-hidden", "true");
+    var lbl = document.createElement("label");
+    lbl.setAttribute("for", id);
+    lbl.textContent = txt(null, "hpLabel");
+    var inp = document.createElement("input");
+    inp.type = "text"; inp.id = id; inp.name = "website"; inp.tabIndex = -1;
+    inp.setAttribute("autocomplete", "off"); inp.setAttribute("aria-hidden", "true");
+    inp.setAttribute("data-lpignore", "true"); inp.setAttribute("data-1p-ignore", "");
+    wrap.appendChild(lbl); wrap.appendChild(inp);
+    if (form) form.insertBefore(wrap, form.firstChild);
+    var t0 = now();
+    return {
+      input: inp,
+      start: function () { t0 = now(); },
+      data: function () {
+        var o = { fill_ms: Math.max(0, Math.round(now() - t0)) }, v = String(inp.value || "");
+        if (v.trim()) o.hp = v.slice(0, 200);
+        return o;
+      },
+      clear: function () { inp.value = ""; }
+    };
   }
   // Inloggen met e-mail en wachtwoord. Geeft true bij succes; de knop staat daarna altijd weer aan.
   async function signIn(o) {
@@ -134,5 +171,5 @@
     b.onclick = function () { resendSignup({ email: email, errEl: el, tr: tr, trigger: b, redirectTo: redirectTo }); };
     el.appendChild(b);
   }
-  window.BingrAuth = { esc: esc, isEmail: isEmail, cleanName: cleanName, NAME_MAX: NAME_MAX, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, resendSignup: resendSignup, offerResend: offerResend, text: function (k) { return txt(null, k); } };
+  window.BingrAuth = { esc: esc, isEmail: isEmail, cleanName: cleanName, NAME_MAX: NAME_MAX, isBanned: isBanned, errKind: kind, errText: errText, signIn: signIn, sendReset: sendReset, resendSignup: resendSignup, offerResend: offerResend, honeypot: honeypot, text: function (k) { return txt(null, k); } };
 })();

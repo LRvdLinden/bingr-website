@@ -107,7 +107,20 @@
     var submit = h('button.btn.primary.wide', { type: 'submit' });
     var forgot = h('button.linkbtn', { type: 'button' }, L('Forgot password?'));
     var switchLine = h('div.login-switch');
-    var form = h('form.login-form', { novalidate: true }, [title, nameFields, h('label.field', [email]), h('label.field.pw', [pw, show]), err, submit]);
+    // build 138: honeypot tegen bots bij account maken: verborgen veld "website" (buiten beeld via .hp-field in web.css, niet
+    // focusbaar, geen autofill, verborgen voor schermlezers) en de tijd sinds het tonen van "account maken" (fill_ms).
+    // Gevuld of sneller dan 1,5 s = geweigerd door de hook bingr_before_user_created. Na een fout weer leeg.
+    var nl = /^nl/i.test(String(B.lang || ''));
+    var hpInput = h('input#hp-website', { type: 'text', name: 'website', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true', 'data-lpignore': 'true', 'data-1p-ignore': '' });
+    var hpField = h('div.hp-field', { 'aria-hidden': 'true' }, [h('label', { 'for': 'hp-website' }, nl ? 'Laat dit veld leeg' : 'Leave this field empty'), hpInput]);
+    var shownAt = 0;
+    function nowMs() { return window.performance && performance.now ? performance.now() : Date.now(); }
+    function guard() {
+      var g = { fill_ms: Math.max(0, Math.round(nowMs() - shownAt)) };
+      if (String(hpInput.value || '').trim()) g.hp = hpInput.value;
+      return g;
+    }
+    var form = h('form.login-form', { novalidate: true }, [hpField, title, nameFields, h('label.field', [email]), h('label.field.pw', [pw, show]), err, submit]);
     var card = h('div.login-card.email', [form, h('div.login-links', [forgot, switchLine,
       onQR ? h('button.linkbtn.qrback', { type: 'button', onclick: onQR }, [U.icon('back'), L('Sign in with your phone')]) : null])]);
     function draw() {
@@ -119,7 +132,7 @@
       U.clear(switchLine);
       switchLine.appendChild(h('span.muted', (signup ? L('Already have an account?') : L('New to Bingr?')) + ' '));
       var a = h('button.linkbtn.strong', { type: 'button' }, signup ? L('Sign in.') : L('Sign up now.'));
-      a.addEventListener('click', function () { signup = !signup; err.textContent = ''; draw(); });
+      a.addEventListener('click', function () { signup = !signup; err.textContent = ''; if (signup) shownAt = nowMs(); draw(); });
       switchLine.appendChild(a);
     }
     function validEmail(v) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); }
@@ -134,7 +147,7 @@
       if (p.length < 6) { err.textContent = L('Password must be at least 6 characters.'); pw.focus(); return; }
       busy = true; err.textContent = '';
       submit.disabled = true; U.clear(submit); submit.appendChild(U.spinner());
-      var req = signup ? A.signUp(em, p, fn, ln) : A.signIn(em, p);
+      var req = signup ? A.signUp(em, p, fn, ln, guard()) : A.signIn(em, p);
       req.then(function (r) {
         if (r === 'confirm') {
           err.textContent = ''; signup = false; draw();
@@ -142,7 +155,7 @@
           return;
         }
         onDone();
-      }, function (e2) { err.textContent = e2.message || L('Something went wrong. Please try again.'); })
+      }, function (e2) { hpInput.value = ''; err.textContent = e2.message || L('Something went wrong. Please try again.'); })
         .then(function () { busy = false; submit.disabled = false; draw(); });
     });
     forgot.addEventListener('click', function () {

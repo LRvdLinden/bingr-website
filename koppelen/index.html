@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
-<link rel="stylesheet" href="../assets/css/site.css?v=95">
+<link rel="stylesheet" href="../assets/css/site.css?v=96">
 <script src="../assets/js/consent.js" data-base="../"></script>
 <style>.namerow input{letter-spacing:0}.namehint{font-size:13px;line-height:1.45;margin-top:7px}</style>
 <style>.paircheck{margin:20px 0 4px;padding:14px 16px;border-radius:10px;background:#ffffff0d;border:1px solid #ffffff1f;font-size:15px;line-height:1.5}.paircheck p{margin:0 0 6px}.paircheck b{overflow-wrap:anywhere}.pcwarn{margin:10px 0 0!important;padding:10px 12px;border-radius:8px;background:#e509141f;border:1px solid #e5091466;color:#fff}.pcsee{display:flex;gap:10px;align-items:flex-start;margin-top:12px;cursor:pointer;font-weight:600}.pcsee input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:#e50914}</style>
@@ -129,7 +129,7 @@
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=3"></script>
+<script src="../assets/js/auth-forms.js?v=4"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -259,7 +259,11 @@ function setMode(m) {
   $("password").autocomplete = m === "signin" ? "current-password" : "new-password";
   $("nameFields").classList.toggle("hidden", m === "signin");
   $("authErr").textContent = "";
+  // build 138: tijdmeting vanaf het tonen van "account maken"
+  if (m !== "signin") hp.start();
 }
+// build 138: honeypot (verborgen veld) en tijdmeting tegen bots bij account maken; zie BingrAuth.honeypot
+const hp = BingrAuth.honeypot($("authForm"));
 $("switchMode").onclick = () => setMode(mode === "signin" ? "signup" : "signin");
 setMode(params.get("mode") === "signup" ? "signup" : "signin");
 
@@ -298,8 +302,8 @@ $("authForm").onsubmit = async (e) => {
       // build 133: ?next=upgrade (vanaf bingr.online/upgrade/) daarna terug naar de betaalpagina
       const after = params.get("next") === "upgrade" ? "/upgrade/" : "/account/";
       const back = backUrl();
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { lang, first_name, last_name }, emailRedirectTo: back } });
-      if (error) throw error;
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: Object.assign({ lang, first_name, last_name }, hp.data()), emailRedirectTo: back } });
+      if (error) { hp.clear(); throw error; }
       if (data.user && data.user.identities && data.user.identities.length === 0) throw { code: "user_already_exists" };
       if (!data.session) { pendingEmail = email; pendingBack = back; $("resendMsg").textContent = ""; show("confirm"); return; }
       if (!code) { location.href = after; return; }

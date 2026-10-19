@@ -114,6 +114,8 @@ nav.menu-open .navtoggle .l3{transform:translateY(-5px) rotate(-45deg)}
 .sub-page main>.wrap.narrow{max-width:868px}
 .sub-page main>.wrap.mid{max-width:960px}
 .hidden{display:none!important}
+/* build 138: honeypot bij account maken (BingrAuth.honeypot): buiten beeld, niet display:none (bots slaan dat over) */
+.hp-field{position:absolute!important;left:-10000px!important;top:auto!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}
 .muted{color:var(--sec);font-size:15px}
 .ok{color:var(--ok)}
 .err{color:var(--bad);font-size:14px;margin-top:14px;min-height:1px}

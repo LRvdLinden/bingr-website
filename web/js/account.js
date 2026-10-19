@@ -151,8 +151,11 @@
   };
   /** Account maken: 'ok' (meteen ingelogd) of 'confirm' (eerst de e-mail bevestigen).
    *  Voor- en achternaam gaan mee als user_metadata first_name / last_name (aanhef in de e-mails). */
-  A.signUp = function (email, password, firstName, lastName) {
+  // guard (build 138): {fill_ms, hp?} van de honeypot en tijdmeting in S.emailForm; de hook weigert bij hp of fill_ms < 1500
+  A.signUp = function (email, password, firstName, lastName, guard) {
     var data = { lang: B.lang, first_name: A.cleanName(firstName), last_name: A.cleanName(lastName) };
+    if (guard && typeof guard.fill_ms === 'number') data.fill_ms = guard.fill_ms;
+    if (guard && guard.hp) data.hp = String(guard.hp).slice(0, 200);
     return sb.auth.signUp({ email: email, password: password, options: { data: data, emailRedirectTo: 'https://bingr.online/web/' } }).then(function (r) {
       if (r.error) {
         var e = r.error;
