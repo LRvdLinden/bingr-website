@@ -299,7 +299,7 @@ const tr = t({
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", generic:"Er ging iets mis. Probeer het opnieuw.", badEmail:"Vul een geldig e-mailadres in.",
         resetSent2:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.",
         planTitle:"Abonnement", planLabel:"Abonnement: %s", free:"Gratis", lifetime:"Lifetime", planLimits:"%s tegelijk kijken · %d apparaten · %v",
-        oneServer:"1 server", unlimitedServers:"onbeperkt servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"Bekijk abonnementen",
+        oneServer:"1 server", unlimitedServers:"onbeperkt servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"Bekijk abonnementen", bought:"Gekocht op %s.", receipt:"Kwitantie",
         lifeIncluded:"Statistieken, Nu aan het kijken, Trakt en thema's staan aan.", freeMissing:"Statistieken, Nu aan het kijken, Trakt en thema's horen bij Lifetime (eenmalig € 4,99).",
         lockedStats:"Statistieken horen bij Lifetime", lockedWatching:"Nu aan het kijken hoort bij Lifetime", lockedHistory:"Kijkgeschiedenis hoort bij Lifetime",
         lockedText:"Eenmalig € 4,99, voor je hele account. Je kijktijd wordt al bijgehouden: na het upgraden staat alles er meteen.", upgradeCta:"Upgrade naar Lifetime" },
@@ -327,7 +327,7 @@ const tr = t({
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", generic:"Something went wrong. Please try again.", badEmail:"Enter a valid email address.",
         resetSent2:"If an account exists, you'll receive an email to reset your password.",
         planTitle:"Plan", planLabel:"Plan: %s", free:"Free", lifetime:"Lifetime", planLimits:"%s at the same time · %d devices · %v",
-        oneServer:"1 server", unlimitedServers:"unlimited servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"View plans",
+        oneServer:"1 server", unlimitedServers:"unlimited servers", nServers:"%d servers", upgrade:"Upgrade", planDetails:"View plans", bought:"Bought on %s.", receipt:"Receipt",
         lifeIncluded:"Statistics, Watching now, Trakt and themes are unlocked.", freeMissing:"Statistics, Watching now, Trakt and themes are part of Lifetime (one-time €4.99).",
         lockedStats:"Statistics are part of Lifetime", lockedWatching:"Watching now is part of Lifetime", lockedHistory:"Watch history is part of Lifetime",
         lockedText:"A one-time €4.99, for your whole account. Your watch time is already being recorded: after upgrading, everything is there right away.", upgradeCta:"Upgrade to Lifetime" }
@@ -479,9 +479,25 @@ async function loadPlan() {
   $("plan").innerHTML = `<div class="planrow${life ? " life" : ""}"><span class="pb">${ic}</span><div class="pt">
       <div class="pn">${tr("planLabel").replace("%s", life ? tr("lifetime") : tr("free"))}</div>
       <div class="pl">${esc(tr("planLimits").replace("%s", l.streams).replace("%d", l.devices).replace("%v", srv))}</div>
-      <div class="pl">${life ? tr("lifeIncluded") : tr("freeMissing")}</div></div>
+      <div class="pl">${life ? tr("lifeIncluded") : tr("freeMissing")}</div><div class="pl" id="planBought"></div></div>
     ${life ? `<a class="btn ghost sm" href="../upgrade/">${tr("planDetails")}</a>` : `<a class="btn red sm" href="../upgrade/">${tr("upgrade")}</a>`}</div>`;
+  if (life) planBought();
   return e;
+}
+// build 133: gekochte Lifetime (Stripe): "Gekocht op …" met de kwitantie (functie billing, actie purchases; alleen eigen aankopen)
+async function planBought() {
+  try {
+    const { data } = await sb.auth.getSession();
+    if (!data.session) return;
+    const r = await fetch(cfg.url + "/functions/v1/billing/purchases", { method: "POST",
+      headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token }, body: "{}" });
+    const j = await r.json().catch(() => ({}));
+    const p = r.ok && (j.items || []).find((x) => x.status === "paid");
+    if (!p || !$("planBought")) return;
+    const day = new Date(p.paid_at || p.created_at).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+    const link = p.receipt_url || p.invoice_url;
+    $("planBought").innerHTML = esc(tr("bought").replace("%s", day)) + (link ? ` <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${tr("receipt")}</a>` : "");
+  } catch (e) {}
 }
 function bannedMsg() {
   $("authErr").innerHTML = `${tr("banned")} ${tr("bannedAsk")} <a href="https://support.bingr.online/nieuw/">support.bingr.online</a>`;

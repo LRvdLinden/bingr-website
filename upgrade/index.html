@@ -57,6 +57,15 @@
 .have p{color:var(--sec);margin-top:8px}
 .have .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
 #auth .authcard{margin-top:10px}
+.pay .waiver{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:14px;color:#e5e5e5;cursor:pointer;line-height:1.45}
+.pay .waiver input{flex:none;width:18px;height:18px;margin-top:2px;accent-color:var(--red)}
+.pay .side{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.pay .err{min-height:0;font-size:14px}
+.pay .seller{font-size:12.5px;color:var(--sec);margin-top:8px}
+.note{max-width:920px;margin:16px auto 0;padding:14px 18px;border-radius:14px;border:1px solid var(--line);background:#ffffff0d;color:#e5e5e5;font-size:15px}
+.note.good{border-color:#2fbf7166;background:#2fbf711a}
+.have .rcpt{margin-top:6px;font-size:14px}
+.have .rcpt a{color:#fff;font-weight:600}
 @media (max-width:640px){.pay{grid-template-columns:1fr}.pay .btn{width:100%}.current .v{font-size:22px}}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
@@ -94,9 +103,10 @@
       <div id="authErr" class="err" aria-live="polite"></div>
       <button id="authBtn" class="btn full" type="submit" data-t="signIn"></button>
     </form>
-    <div class="alinks"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../koppelen/?mode=signup" data-t="signUpNow"></a></div></div>
+    <div class="alinks"><a id="forgot" href="#" role="button" data-t="forgot"></a><div style="margin-top:14px"><span data-t="newTo"></span> <a href="../koppelen/?mode=signup&amp;next=upgrade" data-t="signUpNow"></a></div></div>
   </div></section>
 
+  <div id="notice" class="note hidden" role="status" aria-live="polite"></div>
   <section id="acc" class="hidden">
     <div class="panel current" id="current" aria-live="polite"></div>
     <div id="action"></div>
@@ -141,7 +151,10 @@
 <script src="../assets/js/plans.js?v=4"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
-// `entitlements` (platform "web") en de vergelijking. Betalen is nog niet gekoppeld: de knop staat uit.
+// `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
+// doorsturen; geen Stripe.js). Vinkje directe levering / afstand herroepingsrecht verplicht. ?status=success&session_id=…:
+// billing `status` (zet Lifetime meteen als betaald); ?status=cancel: melding. Zonder Stripe-sleutel (billing `config`
+// enabled=false of 503) een uitgeschakelde knop "Betalen is binnenkort beschikbaar".
 // ?from=app&platform=… (vanuit de apps) mag; het toont alleen een korte regel.
 const { sb, $, t, pwToggles, busy, cfg, lang, params } = Bingr;
 const tr = t({
@@ -151,10 +164,19 @@ const tr = t({
         forgot: "Wachtwoord vergeten?", newTo: "Nog geen account?", signUpNow: "Maak gratis een account.", waiting: "Even geduld…",
         yourPlan: "Je abonnement", free: "Gratis", lifetime: "Lifetime", limits: "%s tegelijk kijken · %d apparaten · %v",
         oneServer: "1 server", unlimitedServers: "onbeperkt servers", servers: "%d servers",
-        payTitle: "Lifetime voor je hele account", payText: "Upgraden kan binnenkort hier. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
-        price: "<b>€ 4,99</b> eenmalig · prijs incl. btw", payBtn: "Betalen — binnenkort beschikbaar",
-        legal: "Op Lifetime zijn de <a href=\"../voorwaarden/\">algemene voorwaarden</a> van toepassing. Lifetime is digitale inhoud die direct na betaling wordt geleverd: je stemt in met directe levering en ziet daarmee af van je herroepingsrecht (14 dagen bedenktijd) zodra de levering is begonnen.",
-        have: "Je hebt Lifetime", haveText: "Alles van Bingr staat voor je aan, op al je apparaten.", toAccount: "Naar Mijn Bingr", watch: "Kijk in je browser",
+        payTitle: "Lifetime voor je hele account", payText: "Eén keer betalen, voor altijd. Het werkt meteen in al je apps, op al je apparaten. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
+        price: "<b>€ 4,99</b> eenmalig · prijs incl. btw", payBtn: "Koop Lifetime – € 4,99", paySoon: "Betalen is binnenkort beschikbaar", payBusy: "Even geduld…",
+        waiver: "Ik wil Lifetime direct gebruiken en weet dat ik daardoor mijn herroepingsrecht verlies.",
+        needWaiver: "Vink eerst aan dat je Lifetime direct wilt gebruiken.", payFailed: "Afrekenen lukte niet. Probeer het opnieuw of neem contact op met support.",
+        rateLimited: "Te veel pogingen. Probeer het over een paar minuten opnieuw.",
+        seller: "Verkoper: PixelForges (KvK 70031576), Apeldoorn · btw-id NL001876986B40 · veilig afrekenen via Stripe (o.a. iDEAL, kaart, Apple Pay, Bancontact)",
+        legal: "Op Lifetime zijn de <a href=\"../voorwaarden/\">algemene voorwaarden</a> van toepassing; zie ook de <a href=\"../privacy.html#betalen\">privacyverklaring</a>. Lifetime is digitale inhoud die direct na betaling wordt geleverd. Terugbetaling op verzoek via <a href=\"https://support.bingr.online\">support</a>.",
+        have: "Je hebt Lifetime al", haveText: "Alles van Bingr staat voor je aan, op al je apparaten.", toAccount: "Naar Mijn Bingr", watch: "Kijk in je browser",
+        haveNew: "Je hebt nu Lifetime 🎉", haveNewText: "Het werkt meteen in al je apps: open de app opnieuw of vernieuw de pagina. Je kwitantie komt per e-mail.",
+        bought: "Gekocht op %s.", receipt: "Bekijk je kwitantie",
+        checking: "We controleren je betaling…", pendingPay: "Je betaling is nog onderweg. Zodra hij binnen is, staat Lifetime vanzelf aan en krijg je een kwitantie per e-mail.",
+        cancelled: "Je hebt het afrekenen geannuleerd. Er is niets afgeschreven.",
+        statusFailed: "We konden je betaling nog niet controleren. Ververs de pagina over een minuut; klopt het daarna nog niet, neem dan contact op met support.",
         gift: "Cadeau: je had al een account toen Lifetime er kwam.",
         loadFailed: "Je abonnement kon niet worden geladen. Ververs de pagina om het opnieuw te proberen.",
         banned: "Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk: "Vragen?",
@@ -166,10 +188,19 @@ const tr = t({
         forgot: "Forgot password?", newTo: "No account yet?", signUpNow: "Create a free account.", waiting: "One moment…",
         yourPlan: "Your plan", free: "Free", lifetime: "Lifetime", limits: "%s at the same time · %d devices · %v",
         oneServer: "1 server", unlimitedServers: "unlimited servers", servers: "%d servers",
-        payTitle: "Lifetime for your whole account", payText: "Upgrading will be available here soon. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
-        price: "<b>€4.99</b> one-time · price incl. VAT", payBtn: "Payment — coming soon",
-        legal: "Lifetime is subject to the <a href=\"../voorwaarden/\">terms and conditions</a>. Lifetime is digital content delivered right after payment: you agree to immediate delivery and thereby give up your right of withdrawal (14-day cooling-off period) once delivery has started.",
-        have: "You have Lifetime", haveText: "Everything in Bingr is unlocked for you, on all your devices.", toAccount: "Go to My Bingr", watch: "Watch in your browser",
+        payTitle: "Lifetime for your whole account", payText: "Pay once, keep it forever. It works right away in all your apps, on all your devices. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
+        price: "<b>€4.99</b> one-time · price incl. VAT", payBtn: "Buy Lifetime – €4.99", paySoon: "Payment is coming soon", payBusy: "One moment…",
+        waiver: "I want to use Lifetime right away and understand that I thereby lose my right of withdrawal.",
+        needWaiver: "First tick the box to confirm you want to use Lifetime right away.", payFailed: "Checkout didn't work. Please try again or contact support.",
+        rateLimited: "Too many attempts. Please try again in a few minutes.",
+        seller: "Seller: PixelForges (Dutch Chamber of Commerce 70031576), Apeldoorn · VAT ID NL001876986B40 · secure checkout via Stripe (including iDEAL, card, Apple Pay, Bancontact)",
+        legal: "Lifetime is subject to the <a href=\"../voorwaarden/\">terms and conditions</a>; see also the <a href=\"../privacy.html#betalen-en\">privacy policy</a>. Lifetime is digital content delivered right after payment. Refunds on request via <a href=\"https://support.bingr.online\">support</a>.",
+        have: "You already have Lifetime", haveText: "Everything in Bingr is unlocked for you, on all your devices.", toAccount: "Go to My Bingr", watch: "Watch in your browser",
+        haveNew: "You now have Lifetime 🎉", haveNewText: "It works right away in all your apps: reopen the app or refresh the page. Your receipt is on its way by email.",
+        bought: "Bought on %s.", receipt: "View your receipt",
+        checking: "Checking your payment…", pendingPay: "Your payment is still on its way. As soon as it arrives, Lifetime turns on automatically and you'll get a receipt by email.",
+        cancelled: "You cancelled checkout. Nothing was charged.",
+        statusFailed: "We couldn't check your payment yet. Refresh the page in a minute; if it's still not right, contact support.",
         gift: "A gift: you already had an account when Lifetime arrived.",
         loadFailed: "Your plan couldn't be loaded. Refresh the page to try again.",
         banned: "Your account has been blocked. You received an email with the reason and until when.", bannedAsk: "Questions?",
@@ -200,29 +231,114 @@ function limitsText(e) {
   const srv = s.servers == null ? tr("unlimitedServers") : s.servers === 1 ? tr("oneServer") : tr("servers").replace("%d", s.servers);
   return tr("limits").replace("%s", s.streams).replace("%d", s.devices).replace("%v", srv);
 }
-function render(e) {
-  const life = e.plan === "lifetime";
+async function billing(action, body) {
+  const { data } = await sb.auth.getSession();
+  const h = { "Content-Type": "application/json", apikey: cfg.anonKey };
+  if (data.session) h.Authorization = "Bearer " + data.session.access_token;
+  const r = await fetch(cfg.url + "/functions/v1/billing/" + action, { method: "POST", headers: h, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (j.banned === true || j.error === "user_banned") { await Bingr.hardSignOut(); throw new Error("banned"); }
+  if (r.status === 401) { await Bingr.hardSignOut(); throw new Error("signed_out"); }
+  return { status: r.status, ok: r.ok, j };
+}
+const locale = lang === "nl" ? "nl-NL" : "en-GB";
+const fmtDay = (v) => new Date(v).toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" });
+function notice(key, good) {
+  const n = $("notice");
+  if (!key) { n.classList.add("hidden"); return; }
+  n.textContent = tr(key); n.classList.toggle("good", !!good); n.classList.remove("hidden");
+}
+function render(e, opts) {
+  const life = e.plan === "lifetime", fresh = !!(opts && opts.fresh);
   $("current").classList.toggle("life", life);
   $("current").innerHTML = `<div class="badge">${life ? ICON_LIFE : ICON_FREE}</div><div class="t"><div class="k">${tr("yourPlan")}</div>
     <div class="v">${life ? tr("lifetime") : tr("free")}</div><div class="lim">${esc(limitsText(e))}</div></div>`;
   $("action").innerHTML = life
-    ? `<div class="have"><div class="ok-big">${ICON_OK}<span>${tr("have")}</span></div><p>${tr("haveText")}</p><p id="giftNote"></p>
+    ? `<div class="have"><div class="ok-big">${ICON_OK}<span>${tr(fresh ? "haveNew" : "have")}</span></div><p>${tr(fresh ? "haveNewText" : "haveText")}</p><p id="giftNote"></p><p class="rcpt" id="rcpt"></p>
         <div class="row"><a class="btn red sm" href="../web/">${tr("watch")}</a><a class="btn ghost sm" href="../account/">${tr("toAccount")}</a></div></div>`
-    // Betalen is nog niet live: alleen de tekst. Zodra de knop aangaat, hoort er vóór de knop een verplicht vinkje bij
-    // ("Ik stem in met directe levering en weet dat ik daarmee mijn herroepingsrecht verlies"), NL/EN.
-    : `<div class="panel pay"><div><h2>${tr("payTitle")}</h2><p class="price">${tr("price")}</p><p>${tr("payText")}</p><p class="legal">${tr("legal")}</p></div>
-        <button class="btn" type="button" disabled aria-disabled="true">${tr("payBtn")}</button></div>`;
+    // build 133: verplicht vinkje vóór afrekenen (directe levering, afstand van het herroepingsrecht; EU-regels digitale inhoud)
+    : `<div class="panel pay"><div><h2>${tr("payTitle")}</h2><p class="price">${tr("price")}</p><p>${tr("payText")}</p>
+        <label class="waiver"><input type="checkbox" id="waiver"><span>${tr("waiver")}</span></label>
+        <p class="legal">${tr("legal")}</p><p class="seller">${tr("seller")}</p></div>
+        <div class="side"><button class="btn" type="button" id="payBtn" disabled aria-disabled="true">${tr("payBtn")}</button><div id="payErr" class="err" aria-live="polite"></div></div></div>`;
   table(life ? "lifetime" : "free");
-  // Lifetime cadeau (bestaand account bij de invoering): eigen rij in account_plans, alleen te lezen door jezelf
-  if (life) sb.from("account_plans").select("source").maybeSingle().then(({ data }) => {
-    if (data && data.source === "legacy" && $("giftNote")) $("giftNote").textContent = tr("gift");
-  }).catch(() => {});
+  if (life) {
+    // Lifetime cadeau (bestaand account bij de invoering) of gekocht: eigen rij in account_plans, alleen te lezen door jezelf
+    sb.from("account_plans").select("source").maybeSingle().then(({ data }) => {
+      if (data && data.source === "legacy" && $("giftNote")) $("giftNote").textContent = tr("gift");
+      if (data && data.source === "purchase") purchaseLine($("rcpt"));
+    }).catch(() => {});
+  } else wirePay();
+}
+// "Gekocht op …" met de kwitantie van Stripe (billing `purchases`); ook gebruikt op Mijn Bingr
+async function purchaseLine(el) {
+  if (!el) return;
+  try {
+    const { ok, j } = await billing("purchases");
+    const p = ok && (j.items || []).find((x) => x.status === "paid");
+    if (!p) return;
+    const link = p.receipt_url || p.invoice_url;
+    el.innerHTML = esc(tr("bought").replace("%s", fmtDay(p.paid_at || p.created_at))) + (link ? ` <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${tr("receipt")}</a>` : "");
+  } catch (e) {}
+}
+function paySoon() { const b = $("payBtn"); if (!b) return; b.disabled = true; b.setAttribute("aria-disabled", "true"); b.textContent = tr("paySoon"); }
+function wirePay() {
+  const b = $("payBtn");
+  billing("config").then(({ ok, j }) => {
+    if (!ok || !j.enabled) return paySoon();
+    b.disabled = false; b.removeAttribute("aria-disabled");
+  }).catch(paySoon);
+  $("waiver").onchange = () => { if ($("waiver").checked) $("payErr").textContent = ""; };
+  b.onclick = async () => {
+    if (!$("waiver").checked) { $("payErr").textContent = tr("needWaiver"); $("waiver").focus(); return; }
+    busy(b, true, tr("payBusy")); $("payErr").textContent = "";
+    try {
+      const { status, j } = await billing("checkout", { lang, waiver: true });
+      if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
+      if (status === 409 && j.error === "already_lifetime") { load(); return; }
+      if (status === 503 && j.error === "billing_unavailable") { paySoon(); return; }
+      $("payErr").textContent = tr(status === 429 ? "rateLimited" : "payFailed");
+    } catch (e) {
+      if (e.message === "banned" || e.message === "signed_out") { load(); return; }
+      $("payErr").textContent = tr("payFailed");
+    }
+    busy(b, false, tr("payBtn"));
+  };
+}
+// na Stripe (?status=success&session_id=…): betaling controleren (en Lifetime zetten), even blijven proberen bij een
+// betaling die nog onderweg is. Daarna de parameters uit de adresbalk (verversen controleert niet opnieuw).
+const back = params.get("status"), sessionId = params.get("session_id");
+function cleanUrl() {
+  const u = new URL(location.href); u.searchParams.delete("status"); u.searchParams.delete("session_id");
+  try { history.replaceState(null, "", u.pathname + u.search + u.hash); } catch (e) {}
+}
+async function checkPayment() {
+  notice("checking");
+  for (let i = 0; i < 6; i++) {
+    const { ok, status, j } = await billing("status", { session_id: sessionId });
+    if (ok && j.paid) { notice(null); return true; }
+    if (!ok && status !== 503 && status !== 502) break;
+    if (ok && j.status === "expired") break;
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  notice("pendingPay");
+  return false;
 }
 async function load() {
   const { data } = await sb.auth.getSession();
+  if (back === "cancel") { notice("cancelled"); cleanUrl(); }
   if (!data.session) { show("auth"); table(null); return; }
   show("loading");
-  try { render(await call("entitlements", { platform: "web" })); show("acc"); }
+  try {
+    let fresh = false;
+    if (back === "success" && sessionId && /^cs_[A-Za-z0-9_]+$/.test(sessionId) && !load.checked) {
+      load.checked = true;
+      try { fresh = await checkPayment(); } catch (e) { if (e.message === "banned" || e.message === "signed_out") throw e; notice("statusFailed"); }
+      cleanUrl();
+    }
+    const e = await call("entitlements", { platform: "web" });
+    render(e, { fresh: fresh && e.plan === "lifetime" }); show("acc");
+  }
   catch (e) {
     if (e.message === "banned") { show("auth"); bannedMsg(); table(null); }
     else if (e.message === "signed_out") { show("auth"); table(null); }
