@@ -260,10 +260,12 @@
       if (o.onClose) o.onClose(fromKey);
       try { if (prevFocus && prevFocus.focus && document.body.contains(prevFocus)) prevFocus.focus({ preventScroll: true }); } catch (e) { /* stil */ }
     };
+    var btnEls = [];
     if (o.buttons && o.buttons.length) {
       var row = h('div.dlg-buttons');
       o.buttons.forEach(function (bt, i) {
         var b = U.button(bt.label, function () { close(); if (bt.fn) bt.fn(); }, { primary: bt.primary || (i === 0 && o.buttons.length > 1 && bt.primary !== false && !bt.danger), icon: bt.icon, cls: bt.danger ? 'danger' : null });
+        btnEls.push(b);
         row.appendChild(b);
       });
       box.appendChild(row);
@@ -285,7 +287,8 @@
     stack.push(api);
     document.body.appendChild(layer);
     requestAnimationFrame(function () { layer.classList.add('show'); });
-    var first = box.querySelector('input, .dlg-buttons .btn.primary, .opt.sel, .opt, .btn');
+    // build 145: o.focus = index van de knop die eerst de focus krijgt (de vraag "Servers bijwerken?": Later)
+    var first = (o.focus != null && btnEls[o.focus]) || box.querySelector('input, .dlg-buttons .btn.primary, .opt.sel, .opt, .btn');
     if (first) setTimeout(function () { try { first.focus({ preventScroll: true }); } catch (e) { first.focus(); } }, 30);
     return api;
   };

@@ -239,7 +239,10 @@
     main = S.main();
     show(main);
     main.start();
+    // build 145: na het laden van de open server de keuze van "Servers laden bij openen" (de vraag, Altijd of niets)
+    if (B.xs && B.xs.profileOpened) B.xs.profileOpened();
     Lib.select(src).then(function () {
+      if (B.xs && B.xs.afterProfileOpen && app.profile === p) B.xs.afterProfileOpen(Lib.fromCache);
       if (B.push && app.profile === p) B.push.tryPending();
       if (B.titleLink && app.profile === p) B.titleLink.tryPending();
       B.whenQuiet(function () { warmAges(); }, 2500);

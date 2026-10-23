@@ -1845,17 +1845,16 @@
         if (!D.sources.length) { U.toast(L('No servers yet')); return; }
         if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
       }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
-      // build 140: automatisch vernieuwen (settings.shared.refreshInterval, gelijk op alle apps); geldt voor alle servers
-      if (B.xs && B.xs.refreshPolicy) {
-        var pols = [['manual', L('Manually')], ['launch', L('Every time the app opens')], ['sixHours', L('Every 6 hours')], ['daily', L('Daily')], ['weekly', L('Weekly')]];
-        var pol = B.xs.refreshPolicy(), polLabel = L('Daily');
-        pols.forEach(function (x) { if (x[0] === pol) polLabel = x[1]; });
-        row(sec, L('Update playlists'), polLabel, main ? function () {
-          U.choose(L('Update playlists'), pols.map(function (x) { return { value: x[0], label: x[1] }; }), pol, function (v) {
-            D.setShared('refreshInterval', v); render();
-            setTimeout(function () { B.xs.autoRefreshCheck('setting'); }, 1500);
+      // build 145: "Servers laden bij openen" (per browser, niet gesynct) in plaats van de vernieuwtermijn (refreshInterval)
+      if (B.xs && B.xs.loadOnOpen && !(prof && prof.kids)) {
+        var LO = B.xs.loadOnOpen, lmode = LO.mode();
+        var lmodes = [['ask', L('Ask')], ['always', L('Always')], ['never', L('Never, manually only')]], lLabel = L('Ask');
+        lmodes.forEach(function (x) { if (x[0] === lmode) lLabel = x[1]; });
+        row(sec, L('Load servers on open'), lLabel, function () {
+          U.choose(L('Load servers on open'), lmodes.map(function (x) { return { value: x[0], label: x[1] }; }), lmode, function (v) {
+            LO.setMode(v); render();
           });
-        } : null, { icon: 'clock' });
+        }, { icon: 'clock', sub: L('Bingr opens with your saved list. Choose whether it asks to update your servers, updates them right away, or only when you refresh.') });
       }
       if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
       // nog een server erbij: met Gratis maar één (bestaande servers blijven bruikbaar)

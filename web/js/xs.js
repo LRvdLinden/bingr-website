@@ -429,20 +429,41 @@
   };
 
   /**
-   * build 140: verversbeleid (settings.shared.refreshInterval, gelijk op iOS en Android: RefreshPolicy). age = ms sinds de
-   * laatste keer ophalen (null = nooit). Pure functie (ook in node getest).
+   * Build 145: "Servers laden bij openen" (gelijk aan Build145Logic.kt op Android en js/build145.js op Samsung TV, zelfde
+   * gevallen in hun tests). De gebruiker kiest zelf wanneer de servers worden bijgewerkt; de vernieuwtermijn
+   * (settings.shared.refreshInterval) is weg. Na de profielkeuze (dus na de pincode), alleen met een bewaarde lijst:
+   * 'ask' (Vragen, standaard): de vraag "Servers bijwerken?", één keer per keer openen en niet bij een kinderprofiel;
+   * 'always' (Altijd): meteen bijwerken; 'never' (Nooit, alleen handmatig): niets. Per browser (localStorage), niet gesynct.
+   * Pure functies (ook in node te testen).
    */
-  X.REFRESH_POLICIES = ['manual', 'launch', 'sixHours', 'daily', 'weekly'];
-  X.isDue = function (policy, age) {
-    if (age == null) return true;
-    switch (policy) {
-      case 'manual': return false;
-      case 'launch': return age > 60000;
-      case 'sixHours': return age > 6 * 3600000;
-      case 'weekly': return age > 7 * 86400000;
-      default: return age > 86400000; // daily (standaard)
-    }
+  var LO = X.loadOnOpen = { MODES: ['ask', 'always', 'never'], KEY: 'loadOnOpen' };
+  LO.parse = function (raw) { var v = raw == null ? '' : String(raw).trim(); return LO.MODES.indexOf(v) >= 0 ? v : null; };
+  LO.current = function (stored) { return LO.parse(stored) || 'ask'; };
+  LO.migrate = function (stored) { return LO.parse(stored) ? null : 'ask'; };
+  LO.decide = function (mode, hasSavedList, kids, asked) {
+    if (mode === 'always') return 'updateAll';
+    if (!hasSavedList) return 'nothing';
+    if (mode === 'never') return 'nothing';
+    if (kids || asked) return 'nothing';
+    return 'ask';
   };
+  LO.order = function (ids, active, skip) {
+    skip = skip || {};
+    var out = [], seen = {};
+    function add(id) {
+      var k = String(id).toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(skip, k) || Object.prototype.hasOwnProperty.call(seen, k)) return;
+      seen[k] = true; out.push(id);
+    }
+    if (active != null) {
+      var a = String(active).toLowerCase();
+      for (var i = 0; i < ids.length; i++) if (String(ids[i]).toLowerCase() === a) { add(ids[i]); break; }
+    }
+    ids.forEach(add);
+    return out;
+  };
+  LO.mayRun = function (onMain, playing) { return !!onMain && !playing; };
+  LO.stillCurrent = function (started, now) { return started === now; };
 
   // test- en browserloze modus: hieronder alleen met een DOM
   if (!B.data || !B.lib || typeof document === 'undefined') return;
@@ -626,12 +647,11 @@
     });
   }
   X._activeLoaded = activeLoaded;
-  /** build 140: catalogus uit de cache nog goed? Volgens settings.shared.refreshInterval (zonder: 24 uur, zoals eerst). */
-  function cacheFresh(at) {
-    var pol = X.refreshPolicy ? X.refreshPolicy() : 'daily';
-    if (pol === 'launch') pol = 'daily';
-    return !X.isDue(pol, Date.now() - (at || 0));
-  }
+  /**
+   * Catalogus uit de cache nog goed? Build 145: altijd (geen vernieuwtermijn meer); een andere server wordt alleen van
+   * het netwerk gehaald als hij nog niet in de browser staat, of bij bijwerken (de vraag, Altijd of Nu vernieuwen).
+   */
+  function cacheFresh() { return true; }
   function storeLib(src, lib) {
     lib.epg = lib.epg || {};
     B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
@@ -647,7 +667,7 @@
     var p = loading[lid] = B.idb.get('lib:' + src.id).then(function (c) {
       if (c && c.lib) {
         put(src, c.lib, c.at);
-        // build 140: vers volgens het verversbeleid van het account ("Handmatig": de cache blijft gewoon staan)
+        // build 145: een bewaarde catalogus is goed (bijwerken kiest de gebruiker zelf)
         var fresh = cacheFresh(c.at);
         if (fresh || !fetch) { cats[lid].fresh = fresh; return cats[lid]; }
       }
@@ -1420,6 +1440,9 @@
   X.refreshAll = function (opts) {
     opts = opts || {};
     var quiet = !!opts.quiet;
+    // build 145: background = de open server op de achtergrond (de bibliotheek blijft staan) maar met de meldingen;
+    // stale() = true → stoppen (ander profiel of andere server); wait = niet tijdens het afspelen (wachten)
+    var bg = quiet || !!opts.background, stale = opts.stale || function () { return false; };
     if (refreshing) { if (!quiet) progressToast(); return refreshing; }
     var act = Lib.source;
     // build 140: automatisch alleen de servers die aan de beurt zijn (opts.only = id's)
@@ -1432,20 +1455,31 @@
     if (!list.length) return Promise.resolve(result);
     refreshState = { total: list.length, step: 0, cur: null, quiet: quiet };
     B.emit('xsRefresh');
-    function begin(src) { refreshState.step++; refreshState.cur = src; if (!quiet) progressToast(); B.emit('xsRefresh'); }
+    function begin(src) { refreshState.step++; refreshState.cur = src; if (opts.onServer) opts.onServer(src); if (!quiet) progressToast(); B.emit('xsRefresh'); }
     var chain = Promise.resolve();
+    function idle() {
+      if (!opts.wait) return Promise.resolve(!stale());
+      return new Promise(function (resolve) {
+        (function check() {
+          if (stale()) { resolve(false); return; }
+          if (!LO.mayRun(!!(B.app && B.app.profile), !!(B.player && B.player.current)) || Lib.loading) { setTimeout(check, 2000); return; }
+          resolve(true);
+        })();
+      });
+    }
     if (act) {
-      chain = chain.then(function () {
+      chain = chain.then(idle).then(function (go) {
+        if (!go) return;
         begin(act);
         // automatisch (build 140): de actieve server op de achtergrond verversen, de bibliotheek blijft intussen staan
-        var run1 = quiet ? function (resolve) { Lib.refresh(act, null, { onLib: resolve }); } : function (resolve) { Lib.select(act, true, { onLib: resolve }); };
+        var run1 = bg ? function (resolve) { Lib.refresh(act, null, { onLib: resolve }); } : function (resolve) { Lib.select(act, true, { onLib: resolve }); };
         return withTimeout(new Promise(run1), ACTIVE_TIMEOUT)
           .then(function (ok) { (ok === false ? result.failed : result.ok).push(act); }, function () { result.failed.push(act); });
       });
     }
     others.forEach(function (src) {
-      chain = chain.then(function () {
-        if (!D.sourceById(src.id)) return; // intussen verwijderd
+      chain = chain.then(idle).then(function (go) {
+        if (!go || !D.sourceById(src.id)) return; // gestopt of intussen verwijderd
         begin(src);
         return refreshOther(src).then(function (ok) { (ok ? result.ok : result.failed).push(src); });
       });
@@ -1461,7 +1495,7 @@
       B.emit('xsCatalog'); B.emit('profileData'); B.emit('xsRefresh');
       var names = result.failed.map(quoteName).join(', ');
       B.store.set('xs.lastAutoRefresh', Date.now());
-      if (quiet) { B.log('automatisch vernieuwd', result.ok.length, 'gelukt,', result.failed.length, 'mislukt'); }
+      if (quiet || stale()) { B.log('bijgewerkt', result.ok.length, 'gelukt,', result.failed.length, 'mislukt'); }
       else if (!result.failed.length) U().toast(list.length > 1 ? L('All servers are up to date.') : L('Updated.'), 4000);
       else if (result.failed.length === list.length) U().toast(L('Couldn’t update %@.', names), 7000);
       else U().toast(L('Couldn’t update %@. Your other servers are up to date.', names), 7000);
@@ -1470,61 +1504,57 @@
     return refreshing;
   };
 
-  // MARK: build 140: automatisch vernieuwen volgens settings.shared.refreshInterval
+  // MARK: build 145: servers laden bij openen (vervangt het automatisch vernieuwen van build 140)
 
   /**
-   * Tot build 139 kende de webspeler deze instelling niet: alleen de actieve server werd ververst, en alleen bij het kiezen
-   * ervan als zijn cache ouder was dan 12 uur (andere servers 24 uur, alleen als ze nodig waren); terwijl de pagina open
-   * stond gebeurde er nooit iets. Nu: bij het openen, elke 10 minuten en bij terugkeer naar het tabblad kijken of een
-   * server aan de beurt is (leeftijd van zijn catalogus in IndexedDB `lib:<id>`, dus ook na herstarten). Zo ja: alle
-   * servers van het account vernieuwen zoals "Nu vernieuwen" (X.refreshAll), maar stil. "Bij elke start" alleen bij het
-   * openen; "Handmatig" nooit. Niet tijdens afspelen of terwijl de actieve server laadt (dan later opnieuw).
+   * Tot build 144 vernieuwde de webspeler vanzelf volgens settings.shared.refreshInterval (bij het openen, elke 10 minuten
+   * en bij terugkeer naar het tabblad). Nu kiest de gebruiker: na het kiezen van een profiel de vraag, Altijd of Nooit
+   * (X.loadOnOpen). Bijwerken = X.refreshAll voor alle servers, de open server eerst op de achtergrond, met de meldingen,
+   * niet tijdens het afspelen, en een ander profiel of een andere server stopt het.
    */
-  X.refreshPolicy = function () {
-    var v = String(D.shared('refreshInterval', 'daily') || 'daily');
-    return X.REFRESH_POLICIES.indexOf(v) >= 0 ? v : 'daily';
+  LO.mode = function () { return LO.current(B.store.get(LO.KEY, null)); };
+  LO.setMode = function (v) { var m = LO.parse(v); if (m) B.store.set(LO.KEY, m); };
+  // eenmalig: de oude vernieuwtermijn vervalt, de stand wordt 'ask'
+  (function () { var m = LO.migrate(B.store.get(LO.KEY, null)); if (m) B.store.set(LO.KEY, m); })();
+  var openGen = 0, decisionPending = false, askedThisLaunch = false, done = {};
+  /** app.js: profiel gekozen (na de pincode); de keuze volgt in X.afterProfileOpen. */
+  X.profileOpened = function () { openGen++; decisionPending = true; };
+  /** De open server staat er (savedList = uit de bewaarde lijst in deze browser). */
+  X.afterProfileOpen = function (savedList) {
+    if (!decisionPending || !B.app || !B.app.profile) return;
+    decisionPending = false;
+    // zonder bewaarde lijst is de open server net van het netwerk geladen
+    if (!savedList && Lib.source) done[lower(Lib.source.id)] = true;
+    var act = LO.decide(LO.mode(), !!savedList, !!B.app.profile.kids, askedThisLaunch);
+    if (act === 'ask') { askedThisLaunch = true; askUpdate(openGen); }
+    else if (act === 'updateAll') X.updateAll(true);
   };
-  var autoBusy = false, autoTimer = null, launchDone = false, autoLaterT = null;
-  /** Leeftijd (ms) van de catalogus van elke server, of null als hij er niet is. */
-  function catalogAges(list) {
-    return Promise.all(list.map(function (s) {
-      return B.idb.get('lib:' + s.id).then(function (c) { return c && c.at ? Date.now() - c.at : null; }, function () { return null; });
-    }));
-  }
-  X.autoRefreshCheck = function (reason) {
-    var pol = X.refreshPolicy();
-    var launch = reason === 'launch';
-    if (launch) launchDone = true;
-    if (autoBusy || refreshing || !B.app || !B.app.profile || !A.isSignedIn()) return Promise.resolve(false);
-    if (pol === 'manual' || (pol === 'launch' && !launch)) return Promise.resolve(false);
-    if ((B.player && B.player.current) || Lib.loading || !Lib.source) {
-      clearTimeout(autoLaterT);
-      autoLaterT = setTimeout(function () { X.autoRefreshCheck(launch ? 'launch' : 'later'); }, 60000);
-      return Promise.resolve(false);
+  function askUpdate(my) {
+    if (my !== openGen || !B.app || !B.app.profile) return;
+    if ((B.player && B.player.current) || document.hidden) { setTimeout(function () { askUpdate(my); }, 2000); return; }
+    var answered = false;
+    function answer(now) {
+      if (answered) return;
+      answered = true;
+      if (now && my === openGen) X.updateAll(false);
     }
-    var list = orderedSources().filter(usable);
-    if (!list.length) return Promise.resolve(false);
-    autoBusy = true;
-    return catalogAges(list).then(function (ages) {
-      var due = list.filter(function (s, i) { return X.isDue(pol, ages[i]); });
-      if (!due.length) return false;
-      B.log('automatisch vernieuwen (' + pol + '):', due.map(function (s) { return s.name; }).join(', '));
-      return X.refreshAll({ quiet: true, only: due.map(function (s) { return s.id; }) }).then(function () { return true; });
-    }).catch(function () { return false; }).then(function (r) { autoBusy = false; return r; });
-  };
-  function startAuto() {
-    if (autoTimer) return;
-    autoTimer = setInterval(function () { if (!document.hidden) X.autoRefreshCheck('timer'); }, 10 * 60000);
-    document.addEventListener('visibilitychange', function () { if (!document.hidden && launchDone) setTimeout(function () { X.autoRefreshCheck('visible'); }, 3000); });
+    U().modal({
+      title: L('Update servers?'),
+      text: L('Your saved list is ready. Do you want to update your servers now?'),
+      buttons: [{ label: L('Update now'), primary: true, fn: function () { answer(true); } }, { label: L('Later'), primary: false, fn: function () { answer(false); } }],
+      focus: 1,
+      // Esc of ernaast klikken = Later (bij een knop roept de knop zelf answer aan)
+      onClose: function (fromKey) { if (fromKey) answer(false); }
+    });
   }
-  // na het openen: zodra de actieve server (uit de cache of vers) er is
-  B.on('library', function () {
-    if (launchDone || !B.app || !B.app.profile) return;
-    launchDone = true;
-    startAuto();
-    setTimeout(function () { X.autoRefreshCheck('launch'); }, 5000);
-  });
-  X._autoState = function () { return { busy: autoBusy, launchDone: launchDone, policy: X.refreshPolicy() }; };
+  /** Alle servers bijwerken (onlyNew: wat bij deze keer openen al bijgewerkt is overslaan, voor "Altijd"). */
+  X.updateAll = function (onlyNew) {
+    var my = openGen, srcAt = Lib.source ? lower(Lib.source.id) : null;
+    function stale() { return my !== openGen || (Lib.source ? lower(Lib.source.id) : null) !== srcAt; }
+    var ids = LO.order(orderedSources().filter(usable).map(function (s) { return s.id; }), Lib.source ? Lib.source.id : null, onlyNew ? done : {});
+    if (!ids.length) return Promise.resolve(null);
+    return X.refreshAll({ background: true, wait: true, stale: stale, only: ids, onServer: function (src) { done[lower(src.id)] = true; } });
+  };
 
   // MARK: openen (aanklikken van een tegel uit catalogmeta)
 

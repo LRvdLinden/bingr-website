@@ -377,7 +377,7 @@
 
   // MARK: laden en cachen
 
-  var LIB_TTL = 12 * 3600000, EPG_TTL = 4 * 3600000;
+  var EPG_TTL = 4 * 3600000;
   /** Gewenste gidskanalen met per kanaal de ondergrens: zenders met terugkijken tot 3 dagen terug, de rest 3 uur. */
   function wantedEpg(lib) {
     var w = {}, now = Date.now();
@@ -534,13 +534,13 @@
         Lib.loading = false;
         Lib.applyFilters();
         loadEpg(src, Lib.raw, false);
-        // build 140: volgens het verversbeleid van het account (settings.shared.refreshInterval; "Handmatig" = nooit vanzelf)
-        var pol = B.xs && B.xs.refreshPolicy ? B.xs.refreshPolicy() : null;
-        var stale = pol ? B.xs.isDue(pol === 'launch' ? 'daily' : pol, Date.now() - cached.at) : Date.now() - cached.at > LIB_TTL;
-        if (stale) Lib.refresh(src, my);
+        // build 145: met een bewaarde lijst wordt niets vanzelf opgehaald (geen vernieuwtermijn meer); na het kiezen van een
+        // profiel volgt de keuze van "Servers laden bij openen" (B.xs.afterProfileOpen, via Lib.fromCache)
+        Lib.fromCache = true;
         libDone(opts, true);
         return;
       }
+      Lib.fromCache = false;
       // andere server zonder cache: niet de bibliotheek van de vorige server laten staan (browser)
       if (!prev || !src || String(prev.id).toLowerCase() !== String(src.id).toLowerCase()) {
         Lib.raw = { channels: [], movies: [], series: [], epg: {} };
