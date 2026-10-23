@@ -75,19 +75,19 @@
 <script src="../assets/js/site.js?v=111" data-base="../"></script>
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=4"></script>
+<script src="../assets/js/account.js?v=141"></script>
+<script src="../assets/js/auth-forms.js?v=5"></script>
 <script>
 const { sb, $, t, pwToggles, busy } = Bingr;
 const tr = t({
   nl: { docTitle:"Nieuw wachtwoord · Bingr", title:"Nieuw wachtwoord", forAcc:"Voor", newPw:"Nieuw wachtwoord", repeatPw:"Herhaal wachtwoord", save:"Wachtwoord opslaan", show:"Tonen", hide:"Verbergen",
         doneTitle:"Wachtwoord gewijzigd", doneText:"Voor je veiligheid ben je op al je apparaten uitgelogd. Log opnieuw in met je nieuwe wachtwoord.", invalidTitle:"Link verlopen",
         invalidText:"Deze link is ongeldig of al gebruikt. Vraag een nieuwe aan via <b>Wachtwoord vergeten?</b> in Mijn Bingr of in de Bingr-app.", newLink:"Nieuwe link aanvragen in Mijn Bingr",
-        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", samePw:"Kies een ander wachtwoord dan je huidige.", waiting:"Even geduld…" },
+        shortPw:"Je wachtwoord moet minstens 8 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", generic:"Er ging iets mis. Probeer het opnieuw.", samePw:"Kies een ander wachtwoord dan je huidige.", waiting:"Even geduld…" },
   en: { docTitle:"New password · Bingr", title:"New password", forAcc:"For", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
         doneTitle:"Password changed", doneText:"For your security you've been signed out on all your devices. Sign in again with your new password.", invalidTitle:"Link expired",
         invalidText:"This link is invalid or has already been used. Request a new one with <b>Forgot password?</b> in My Bingr or in the Bingr app.", newLink:"Request a new link in My Bingr",
-        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", samePw:"Choose a different password from your current one.", waiting:"One moment…" }
+        shortPw:"Password must be at least 8 characters.", mismatch:"The passwords don't match.", generic:"Something went wrong. Please try again.", samePw:"Choose a different password from your current one.", waiting:"One moment…" }
 });
 pwToggles(tr);
 function show(id) { ["form", "done", "invalid", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
@@ -101,7 +101,7 @@ check().then(() => setTimeout(() => { if (!shown) show("invalid"); }, 2500));
 $("pwForm").onsubmit = async (e) => {
   e.preventDefault();
   const a = $("pw1").value, b = $("pw2").value;
-  if (a.length < 6) return ($("err").textContent = tr("shortPw"));
+  if (a.length < Bingr.PW_MIN) return ($("err").textContent = tr("shortPw"));
   if (a !== b) return ($("err").textContent = tr("mismatch"));
   busy($("saveBtn"), true, tr("waiting")); $("err").textContent = "";
   try {

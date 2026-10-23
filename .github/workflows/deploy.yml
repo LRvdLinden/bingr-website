@@ -233,6 +233,35 @@ jobs:
                      "ExpiresByType font/woff2 \"access plus 1 year\"\n"
                      "ExpiresByType text/html \"access plus 0 seconds\"\n"
                      "</IfModule>\n")
+          # Security M3: strikte script-src voor de webspeler (/web/: geen inline scripts; hls.js en mpegts.js staan zelf in
+          # web/js/lib) en de accountpagina's (account, koppelen, reset, bevestigen, upgrade): alleen 'self' plus de hashes van
+          # hun inline scripts en van de ene inline handler (cookie-instellingen, 'unsafe-hashes'), berekend bij elke deploy.
+          # Media, afbeeldingen en verbindingen blijven ruim (IPTV-servers van de gebruiker); het gaat om scripts.
+          import base64, hashlib, html as _html
+          def _h(t): return "'sha256-" + base64.b64encode(hashlib.sha256(t.encode("utf-8")).digest()).decode() + "'"
+          def inline_hashes(path):
+              t = open(path, encoding="utf-8").read()
+              scr = re.findall(r"<script\b(?![^>]*\bsrc\s*=)[^>]*>(.*?)</script>", t, flags=re.S | re.I)
+              hnd = [_html.unescape(v) for v in re.findall(r"\son[a-z]+\s*=\s*\"([^\"]*)\"", t, flags=re.I)]
+              hnd += [_html.unescape(v) for v in re.findall(r"\son[a-z]+\s*=\s*'([^']*)'", t, flags=re.I)]
+              return sorted({_h(x) for x in scr}), sorted({_h(x) for x in hnd})
+          COMMON = ("default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; "
+                    "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'")
+          csp_lines = ["<IfModule mod_setenvif.c>", "SetEnvIf Request_URI \"^/web/\" BINGR_CSP_WEB"]
+          pages = ["account", "koppelen", "reset", "bevestigen", "upgrade"]
+          for d in pages: csp_lines.append(f"SetEnvIf Request_URI \"^/{d}(/|$)\" BINGR_CSP_{d.upper()}")
+          csp_lines += ["</IfModule>", "<IfModule mod_headers.c>"]
+          web_csp = ("script-src 'self'; worker-src 'self' blob:; connect-src * data: blob:; img-src * data: blob:; media-src * data: blob:; "
+                     "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; manifest-src 'self'; " + COMMON)
+          csp_lines.append(f"Header always set Content-Security-Policy \"{web_csp}\" env=BINGR_CSP_WEB")
+          for d in pages:
+              sh, hh = inline_hashes(f"{d}/index.html")
+              src = " ".join(["'self'"] + sh + (["'unsafe-hashes'"] + hh if hh else []))
+              pol = f"script-src {src}; connect-src 'self' https:; img-src 'self' data: blob: https:; frame-src 'self'; " + COMMON
+              csp_lines.append(f"Header always set Content-Security-Policy \"{pol}\" env=BINGR_CSP_{d.upper()}")
+          csp_lines.append("</IfModule>")
+          headers += "\n".join(csp_lines) + "\n"
+          open("/tmp/csp-lines.txt", "w").write("\n".join(csp_lines))
           def security(with_redirect):
               return ("# BEGIN bingr-security (gezet door de workflow Website van bingr-website; niet met de hand wijzigen)\n"
                       + (redirect if with_redirect else "") + headers
@@ -293,6 +322,13 @@ jobs:
           want=$(grep -o '<span data-build>[^<]*' index.html | sed 's/<span data-build>//' | head -1)
           live=$(curl -sL --max-time 20 https://bingr.online/ | grep -o '<span data-build>[^<]*' | sed 's/<span data-build>//' | head -1 || true)
           if [ -n "$want" ] && [ "$live" != "$want" ]; then echo "::error::bingr.online toont '$live', verwacht '$want': de upload is niet op de juiste plek aangekomen."; exit 1; fi
+          # security M3: strikte script-src op de webspeler en de accountpagina's, en de zelf gehoste hls.js
+          for pth in web/ account/ koppelen/; do
+            csp=$(curl -sI --max-time 20 "https://bingr.online/$pth" | tr -d '\r' | grep -i '^content-security-policy:' | head -1)
+            case "$csp" in *"script-src 'self'"*) echo "::notice::/$pth: CSP met script-src 'self'" ;; *) echo "::warning::/$pth zonder strikte script-src (CSP: ${csp:0:120})" ;; esac
+          done
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://bingr.online/web/js/lib/hls-1.5.17.min.js || true)
+          [ "$code" = 200 ] && echo "::notice::hls.js staat zelf op bingr.online" || echo "::warning::web/js/lib/hls-1.5.17.min.js gaf HTTP $code"
           # /support.html is verhuisd naar support.bingr.online (301 via .htaccess, anders de doorverwijspagina)
           r=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 https://bingr.online/support.html || true)
           case "$r" in

@@ -100,7 +100,7 @@
     var last = h('input', { type: 'text', autocomplete: 'family-name', autocapitalize: 'words', spellcheck: 'false', maxlength: '50', placeholder: L('Last name'), 'aria-label': L('Last name') });
     var nameFields = h('div.name-fields', [h('label.field', [first]), h('label.field', [last])]);
     var email = h('input', { type: 'email', autocomplete: 'email', placeholder: L('Email'), 'aria-label': L('Email'), required: true });
-    var pw = h('input', { type: 'password', autocomplete: 'current-password', placeholder: L('Password'), 'aria-label': L('Password'), minlength: '6', required: true });
+    var pw = h('input', { type: 'password', autocomplete: 'current-password', placeholder: L('Password'), 'aria-label': L('Password'), required: true });
     var show = h('button.pw-toggle', { type: 'button' }, L('Show'));
     show.addEventListener('click', function () { var s = pw.type === 'password'; pw.type = s ? 'text' : 'password'; show.textContent = s ? L('Hide') : L('Show'); });
     var err = h('div.login-err', { role: 'alert' });
@@ -144,7 +144,7 @@
       if (signup && !fn) { err.textContent = L('Enter your first name.'); first.focus(); return; }
       if (signup && !ln) { err.textContent = L('Enter your last name.'); last.focus(); return; }
       if (!validEmail(em)) { err.textContent = L('Enter a valid email address.'); email.focus(); return; }
-      if (p.length < 6) { err.textContent = L('Password must be at least 6 characters.'); pw.focus(); return; }
+      if (signup ? p.length < 8 : !p) { err.textContent = L('Password must be at least 8 characters.'); pw.focus(); return; } // build 141: 8 bij een nieuw account; inloggen met een ouder, korter wachtwoord blijft kunnen
       busy = true; err.textContent = '';
       submit.disabled = true; U.clear(submit); submit.appendChild(U.spinner());
       var req = signup ? A.signUp(em, p, fn, ln, guard()) : A.signIn(em, p);

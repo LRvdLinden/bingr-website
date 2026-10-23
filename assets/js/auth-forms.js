@@ -1,4 +1,5 @@
-// Gedeelde inlog- en "wachtwoord vergeten"-logica voor /account, /upgrade en /koppelen.
+// Gedeelde inlog- en "wachtwoord vergeten"-logica voor /account, /upgrade en /koppelen. Build 141: inloggen via de functie
+// login (Bingr.passwordLogin), wachtwoord minimaal 8 tekens (Bingr.PW_MIN), 429 = "Te veel pogingen …".
 // Niet in account.js: dat bestand wordt naar bingr-support gekopieerd. Laden ná assets/js/account.js (window.Bingr).
 // Gebruik:
 //   if (await BingrAuth.signIn({ email, password, btn, label, errEl, tr, onBanned })) …ingelogd…
@@ -14,7 +15,8 @@
   var lang = B.lang === "en" ? "en" : "nl";
   var M = {
     nl: {
-      rateLimit: "Even wachten: er zijn te veel pogingen gedaan. Probeer het over een paar minuten opnieuw.",
+      rateLimit: "Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.",
+      shortPw: "Je wachtwoord moet minstens 8 tekens hebben.",
       offline: "Geen verbinding. Controleer je internetverbinding en probeer het opnieuw.",
       generic: "Er ging iets mis. Probeer het opnieuw.",
       badEmail: "Vul een geldig e-mailadres in.",
@@ -26,7 +28,8 @@
       hpLabel: "Laat dit veld leeg"
     },
     en: {
-      rateLimit: "Please wait: there have been too many attempts. Try again in a few minutes.",
+      rateLimit: "Too many attempts. Wait a few minutes and try again.",
+      shortPw: "Password must be at least 8 characters.",
       offline: "No connection. Check your internet connection and try again.",
       generic: "Something went wrong. Please try again.",
       badEmail: "Enter a valid email address.",
@@ -58,7 +61,7 @@
     if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
     // fetch zonder antwoord (status 0) of een netwerkfout van de browser
     if (st === 0 || (e && e.name === "TypeError") || /failed to fetch|networkerror|load failed|network request failed/.test(m)) return "offline";
-    if (st === 429 || /rate_limit|rate limit|too many/.test(c + " " + m)) return "rateLimit";
+    if (st === 429 || /rate_limit|rate limit|too many|too_many_attempts/.test(c + " " + m)) return "rateLimit";
     if (isBanned(e)) return "banned";
     if (c === "invalid_credentials" || m.indexOf("invalid login") >= 0) return "badCreds";
     if (c === "email_not_confirmed" || m.indexOf("not confirmed") >= 0) return "notConfirmed";
@@ -66,7 +69,8 @@
     if (c === "weak_password") return "shortPw";
     return "generic";
   }
-  function errText(e, tr) { return txt(tr, kind(e)); }
+  // build 141: te veel pogingen met retry_after (functie login): "Probeer het over X minuten opnieuw"
+  function errText(e, tr) { var k = kind(e); return k === "rateLimit" && B.tooManyText ? B.tooManyText(e) : txt(tr, k); }
   function busy(btn, on, label) {
     if (!btn) return;
     if (B.busy && btn.tagName === "BUTTON") return B.busy(btn, on, label);
@@ -113,7 +117,9 @@
     if (o.errEl) o.errEl.textContent = "";
     busy(o.btn, true, txt(tr, "waiting"));
     try {
-      var r = await B.sb.auth.signInWithPassword({ email: String(o.email || "").trim(), password: o.password || "" });
+      // build 141: via de functie login (blokkade per account), terugval op signInWithPassword (assets/js/account.js)
+      var r = B.passwordLogin ? await B.passwordLogin(o.email, o.password, "web")
+        : await B.sb.auth.signInWithPassword({ email: String(o.email || "").trim(), password: o.password || "" });
       if (r && r.error) throw r.error;
       return true;
     } catch (err) {

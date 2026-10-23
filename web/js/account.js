@@ -131,10 +131,26 @@
 
   // MARK: inloggen met e-mail (telefoon) en met een QR-code (tablet, computer)
 
+  /** Te veel pogingen (429): met minuten als de server retry_after (seconden) meegeeft (build 141). */
+  A.tooManyMessage = function (e) {
+    var s = Number(e && e.retry_after) || 0;
+    return s > 0 ? L('Too many attempts. Try again in %d minutes.', Math.max(1, Math.ceil(s / 60))) : L('Too many attempts. Wait a few minutes and try again.');
+  };
+  // build 141: inloggen via de functie login (blokkade per account; ../assets/js/account.js, Bingr.passwordLogin), met
+  // terugval op signInWithPassword als die functie er niet is (404)
+  function passwordSignIn(email, password) {
+    var W = window.Bingr;
+    if (!W || !W.passwordLogin || W.sb !== sb) return sb.auth.signInWithPassword({ email: email, password: password });
+    return W.passwordLogin(email, password, 'web').then(function (x) {
+      if (x.error) return { data: {}, error: x.error };
+      return sb.auth.getSession().then(function (g) { return { data: { session: g.data && g.data.session }, error: null }; });
+    });
+  }
   A.signIn = function (email, password) {
-    return sb.auth.signInWithPassword({ email: email, password: password }).then(function (r) {
+    return passwordSignIn(email, password).then(function (r) {
       if (r.data && r.data.session) { session = r.data.session; return 'ok'; }
       var e = r.error || {};
+      if (e.status === 429 || e.code === 'too_many_attempts' || e.code === 'over_request_rate_limit') throw new AccountError(A.tooManyMessage(e));
       if (e.status === 0 || /fetch/i.test(e.name || '')) throw offline();
       if (e.code === 'email_not_confirmed' || /confirm/i.test(e.message || '')) throw new AccountError(L('Confirm your email address first. Check your inbox.'));
       // geblokkeerd account (user_banned, ook status 400): eigen melding, vóór "onjuist wachtwoord"
@@ -161,7 +177,7 @@
         var e = r.error;
         if (e.status === 0) throw offline();
         if (e.code === 'user_already_exists' || /already/i.test(e.message || '')) throw new AccountError(L('An account with this email already exists.'));
-        if (e.code === 'weak_password') throw new AccountError(L('Password must be at least 6 characters.'));
+        if (e.code === 'weak_password') throw new AccountError(L('Password must be at least 8 characters.'));
         throw generic();
       }
       var d = r.data || {};

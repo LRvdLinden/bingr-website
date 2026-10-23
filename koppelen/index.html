@@ -128,8 +128,8 @@
 
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=94"></script>
-<script src="../assets/js/auth-forms.js?v=4"></script>
+<script src="../assets/js/account.js?v=141"></script>
+<script src="../assets/js/auth-forms.js?v=5"></script>
 <script>
 const { sb, params, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -145,7 +145,7 @@ const tr = t({
         noMail:"Geen mail gekregen? Kijk ook bij ongewenste e-mail (spam), of laat hem opnieuw sturen.", resendBtn:"Stuur de mail opnieuw",
         banned:"Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer. Vragen? Ga naar support.bingr.online.",
         badCreds:"Onjuist e-mailadres of wachtwoord.", notConfirmed:"Bevestig eerst je e-mailadres. Kijk in je inbox.", exists:"Er bestaat al een account met dit e-mailadres.",
-        badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
+        badEmail:"Vul een geldig e-mailadres in.", shortPw:"Je wachtwoord moet minstens 8 tekens hebben.", badCode:"Deze code is ongeldig of verlopen. Kijk op je tv voor de nieuwe code.",
         noCode:"Vul de code van je tv in.", nameLbl:"Naam van dit apparaat", nameOpt:"(optioneel)", nameHint:"Bijv. Woonkamer. Zo herken je het apparaat in Mijn Bingr. Je kunt de hele naam aanpassen.", nameLong:"De naam mag maximaal 40 tekens hebben.", generic:"Er ging iets mis. Probeer het opnieuw.", resetSent:"Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.", waiting:"Even geduld…" },
   en: { docTitle:"Link a device · Bingr", signIn:"Sign In", signUp:"Create account", authIntro:"Sign in with your Bingr account to link your TV, tablet or computer.", email:"Email", password:"Password",
         show:"Show", hide:"Hide", forgot:"Forgot password?", newTo:"New to Bingr?", signUpNow:"Sign up now.", haveAcc:"Already have an account?", signInNow:"Sign in.",
@@ -159,7 +159,7 @@ const tr = t({
         noMail:"No email? Check your spam folder too, or have it sent again.", resendBtn:"Send the email again",
         banned:"Your account has been blocked. You received an email with the reason and until when. Questions? Go to support.bingr.online.",
         badCreds:"Incorrect email or password.", notConfirmed:"Confirm your email address first. Check your inbox.", exists:"An account with this email already exists.",
-        badEmail:"Enter a valid email address.", shortPw:"Password must be at least 6 characters.", badCode:"That code is invalid or has expired. Check your TV for the new code.",
+        badEmail:"Enter a valid email address.", shortPw:"Password must be at least 8 characters.", badCode:"That code is invalid or has expired. Check your TV for the new code.",
         noCode:"Enter the code from your TV.", nameLbl:"Name for this device", nameOpt:"(optional)", nameHint:"E.g. Living room. This is how you'll recognise the device in My Bingr. You can change the whole name.", nameLong:"The name can be at most 40 characters.", generic:"Something went wrong. Please try again.", resetSent:"If an account exists, you'll receive an email to reset your password.", waiting:"One moment…" }
 });
 pwToggles(tr);
@@ -290,11 +290,11 @@ $("authForm").onsubmit = async (e) => {
   if (mode !== "signin" && !first_name) { $("firstName").focus(); return ($("authErr").textContent = tr("noFirst")); }
   if (mode !== "signin" && !last_name) { $("lastName").focus(); return ($("authErr").textContent = tr("noLast")); }
   if (!/^\S+@\S+\.\S+$/.test(email)) return ($("authErr").textContent = tr("badEmail"));
-  if (password.length < 6) return ($("authErr").textContent = tr("shortPw"));
+  if (mode !== "signin" ? password.length < Bingr.PW_MIN : !password) return ($("authErr").textContent = tr("shortPw")); // build 141: 8 bij een nieuw account
   busy($("authBtn"), true, tr("waiting")); $("authErr").textContent = "";
   try {
     if (mode === "signin") {
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { error } = await Bingr.passwordLogin(email, password, "web"); // build 141: functie login (terugval signInWithPassword)
       if (error) { pendingEmail = email; pendingBack = backUrl(); throw error; }
     } else {
       // zonder koppelcode (account maken vanaf de homepage of Mijn Bingr) daarna naar Mijn Bingr, anders terug naar koppelen

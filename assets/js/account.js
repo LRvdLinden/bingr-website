@@ -29,5 +29,42 @@
     try { Object.keys(localStorage).filter((k) => /^sb-.*-auth-token(-code-verifier)?$/.test(k)).forEach((k) => localStorage.removeItem(k)); } catch (e) {}
     try { window.BingrAvatar && BingrAvatar.clear(); } catch (e) {}
   }
-  window.Bingr = { sb, lang, params, $, t, pwToggles, busy, cfg, hardSignOut };
+  // Build 141: wachtwoord minimaal 8 tekens (de server eist het ook; fout weak_password).
+  const PW_MIN = 8;
+  // Build 141: inloggen met e-mail en wachtwoord via de eigen functie login (blokkade per account, docs/ACCOUNT.md
+  // "Inloggen via de functie login" in iptv-ios-appletv). 200 = hetzelfde antwoord als /auth/v1/token?grant_type=password;
+  // de sessie gaat met setSession in supabase-js. Bestaat de functie (nog) niet (404), dan signInWithPassword.
+  // Terug: { error } met error = null of { code, status, message, retry_after } (zoals de fouten van supabase-js).
+  async function passwordLogin(email, password, platform) {
+    let r;
+    try {
+      r = await fetch(cfg.url + "/functions/v1/login", {
+        method: "POST", headers: { "Content-Type": "application/json", apikey: cfg.anonKey },
+        body: JSON.stringify({ email: String(email || "").trim(), password: password || "", platform: platform || "web" }),
+      });
+    } catch (e) { return { error: { code: "network", status: 0, message: "Failed to fetch", name: "TypeError" } }; }
+    if (r.status === 404) {
+      const x = await sb.auth.signInWithPassword({ email: String(email || "").trim(), password: password || "" });
+      return { error: x.error || null };
+    }
+    let j = {};
+    try { j = await r.json(); } catch (e) { j = {}; }
+    if (r.ok && j && j.access_token && j.refresh_token) {
+      const s = await sb.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
+      return { error: s.error || null };
+    }
+    const code = j.error_code || j.code || j.error || (r.status === 429 ? "too_many_attempts" : "unexpected");
+    return { error: { code: String(code), status: r.status, message: String(j.msg || j.message || code), retry_after: Number(j.retry_after) || 0 } };
+  }
+  // melding bij te veel pogingen (429): met minuten als de server retry_after (seconden) meegeeft
+  function tooManyText(e) {
+    const s = Number(e && e.retry_after) || 0;
+    if (s > 0) {
+      const m = Math.max(1, Math.ceil(s / 60));
+      return lang === "nl" ? `Te veel pogingen. Probeer het over ${m} ${m === 1 ? "minuut" : "minuten"} opnieuw.` : `Too many attempts. Try again in ${m} ${m === 1 ? "minute" : "minutes"}.`;
+    }
+    return lang === "nl" ? "Te veel pogingen. Wacht een paar minuten en probeer het opnieuw." : "Too many attempts. Wait a few minutes and try again.";
+  }
+  const shortPwText = () => (lang === "nl" ? `Je wachtwoord moet minstens ${PW_MIN} tekens hebben.` : `Password must be at least ${PW_MIN} characters.`);
+  window.Bingr = { sb, lang, params, $, t, pwToggles, busy, cfg, hardSignOut, PW_MIN, passwordLogin, tooManyText, shortPwText };
 })();

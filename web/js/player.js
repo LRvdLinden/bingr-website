@@ -16,8 +16,9 @@
   var h = U.h;
   var L = function () { return B.L.apply(null, arguments); };
 
-  var HLS_SRC = ['https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js', 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js'];
-  var MPEGTS_SRC = ['https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js'];
+  // security M3: zelf gehost (zelfde versies als voorheen van de CDN, uit het npm-pakket), zodat de CSP script-src 'self' kan zijn
+  var HLS_SRC = ['js/lib/hls-1.5.17.min.js'];
+  var MPEGTS_SRC = ['js/lib/mpegts-1.7.3.js'];
   function loadLib(list, test) {
     if (test()) return Promise.resolve();
     var i = 0;

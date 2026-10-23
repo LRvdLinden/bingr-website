@@ -110,7 +110,7 @@
 <script src="../assets/js/site.js?v=111" data-base="../"></script>
 <script src="../assets/vendor/supabase.js?v=2.45.4"></script>
 <script src="../assets/config.js"></script>
-<script src="../assets/js/account.js?v=94"></script>
+<script src="../assets/js/account.js?v=141"></script>
 <script>
 // bingr.online/bevestigen/?token_hash=…&type=…&lang=…[&next=…]: alle links uit de accountmails (supabase/templates in
 // iptv-ios-appletv). Pas na een klik op de knop gaat de token naar Supabase (POST /auth/v1/verify); de token wordt nooit gelogd.
@@ -137,7 +137,7 @@ const tr = t({
         resendSignup:"Nieuwe bevestigingsmail sturen", resendRecovery:"Nieuwe link sturen",
         sentSignup:"Bestaat er een onbevestigd account met dit adres, dan ontvang je zo een nieuwe bevestigingsmail.", sentRecovery:"Bestaat er een account met dit adres, dan ontvang je zo een e-mail om je wachtwoord opnieuw in te stellen.",
         badEmail:"Vul een geldig e-mailadres in.", tooMany:"Je hebt net al een e-mail gekregen. Wacht even en probeer het dan opnieuw.",
-        shortPw:"Je wachtwoord moet minstens 6 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", offline:"Geen verbinding. Controleer je internet en probeer het opnieuw.",
+        shortPw:"Je wachtwoord moet minstens 8 tekens hebben.", mismatch:"De wachtwoorden zijn niet gelijk.", offline:"Geen verbinding. Controleer je internet en probeer het opnieuw.",
         generic:"Er ging iets mis. Probeer het opnieuw.", waiting:"Even geduld…" },
   en: { docTitle:"Confirm · Bingr", email:"Email", newPw:"New password", repeatPw:"Repeat password", save:"Save password", show:"Show", hide:"Hide",
         pwTitle:"Choose a password", forAcc:"For",
@@ -160,7 +160,7 @@ const tr = t({
         resendSignup:"Send a new confirmation email", resendRecovery:"Send a new link",
         sentSignup:"If there's an unconfirmed account with this address, you'll receive a new confirmation email shortly.", sentRecovery:"If an account exists with this address, you'll receive an email to reset your password shortly.",
         badEmail:"Enter a valid email address.", tooMany:"You just received an email. Please wait a moment and try again.",
-        shortPw:"Password must be at least 6 characters.", mismatch:"The passwords don't match.", offline:"No connection. Check your internet and try again.",
+        shortPw:"Password must be at least 8 characters.", mismatch:"The passwords don't match.", offline:"No connection. Check your internet and try again.",
         generic:"Something went wrong. Please try again.", waiting:"One moment…" }
 });
 pwToggles(tr);
@@ -299,7 +299,7 @@ $("goBtn").onclick = async () => {
 $("pwForm").onsubmit = async (e) => {
   e.preventDefault();
   const a = $("pw1").value, b2 = $("pw2").value;
-  if (a.length < 6) return ($("pwErr").textContent = tr("shortPw"));
+  if (a.length < Bingr.PW_MIN) return ($("pwErr").textContent = tr("shortPw"));
   if (a !== b2) return ($("pwErr").textContent = tr("mismatch"));
   busy($("saveBtn"), true, tr("waiting")); $("pwErr").textContent = "";
   const { error } = await sb.auth.updateUser({ password: a }).catch((err) => ({ error: err }));
