@@ -242,6 +242,7 @@ jobs:
                    "Redirect 301 /support.html https://support.bingr.online/hulp/\n"
                    "RedirectMatch 302 ^/apk/?$ https://beheer.bingr.online/dl.php?app=android\n"
                    "RedirectMatch 302 ^/presskit/?$ https://beheer.bingr.online/dl.php?app=presskit\n"
+                   "RedirectMatch 302 ^/windows/?$ https://beheer.bingr.online/dl.php?app=windows\n"
                    "RedirectMatch 302 ^/status/feed\\.atom$ " + FN + "?action=feed&format=atom&lang=nl\n"
                    "RedirectMatch 302 ^/status/feed\\.en\\.atom$ " + FN + "?action=feed&format=atom&lang=en\n"
                    "RedirectMatch 302 ^/status/feed\\.rss$ " + FN + "?action=feed&format=rss&lang=nl\n"
@@ -297,6 +298,12 @@ jobs:
           case "$r" in
             30[1278]\ https://support.bingr.online/*) echo "::notice::/support.html stuurt door: $r" ;;
             *) echo "::warning::/support.html geeft '$r' in plaats van een 301 naar support.bingr.online (de doorverwijspagina vangt het op)" ;;
+          esac
+          # /windows stuurt door naar de openbare Windows-installer in het beheer (zoals /apk)
+          r=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 20 https://bingr.online/windows || true)
+          case "$r" in
+            302\ https://beheer.bingr.online/dl.php\?app=windows) echo "::notice::/windows stuurt door naar dl.php?app=windows" ;;
+            *) echo "::warning::/windows gaf '$r' in plaats van een 302 naar beheer.bingr.online/dl.php?app=windows" ;;
           esac
           # statusfeeds: /status/feed.atom en .rss sturen door naar de feed (XML)
           for f in feed.atom feed.en.rss; do

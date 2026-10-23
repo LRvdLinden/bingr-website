@@ -159,7 +159,8 @@
     android: S('<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><circle cx="12" cy="5.2" r=".7" fill="currentColor"/>'),
     androidtv: S('<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 20.5h7M12 17v3.5"/>'),
     tizen: S('<rect x="2" y="4" width="20" height="12.5" rx="1.5"/><path d="M2 14.5h20M6.5 16.5l-1.5 3.5M17.5 16.5l1.5 3.5"/>'),
-    windows: S('<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>'),
+    // Windows: het vensterlogo van Windows 11 (vier ruiten in 2x2, smalle spleet; gevuld)
+    windows: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><path d="M3.5 3.5h7.9v7.9H3.5zM12.6 3.5h7.9v7.9h-7.9zM3.5 12.6h7.9v7.9H3.5zM12.6 12.6h7.9v7.9h-7.9z"/></svg>`,
     web: S('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
     server: S('<rect x="3.5" y="3.5" width="17" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="17" height="7" rx="1.5"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/>'),
     all: S('<rect x="2.5" y="4" width="13" height="9" rx="1.5"/><path d="M6 16h6"/><rect x="16.5" y="8" width="5" height="11" rx="1.3"/>'),
