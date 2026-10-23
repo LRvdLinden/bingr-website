@@ -17,12 +17,17 @@ concurrency:
   group: website-deploy
   cancel-in-progress: false
 
+
+# security M5: alleen lezen (deze workflow pusht niets en gebruikt GITHUB_TOKEN alleen voor de checkout)
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5 (v5.1.0)
         with:
           ref: main
 
@@ -356,7 +361,7 @@ jobs:
           curl -s -o /dev/null -D /tmp/h.txt --max-time 20 https://bingr.online/koppelen/ || true
           for h in 'strict-transport-security: max-age=31536000' 'x-content-type-options: nosniff' \
                    'referrer-policy: strict-origin-when-cross-origin' 'permissions-policy: camera=(), microphone=(), geolocation=()' \
-                   'x-frame-options: deny' "content-security-policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'"; do
+                   'x-frame-options: deny' "frame-ancestors 'none'" "object-src 'none'" "script-src 'self'"; do
             if tr -d '\r' < /tmp/h.txt | grep -qiF "$h"; then :; else echo "::error::Header ontbreekt op https://bingr.online/koppelen/: $h"; bad=1; fi
           done
           [ "$bad" = 0 ] && echo "::notice::Beveiligingsheaders staan live (HSTS, nosniff, Referrer-Policy, Permissions-Policy, frame-ancestors/X-Frame-Options)"
