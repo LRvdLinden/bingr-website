@@ -6,6 +6,9 @@
  * Build 86: het overzicht opent vanuit Mijn Bingr (Bibliotheek) en vanuit de rij "Categorieën" op Home (C.homeRow);
  * niet meer bovenin de navigatie of als chip bij Films en Series. De routes blijven gelijk (deeplinks werken).
  *
+ * Build 140: "Categorieën" staat weer in de navigatie (op de plek van Mijn Bingr) en toont ook de categorieën van Live TV
+ * (tegels naar #/live/<categorie>). Kinderprofiel: alleen kindercategorieën (alles werkt op de gefilterde Lib.lib).
+ *
  * Routes: #/categorie (overzicht) en #/categorie/<id>, met ?type=movie|series en ?sort=popular|newest|az|rating.
  * <id> = genresleutel (action, comedy, …) of "server:<naam van de categorie>".
  *
@@ -108,6 +111,30 @@
     return { movie: hid.indexOf('movies') < 0, series: hid.indexOf('series') < 0 };
   }
   C.available = function () { var k = kinds(); return k.movie || k.series; };
+  /** build 140: Live TV-categorieën in het overzicht (niet als het tabblad Live TV verborgen is). */
+  function liveOn() { var hid = D.shared('hiddenTabs', []) || []; return hid.indexOf('live') < 0; }
+  /** Categorieën van Live TV: [{name, n, logos}] in de volgorde van de server. */
+  function liveCats() {
+    return Lib.memo('cat:live', function () {
+      var by = Lib.byGroup('channel');
+      return (Lib.lib.channelGroups || []).map(function (g) {
+        var list = by[g] || [];
+        var logos = [];
+        for (var i = 0; i < list.length && logos.length < 4; i++) if (list[i].logo) logos.push(list[i].logo);
+        return { name: g, n: list.length, logos: logos };
+      }).filter(function (c) { return c.n > 0; });
+    });
+  }
+  function chanText(n) { return n === 1 ? L('1 channel') : L('%d channels', n); }
+  function liveTile(c) {
+    var col = SRV_PAL[hash('live:' + c.name) % SRV_PAL.length];
+    var art = h('div.cat-art.cat-logos', c.logos.map(function (u, i) { return h('div.cat-p.cat-lg.cat-p' + (i + 1) + '.n' + c.logos.length, [U.img(u, 'logo', '')]); }));
+    var a = h('a.cat-tile.srv.cat-live' + (c.logos.length ? '' : '.noart'), {
+      href: R.link(['live', c.name]), 'aria-label': c.name + ', ' + chanText(c.n),
+      style: '--c1:' + col[0] + ';--c2:' + col[1]
+    }, [h('div.cat-glow'), art, h('div.cat-shade'), h('div.cat-txt', [h('div.cat-name', c.name), h('div.cat-count', chanText(c.n))])]);
+    return a;
+  }
   var idx = null;
   function index() {
     var k = kinds();
@@ -329,7 +356,7 @@
     var el = h('div.page.cats');
     var pg = { el: el, title: L('Categories') };
     var type = typeFrom(r.query);
-    var grid = null, warm = warmer(), note = null, genreBox = null, shown = '';
+    var grid = null, liveGrid = null, warm = warmer(), note = null, genreBox = null, shown = '';
     function genreList() { return genresByCount(type); }
     function drawGenres() {
       U.clear(genreBox);
@@ -341,10 +368,11 @@
     }
     function render() {
       if (grid && grid.destroy) grid.destroy();
-      grid = null;
+      if (liveGrid && liveGrid.destroy) liveGrid.destroy();
+      grid = null; liveGrid = null;
       U.clear(el);
       note = fillNote();
-      el.appendChild(h('div.page-head.cat-head', [h('div.cat-h', [h('h1', L('Categories')), h('p.muted.cat-sub', L('Explore your movies and series by genre.'))]), note]));
+      el.appendChild(h('div.page-head.cat-head', [h('div.cat-h', [h('h1', L('Categories')), h('p.muted.cat-sub', L(liveOn() ? 'Explore your channels, movies and series by category.' : 'Explore your movies and series by genre.'))]), note]));
       var st = S.stateBox ? S.stateBox() : null;
       if (st) { el.appendChild(st); return; }
       var seg = segmented(type, null, function (t) {
@@ -354,8 +382,7 @@
       });
       if (seg) el.appendChild(h('div.cat-bar', [seg]));
       genreBox = h('div.cat-genres');
-      el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', L('Genres')), genreBox]));
-      drawGenres();
+      if (C.available()) { el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', L('Genres')), genreBox])); drawGenres(); }
       var srv = serverCats().filter(function (c) { return count(c, type) > 0; }).map(function (c) {
         return B.assign({ colors: SRV_PAL[hash(c.name) % SRV_PAL.length] }, c);
       });
@@ -363,6 +390,13 @@
         grid = U.grid(srv, function (c) { return tile(c, type, true); }, 'cat-grid.srv-grid', 24);
         el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', [L('From your server'), Lib.source ? h('span.cat-src', Lib.source.name) : null]), grid]));
       }
+      // build 140: categorieën van Live TV (bij "Alles")
+      var live = type === 'all' && liveOn() ? liveCats() : [];
+      if (live.length) {
+        liveGrid = U.grid(live, liveTile, 'cat-grid.srv-grid.live-grid', 24);
+        el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', L('Live TV')), liveGrid]));
+      }
+      if (!C.available() && !live.length) el.appendChild(h('div.state', [U.icon('grid', 'state-ic'), h('p.muted', L('Nothing here yet'))]));
       warm.start();
     }
     /** Nieuwe genres uit TMDB: alleen opnieuw tekenen als er iets verandert (geen geflikker van covers). */
@@ -391,7 +425,7 @@
     arrowNav(el, '.cat-tile');
     pg.refresh = render;
     pg.onLoading = function () { if (el.querySelector('.state')) render(); };
-    pg.destroy = function () { warm.stop(); clearInterval(tick); offs.forEach(function (f) { f(); }); if (grid && grid.destroy) grid.destroy(); };
+    pg.destroy = function () { warm.stop(); clearInterval(tick); offs.forEach(function (f) { f(); }); if (grid && grid.destroy) grid.destroy(); if (liveGrid && liveGrid.destroy) liveGrid.destroy(); };
     render();
     return pg;
   }

@@ -53,6 +53,8 @@
     B.store.keys('pstate.').forEach(function (k) { B.store.del(k); });
     B.store.keys('lastChannel.').forEach(function (k) { B.store.del(k); });
     B.store.del('lastProfile'); B.store.del('activeSource'); B.store.del('accentMigrated');
+    // build 140: verborgen categorieën van het account
+    AC = { hc: {}, base: null, dirty: false, rev: 0 }; B.store.del(ACC_KEY); B.store.del(ACC_MIG);
     B.idb.clear();
     // Trakt, OpenSubtitles en herinneringen van het vorige account
     B.emit('wipe');
@@ -189,6 +191,7 @@
     var active = (list || []).filter(function (p) { return p && p.id && p.deleted !== true; });
     active.sort(function (a, b) { return (B.int(a.order) || 0) - (B.int(b.order) || 0); });
     D.profiles = active;
+    D.profilesSynced = true; // build 140: migratie van de categorieën pas met de profielen van de server
     save();
     B.emit('profiles');
   }
@@ -558,6 +561,15 @@
     B.store.set(pkey(P.id), { st: P.st, base: P.base, names: P.names, dirty: P.dirty });
   }
   D.loadProfileState = function (id) {
+    // build 140 (Mijn lijst): wisselen terwijl het vorige profiel nog niet-geüploade wijzigingen had. D.flush() leest de
+    // server pas ná het wisselen en voegde dan het nieuwe profiel samen: de toevoeging bleef lokaal en kwam nooit op het
+    // andere apparaat aan. Nu gaat het vorige profiel apart naar de server.
+    if (P.id && lower(P.id) !== lower(id) && P.dirty) {
+      var prevId = P.id;
+      persistP();
+      clearTimeout(timer); timer = null;
+      setTimeout(function () { uploadOther(prevId); }, 0);
+    }
     var saved = B.store.get(pkey(id), null);
     P.id = id;
     P.st = (saved && saved.st) || { sets: { myList: {}, favorites: {}, watched: {}, recentChannels: {} }, progress: {}, history: {} };
@@ -629,13 +641,63 @@
       // connections (Trakt/OpenSubtitles) en herinneringen voegen zelf samen
       B.emit('state', all);
       D.syncedOnce = true;
+      // build 140: verborgen categorieën van het account (section `account`)
+      mergeAccount(all, true);
+      // build 140: andere profielen met niet-geüploade wijzigingen (wisselen terwijl offline) alsnog versturen
+      setTimeout(uploadDirtyOthers, 0);
       if (!P.id) return true;
+      editsAtMerge = edits;
       return mergeActive(all);
-    }).catch(function (e) { B.log('sync', e); return false; }).then(function (r) { syncing = null; return r; });
+    }).catch(function (e) { B.log('sync', e); return false; }).then(function (r) {
+      syncing = null;
+      // build 140 (Mijn lijst): een wijziging tijdens deze sync (na het lezen van de server) kwam niet mee; de timer
+      // van die wijziging kreeg deze (lopende) sync terug en verstuurde dus niets. Nu meteen nog een ronde.
+      if (P.id && P.dirty && edits !== editsAtMerge) { clearTimeout(timer); timer = setTimeout(function () { D.syncState(); }, 1000); }
+      return r;
+    });
     return syncing;
   };
+  var edits = 0, editsAtMerge = 0;
 
-  function mergeActive(all) {
+  /** Profiel dat niet actief is: lokale niet-geüploade wijzigingen samenvoegen met de server en versturen. */
+  var otherBusy = {};
+  function uploadOther(id) {
+    var lid = lower(id);
+    if (!lid || otherBusy[lid] || (P.id && lower(P.id) === lid)) return Promise.resolve(false);
+    var saved = B.store.get(pkey(id), null);
+    if (!saved || !saved.dirty || !saved.st) return Promise.resolve(false);
+    otherBusy[lid] = true;
+    var C = { id: id, st: saved.st, base: saved.base || null, names: saved.names || [], dirty: true };
+    SET_FIELDS.forEach(function (f) { C.st.sets[f] = C.st.sets[f] || {}; });
+    return A.getState().then(function (all) {
+      if (!all) return false;
+      // intussen weer actief geworden: dan doet de gewone sync het
+      if (P.id && lower(P.id) === lid) return false;
+      return mergeProfile(all, C, false);
+    }).catch(function (e) { B.log('sync ander profiel', e); return false; }).then(function (r) { delete otherBusy[lid]; return r; });
+  }
+  D._uploadOther = uploadOther;
+  function uploadDirtyOthers() {
+    B.store.keys('pstate.').forEach(function (k) {
+      var id = k.slice(7);
+      if (P.id && lower(P.id) === lower(id)) return;
+      var s = B.store.get(k, null);
+      if (s && s.dirty) uploadOther(id);
+    });
+  }
+  /** build 140: heeft dit (niet-actieve) profiel lokale wijzigingen die nog naar de server moeten? (xs.js: niet overschrijven) */
+  D.hasLocalChanges = function (id) {
+    if (P.id && lower(P.id) === lower(id)) return !!P.dirty;
+    var s = B.store.get(pkey(id), null);
+    return !!(s && s.dirty) || !!otherBusy[lower(id)];
+  };
+
+  function mergeActive(all) { return mergeProfile(all, P, true); }
+  function persistCtx(C, active) {
+    if (active) { persistP(); return; }
+    B.store.set(pkey(C.id), { st: C.st, base: C.base, names: C.names, dirty: C.dirty });
+  }
+  function mergeProfile(all, P, active) {
     var id = lower(P.id);
     var names = Object.keys(all).filter(function (n) { return lower(n) === 'profile.' + id; });
     var server = null, base = null;
@@ -663,7 +725,7 @@
       P.base = base;
     } else if (localBase && WHOLE.some(function (o) { return o.at(localBase) > 0; })) prefsNewer = true;
     // build 91: kijkvoorkeuren van een ander apparaat → instellingen opnieuw tekenen
-    if (JSON.stringify(localBase && localBase.prefs || null) !== JSON.stringify(P.base && P.base.prefs || null)) setTimeout(function () { B.emit('settings'); }, 0);
+    if (active && JSON.stringify(localBase && localBase.prefs || null) !== JSON.stringify(P.base && P.base.prefs || null)) setTimeout(function () { B.emit('settings'); }, 0);
     if (names.length) P.names = names;
     var srv = server ? normalize(server) : null;
     var merged = normalize(srv ? mergeState(P.st, srv) : P.st);
@@ -672,14 +734,14 @@
     P.st = merged;
     var needUpload = prefsNewer || (!srv ? hasAny(merged) : stateKey(merged) !== stateKey(srv));
     P.dirty = false;
-    persistP();
-    if (changed) B.emit('profileData');
+    persistCtx(P, active);
+    if (changed && active) B.emit('profileData');
     if (!needUpload) return true;
     var json = toJSON(P.base, merged);
     var targets = P.names.length ? P.names : ['profile.' + P.id];
     return Promise.all(targets.map(function (n) { return A.putState(n, json); })).then(function (res) {
-      if (res.some(function (x) { return x == null; })) { P.dirty = true; persistP(); return false; }
-      P.base = json; persistP();
+      if (res.some(function (x) { return x == null; })) { P.dirty = true; persistCtx(P, active); return false; }
+      P.base = json; persistCtx(P, active);
       return true;
     });
   }
@@ -697,6 +759,7 @@
 
   /** Lokale wijziging: na ~3 s naar de server (voortgang tijdens afspelen hooguit eens per 30 s). */
   function changed(progressOnly) {
+    edits++;
     P.dirty = true; persistP();
     B.emit('profileData');
     var wait = 3000;
@@ -776,15 +839,173 @@
       .filter(function (e) { var n = normKey(historyId(e)); if (seen[n]) return false; seen[n] = true; return true; });
   };
   D.isWatched = function (k) { return D.inSet('watched', k); };
-  /** build 128: namen (zoals de server ze levert) van de categorieën die voor dit profiel uit staan op server sid. */
-  D.hiddenCategoryNames = function (sid) {
+  // MARK: build 140: verborgen categorieën voor het hele account (state-section `account`, contract in docs/ACCOUNT.md)
+  //
+  // {hiddenCategories: [{id: "<server-id kleine letters>|<categorienaam exact>", at}], removed: {hiddenCategories: {id: at}},
+  //  updatedAt}; per sleutel wint de nieuwste `at` (zoals myList). Geldt voor alle profielen behalve kinderprofielen.
+  // profile.<id>.hiddenCategories (build 128) wordt niet meer gelezen of gewijzigd (alleen eenmalig overgenomen).
+
+  var ACC_KEY = 'acct', ACC_MIG = 'acct.catMigrated140', ACC_SECTION = 'account';
+  var AC = B.store.get(ACC_KEY, null) || {};
+  AC = { hc: AC.hc || {}, base: AC.base || null, dirty: !!AC.dirty, rev: 0 };
+  function saveAC() { B.store.set(ACC_KEY, { hc: AC.hc, base: AC.base, dirty: AC.dirty }); }
+  /** Sleutel met de server-id in kleine letters (categorienaam exact). */
+  function accKey(k) { k = String(k); var bar = k.indexOf('|'); return bar > 0 ? lower(k.slice(0, bar)) + k.slice(bar) : k; }
+  function parseAcc(d) {
+    var raw = parseSetField(d && d.hiddenCategories, d && d.removed && typeof d.removed === 'object' ? d.removed.hiddenCategories : null);
     var out = {};
-    if (!P.st || !sid) return out;
-    var pre = lower(sid) + '|';
-    liveKeys(P.st.sets.hiddenCategories).forEach(function (k) { if (lower(k).indexOf(pre) === 0) out[k.slice(pre.length)] = true; });
+    Object.keys(raw).forEach(function (k) { putNewer(out, accKey(k), raw[k]); });
     return out;
+  }
+  function pruneAcc(m) {
+    var cutoff = Date.now() - REMOVED_DAYS * 86400000, out = {};
+    Object.keys(m).forEach(function (k) { if (m[k].on || m[k].at >= cutoff) out[k] = m[k]; });
+    return out;
+  }
+  function accJSON(base, m) {
+    var out = base && typeof base === 'object' ? B.copy(base) : {};
+    out.hiddenCategories = Object.keys(m).filter(function (k) { return m[k].on; })
+      .sort(function (x, y) { return (m[y].at - m[x].at) || (x < y ? -1 : x > y ? 1 : 0); })
+      .map(function (k) { return { id: k, at: B.iso(m[k].at) }; });
+    var removed = out.removed && typeof out.removed === 'object' && !Array.isArray(out.removed) ? out.removed : {};
+    removed.hiddenCategories = {};
+    Object.keys(m).filter(function (k) { return !m[k].on; }).sort().forEach(function (k) { removed.hiddenCategories[k] = B.iso(m[k].at); });
+    out.removed = removed;
+    out.updatedAt = B.iso();
+    return out;
+  }
+  function accSig(m) { return JSON.stringify(Object.keys(m).sort().map(function (k) { return [k, m[k].on, m[k].at]; })); }
+  function liveSig(m) { return Object.keys(m).filter(function (k) { return m[k].on; }).sort().join('\n'); }
+  /** Categorieën van servers die niet meer bestaan: als verwijdering (gesynct). true = er veranderde iets. */
+  function accTombstones(m) {
+    if (!D.sourcesSynced) return false;
+    var now = Date.now(), any = false;
+    Object.keys(m).forEach(function (k) {
+      var bar = k.indexOf('|');
+      if (!m[k].on || bar <= 0 || knownSource(k.slice(0, bar))) return;
+      m[k] = { at: Math.max(now, m[k].at + 1), on: false };
+      any = true;
+    });
+    return any;
+  }
+  /**
+   * Eenmalige migratie (per apparaat): de unie van hiddenCategories uit profile.<id> van alle niet-kinderprofielen, met
+   * `at` = epoch, zodat elke keuze die al in `account` staat (ook een verwijdering) wint. Mag veilig vaker lopen.
+   */
+  function accMigrate(all, m) {
+    if (B.store.get(ACC_MIG, false) || !D.profilesSynced || !D.profiles.length) return false;
+    var any = false;
+    Object.keys(all).forEach(function (name) {
+      if (lower(name).indexOf('profile.') !== 0) return;
+      var p = D.profileById(name.slice(8));
+      if (!p || p.kids) return;
+      var d = all[name] && all[name].data;
+      if (!d || typeof d !== 'object') return;
+      var set = parseSetField(d.hiddenCategories, d.removed && typeof d.removed === 'object' ? d.removed.hiddenCategories : null);
+      Object.keys(set).forEach(function (k) {
+        if (!set[k].on) return;
+        var ak = accKey(k);
+        if (!m[ak]) { m[ak] = { at: 0, on: true }; any = true; }
+      });
+    });
+    return { changed: any };
+  }
+  /**
+   * Section `account` van de server samenvoegen met de lokale set (full = volledige sync: ook de migratie).
+   * Upload als lokaal iets nieuwer is of de server niets heeft.
+   */
+  var accBusy = null, accTimer = null, accEdits = 0;
+  function mergeAccount(all, full) {
+    var sec = all && all[ACC_SECTION];
+    var srvData = sec && sec.data && typeof sec.data === 'object' ? sec.data : null;
+    var sm = srvData ? parseAcc(srvData) : {};
+    var before = liveSig(AC.hc);
+    var merged = mergeMaps(AC.hc, sm);
+    var mig = full ? accMigrate(all, merged) : false;
+    accTombstones(merged);
+    merged = pruneAcc(merged);
+    AC.hc = merged;
+    if (srvData) AC.base = srvData;
+    AC.rev++;
+    var need = srvData ? accSig(merged) !== accSig(pruneAcc(sm)) : Object.keys(merged).length > 0;
+    saveAC();
+    if (liveSig(merged) !== before) B.emit('accountCats');
+    if (!need) {
+      AC.dirty = false; saveAC();
+      if (mig) B.store.set(ACC_MIG, B.iso());
+      return Promise.resolve(true);
+    }
+    return putAccount(mig);
+  }
+  function putAccount(mig) {
+    var sentEdits = accEdits;
+    var json = accJSON(AC.base, AC.hc);
+    return A.putState(ACC_SECTION, json).then(function (at) {
+      if (at == null) { AC.dirty = true; saveAC(); return false; }
+      AC.base = json;
+      if (accEdits === sentEdits) AC.dirty = false;
+      saveAC();
+      if (mig) B.store.set(ACC_MIG, B.iso());
+      return true;
+    }, function () { AC.dirty = true; saveAC(); return false; });
+  }
+  /** Alleen de section `account` lezen, samenvoegen en (als nodig) versturen. */
+  function syncAccount() {
+    if (accBusy) return accBusy.then(function () { return AC.dirty ? syncAccount() : true; });
+    accBusy = A.getState([ACC_SECTION]).then(function (all) {
+      if (!all) return false;
+      return mergeAccount(all, false);
+    }).catch(function (e) { B.log('sync account', e); return false; }).then(function (r) { accBusy = null; return r; });
+    return accBusy;
+  }
+  D.syncAccount = syncAccount;
+  function accChanged() {
+    accEdits++;
+    AC.dirty = true; AC.rev++; saveAC();
+    B.emit('accountCats');
+    clearTimeout(accTimer);
+    accTimer = setTimeout(syncAccount, 3000);
+  }
+  // nieuwe serverlijst: categorieën van verwijderde servers weg
+  B.on('sources', function () { if (accTombstones(AC.hc)) accChanged(); });
+
+  var catIdx = null, catIdxRev = -1;
+  /** Namen (zoals de server ze levert) van de categorieën die voor het account uit staan op server sid. Kinderprofiel: geen. */
+  D.hiddenCategoryNames = function (sid) {
+    var p = B.app && B.app.profile;
+    if (!sid || (p && p.kids)) return {};
+    if (!catIdx || catIdxRev !== AC.rev) {
+      catIdx = {};
+      Object.keys(AC.hc).forEach(function (k) {
+        if (!AC.hc[k].on) return;
+        var bar = k.indexOf('|');
+        if (bar <= 0) return;
+        var s = k.slice(0, bar);
+        (catIdx[s] = catIdx[s] || {})[k.slice(bar + 1)] = true;
+      });
+      catIdxRev = AC.rev;
+    }
+    return catIdx[lower(sid)] || {};
   };
-  D.setCategoryHidden = function (sid, name, hidden) { D.toggleSet('hiddenCategories', D.key(sid, name), !!hidden); };
+  /** Eén categorie aan/uit voor het account. */
+  D.setCategoryHidden = function (sid, name, hidden) { D.setCategoriesHidden([{ sid: sid, name: name, hidden: hidden }]); };
+  /** Meerdere tegelijk (één upload, één keer opnieuw filteren). */
+  D.setCategoriesHidden = function (list) {
+    var any = false;
+    (list || []).forEach(function (c) {
+      if (!c || !c.sid || c.name == null) return;
+      var k = lower(c.sid) + '|' + c.name, cur = AC.hc[k], on = !!c.hidden;
+      if (!!(cur && cur.on) === on) return;
+      var now = Date.now();
+      if (cur && cur.at >= now) now = cur.at + 1;
+      AC.hc[k] = { at: now, on: on };
+      any = true;
+    });
+    if (any) accChanged();
+  };
+  D.categoriesRev = function () { return AC.rev; };
+  D._AC = function () { return AC; };
+  D._mergeAccount = mergeAccount;
 
   // schrijven
   D.toggleSet = function (field, k, on) {
@@ -792,7 +1013,11 @@
     var cur = D.inSet(field, k);
     if (on == null) on = !cur;
     if (on === cur) return;
-    var now = Date.now(), m = P.st.sets[field];
+    var m = P.st.sets[field];
+    // build 140 (Mijn lijst): de nieuwe tijd ligt altijd ná wat we van dit item weten (ook een verwijdering van een
+    // ander apparaat met een klok die voorloopt); anders won die oude verwijdering bij de volgende sync en verdween het
+    var now = Date.now();
+    variants(m, k).concat([k]).forEach(function (x) { if (m[x] && m[x].at >= now) now = m[x].at + 1; });
     if (on) m[k] = { at: now, on: true };
     // uit: alle schrijfwijzen (anders komt het via de andere terug)
     else variants(m, k).concat([k]).forEach(function (x) { if (x === k || (m[x] && m[x].on)) m[x] = { at: now, on: false }; });

@@ -403,9 +403,12 @@
   // MARK: hoofdscherm (navigatie bovenaan of onderaan, pagina's via de router)
 
   // [sleutel, tekst, icoon, waar]: 'top' = alleen bovenin (computer), 'tab' = alleen in de onderbalk (telefoon)
-  // Categorieën (build 86): niet in de navigatie, maar in Mijn Bingr (Bibliotheek) en als rij op Home (#/categorie hoort bij Mijn Bingr)
+  // build 140: "Categorieën" (#/categorie: Live TV, Films en Series) staat weer in de navigatie, op de plek van Mijn Bingr;
+  // Mijn Bingr blijft bereikbaar via het profiel (avatar) bovenin
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
-    ['mylist', 'My List', 'bookmark', 'top'], ['mybingr', 'My Bingr', 'user']];
+    ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid']];
+  // build 140: pagina's waarmee je een kinderprofiel verlaat (instellingen, account, Mijn Bingr): eerst de ouderpoort
+  var KIDS_GATED = { settings: 1, mybingr: 1, profiles: 1, homelayout: 1, catprefs: 1, stats: 1 };
 
   S.main = function () {
     var content = h('main.content', { id: 'content', tabindex: '-1' });
@@ -434,10 +437,24 @@
     function onScroll() { header.classList.toggle('solid', window.scrollY > 10); }
     window.addEventListener('scroll', onScroll, { passive: true });
 
+    var gateFrom = null, gateOpen = false;
     function render(r) {
       if (B.player.current) return;
       var key = r.parts[0] || 'home';
       if (!S.pages[key]) { R.go('/home', true); return; }
+      // build 140: vanuit een kinderprofiel naar instellingen/Mijn Bingr: eerst de rekensom (binnen die pagina's niet opnieuw)
+      if (KIDS_GATED[key] && B.app.isKids && B.app.isKids() && gateFrom !== 'in') {
+        if (gateOpen) return;
+        gateOpen = true;
+        var back = pageKey;
+        U.mathGate(function () { gateOpen = false; gateFrom = 'in'; render(r); }, function () {
+          gateOpen = false;
+          if (back && back !== r.hash) history.replaceState(history.state, '', back); else history.replaceState(history.state, '', '#/home');
+          R.fire();
+        });
+        return;
+      }
+      gateFrom = KIDS_GATED[key] ? 'in' : null;
       if (page && pageKey) scrolls[pageKey] = window.scrollY;
       if (page && page.destroy) { try { page.destroy(); } catch (e) { B.log('destroy', e); } }
       U.clear(content);
@@ -452,7 +469,7 @@
       lastNav = navKey;
       [links, tabs].forEach(function (box) {
         Array.prototype.forEach.call(box.children, function (a) {
-          var on = a.getAttribute('data-k') === navKey || (box === tabs && key === 'mylist' && a.getAttribute('data-k') === 'mybingr');
+          var on = a.getAttribute('data-k') === navKey;
           a.classList.toggle('active', on);
           if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
         });
@@ -526,7 +543,9 @@
         offs.forEach(function (f) { f(); });
         window.removeEventListener('scroll', onScroll);
         if (page && page.destroy) { try { page.destroy(); } catch (e) { /* stil */ } }
-        R.handlers = [];
+        // build 140: alleen de eigen router-handler weg. Bij wisselen via het profielmenu maakt pickProfile eerst het nieuwe
+        // hoofdscherm (dat zijn handler al zette) en ruimt show() daarna het oude op: R.handlers = [] maakte de pagina leeg.
+        R.handlers = R.handlers.filter(function (f) { return f !== render; });
       }
     };
     return screen;
@@ -553,7 +572,9 @@
     if (D.isMain(cur)) item('edit', L('Manage profiles'), null, '#/profiles');
     item('user', L('My Bingr'), null, '#/mybingr');
     item('gear', L('Settings'), null, '#/settings');
-    item('account', L('Account and devices'), null, '../account/');
+    // build 140: kinderprofiel: naar het account pas na de rekensom
+    if (cur && cur.kids) item('account', L('Account and devices'), function () { B.app.leaveKids(function () { location.href = '../account/'; }); });
+    else item('account', L('Account and devices'), null, '../account/');
     item('help', L('Support'), null, S.SUPPORT_URL, true);
     menu.appendChild(h('div.menu-sep'));
     item('logout', L('Sign out'), function () { confirmSignOut(); });
@@ -615,14 +636,35 @@
     var el = h('div.page.home');
     var pg = { el: el, title: L('Home') };
     var keysBuilt = {};
+    /**
+     * build 140: uitgelicht = vaste selectie van max. 8 titels, om en om uit Voor jou en Nieuw op Bingr (dubbele weg),
+     * die om de 8 s vanzelf wisselt; de start schuift elke dag één plek op (dagnummer modulo het aantal). Geen willekeur
+     * per opening. Kinderprofiel: alleen kinderinhoud (de lijsten komen uit de gefilterde bibliotheken).
+     */
+    function heroList() {
+      var fy = S.forYou ? S.forYou().items : [];
+      var nb = B.discover && B.discover.newOnBingr ? B.discover.newOnBingr(16) : [];
+      var out = [], seen = Object.create(null);
+      function add(e) {
+        if (!e || !e.item || !e.item.poster || out.length >= 8) return;
+        var k = (B.xs && B.xs.workKey(e.type, e.item)) || (e.type + '|' + e.item.id);
+        if (seen[k]) return;
+        seen[k] = true;
+        out.push({ item: e.item, type: e.type });
+      }
+      for (var i = 0; i < Math.max(fy.length, nb.length) && out.length < 8; i++) { add(fy[i]); add(nb[i]); }
+      if (!out.length) { var one = heroFor(); if (one) out.push(one); }
+      return out;
+    }
     function heroFor() {
       var lib = Lib.lib;
       return Lib.memo('hero', function () {
         var cands = lib.movies.filter(function (m) { return m.poster; }).slice(0, 400);
         if (!cands.length) cands = lib.series.filter(function (s) { return s.poster; }).slice(0, 400);
         if (!cands.length) return null;
+        // build 140: geen willekeur meer: de best scorende titel (Top 10), anders de eerste met een cover
         var top = Lib.top10(lib.movies.length ? lib.movies : lib.series);
-        var pick = top.length ? top[Math.floor(Math.random() * Math.min(5, top.length))] : cands[Math.floor(Math.random() * cands.length)];
+        var pick = top.length ? top[0] : cands[0];
         return { item: pick, type: lib.movies.indexOf(pick) >= 0 ? 'movie' : 'series' };
       });
     }
@@ -693,22 +735,11 @@
       chans = chans.slice(0, 24);
       return U.row(L('Live now'), chans.map(function (c) { return channelCard(c, chans); }), 'live', '#/live');
     }
-    var forYouRecs = null, forYouAsked = false;
     function forYouRow() {
-      if (!forYouAsked && B.trakt.isLoggedIn()) {
-        forYouAsked = true;
-        // build 97: lukt Trakt niet, dan blijft de rij staan zonder Trakt-tips (geen onafgehandelde fout)
-        var none = function (e) { B.log('trakt aanbevelingen', e && e.message); return null; };
-        Promise.all([B.trakt.recommendations(false).catch(none), B.trakt.recommendations(true).catch(none)]).then(function (r) {
-          if (!r[0] && !r[1]) return;
-          forYouRecs = { movies: r[0] || [], series: r[1] || [] };
-          if (el.parentNode) refreshRows(['foryou']);
-        }).catch(function (e) { B.log('voor jou', e && e.message); });
-      }
-      // altijd alfabetisch op titel, films en series door elkaar (zonder onderscheid in hoofdletters en accenten),
-      // met het label Serie/Film linksboven op de cover (zoals iOS build 74)
-      var items = S.sortByTitle(S.forYou(forYouRecs));
-      return U.row(L('For you'), items.map(function (hit) { return posterCard(hit.item, hit.type, { kindBadge: true }); }));
+      // build 140: per actief profiel (geschiedenis, Verder kijken, genres en TMDB-aanbevelingen), meest passend eerst;
+      // zonder geschiedenis heet de rij "Populair". Label Serie/Film linksboven op de cover (zoals iOS build 74)
+      var fy = S.forYou();
+      return U.row(fy.popular ? L('Popular') : L('For you'), fy.items.map(function (hit) { return posterCard(hit.item, hit.type, { kindBadge: true }); }));
     }
     function builders() {
       var lib = Lib.lib;
@@ -777,8 +808,7 @@
       blocks = {}; rows = null; liveSlot = null; autoGenres = false;
       var st = stateBox();
       if (st) { el.appendChild(st); return; }
-      var hf = heroFor();
-      if (hf) el.appendChild(hero(hf));
+      startHero();
       rows = h('div.rows');
       el.appendChild(rows);
       var b = builders();
@@ -814,7 +844,54 @@
       }, B.noop);
     }
     var offDiscover = B.on('discover', function () { if (rows) refreshRows(['mylist', 'upcoming', 'streaming']); });
-    pg.destroy = function () { offDiscover(); };
+    // build 140: TMDB-aanbevelingen voor Voor jou binnen, of nieuwe titels gezien (Nieuw op Bingr)
+    var offFy = B.on('forYou', function () { if (rows) refreshRows(['foryou']); });
+    var offSeen = B.on('seen', function () { if (rows) refreshRows(['streaming']); });
+    pg.destroy = function () { offDiscover(); offFy(); offSeen(); stopHero(); };
+
+    // MARK: uitgelicht (build 140): vaste roulerende selectie
+    var heroEl = null, heroItems = [], heroIdx = 0, heroTimer = null, heroSig = '';
+    function heroSigOf(list) { return list.map(function (x) { return x.type + ':' + x.item.id; }).join(','); }
+    function stopHero() { clearInterval(heroTimer); heroTimer = null; }
+    function showHero(i, anim) {
+      if (!heroItems.length) return;
+      heroIdx = ((i % heroItems.length) + heroItems.length) % heroItems.length;
+      var fresh = hero(heroItems[heroIdx]);
+      if (heroItems.length > 1) {
+        var dots = h('div.hero-dots', { role: 'tablist', 'aria-label': L('Featured') });
+        heroItems.forEach(function (x, n) {
+          var d = h('button.hero-dot' + (n === heroIdx ? '.on' : ''), { type: 'button', role: 'tab', 'aria-selected': n === heroIdx ? 'true' : 'false', 'aria-label': x.item.title });
+          d.addEventListener('click', function () { showHero(n, true); restartHero(); });
+          dots.appendChild(d);
+        });
+        fresh.appendChild(dots);
+      }
+      if (anim) fresh.classList.add('hero-in');
+      if (heroEl && heroEl.parentNode) heroEl.parentNode.replaceChild(fresh, heroEl);
+      heroEl = fresh;
+    }
+    function restartHero() {
+      stopHero();
+      if (heroItems.length < 2) return;
+      heroTimer = setInterval(function () {
+        if (!heroEl || !heroEl.isConnected) { if (heroEl && !el.isConnected) stopHero(); return; }
+        // niet wisselen als de speler open is, het tabblad verborgen is of de focus in de kop staat
+        if (B.player.current || document.hidden || (document.activeElement && heroEl.contains(document.activeElement))) return;
+        showHero(heroIdx + 1, true);
+      }, 8000);
+    }
+    function startHero() {
+      stopHero();
+      heroItems = heroList();
+      heroSig = heroSigOf(heroItems);
+      heroEl = null;
+      if (!heroItems.length) return;
+      var day = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
+      showHero(day % heroItems.length, false);
+      el.appendChild(heroEl);
+      restartHero();
+    }
+    S._heroState = function () { return { items: heroItems.map(function (x) { return x.item.title; }), idx: heroIdx, running: !!heroTimer }; };
     function refreshRows(keys) {
       var b = builders();
       // eerst de rij Categorieën losmaken (hij kan in een andere groep staan), daarna opnieuw op zijn plek
@@ -1772,6 +1849,18 @@
         if (!D.sources.length) { U.toast(L('No servers yet')); return; }
         if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
       }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
+      // build 140: automatisch vernieuwen (settings.shared.refreshInterval, gelijk op alle apps); geldt voor alle servers
+      if (B.xs && B.xs.refreshPolicy) {
+        var pols = [['manual', L('Manually')], ['launch', L('Every time the app opens')], ['sixHours', L('Every 6 hours')], ['daily', L('Daily')], ['weekly', L('Weekly')]];
+        var pol = B.xs.refreshPolicy(), polLabel = L('Daily');
+        pols.forEach(function (x) { if (x[0] === pol) polLabel = x[1]; });
+        row(sec, L('Update playlists'), polLabel, main ? function () {
+          U.choose(L('Update playlists'), pols.map(function (x) { return { value: x[0], label: x[1] }; }), pol, function (v) {
+            D.setShared('refreshInterval', v); render();
+            setTimeout(function () { B.xs.autoRefreshCheck('setting'); }, 1500);
+          });
+        } : null, { icon: 'clock' });
+      }
       if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
       // nog een server erbij: met Gratis maar één (bestaande servers blijven bruikbaar)
       if (main) {

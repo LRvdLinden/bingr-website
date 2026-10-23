@@ -9,6 +9,13 @@
  *    rij). De bronvermelding (TMDB, JustWatch) staat niet meer onder de rijen en op de detailpagina, maar één keer in
  *    Instellingen → Over. 12 uur bewaard; koppelen aan je bibliotheek via de titelindex (in stukjes).
  * Sleutels in de Home-indeling: "upcoming" en "streaming" (zelfde als de apps).
+ *
+ * Build 140: "Nieuw op Bingr" (sleutel "streaming") was tot nu toe gebaseerd op TMDB: populaire titels die de laatste
+ * 90 (films) / 120 (series) dagen bij een streamingdienst in je regio verschenen (discover met watch_region + flatrate),
+ * alleen getoond als ze ook in je bibliotheek stonden. Nu: de titels die het laatst aan je bibliotheek (alle servers) zijn
+ * toegevoegd, nieuwste eerst: de toevoegdatum van de provider (Xtream `added`, Plex `addedAt`, Jellyfin `DateCreated`),
+ * anders het moment waarop deze browser de titel voor het eerst zag (library.js, Lib.firstSeen). Kinder- en
+ * leeftijdsfilter via de gefilterde bibliotheken. TMDB wordt alleen nog voor Binnenkort op Bingr gebruikt.
  */
 (function () {
   'use strict';
@@ -23,6 +30,8 @@
   X.title = function (kind) { return kind === 'upcoming' ? L('Coming soon to Bingr') : L('New on Bingr'); };
   /** Build 112: "Nieuw op Bingr" alleen met titels uit de eigen bibliotheek (meteen afspeelbaar). */
   X.onlyLibrary = function (kind) { return kind === 'streaming'; };
+  /** Build 140: rijen die nog uit TMDB komen (Nieuw op Bingr komt uit je bibliotheek). */
+  X.TMDB_KINDS = ['upcoming'];
   /** Build 112: bronvermelding van TMDB en JustWatch, één keer in Instellingen → Over (niet meer onder de rijen). */
   X.attribution = function () {
     return L('Movie and series data: TMDB. This app uses the TMDB API but is not endorsed or certified by TMDB. Availability data: JustWatch.');
@@ -175,9 +184,45 @@
   /** Rijen die in de Home-indeling aan staan. */
   X.enabledKinds = function () {
     var p = profile();
-    if (!p || !S.effectiveHomeLayout) return X.KINDS.slice();
+    if (!p || !S.effectiveHomeLayout) return X.TMDB_KINDS.slice();
     var rows = S.effectiveHomeLayout(D.homeLayout(), D.collectionsFor(p.id));
-    return X.KINDS.filter(function (k) { return rows.some(function (r) { return r.key === k && r.visible; }); });
+    return X.TMDB_KINDS.filter(function (k) { return rows.some(function (r) { return r.key === k && r.visible; }); });
+  };
+
+  // MARK: build 140: Nieuw op Bingr = laatst toegevoegd aan je bibliotheek (alle servers)
+
+  /**
+   * [{type, item}] nieuwste eerst, max. n (30): datum van de provider, anders eerste keer gezien (lokaal); titels zonder
+   * één van beide (stonden er al bij de eerste catalogus) daarna, laatst in de lijst van de server eerst. Over alle
+   * servers (actieve eerst bij gelijke tijd), dezelfde titel op twee servers = één.
+   */
+  X.newOnBingr = function (n) {
+    n = n || 30;
+    var libs = B.xs ? B.xs.libs(null) : [Lib.lib];
+    var key = 'newOnBingr:' + n + ':' + Lib.version + ':' + (B.xs ? B.xs.version : 0) + ':' + Lib.seenVersion + ':' + libs.length;
+    return Lib.memo(key, function () {
+      var dated = [], rest = [];
+      libs.forEach(function (lib, li) {
+        var sid = lib === Lib.lib ? (Lib.source ? Lib.source.id : '') : null;
+        [['movie', lib.movies || []], ['series', lib.series || []]].forEach(function (pl) {
+          var list = pl[1];
+          for (var i = 0; i < list.length; i++) {
+            var x = list[i];
+            var s2 = sid != null ? sid : (x._src ? x._src.id : '');
+            var t = x.addedAt || Lib.firstSeen(s2, x.id);
+            var e = { type: pl[0], item: x, t: t, li: li, i: i };
+            if (t) dated.push(e); else rest.push(e);
+          }
+        });
+      });
+      dated.sort(function (a, b) { return (b.t - a.t) || (a.li - b.li) || (b.i - a.i); });
+      var out = B.xs ? B.xs.dedupe(dated.slice(0, n * 3)) : dated;
+      if (out.length < n) {
+        rest.sort(function (a, b) { return (a.li - b.li) || (b.i - a.i); });
+        out = B.xs ? B.xs.dedupe(out.concat(rest.slice(0, n * 3))) : out.concat(rest);
+      }
+      return out.slice(0, n).map(function (e) { return { type: e.type, item: e.item }; });
+    });
   };
   var stamp = 0;
   /**
@@ -186,6 +231,8 @@
    * altijd. Max. 30, geen dubbele.
    */
   X.entries = function (kind) {
+    // build 140: Nieuw op Bingr uit je bibliotheek
+    if (kind === 'streaming') return X.newOnBingr(30).map(function (e) { return { type: e.type, item: e.item, external: false, t: null }; });
     var kids = kidsProfile(), only = ageLimited() || X.onlyLibrary(kind);
     var c = saved(kind, kids);
     var ready = idxReady();

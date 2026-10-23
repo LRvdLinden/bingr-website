@@ -35,6 +35,34 @@
     var l = String(g || '').toLowerCase();
     return !PC.isAdultGroup(g) && !anyIn(l, notKidsWords) && anyIn(l, kidsWords);
   };
+  /**
+   * build 140: kindercategorie (contract in docs/ACCOUNT.md, "Kinderprofielen"): categorienaam zoals de server hem levert,
+   * kleine letters zonder accenten en zonder landprefix ("NL | ", "NL: ", "NL - ", "|NL| ", "[NL] ", "(NL) ", herhaald);
+   * nooit met adult/xxx/18+/+18/porn/erotic/erotiek; wel met een kinderwoord (woordbegin of heel woord). Niet: anime.
+   */
+  var KIDS_START = ['kinder', 'kids', 'children', 'familie', 'family', 'jeugd', 'cartoon', 'animatie', 'animation', 'disney', 'pixar',
+    'nickelodeon', 'peuter', 'kleuter', 'ketnet', 'zappelin', 'jetix', 'boomerang'];
+  var KIDS_WHOLE = ['kid', 'child', 'baby', 'junior', 'nick jr', 'z@pp'];
+  var KIDS_NEVER = ['adult', 'xxx', '18+', '+18', 'porn', 'erotic', 'erotiek'];
+  var ALNUM = (function () { try { new RegExp('\\p{L}', 'u'); return '\\p{L}\\p{N}'; } catch (e) { return 'a-z0-9\\u00c0-\\uffff'; } })();
+  function esc(w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  var KIDS_RE = new RegExp('(?:^|[^' + ALNUM + '])(?:(?:' + KIDS_START.map(esc).join('|') + ')|(?:' + KIDS_WHOLE.map(esc).join('|') + ')(?![' + ALNUM + ']))',
+    ALNUM.charAt(1) === 'p' ? 'u' : '');
+  var CC_PREFIX = /^\s*(?:[a-z]{2,3}\s*(?:\||:|-|–)\s*|\|\s*[a-z]{2,3}\s*\|\s*|\[\s*[a-z]{2,3}\s*\]\s*|\(\s*[a-z]{2,3}\s*\)\s*)/;
+  PC.kidsCategoryName = function (g) {
+    var s = B.fold(g).trim(), prev = null;
+    while (s && s !== prev) { prev = s; s = s.replace(CC_PREFIX, ''); }
+    return s;
+  };
+  var kidsMemo = Object.create(null);
+  PC.isKidsCategory = function (g) {
+    var k = String(g == null ? '' : g);
+    if (k in kidsMemo) return kidsMemo[k];
+    var n = PC.kidsCategoryName(k);
+    var ok = !!n && !KIDS_NEVER.some(function (w) { return n.indexOf(w) >= 0; }) && KIDS_RE.test(n);
+    kidsMemo[k] = ok;
+    return ok;
+  };
   PC.channelAllowedFor = function (name, group, limit, strict) {
     if (limit == null) return true;
     if (PC.isAdultGroup(group) || PC.isAdultGroup(name)) return false;
@@ -102,6 +130,8 @@
     return {
       custom: D.customization(src), playlist: src ? src.id : '',
       ageLimit: D.ageLimit(p), strict: D.strict(p),
+      // build 140: kinderprofiel = alleen kindercategorieën (de verborgen categorieën van het account gelden dan niet)
+      kids: !!(p && p.kids),
       parentalEnabled: !!B.bool(D.shared('parentalControl', false)),
       autoLockAdult: B.bool(D.shared('parentalAutoLockAdult', true)) !== false,
       lockedGroups: D.lockedGroups(src), unlocked: PC.isUnlocked(),
@@ -119,6 +149,7 @@
     var hc = ctx.hiddenCats || {};
     var locked = Object.create(null); (ctx.lockedGroups || []).forEach(function (g) { locked[g] = true; });
     var ageLimit = ctx.unlocked ? null : ctx.ageLimit;
+    var kids = !!ctx.kids, kidsLimit = ctx.ageLimit != null ? ctx.ageLimit : 12;
     function isLocked(g) {
       if (!ctx.parentalEnabled || ctx.unlocked) return false;
       if (locked[ctx.playlist + '|' + g]) return true;
@@ -140,15 +171,26 @@
     }
     var AR = B.ageRatings;
     var CLs = B.clang ? B.clang.strip : function (t) { return t; };
+    /** build 140: kinderprofiel: categorie van de server (vóór hernoemen/samenvoegen) moet een kindercategorie zijn; een
+     *  bekende leeftijd boven de grens = weg, zonder bekende leeftijd mag het (het komt uit een kindercategorie). */
+    function kidsOK(x, isShow) {
+      if (!PC.isKidsCategory(x.group)) return false;
+      var info = AR ? AR.cached(x.title, x.year, isShow) : null;
+      var age = info && info.age != null ? info.age : PC.minimumAge(x.rated);
+      return age == null || age <= kidsLimit;
+    }
     function ageOK(x, isShow) {
+      if (kids) return kidsOK(x, isShow);
       if (ageLimit == null) return true;
       return PC.allowedFor(x.rated, x.group, ageLimit, x.genre, ctx.strict, AR ? AR.cached(x.title, x.year, isShow) : null);
     }
     return {
       channel: function (ch) {
         if (!visible(ch.id, ch.group)) return null;
+        // build 140: kinderprofiel: zenders volgen alleen de categorie (de zendernaam telt niet)
+        if (kids && !PC.isKidsCategory(ch.group)) return null;
         var o = B.assign({}, ch, { group: group(ch.group), name: own(c.renamed, ch.id) || ch.name, rawGroup: ch.group });
-        if (ageLimit != null && !PC.channelAllowedFor(o.name, o.rawGroup, ageLimit, ctx.strict)) return null;
+        if (!kids && ageLimit != null && !PC.channelAllowedFor(o.name, o.rawGroup, ageLimit, ctx.strict)) return null;
         return o;
       },
       movie: function (m) {
@@ -407,6 +449,61 @@
     }).catch(B.noop);
   }
 
+  // MARK: build 140: wanneer zag deze browser een titel voor het eerst ("Nieuw op Bingr" zonder datum van de provider)
+
+  /**
+   * Per server in IndexedDB `seen:<id>` = {base, ids: {item-id: ms}}: base = eerste keer dat de catalogus binnenkwam (wat
+   * er toen al stond heeft geen eigen tijd), ids = titels die er daarna bij kwamen (verschil met de vorige catalogus).
+   * Hooguit 3000 per server (de nieuwste). Alleen lokaal.
+   */
+  var seenMem = {}, seenAsk = {}, SEEN_MAX = 3000;
+  Lib.seenVersion = 0;
+  function titleIds(raw) {
+    var m = Object.create(null);
+    if (!raw) return m;
+    (raw.movies || []).forEach(function (x) { m[x.id] = 1; });
+    (raw.series || []).forEach(function (x) { m[x.id] = 1; });
+    return m;
+  }
+  Lib.noteSeen = function (src, oldRaw, newRaw) {
+    if (!src || !newRaw) return Promise.resolve();
+    var lid = String(src.id).toLowerCase(), key = 'seen:' + src.id;
+    var hadOld = !!(oldRaw && ((oldRaw.movies || []).length + (oldRaw.series || []).length));
+    return B.idb.get(key).then(function (rec) {
+      var now = Date.now();
+      rec = rec && rec.ids ? rec : null;
+      if (!rec) {
+        rec = { base: now, ids: {} };
+        if (!hadOld) { seenMem[lid] = rec; B.idb.set(key, rec); return; }
+      }
+      if (!hadOld) { seenMem[lid] = rec; return; }
+      var old = titleIds(oldRaw), added = 0;
+      [newRaw.movies || [], newRaw.series || []].forEach(function (list) {
+        for (var i = 0; i < list.length; i++) { var id = list[i].id; if (!old[id] && !rec.ids[id]) { rec.ids[id] = now; added++; } }
+      });
+      if (added) {
+        var keys = Object.keys(rec.ids);
+        if (keys.length > SEEN_MAX) keys.sort(function (a, b) { return rec.ids[b] - rec.ids[a]; }).slice(SEEN_MAX).forEach(function (k) { delete rec.ids[k]; });
+        B.idb.set(key, rec);
+        Lib.seenVersion++;
+      }
+      seenMem[lid] = rec;
+    }).catch(B.noop);
+  };
+  /** Eerste keer gezien (ms) of 0 (stond er al bij de eerste catalogus, of nog niet geladen: dan op de achtergrond). */
+  Lib.firstSeen = function (sid, id) {
+    var lid = String(sid || '').toLowerCase();
+    var rec = seenMem[lid];
+    if (!rec) {
+      if (!seenAsk[lid] && sid) {
+        seenAsk[lid] = true;
+        B.idb.get('seen:' + sid).then(function (r) { if (r && r.ids && !seenMem[lid]) { seenMem[lid] = r; Lib.seenVersion++; if (Object.keys(r.ids).length) B.emit('seen'); } }).catch(B.noop);
+      }
+      return 0;
+    }
+    return rec.ids[id] || 0;
+  };
+
   /** build 128: bibliotheek van een willekeurige server ophalen (catalogi van andere servers, xs.js). */
   Lib.fetchLibrary = function (src) { return fetchLibrary(src); };
   /**
@@ -437,7 +534,10 @@
         Lib.loading = false;
         Lib.applyFilters();
         loadEpg(src, Lib.raw, false);
-        if (Date.now() - cached.at > LIB_TTL) Lib.refresh(src, my);
+        // build 140: volgens het verversbeleid van het account (settings.shared.refreshInterval; "Handmatig" = nooit vanzelf)
+        var pol = B.xs && B.xs.refreshPolicy ? B.xs.refreshPolicy() : null;
+        var stale = pol ? B.xs.isDue(pol === 'launch' ? 'daily' : pol, Date.now() - cached.at) : Date.now() - cached.at > LIB_TTL;
+        if (stale) Lib.refresh(src, my);
         libDone(opts, true);
         return;
       }
@@ -464,6 +564,8 @@
       if (my !== gen) { libDone(opts, null); return; }
       var epg = Lib.raw && Lib.source && Lib.source.id === src.id ? Lib.raw.epg : {};
       lib.epg = ownEpg || epg || {};
+      // build 140: nieuwe titels t.o.v. de vorige catalogus van deze server (Nieuw op Bingr)
+      Lib.noteSeen(src, Lib.source && Lib.source.id === src.id ? Lib.raw : null, lib);
       Lib.raw = lib;
       Lib.loading = false;
       Lib.applyFilters();
@@ -590,7 +692,9 @@
     if (!epg && norm.length < 2) return Promise.resolve([]);
     return Promise.all(others.map(function (src) {
       var view = B.xs ? B.xs.view(src.id) : null;
-      var pending = view && view.channels ? Promise.resolve(view.channels) : B.idb.get('chan:' + src.id);
+      // build 140: kinderprofiel alleen uit de gefilterde weergave (de zenderlijst uit de cache is niet gefilterd)
+      var kidsP = B.app && B.app.profile && B.app.profile.kids;
+      var pending = view && view.channels ? Promise.resolve(view.channels) : (kidsP ? Promise.resolve(null) : B.idb.get('chan:' + src.id));
       return pending.then(function (list) {
         if (!list) return null;
         var hit = null, byEpg = false;

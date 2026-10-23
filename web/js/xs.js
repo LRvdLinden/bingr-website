@@ -159,6 +159,9 @@
         if (!it || !it.on) return;
         var r = res(k);
         if (!r) return;
+        // build 140 (Mijn lijst): ná de regel (opnieuw) toegevoegd met de oude sleutel = het item staat daar weer (je
+        // klikte het daar aan): niet verplaatsen. Anders verdween het uit Mijn lijst als het doel voor dit profiel verborgen was.
+        if ((it.at || 0) > r.at) return;
         var cur = liveVariant(m, r.to);
         if (!cur) m[r.to] = { at: it.at, on: true };
         else if (m[cur].at < it.at) m[cur] = { at: it.at, on: true };
@@ -425,6 +428,22 @@
     return out;
   };
 
+  /**
+   * build 140: verversbeleid (settings.shared.refreshInterval, gelijk op iOS en Android: RefreshPolicy). age = ms sinds de
+   * laatste keer ophalen (null = nooit). Pure functie (ook in node getest).
+   */
+  X.REFRESH_POLICIES = ['manual', 'launch', 'sixHours', 'daily', 'weekly'];
+  X.isDue = function (policy, age) {
+    if (age == null) return true;
+    switch (policy) {
+      case 'manual': return false;
+      case 'launch': return age > 60000;
+      case 'sixHours': return age > 6 * 3600000;
+      case 'weekly': return age > 7 * 86400000;
+      default: return age > 86400000; // daily (standaard)
+    }
+  };
+
   // test- en browserloze modus: hieronder alleen met een DOM
   if (!B.data || !B.lib || typeof document === 'undefined') return;
 
@@ -607,6 +626,12 @@
     });
   }
   X._activeLoaded = activeLoaded;
+  /** build 140: catalogus uit de cache nog goed? Volgens settings.shared.refreshInterval (zonder: 24 uur, zoals eerst). */
+  function cacheFresh(at) {
+    var pol = X.refreshPolicy ? X.refreshPolicy() : 'daily';
+    if (pol === 'launch') pol = 'daily';
+    return !X.isDue(pol, Date.now() - (at || 0));
+  }
   function storeLib(src, lib) {
     lib.epg = lib.epg || {};
     B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
@@ -622,12 +647,15 @@
     var p = loading[lid] = B.idb.get('lib:' + src.id).then(function (c) {
       if (c && c.lib) {
         put(src, c.lib, c.at);
-        if (Date.now() - (c.at || 0) < LIB_TTL || !fetch) { cats[lid].fresh = Date.now() - (c.at || 0) < LIB_TTL; return cats[lid]; }
+        // build 140: vers volgens het verversbeleid van het account ("Handmatig": de cache blijft gewoon staan)
+        var fresh = cacheFresh(c.at);
+        if (fresh || !fetch) { cats[lid].fresh = fresh; return cats[lid]; }
       }
       if (!fetch) return cats[lid] || null;
       if (failed[lid] && Date.now() - failed[lid] < 30 * 60000) return cats[lid] || null;
       // build 130: pas ophalen als de actieve server geladen is
       return activeLoaded().then(function () { return withTimeout(Lib.fetchLibrary(src), LOAD_TIMEOUT); }).then(function (lib) {
+        if (Lib.noteSeen) Lib.noteSeen(src, cats[lid] ? cats[lid].raw : null, lib);
         storeLib(src, lib);
         put(src, lib, Date.now());
         cats[lid].fresh = true;
@@ -708,6 +736,8 @@
 
   // MARK: tegels (weergave over alle servers)
 
+  function isKids() { var p = B.app && B.app.profile; return !!(p && p.kids); }
+  X.isKids = isKids;
   function ageOK(type, t, y) {
     var p = B.app && B.app.profile;
     var limit = p ? D.ageLimit(p) : null;
@@ -729,6 +759,8 @@
     if (t === 'channel') { x.name = title || L('Unknown title'); x.logo = m.img || fb.artwork || null; x.group = ''; }
     else { x.title = title || L('Unknown title'); x.poster = m.img || fb.artwork || null; x.year = m.y || null; }
     if (!ageOK(t, title, m.y)) return null;
+    // build 140: kinderprofiel: alleen wat in de (gefilterde) bibliotheek van zijn eigen server staat
+    if (isKids()) return null;
     return { type: t, item: x };
   }
   X.placeholder = placeholder;
@@ -737,6 +769,10 @@
    * (bestaat), item._key = tegel uit catalogmeta (server verwijderd, item weg, of catalogus nog niet geladen).
    */
   X.tileFor = function (key, hint, field, fb) {
+    // build 140: staat het item (weer) op zijn eigen server, dan die; anders de remap volgen
+    var own = X.split(key), ownView = own && D.sourceById(own.sid) ? viewOf(own.sid) : null;
+    var ownHit = ownView && ownView.byId[own.item];
+    if (ownHit && (!hint || hint === ownHit.type || (hint === 'title' && ownHit.type !== 'channel'))) return ownHit;
     var r = X.resolve(CM.remap, key);
     if (r) key = r.to;
     var p = X.split(key);
@@ -841,6 +877,24 @@
 
   /** Geschiedenis over alle servers (zonder dubbele schrijfwijzen; remap toegepast). */
   X.history = function () { return D.history(); };
+  /**
+   * build 140: staat dit geschiedenis-item in de (gefilterde) bibliotheek van zijn eigen server? Voor kinderprofielen:
+   * alleen die tonen (niet verwijderen). Aflevering: de serie op titel.
+   */
+  X.historyVisible = function (e) {
+    if (!e) return false;
+    var sid = e.playlistID || (Lib.source && Lib.source.id) || '';
+    var v = viewOf(sid);
+    if (!v || !v.byId) return false;
+    if (e.type === 'live') { var c = v.byId[e.channelID || e.itemID]; return !!(c && c.type === 'channel'); }
+    var hit = v.byId[e.itemID];
+    if (hit) return hit.type !== 'channel';
+    if (e.type === 'episode' || e.type === 'series') {
+      var n = X.normTitle(e.title);
+      for (var i = 0; i < v.series.length; i++) if (v.series[i].title === e.title || X.normTitle(v.series[i].rawTitle || v.series[i].title) === n) return true;
+    }
+    return false;
+  };
 
   /**
    * Inhoud van een collectie over alle servers. Handmatig: per item {type, id, sid?}: sid → die server; anders
@@ -1046,15 +1100,14 @@
   /** Op het model van het actieve profiel (sync.js: laden, samenvoegen, na een remap). */
   D.stateTransforms = D.stateTransforms || [];
   D.stateTransforms.push(function (st) { return X.applyRemapState(st, CM.remap); });
-  D.stateTransforms.push(function (st) { return catTransforms(st); });
 
-  // MARK: categorieën per profiel (profile.<id>.hiddenCategories, "<server-id>|<categorienaam>")
+  // MARK: categorieën: build 140 voor het hele account (sync.js, section `account`). profile.<id>.hiddenCategories
+  // (build 128) blijft onaangeroerd staan voor oudere apps; de transformaties hieronder lopen niet meer.
 
   var CAT_FLAG = 'xs.catMigrated128';
   /**
-   * Op het model van één profiel: (1) categorieën van verwijderde servers weg (als verwijdering); (2) eenmalig per
-   * apparaat de oude keuzes ("group:<naam>" in het platformblok van de bron dat de webspeler las: android.customization)
-   * overnemen met een oude tijd (epoch), zodat een nieuwere keuze per profiel voorgaat.
+   * (build 128, niet meer gebruikt) Op het model van één profiel: (1) categorieën van verwijderde servers weg; (2) eenmalig
+   * de oude keuzes ("group:<naam>" in android.customization) overnemen met een oude tijd (epoch).
    */
   function catTransforms(st) {
     if (!D.sourcesSynced || !st || !st.sets) return false;
@@ -1078,11 +1131,11 @@
     return changed;
   }
   X._catTransforms = catTransforms;
-  var lastCats = null;
-  B.on('profileData', function () {
-    var now = JSON.stringify(D.setList('hiddenCategories'));
-    if (lastCats !== null && now !== lastCats) Lib.applyFilters();
-    lastCats = now;
+  // build 140: verborgen categorieën van het account gewijzigd → één keer opnieuw filteren (niet per tik)
+  var catsTimer = null;
+  B.on('accountCats', function () {
+    clearTimeout(catsTimer);
+    catsTimer = setTimeout(function () { if (B.app && B.app.profile) Lib.applyFilters(); }, 450);
   });
 
   /** Na elke volledige sync: catalogmeta samenvoegen, remap op andere profielen en collecties, verwijzingen voor opruimen. */
@@ -1108,15 +1161,13 @@
     collectionRefs(all.collections && all.collections.data, refs);
     lastRefs = refs;
     otherProfiles.list = others;
-    var catsDone = D.sourcesSynced && !B.store.get(CAT_FLAG, false);
-    // na het actieve profiel (sync.js voegt dat direct hierna samen): vlag van de categoriemigratie zetten
-    if (catsDone) setTimeout(function () { B.store.set(CAT_FLAG, B.iso()); }, 0);
     {
-      // andere profielen: remap en categorieën toepassen en terugzetten (alleen als er iets verandert)
+      // andere profielen: remap toepassen en terugzetten (alleen als er iets verandert). build 140: niet bij een profiel
+      // met lokale wijzigingen die nog onderweg zijn (sync.js voegt die samen; anders overschreven we ze op de server)
       others.forEach(function (o) {
+        if (D.hasLocalChanges && D.hasLocalChanges(o.name.slice(8))) return;
         var a1 = Object.keys(CM.remap).length ? X.applyRemapState(o.st, CM.remap) : false;
-        var a2 = catTransforms(o.st);
-        if (!a1 && !a2) return;
+        if (!a1) return;
         var json = D._toJSON(o.data, D._normalize(o.st));
         A.putState(o.name, json).catch(B.noop);
       });
@@ -1336,6 +1387,7 @@
       return withTimeout(Lib.fetchLibrary(src), REFRESH_TIMEOUT);
     }).then(function (lib) {
       var old = cats[lid];
+      if (Lib.noteSeen) Lib.noteSeen(src, old ? old.raw : null, lib);
       storeLib(src, lib);
       put(src, lib, Date.now());
       cats[lid].fresh = true;
@@ -1361,21 +1413,29 @@
    * remap (opnieuw zoeken naar wat ontbrak) en de slimme collecties. Een tweede druk tijdens het vernieuwen toont alleen de
    * voortgang. Geeft {ok: [namen], failed: [namen]}.
    */
-  X.refreshAll = function () {
-    if (refreshing) { progressToast(); return refreshing; }
+  X.refreshAll = function (opts) {
+    opts = opts || {};
+    var quiet = !!opts.quiet;
+    if (refreshing) { if (!quiet) progressToast(); return refreshing; }
     var act = Lib.source;
-    var others = orderedSources().filter(function (s) { return s && usable(s) && !(act && lower(s.id) === lower(act.id)); });
+    // build 140: automatisch alleen de servers die aan de beurt zijn (opts.only = id's)
+    var only = opts.only ? opts.only.map(lower) : null;
+    function wanted(s) { return !only || only.indexOf(lower(s.id)) >= 0; }
+    if (act && !wanted(act)) act = null;
+    var others = orderedSources().filter(function (s) { return s && usable(s) && wanted(s) && !(Lib.source && lower(s.id) === lower(Lib.source.id)); });
     var list = (act ? [act] : []).concat(others);
     var result = { ok: [], failed: [] };
     if (!list.length) return Promise.resolve(result);
-    refreshState = { total: list.length, step: 0, cur: null };
+    refreshState = { total: list.length, step: 0, cur: null, quiet: quiet };
     B.emit('xsRefresh');
-    function begin(src) { refreshState.step++; refreshState.cur = src; progressToast(); B.emit('xsRefresh'); }
+    function begin(src) { refreshState.step++; refreshState.cur = src; if (!quiet) progressToast(); B.emit('xsRefresh'); }
     var chain = Promise.resolve();
     if (act) {
       chain = chain.then(function () {
         begin(act);
-        return withTimeout(new Promise(function (resolve) { Lib.select(act, true, { onLib: resolve }); }), ACTIVE_TIMEOUT)
+        // automatisch (build 140): de actieve server op de achtergrond verversen, de bibliotheek blijft intussen staan
+        var run1 = quiet ? function (resolve) { Lib.refresh(act, null, { onLib: resolve }); } : function (resolve) { Lib.select(act, true, { onLib: resolve }); };
+        return withTimeout(new Promise(run1), ACTIVE_TIMEOUT)
           .then(function (ok) { (ok === false ? result.failed : result.ok).push(act); }, function () { result.failed.push(act); });
       });
     }
@@ -1396,13 +1456,71 @@
       X.version++; // slimme collecties en tegels opnieuw (Lib.collectionItems cachet per X.version)
       B.emit('xsCatalog'); B.emit('profileData'); B.emit('xsRefresh');
       var names = result.failed.map(quoteName).join(', ');
-      if (!result.failed.length) U().toast(list.length > 1 ? L('All servers are up to date.') : L('Updated.'), 4000);
+      B.store.set('xs.lastAutoRefresh', Date.now());
+      if (quiet) { B.log('automatisch vernieuwd', result.ok.length, 'gelukt,', result.failed.length, 'mislukt'); }
+      else if (!result.failed.length) U().toast(list.length > 1 ? L('All servers are up to date.') : L('Updated.'), 4000);
       else if (result.failed.length === list.length) U().toast(L('Couldn’t update %@.', names), 7000);
       else U().toast(L('Couldn’t update %@. Your other servers are up to date.', names), 7000);
       return { ok: result.ok.map(function (s) { return s.name; }), failed: result.failed.map(function (s) { return s.name; }) };
     });
     return refreshing;
   };
+
+  // MARK: build 140: automatisch vernieuwen volgens settings.shared.refreshInterval
+
+  /**
+   * Tot build 139 kende de webspeler deze instelling niet: alleen de actieve server werd ververst, en alleen bij het kiezen
+   * ervan als zijn cache ouder was dan 12 uur (andere servers 24 uur, alleen als ze nodig waren); terwijl de pagina open
+   * stond gebeurde er nooit iets. Nu: bij het openen, elke 10 minuten en bij terugkeer naar het tabblad kijken of een
+   * server aan de beurt is (leeftijd van zijn catalogus in IndexedDB `lib:<id>`, dus ook na herstarten). Zo ja: alle
+   * servers van het account vernieuwen zoals "Nu vernieuwen" (X.refreshAll), maar stil. "Bij elke start" alleen bij het
+   * openen; "Handmatig" nooit. Niet tijdens afspelen of terwijl de actieve server laadt (dan later opnieuw).
+   */
+  X.refreshPolicy = function () {
+    var v = String(D.shared('refreshInterval', 'daily') || 'daily');
+    return X.REFRESH_POLICIES.indexOf(v) >= 0 ? v : 'daily';
+  };
+  var autoBusy = false, autoTimer = null, launchDone = false, autoLaterT = null;
+  /** Leeftijd (ms) van de catalogus van elke server, of null als hij er niet is. */
+  function catalogAges(list) {
+    return Promise.all(list.map(function (s) {
+      return B.idb.get('lib:' + s.id).then(function (c) { return c && c.at ? Date.now() - c.at : null; }, function () { return null; });
+    }));
+  }
+  X.autoRefreshCheck = function (reason) {
+    var pol = X.refreshPolicy();
+    var launch = reason === 'launch';
+    if (launch) launchDone = true;
+    if (autoBusy || refreshing || !B.app || !B.app.profile || !A.isSignedIn()) return Promise.resolve(false);
+    if (pol === 'manual' || (pol === 'launch' && !launch)) return Promise.resolve(false);
+    if ((B.player && B.player.current) || Lib.loading || !Lib.source) {
+      clearTimeout(autoLaterT);
+      autoLaterT = setTimeout(function () { X.autoRefreshCheck(launch ? 'launch' : 'later'); }, 60000);
+      return Promise.resolve(false);
+    }
+    var list = orderedSources().filter(usable);
+    if (!list.length) return Promise.resolve(false);
+    autoBusy = true;
+    return catalogAges(list).then(function (ages) {
+      var due = list.filter(function (s, i) { return X.isDue(pol, ages[i]); });
+      if (!due.length) return false;
+      B.log('automatisch vernieuwen (' + pol + '):', due.map(function (s) { return s.name; }).join(', '));
+      return X.refreshAll({ quiet: true, only: due.map(function (s) { return s.id; }) }).then(function () { return true; });
+    }).catch(function () { return false; }).then(function (r) { autoBusy = false; return r; });
+  };
+  function startAuto() {
+    if (autoTimer) return;
+    autoTimer = setInterval(function () { if (!document.hidden) X.autoRefreshCheck('timer'); }, 10 * 60000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && launchDone) setTimeout(function () { X.autoRefreshCheck('visible'); }, 3000); });
+  }
+  // na het openen: zodra de actieve server (uit de cache of vers) er is
+  B.on('library', function () {
+    if (launchDone || !B.app || !B.app.profile) return;
+    launchDone = true;
+    startAuto();
+    setTimeout(function () { X.autoRefreshCheck('launch'); }, 5000);
+  });
+  X._autoState = function () { return { busy: autoBusy, launchDone: launchDone, policy: X.refreshPolicy() }; };
 
   // MARK: openen (aanklikken van een tegel uit catalogmeta)
 

@@ -91,6 +91,7 @@
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><circle cx="17" cy="9" r="2.8"/><path d="M17.5 14.5c2.4.3 4 1.9 4 4.5"/>',
     account: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.5c1.3-2 3.2-3 5.5-3s4.2 1 5.5 3"/>',
     refresh: '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4.5h-4.5"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     warn: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/>',
     chUp: '<path d="M6 15l6-6 6 6"/>',
     chDown: '<path d="M6 9l6 6 6-6"/>',
@@ -337,6 +338,61 @@
     draw();
     dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }] });
     setTimeout(function () { input.focus(); }, 40);
+    return dlg;
+  };
+
+  /**
+   * build 140: ouderpoort (rekensom, zoals NLziet) om een kinderprofiel te verlaten. Half de keren a × b (a 6–12, b 3–9),
+   * anders a + b (11–49). Alleen cijfers (max. 3), controle bij OK of zodra er evenveel cijfers staan als het antwoord
+   * heeft; na 3 foute pogingen een nieuwe som. Goed = onOK(); annuleren = onCancel(). Alleen lokaal.
+   */
+  U.mathSum = function (rnd) {
+    rnd = rnd || Math.random;
+    function between(a, b) { return a + Math.floor(rnd() * (b - a + 1)); }
+    if (rnd() < 0.5) { var a = between(6, 12), b = between(3, 9); return { text: a + ' × ' + b + ' = ?', answer: a * b }; }
+    var x = between(11, 49), y = between(11, 49);
+    return { text: x + ' + ' + y + ' = ?', answer: x + y };
+  };
+  U.mathGate = function (onOK, onCancel) {
+    var sum = U.mathSum(), tries = 0, val = '', done = false;
+    var q = h('div.mg-sum', { 'aria-live': 'polite' });
+    var shown = h('div.mg-val', { 'aria-hidden': 'true' });
+    var err = h('div.pin-err.mg-err', { role: 'alert' });
+    var input = h('input.pin-input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', maxlength: '3', 'aria-label': L('Answer'), pattern: '[0-9]*' });
+    var dlg;
+    function draw() { q.textContent = sum.text; shown.textContent = val || ' '; input.value = val; }
+    function fresh() { sum = U.mathSum(); tries = 0; val = ''; err.textContent = ''; draw(); }
+    function check() {
+      if (!val) return;
+      if (parseInt(val, 10) === sum.answer) { done = true; dlg.close(); onOK(); return; }
+      tries++;
+      err.textContent = L("That's not right. Try again.");
+      shown.classList.add('shake');
+      var newSum = tries >= 3;
+      setTimeout(function () { shown.classList.remove('shake'); val = ''; if (newSum) { sum = U.mathSum(); tries = 0; } draw(); }, 450);
+    }
+    function typed() { err.textContent = ''; draw(); if (val.length >= String(sum.answer).length) check(); }
+    input.addEventListener('input', function () { val = input.value.replace(/\D/g, '').slice(0, 3); typed(); });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); check(); } });
+    var pad = h('div.pin-pad');
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'OK', '0', '⌫'].forEach(function (k) {
+      var b = h('button.pin-key' + (k === 'OK' ? '.mg-ok' : ''), { type: 'button', 'aria-label': k === '⌫' ? L('Delete') : k }, k === 'OK' ? L('OK') : k);
+      b.addEventListener('click', function () {
+        if (k === 'OK') { check(); return; }
+        if (k === '⌫') val = val.slice(0, -1); else if (val.length < 3) val += k;
+        if (k === '⌫') { err.textContent = ''; draw(); } else typed();
+        try { input.focus({ preventScroll: true }); } catch (e) { /* stil */ }
+      });
+      pad.appendChild(b);
+    });
+    var again = h('button.linkbtn.mg-new', { type: 'button' }, L('New sum'));
+    again.addEventListener('click', function () { fresh(); try { input.focus(); } catch (e) { /* stil */ } });
+    draw();
+    dlg = U.modal({ title: L('Ask a grown-up'), text: L('Solve this sum to leave the kids profile.'), cls: 'pin-dlg.mg-dlg',
+      body: h('div.pin.mg', [q, input, shown, err, pad, again]),
+      buttons: [{ label: L('Cancel'), primary: false }],
+      onClose: function () { if (!done && onCancel) onCancel(); } });
+    setTimeout(function () { try { input.focus(); } catch (e) { /* stil */ } }, 40);
     return dlg;
   };
 

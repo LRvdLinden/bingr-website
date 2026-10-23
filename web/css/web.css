@@ -1085,3 +1085,28 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 /* build 111: rijen Binnenkort op Bingr / Nieuw op Bingr (TMDB). Build 112: de datum is het gewone rode .card-badge
    linksboven; de bronvermelding staat niet meer onder de rij maar in Instellingen → Over (.st-foot) */
 .dt-note { margin: 14px 0 0; line-height: 1.5; max-width: 680px; }
+
+/* build 140: uitgelicht wisselt vanzelf (vaste selectie): zachte overgang en stippen onderin */
+.hero.hero-in .hero-bg, .hero.hero-in .hero-info, .hero.hero-in .hero-poster, .hero.hero-in .hero-card { animation: heroIn .7s ease both; }
+@keyframes heroIn { from { opacity: 0; } to { opacity: 1; } }
+.hero-dots { position: absolute; left: 50%; bottom: 3.2vh; transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; }
+.hero-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: #ffffff59; cursor: pointer; transition: background .2s, transform .2s; }
+.hero-dot.on { background: #fff; transform: scale(1.25); }
+.hero-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 700px) { .hero-dots { position: relative; left: auto; bottom: auto; transform: none; justify-content: center; margin-top: 14px; } }
+@media (prefers-reduced-motion: reduce) { .hero.hero-in .hero-bg, .hero.hero-in .hero-info, .hero.hero-in .hero-poster, .hero.hero-in .hero-card { animation: none; } }
+
+/* build 140: ouderpoort (rekensom om een kinderprofiel te verlaten) */
+.mg-sum { font-size: 34px; font-weight: 800; letter-spacing: .02em; margin-top: 4px; direction: ltr; }
+.mg-val { min-width: 120px; min-height: 48px; padding: 6px 16px; border-radius: 10px; background: #ffffff14; font-size: 30px; font-weight: 700; text-align: center; direction: ltr; }
+.mg-val.shake { animation: shake .4s; }
+.pin-key.mg-ok { font-size: 17px; background: var(--accent); color: var(--on-accent, #fff); }
+.mg-new { margin-top: 2px; }
+
+/* build 140: Live TV-categorieën in Categorieën (logo's van zenders in de tegel) en zoeken bij Categorieën tonen */
+.cat-p.cat-lg { aspect-ratio: 1; background: #ffffffe6; }
+.cat-p.cat-lg .imgbox { background: transparent; }
+.cat-p.cat-lg img { object-fit: contain; padding: 10%; }
+.catprefs-search { gap: 10px; }
+.catprefs-search .ic { width: 18px; height: 18px; color: var(--sec); }
+.catprefs-q { flex: 1; min-width: 0; background: transparent; border: 0; color: inherit; font-size: 15px; padding: 6px 0; outline: none; }

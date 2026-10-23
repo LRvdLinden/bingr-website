@@ -186,24 +186,47 @@
     if (!p && D.profiles.length === 1 && !D.pinFor(D.profiles[0])) p = D.profiles[0];
     if (p) { pickProfile(p); return; }
     if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname + location.search);
-    show(S.profiles(pickProfile));
+    show(S.profiles(pickFromList));
     document.title = L("Who's watching?") + ' · Bingr';
     app.applyAccent(B.store.get('lastAccent', 'red'));
   }
+  /**
+   * build 140: ouderpoort. Een actief kinderprofiel verlaten (profiel wisselen, Instellingen, Mijn Bingr, uitloggen) kan
+   * pas na een rekensom; naar een ander kinderprofiel wisselen niet. Geen ontgrendeling voor later.
+   */
+  app.isKids = function () { return !!(app.profile && app.profile.kids); };
+  app.leaveKids = function (fn, target, onCancel) {
+    if (app.isKids() && !(target && target.kids)) { U.mathGate(fn, onCancel); return; }
+    fn();
+  };
+  // "Wie kijkt er?" na het starten: was het laatste profiel op dit apparaat een kinderprofiel, dan eerst de som
+  var gatePassed = false;
+  function pickFromList(p) {
+    var last = D.profileById(B.store.get('lastProfile', null));
+    if (!gatePassed && last && last.kids && p && !p.kids) { U.mathGate(function () { gatePassed = true; pickProfile(p); }); return; }
+    pickProfile(p);
+  }
   app.switchProfile = function () {
+    app.leaveKids(switchNow);
+  };
+  function switchNow() {
+    if (app.isKids()) gatePassed = true;
     if (B.player.current) B.player.current.close();
     B.ageRatings.stop();
     D.flush();
     try { sessionStorage.removeItem('bingr.web.profile'); } catch (e) { /* stil */ }
     showProfiles();
-  };
+  }
   app.pickProfileWithPin = function (p) {
-    var pin = D.pinFor(p);
-    if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
-    else pickProfile(p);
+    app.leaveKids(function () {
+      var pin = D.pinFor(p);
+      if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
+      else pickProfile(p);
+    }, p);
   };
 
   function pickProfile(p) {
+    gatePassed = false;
     if (B.player.current) B.player.current.close(true);
     D.flush();
     app.profile = p;
@@ -236,10 +259,14 @@
   B.on('plan', function () { if (app.profile) { app.applyAccent(); if (B.plan.has('trakt')) B.trakt.refresh(false); } });
 
   app.signOut = function () {
+    if (app.isKids()) { app.leaveKids(signOutNow); return; }
+    signOutNow();
+  };
+  function signOutNow() {
     if (B.player.current) B.player.current.close();
     // eerst push afmelden (unregister) zolang de sessie er nog is, dan het apparaat en de sessie
     D.flush().then(function () { return B.push ? B.push.signOut() : null; }).then(function () { return A.signOut(); });
-  };
+  }
 
   /** Taal wijzigen (settings.shared.appLanguage): de schermen opnieuw opbouwen. */
   app.setLanguage = function (v) {

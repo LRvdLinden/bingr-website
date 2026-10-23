@@ -207,55 +207,166 @@
       return m;
     });
   }
-  function seeded(seed) { var st = seed >>> 0; return function () { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; }; }
   /**
-   * "Voor jou" (zoals buildForYou op iOS, zonder netwerk naar TMDB): Trakt-aanbevelingen die in je bibliotheek staan,
-   * aangevuld met onbekeken titels uit de categorieën waar je het meest kijkt, en de Top 10.
+   * build 140: "Voor jou" van HET actieve profiel (zoals de apps): de laatst en meest bekeken titels uit de geschiedenis en
+   * Verder kijken van dit profiel zijn de "zaadjes". Hun genres (TMDB, anders de server), hun categorie op de server en (met
+   * TMDB) hun "recommendations" bepalen de score van titels uit je bibliotheek (alle servers, gefilterd: kinder- en
+   * leeftijdsfilter). Nooit wat al bekeken, bezig of uitgekeken is. Zonder geschiedenis: {popular: true} met populaire
+   * titels (kop "Populair"). Geeft {items: [{type, item}], popular}.
    */
-  S.forYou = function (recs) {
-    var lib = Lib.lib, out = [], seen = {};
-    function add(type, x) {
-      if (!x || seen[type + '|' + x.id] || out.length >= 30) return;
-      if (D.progress(x.id)) return;
-      if (type === 'movie' && S.movieWatched(x)) return;
-      if (type === 'series' && S.seriesWatchedCount(x) > 0) return;
-      seen[type + '|' + x.id] = true;
-      out.push({ type: type, item: x });
+  var recs = {}, recsAsked = {}, recsVer = 0;
+  function workOf(type, x) { return (B.xs && B.xs.workKey(type, x)) || (type + '|' + x.id); }
+  /** Zaadjes: [{type, item, w}] uit geschiedenis en voortgang van dit profiel, recent zwaarder, vaker = zwaarder. */
+  function seeds() {
+    var out = [], byWork = Object.create(null);
+    function viewFor(sid) { return B.xs ? (sid ? B.xs.view(sid) : Lib.lib) : Lib.lib; }
+    function seriesByTitle(v, title) {
+      if (!v || !v.series) return null;
+      var memo = v._fyByTitle;
+      if (!memo) { memo = v._fyByTitle = Object.create(null); v.series.forEach(function (x) { var k = normTitle(x.rawTitle || x.title); if (k && !memo[k]) memo[k] = x; }); }
+      return memo[normTitle(title)] || null;
     }
-    if (recs) {
-      var mi = titleIndex('movie'), si = titleIndex('series');
-      var rm = (recs.movies || []).map(function (r) { return mi[normTitle(r.title)]; }).filter(Boolean);
-      var rs = (recs.series || []).map(function (r) { return si[normTitle(r.title)]; }).filter(Boolean);
-      for (var i = 0; i < Math.max(rm.length, rs.length) && i < 15; i++) { add('movie', rm[i]); add('series', rs[i]); }
+    function add(type, x, w) {
+      if (!x) return;
+      var k = workOf(type, x);
+      if (byWork[k]) { byWork[k].w += w * 0.6; return; }
+      byWork[k] = { type: type, item: x, w: w };
+      out.push(byWork[k]);
     }
-    var score = Object.create(null), src = srcId(); // build 97: per groep, zonder prototype
-    D.progressList().forEach(function (pe) { var hit = lib.byId[pe.key]; if (hit && hit.type === 'movie') score[hit.item.group] = (score[hit.item.group] || 0) + 1; });
-    D.setList('watched').slice(0, 200).forEach(function (k) { var hit = lib.byId[k]; if (hit && hit.type === 'movie') score[hit.item.group] = (score[hit.item.group] || 0) + 1; });
-    D.setList('myList').forEach(function (k) {
-      var p = k.split('|');
-      if (p[0] !== src) return;
-      var hit = lib.byId[p.slice(1).join('|')];
-      if (hit && hit.type !== 'channel') score[hit.item.group] = (score[hit.item.group] || 0) + (hit.type === 'series' ? 2 : 1);
+    var hist = D.history().slice(0, 60);
+    hist.forEach(function (e, i) {
+      if (e.type === 'live') return;
+      var w = 1 / (1 + i * 0.2);
+      var v = viewFor(e.playlistID || (Lib.source && Lib.source.id));
+      if (!v || !v.byId) return;
+      var hit = v.byId[e.itemID];
+      if (hit && (hit.type === 'movie' || hit.type === 'series')) { add(hit.type, hit.item, w); return; }
+      if (e.type === 'episode' || e.type === 'series') add('series', seriesByTitle(v, e.title), w);
     });
-    var groups = Object.keys(score).sort(function (a, b) { return score[b] - score[a]; }).slice(0, 4);
-    var rnd = seeded(Math.floor(Date.now() / 86400000));
-    function pick(list, n) {
-      var c = list.slice(0, 400);
-      for (var k = c.length - 1; k > 0; k--) { var j = Math.floor(rnd() * (k + 1)); var t = c[k]; c[k] = c[j]; c[j] = t; }
-      return c.slice(0, n);
-    }
-    var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
-    groups.forEach(function (g) {
-      pick(mg[g] || [], 5).forEach(function (x) { add('movie', x); });
-      pick(sg[g] || [], 5).forEach(function (x) { add('series', x); });
+    D.progressList().slice(0, 30).forEach(function (pe, i) {
+      var v = viewFor(pe.e.playlistID || (Lib.source && Lib.source.id));
+      if (!v || !v.byId) return;
+      var hit = v.byId[pe.key];
+      var w = 0.8 / (1 + i * 0.25);
+      if (hit && hit.type === 'movie') add('movie', hit.item, w);
+      else if (!hit) add('series', seriesByTitle(v, pe.e.title), w);
     });
-    var tm = Lib.top10(lib.movies), ts = Lib.top10(lib.series);
+    return out.sort(function (a, b) { return b.w - a.w; }).slice(0, 15);
+  }
+  /** Al gezien/bezig/uitgekeken door dit profiel? */
+  function done(type, x) {
+    if (D.progress(x.id)) return true;
+    if (type === 'movie') return S.movieWatched(x);
+    return S.seriesWatchedCount(x) > 0;
+  }
+  /** TMDB-aanbevelingen van de belangrijkste zaadjes (op de achtergrond, één keer per titel per sessie). */
+  function askRecs(list) {
+    if (!B.details || !B.ageRatings || !B.ageRatings.hasKey()) return;
+    list.slice(0, 3).forEach(function (sd) {
+      var k = workOf(sd.type, sd.item);
+      if (recsAsked[k]) return;
+      recsAsked[k] = true;
+      B.details.load(sd.item, sd.type === 'series', {}).then(function (d) {
+        var r = (d && d.recommendations) || [];
+        if (!r.length) return;
+        recs[k] = r;
+        recsVer++;
+        B.emit('forYou');
+      }, B.noop);
+    });
+  }
+  function titleIndexAll(libs) {
+    var key = 'fyTitleIdx:' + Lib.version + ':' + (B.xs ? B.xs.version : 0) + ':' + libs.length;
+    return Lib.memo(key, function () {
+      var m = Object.create(null);
+      libs.forEach(function (lib) {
+        [['movie', lib.movies || []], ['series', lib.series || []]].forEach(function (pl) {
+          pl[1].forEach(function (x) { var k = pl[0] + '|' + normTitle(x.rawTitle || x.title); if (!m[k]) m[k] = x; });
+        });
+      });
+      return m;
+    });
+  }
+  function popular(libs) {
+    var out = [], seen = Object.create(null);
+    function add(type, x) { if (!x || done(type, x)) return; var k = workOf(type, x); if (seen[k]) return; seen[k] = true; out.push({ type: type, item: x }); }
+    var tm = Lib.top10(Lib.lib.movies), ts = Lib.top10(Lib.lib.series);
     for (var t = 0; t < 10; t++) { add('movie', tm[t]); add('series', ts[t]); }
-    if (out.length < 8) {
-      pick(lib.movies.filter(function (x) { return x.poster; }), 6).forEach(function (x) { add('movie', x); });
-      pick(lib.series.filter(function (x) { return x.poster; }), 6).forEach(function (x) { add('series', x); });
-    }
-    return out;
+    // aanvullen met de best beoordeelde en nieuwste van alle servers
+    var pool = [];
+    libs.forEach(function (lib) {
+      (lib.movies || []).slice(0, 3000).forEach(function (x) { pool.push({ type: 'movie', item: x }); });
+      (lib.series || []).slice(0, 3000).forEach(function (x) { pool.push({ type: 'series', item: x }); });
+    });
+    function sc(x) { var r = x.rating || 0; if (r > 10) r = r / 10; return r + (x.addedAt && Date.now() - x.addedAt < 30 * 86400000 ? 1 : 0); }
+    pool.sort(function (a, b) { return sc(b.item) - sc(a.item); });
+    for (var i = 0; i < pool.length && out.length < 30; i++) add(pool[i].type, pool[i].item);
+    return out.slice(0, 30);
+  }
+  S.forYou = function () {
+    var p = prof();
+    var libs = B.xs ? B.xs.libs(null) : [Lib.lib];
+    var hist = D.history(), prog = D.progressList();
+    var sig = (p ? p.id : '') + ':' + hist.length + ':' + (hist[0] ? hist[0].date : 0) + ':' + prog.length + ':' + (prog[0] ? prog[0].e.updated : 0) +
+      ':' + D.setList('watched').length + ':' + recsVer + ':' + (B.xs ? B.xs.version : 0) + ':' + libs.length;
+    return Lib.memo('forYou140:' + sig, function () {
+      var sd = seeds();
+      if (!sd.length) return { popular: true, items: popular(libs) };
+      askRecs(sd);
+      var gw = Object.create(null), grp = Object.create(null), seedWork = Object.create(null), total = 0;
+      sd.forEach(function (x) {
+        total += x.w;
+        seedWork[workOf(x.type, x.item)] = true;
+        var ks = B.categories ? B.categories.genresOf(x.item, x.type === 'series') : [];
+        ks.forEach(function (g) { gw[g] = (gw[g] || 0) + x.w; });
+        var g0 = x.item.rawGroup || x.item.group;
+        if (g0) grp[x.type + '|' + g0] = (grp[x.type + '|' + g0] || 0) + x.w;
+      });
+      // aanbevelingen (TMDB) van de zaadjes → titels uit je bibliotheek
+      var recScore = Object.create(null);
+      var tix = null;
+      sd.forEach(function (x) {
+        var list = recs[workOf(x.type, x.item)];
+        if (!list) return;
+        tix = tix || titleIndexAll(libs);
+        list.forEach(function (r, i) {
+          var hit = tix[(r.isShow ? 'series' : 'movie') + '|' + normTitle(r.title)] || (r.original ? tix[(r.isShow ? 'series' : 'movie') + '|' + normTitle(r.original)] : null);
+          if (!hit) return;
+          var k = workOf(r.isShow ? 'series' : 'movie', hit);
+          recScore[k] = (recScore[k] || 0) + 3 * x.w / (1 + i * 0.1);
+        });
+      });
+      var cands = [], seen = Object.create(null);
+      libs.forEach(function (lib) {
+        [['movie', lib.movies || []], ['series', lib.series || []]].forEach(function (pl) {
+          var list = pl[1], type = pl[0];
+          for (var i = 0; i < list.length && i < 20000; i++) {
+            var x = list[i];
+            var ks = B.categories ? B.categories.genresOf(x, type === 'series') : [];
+            var s1 = 0;
+            for (var j = 0; j < ks.length; j++) if (gw[ks[j]]) s1 += gw[ks[j]];
+            var gk = type + '|' + (x.rawGroup || x.group);
+            var s2 = grp[gk] ? grp[gk] * 0.5 : 0;
+            var wk = workOf(type, x);
+            var s3 = recScore[wk] || 0;
+            var score = (s1 / (ks.length || 1)) + s2 + s3;
+            if (score <= 0 || seen[wk] || seedWork[wk]) continue;
+            if (done(type, x)) continue;
+            seen[wk] = true;
+            var r = x.rating || 0; if (r > 10) r = r / 10;
+            cands.push({ type: type, item: x, s: score / (total || 1) + r * 0.01 });
+          }
+        });
+      });
+      cands.sort(function (a, b) { return b.s - a.s; });
+      var out = cands.slice(0, 30).map(function (c) { return { type: c.type, item: c.item }; });
+      if (out.length < 8) {
+        var have = Object.create(null);
+        out.forEach(function (o) { have[workOf(o.type, o.item)] = true; });
+        popular(libs).forEach(function (o) { if (out.length < 20 && !have[workOf(o.type, o.item)] && !seedWork[workOf(o.type, o.item)]) out.push(o); });
+      }
+      return { popular: false, items: out };
+    });
   };
 
   // MARK: collecties: afbeelding, "Aan collectie toevoegen…" en het formulier
@@ -552,7 +663,8 @@
       sec = S.stSection(list, L('Profile'));
       if (isMain()) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users' });
       row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
-      row(sec, L('Show categories'), null, function () { location.hash = '#/catprefs'; }, { icon: 'grid' });
+      // build 140: verborgen categorieën gelden voor het hele account; een kinderprofiel ziet dit scherm niet
+      if (!prof().kids) row(sec, L('Show categories'), null, function () { location.hash = '#/catprefs'; }, { icon: 'grid' });
       row(sec, L('Settings'), null, function () { location.hash = '#/settings'; }, { icon: 'gear' });
       row(sec, L('Account and devices'), null, function () { location.href = '../account/'; }, { icon: 'account' });
       S.supportRow(sec);
@@ -672,6 +784,8 @@
       U.clear(box);
       var src = null; // build 128: geschiedenis van alle servers; wissen = alles
       var entries = D.history();
+      // build 140: kinderprofiel: alleen wat in de (kinder)bibliotheek staat (de rest blijft bewaard)
+      if (prof().kids && B.xs) entries = entries.filter(B.xs.historyVisible);
       if (!entries.length) { box.appendChild(h('div.state', [U.icon('history', 'state-ic'), h('p.muted', L('Nothing watched yet on this profile.'))])); return; }
       var days = [], byDay = {};
       entries.forEach(function (e) {
@@ -784,63 +898,114 @@
   // MARK: startscherm (HomeLayoutView op iOS): rijen aan/uit en in je eigen volgorde, per profiel
 
   /**
-   * build 128: categorieën aan/uit per profiel, over alle servers (profile.<id>.hiddenCategories). Dezelfde naam op
-   * twee servers = één regel die voor beide geldt; met meer servers staat eronder op welke server(s) hij staat.
+   * build 128: categorieën aan/uit over alle servers. Dezelfde naam op twee servers = één regel die voor beide geldt; met
+   * meer servers staat eronder op welke server(s) hij staat.
+   * build 140: voor het hele account (alle profielen behalve kinderprofielen; sync.js, section `account`) en snel: de lijst
+   * wordt één keer per catalogusversie berekend, een tik zet alleen die schakelaar om (geen nieuwe pagina), opnieuw
+   * filteren gebeurt één keer na het tikken (xs.js, uitgesteld), de rijen groeien in stukjes en er is een zoekveld.
    */
   S.pages.catprefs = function () {
     var box = h('div.st-list');
     var el = h('div.page.settings.catprefs-page', [subHead(L('Show categories')), box]);
     var pg = { el: el, title: L('Show categories') };
+    if (prof().kids) {
+      box.appendChild(h('div.state', [U.icon('grid', 'state-ic'), h('p.muted', L('A kids profile only sees categories for kids.'))]));
+      return pg;
+    }
     var kind = B.store.get('catprefsKind', 'channel') || 'channel';
-    var alive = true;
+    var alive = true, grid = null, listBox = null, query = '';
+    var memo = { key: null, g: null };
+    // sleutel: soort + per server de (ongefilterde) catalogus zelf; opnieuw filteren verandert de lijst niet
+    function catKey() {
+      return [kind].concat(B.xs.orderedSources().map(function (s) { var c = B.xs.catalog(s.id); return [s.id, c ? c.raw : null]; }));
+    }
+    function sameKey(a, b) {
+      if (!a || !b || a.length !== b.length || a[0] !== b[0]) return false;
+      for (var i = 1; i < a.length; i++) if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+      return true;
+    }
+    function stale() { return !sameKey(memo.key, catKey()); }
     function groups() {
-      var out = [], byName = {}, loadingAny = false;
+      var key = catKey();
+      if (sameKey(memo.key, key)) return memo.g;
+      var out = [], byName = Object.create(null), loadingAny = false;
       B.xs.orderedSources().forEach(function (src) {
         var cat = B.xs.catalog(src.id);
         if (!cat) { loadingAny = true; return; }
         var list = kind === 'movie' ? cat.raw.movies : kind === 'series' ? cat.raw.series : cat.raw.channels;
-        var seen = {};
-        list.forEach(function (x) {
-          var g = x.group;
-          if (g == null || seen[g]) return;
+        var seen = Object.create(null);
+        for (var i = 0; i < list.length; i++) {
+          var g = list[i].group;
+          if (g == null || seen[g]) continue;
           seen[g] = true;
           var e = byName[g];
-          if (!e) { e = byName[g] = { name: g, srcs: [] }; out.push(e); }
+          if (!e) { e = byName[g] = { name: g, srcs: [], f: B.fold(g) }; out.push(e); }
           e.srcs.push(src);
-        });
+        }
       });
-      return { list: out, loading: loadingAny };
+      memo = { key: key, g: { list: out, loading: loadingAny } };
+      return memo.g;
     }
     function isHidden(e) { return e.srcs.every(function (src) { return !!D.hiddenCategoryNames(src.id)[e.name]; }); }
+    var many = D.sources.length > 1;
+    function setSwitch(tg, on) {
+      tg.setAttribute('aria-checked', on ? 'true' : 'false');
+      var sw = tg.querySelector('.switch');
+      if (sw) sw.classList.toggle('on', on);
+    }
+    function rowFor(e) {
+      var on = !isHidden(e);
+      var label = many ? h('span.st-label', [h('span', e.name), h('span.st-sub', e.srcs.map(function (x) { return x.name; }).join(', '))]) : h('span.st-label', e.name);
+      var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' }, [label, h('span.switch' + (on ? '.on' : ''), [h('i')])]);
+      tg._e = e;
+      tg.addEventListener('click', function () {
+        var nowOn = tg.getAttribute('aria-checked') === 'true';
+        // alleen deze schakelaar; opslaan en (uitgesteld) opnieuw filteren doen sync.js en xs.js
+        setSwitch(tg, !nowOn);
+        D.setCategoriesHidden(e.srcs.map(function (src) { return { sid: src.id, name: e.name, hidden: nowOn }; }));
+      });
+      return h('div.st-row.hl-row', [tg]);
+    }
+    function drawList() {
+      if (grid && grid.destroy) grid.destroy();
+      grid = null;
+      U.clear(listBox);
+      var g = groups();
+      if (g.loading) listBox.appendChild(h('div.st-row.info', [U.spinner()]));
+      var q = B.fold(query).trim();
+      var list = q ? g.list.filter(function (e) { return e.f.indexOf(q) >= 0; }) : g.list;
+      if (!list.length && !g.loading) { listBox.appendChild(h('div.st-row.info', [h('span.st-label.muted', L('Nothing here yet'))])); return; }
+      grid = U.grid(list, rowFor, 'catprefs-rows', 80);
+      listBox.appendChild(grid);
+    }
+    /** Schakelaars bijwerken zonder de lijst opnieuw op te bouwen (wijziging van een ander apparaat). */
+    function refreshSwitches() {
+      if (!listBox) return;
+      Array.prototype.forEach.call(listBox.querySelectorAll('.hl-main'), function (tg) { if (tg._e) setSwitch(tg, !isHidden(tg._e)); });
+    }
     function render() {
       U.clear(box);
-      var sec = S.stSection(box, null, L('Turn categories on or off for this profile. Applies to all your servers.'));
+      var sec = S.stSection(box, null, L('Turn categories on or off for all profiles of your account (not for kids profiles). Applies to all your servers.'));
       sec.appendChild(h('div.st-row.catprefs-seg', [seg([['channel', L('Live TV')], ['movie', L('Movies')], ['series', L('Series')]], kind, function (v) {
-        kind = v; B.store.set('catprefsKind', v); render();
+        kind = v; B.store.set('catprefsKind', v); drawList();
       })]));
-      var g = groups();
-      if (g.loading) sec.appendChild(h('div.st-row.info', [U.spinner()]));
-      if (!g.list.length && !g.loading) sec.appendChild(h('div.st-row.info', [h('span.st-label.muted', L('Nothing here yet'))]));
-      var many = D.sources.length > 1;
-      g.list.forEach(function (e) {
-        var on = !isHidden(e);
-        var label = many ? h('span.st-label', [h('span', e.name), h('span.st-sub', e.srcs.map(function (x) { return x.name; }).join(', '))]) : h('span.st-label', e.name);
-        var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' }, [label, h('span.switch' + (on ? '.on' : ''), [h('i')])]);
-        tg.addEventListener('click', function () {
-          e.srcs.forEach(function (src) { D.setCategoryHidden(src.id, e.name, on); });
-          render();
-        });
-        sec.appendChild(h('div.st-row.hl-row', [tg]));
-      });
+      var search = h('input.catprefs-q', { type: 'search', placeholder: L('Search'), 'aria-label': L('Search'), value: query, autocomplete: 'off' });
+      search.addEventListener('input', B.debounce(function () { query = search.value; drawList(); }, 150));
+      sec.appendChild(h('div.st-row.catprefs-search', [U.icon('search'), search]));
+      listBox = h('div.catprefs-list');
+      sec.appendChild(listBox);
+      drawList();
     }
     // catalogi van alle servers (actieve: geladen; andere: cache of op de achtergrond)
     B.xs.orderedSources().forEach(function (src) {
-      if (!B.xs.catalog(src.id) && !B.xs.isActive(src.id)) B.xs.loadCatalog(src, true).then(function () { if (alive) render(); });
+      if (!B.xs.catalog(src.id) && !B.xs.isActive(src.id)) B.xs.loadCatalog(src, true).then(function () { if (alive && stale()) drawList(); });
     });
-    var off = B.on('xsCatalog', function () { if (alive && !el.querySelector(':focus')) render(); });
-    pg.refresh = render;
-    pg.onData = function () { if (!el.querySelector(':focus')) render(); };
-    pg.destroy = function () { alive = false; off(); };
+    var offs = [B.on('xsCatalog', function () { if (alive && stale()) drawList(); }),
+      B.on('library', function () { if (alive && stale()) drawList(); }),
+      B.on('accountCats', function () { if (alive) refreshSwitches(); })];
+    // nieuwe gefilterde bibliotheek (na het tikken): niet de hele pagina opnieuw, alleen als de catalogi veranderden
+    pg.refresh = function () { if (stale()) drawList(); else refreshSwitches(); };
+    pg.destroy = function () { alive = false; offs.forEach(function (f) { f(); }); if (grid && grid.destroy) grid.destroy(); };
     render();
     return pg;
   };
