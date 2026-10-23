@@ -750,11 +750,7 @@
           return [U.row(kids ? L('Top 10 kids series') : L('Top 10 series today'), Lib.top10(lib.series).map(function (s, i) { return top10Card(s, 'series', i); }), 'top10row'),
             U.row(kids ? L('Top 10 kids movies') : L('Top 10 movies today'), Lib.top10(lib.movies).map(function (m, i) { return top10Card(m, 'movie', i); }), 'top10row')];
         },
-        // build 111: "Nieuw toegevoegd": films én series van de laatste 30 dagen (max. 30), nieuwste eerst
-        'recent': function () {
-          var list = B.discover ? B.discover.recentTitles() : Lib.recent(lib.movies, 30).map(function (m) { return { type: 'movie', item: m }; });
-          return U.row(L('Recently added'), list.map(function (e) { return posterCard(e.item, e.type); }));
-        },
+        // build 141: "Nieuw toegevoegd" ('recent') is weg; "Nieuw op Bingr" ('streaming') staat op zijn plek
         // build 111: Binnenkort op Bingr / Nieuw op Bingr (TMDB), met bronvermelding onder de rij
         'upcoming': function () { return B.discover ? B.discover.row('upcoming') : null; },
         'streaming': function () { return B.discover ? B.discover.row('streaming') : null; },

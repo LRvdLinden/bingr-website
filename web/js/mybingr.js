@@ -107,9 +107,34 @@
   // MARK: rijen (Verder kijken, collecties, Voor jou)
 
   /** Verder kijken: films met voortgang en per serie één kaart (alle sleutels van die serie, om te verwijderen). */
+  /**
+   * build 141: Verder kijken toont de cover van de film of serie, geen still van de scène. Een M3U-serie neemt de afbeelding
+   * van een aflevering als poster; zo'n afbeelding (of geen, of alleen de opgeslagen afbeelding van de voortgang) wordt op
+   * de achtergrond vervangen door de poster uit TMDB.
+   */
+  function stillGuess(c) {
+    var x = c.x;
+    if (x._posterGuess) return true;
+    if (!x.poster) return true;
+    if (c.type === 'series') return (x.episodes || []).some(function (e) { return e && e.still && e.still === x.poster; });
+    return false;
+  }
+  function contCard(c) {
+    var card = S.posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys });
+    if (B.details && B.details.poster && stillGuess(c)) {
+      B.details.poster(c.x, c.type === 'series').then(function (url) {
+        if (!url) return;
+        var box = card.querySelector('.card-img .imgbox');
+        if (!box) return;
+        var fresh = U.img(url, 'poster', c.x.title);
+        box.parentNode.replaceChild(fresh, box);
+      });
+    }
+    return card;
+  }
   S.continueCards = function (max) {
     // build 128: over alle servers
-    if (B.xs) return B.xs.continueEntries(max || 20).map(function (c) { return S.posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); });
+    if (B.xs) return B.xs.continueEntries(max || 20).map(function (c) { return contCard(c); });
     var lib = Lib.lib, out = [];
     var byTitle = Lib.memo('seriesByTitle', function () { var m = {}; lib.series.forEach(function (s) { if (!m[s.title]) m[s.title] = s; }); return m; });
     var seen = {}, seriesKeys = {};
@@ -123,7 +148,7 @@
         if (!seen[s.id] && out.length < (max || 20)) { seen[s.id] = true; out.push({ x: s, type: 'series', p: pe.e.fraction, keys: seriesKeys[s.id] }); }
       }
     });
-    return out.map(function (c) { return S.posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); });
+    return out.map(contCard);
   };
 
   S.collectionChannels = function (c) {
@@ -146,8 +171,11 @@
   // "Categorieën", zie screens.js). Zelfde sleutel als iOS/tvOS/macOS en Android/Samsung TV; oudere sleutels 'genres' (web)
   // en 'categorytiles' (Android) worden bij het lezen 'browse' (plek en aan/uit blijven, dubbele vervallen).
   // build 111: 'upcoming' (Binnenkort op Bingr) en 'streaming' (Nieuw op Bingr; namen build 112), TMDB; standaard aan, na 'recent'
-  var KNOWN = ['continue', 'mylist', 'recent', 'upcoming', 'streaming', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
+  // build 141: de rij "Nieuw toegevoegd" ('recent') is weg; "Nieuw op Bingr" ('streaming') staat op zijn plek (een opgeslagen
+  // 'recent' telt als 'streaming' met dezelfde plek en aan/uit; de sleutel blijft in de opgeslagen indeling voor andere apps)
+  var KNOWN = ['continue', 'mylist', 'streaming', 'upcoming', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
   var ALIAS = { genres: 'browse', categorytiles: 'browse' };
+  var REPLACED = { recent: 'streaming' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
   S.homeKnownKeys = KNOWN;
   S.effectiveHomeLayout = function (rows, colls) {
@@ -157,7 +185,7 @@
     var out = [], seen = {};
     (rows || []).forEach(function (r) {
       if (!r) return;
-      var key = ALIAS[r.key] || r.key;
+      var key = ALIAS[r.key] || REPLACED[r.key] || r.key;
       if (!valid[key] || seen[key]) return;
       seen[key] = true;
       out.push({ key: key, visible: r.visible !== false });

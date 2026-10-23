@@ -347,6 +347,8 @@
     var list = X.entries(kind);
     var cards = list.map(function (e) {
       // build 112: datum als rood label linksboven, zelfde .card-badge als Serie/Film en "N BEKEKEN"
+      // build 141: Nieuw op Bingr met het label Film/Serie linksboven, zoals Voor jou
+      if (kind === 'streaming') return S.posterCard(e.item, e.type, { kindBadge: true });
       return S.posterCard(e.item, e.type, { badge: e.external ? dateLabel(e.t) : null });
     });
     return U.row(X.title(kind), cards, 'discover-row');

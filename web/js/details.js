@@ -50,6 +50,22 @@
   }
 
   /**
+   * build 141: cover (poster) van een film of serie uit TMDB, of null. Voor Verder kijken als de eigen afbeelding een still
+   * van een aflevering is (M3U-series nemen de afbeelding van de aflevering) of ontbreekt.
+   */
+  var posterCache = {};
+  DT.poster = function (x, isShow) {
+    if (!x || !AR.hasKey()) return Promise.resolve(null);
+    var k = (isShow ? 's|' : 'm|') + B.fold(x.rawTitle || x.title || '') + '|' + (x.year || '');
+    if (!posterCache[k]) {
+      posterCache[k] = tmdbID(x, isShow, { tmdb: x.tmdb, tmdb_id: x.tmdb }).then(function (id) {
+        return id ? tmdbDetails(id, isShow).then(function (f) { return f && f.poster_path ? img(f.poster_path, 'w342') : null; }) : null;
+      }).catch(function () { return null; });
+    }
+    return posterCache[k];
+  };
+
+  /**
    * Alles voor de detailpagina. `info` = wat de afspeellijst gaf (of null). Geeft altijd een object:
    * {overview, genres[], director, runtime, cast[{name, character, photo, personID}], recommendations[{title, year, poster, isShow}]}
    */

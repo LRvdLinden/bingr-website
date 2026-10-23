@@ -859,8 +859,12 @@
         var state = !src ? 'orphan' : (view ? 'missing' : 'pending');
         if (src && !view && !isActive(kp.sid)) kick(800);
         var phType = m && (m.k === 'episode' || m.k === 'series') ? 'series' : 'movie';
-        var ph = placeholder(key, phType, state, 'continue', { title: pe.e.title, artwork: pe.e.artwork, type: phType });
+        // build 141: cover van de serie (meta van de serie) boven de opgeslagen afbeelding (vaak een still van de aflevering)
+        var sMeta = m && m.ep && m.ep.series ? X.meta(m.ep.series) : null;
+        var ph = placeholder(key, phType, state, 'continue', { title: (m && m.ep && m.ep.st) || pe.e.title, artwork: (sMeta && sMeta.img) || pe.e.artwork, type: phType });
         if (!ph) return;
+        if (sMeta && sMeta.img) ph.item.poster = sMeta.img;
+        else if (phType === 'series' || !(m && m.img)) ph.item._posterGuess = true;
         var gk = 'ph|' + lower(ph.item.title) + '|' + ph.type;
         if (ph.type === 'series' && bySeries[gk]) { bySeries[gk].keys.push(pe.key); return; }
         entry = { x: ph.item, type: ph.type, p: pe.e.fraction, keys: [pe.key] };
