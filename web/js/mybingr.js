@@ -183,8 +183,12 @@
     var valid = {};
     KNOWN.concat(collKeys).forEach(function (k) { valid[k] = true; });
     var out = [], seen = {};
+    // build 141: staat 'recent' in de opgeslagen indeling, dan komt de (enige) rij Nieuw op Bingr op díe plek; een eigen
+    // 'streaming'-regel elders telt dan niet (ook niet als hij ervóór staat)
+    var hasRecent = (rows || []).some(function (r) { return r && r.key === 'recent'; });
     (rows || []).forEach(function (r) {
       if (!r) return;
+      if (hasRecent && r.key === 'streaming') return;
       var key = ALIAS[r.key] || REPLACED[r.key] || r.key;
       if (!valid[key] || seen[key]) return;
       seen[key] = true;
