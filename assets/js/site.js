@@ -40,7 +40,7 @@
     "foot.privacy": "Privacy", "foot.cookies": "Cookie settings", "foot.version": "version", "foot.terms": "Terms",
     "foot.iptvapp": "IPTV app for Apple", "foot.samsung": "IPTV on Samsung TV", "foot.m3u": "Add M3U or Xtream", "foot.compare": "Bingr vs. Smarters and TiviMate",
     "foot.tmdb": "Movie and series data and images: <a href=\"https://www.themoviedb.org\" rel=\"noopener\">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.",
-    "foot.disc": "Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc. Android, Google TV and Android TV are trademarks of Google LLC, Fire TV of Amazon.com, Inc. and Samsung and Tizen of Samsung Electronics Co., Ltd."
+    "foot.disc": "Bingr is a media player and does not provide, sell or host any channels, movies or series. You are responsible for the content you play and your right to watch it. Apple, iPhone, iPad, Apple TV, Mac and AirPlay are trademarks of Apple Inc. Android, Google TV and Android TV are trademarks of Google LLC, Fire TV of Amazon.com, Inc. and Samsung and Tizen of Samsung Electronics Co., Ltd. Windows is a trademark of Microsoft Corporation."
   };
   function apply() {
     if (lang === "en") document.querySelectorAll("[data-s]").forEach(function (el) { var v = EN[el.dataset.s]; if (v) el.innerHTML = v; });
