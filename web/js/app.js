@@ -195,7 +195,8 @@
     if (p) { pickProfile(p); return; }
     if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname + location.search);
     show(S.profiles(pickFromList));
-    if (B.diag) { B.diag.mark('profiles'); B.diag.ready(); }
+    // build 147: vanaf hier wacht de app op de gebruiker (telt niet als app-tijd)
+    if (B.diag) { B.diag.mark('profiles'); B.diag.waitStart('profiles'); B.diag.ready(); }
     document.title = L("Who's watching?") + ' · Bingr';
     app.applyAccent(B.store.get('lastAccent', 'red'));
   }
@@ -229,12 +230,16 @@
   app.pickProfileWithPin = function (p) {
     app.leaveKids(function () {
       var pin = D.pinFor(p);
-      if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
+      if (pin) {
+        if (B.diag) B.diag.waitStart('pin');
+        U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); pickProfile(p); }, S.avatar(p, 'pinav'));
+      }
       else pickProfile(p);
     }, p);
   };
 
   function pickProfile(p) {
+    if (B.diag) { B.diag.waitEnd('*'); B.diag.mark('profile_picked'); }
     gatePassed = false;
     if (B.player.current) B.player.current.close(true);
     D.flush();
@@ -253,7 +258,8 @@
     if (B.support && B.support.tryPending) setTimeout(function () { if (app.profile === p) B.support.tryPending(); }, 0);
     // build 145: na het laden van de open server de keuze van "Servers laden bij openen" (de vraag, Altijd of niets)
     if (B.xs && B.xs.profileOpened) B.xs.profileOpened();
-    Lib.select(src).then(function () {
+    // build 147: mijlpaal 'catalog' = de catalogus staat er (uit de cache of van de server); einde van de app-tijd
+    Lib.select(src, false, { onLib: function (ok) { if (B.diag && ok != null) B.diag.mark('catalog', ok); } }).then(function () {
       if (B.diag) B.diag.mark('servers_loaded', !Lib.error);
       if (B.xs && B.xs.afterProfileOpen && app.profile === p) B.xs.afterProfileOpen(Lib.fromCache);
       if (B.push && app.profile === p) B.push.tryPending();

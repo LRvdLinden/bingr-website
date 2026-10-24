@@ -67,7 +67,7 @@
   X.tmdbOf = tmdbOf;
 
   /** Zoekindex van een (ongefilterde) bibliotheek. */
-  X.buildIndex = function (raw) {
+  X.buildIndex = function (raw, chunked) {
     var idx = { movie: Object.create(null), series: Object.create(null), tmdb: { movie: Object.create(null), series: Object.create(null) },
       chanName: Object.create(null), chanEpg: Object.create(null), byId: Object.create(null) };
     function add(kind, x) {
@@ -77,17 +77,27 @@
       var t = tmdbOf(x);
       if (t && !idx.tmdb[kind][t]) idx.tmdb[kind][t] = x;
     }
-    ((raw && raw.movies) || []).forEach(function (m) { add('movie', m); });
-    ((raw && raw.series) || []).forEach(function (s) { add('series', s); });
-    ((raw && raw.channels) || []).forEach(function (c) {
+    function addChannel(c) {
       idx.byId[c.id] = { type: 'channel', item: c };
       var e = c.epgID ? lower(String(c.epgID).trim()) : '';
       if (e && !idx.chanEpg[e]) idx.chanEpg[e] = c;
       var n = X.normChannel(c.name);
       if (n.length >= 2 && !idx.chanName[n]) idx.chanName[n] = c;
-    });
+    }
+    var mv = (raw && raw.movies) || [], se = (raw && raw.series) || [], ch = (raw && raw.channels) || [];
+    if (chunked) {
+      return B.task.run('catalogus indexeren', function () {
+        return B.chunked(mv, function (m) { add('movie', m); }).then(function () { return B.chunked(se, function (x) { add('series', x); }); })
+          .then(function () { return B.chunked(ch, addChannel); }).then(function () { return idx; });
+      });
+    }
+    mv.forEach(function (m) { add('movie', m); });
+    se.forEach(function (x) { add('series', x); });
+    ch.forEach(addChannel);
     return idx;
   };
+  /** build 147: zelfde index in stukjes (Promise). */
+  X.buildIndexChunked = function (raw) { return X.buildIndex(raw, true); };
   /** Titel bij meta: TMDB-id, anders titel + jaar (±1; zonder jaar aan één kant alleen als er geen met jaar is). */
   X.matchTitle = function (meta, idx, kind) {
     kind = kind || (meta.k === 'series' ? 'series' : 'movie');
@@ -654,7 +664,7 @@
   function cacheFresh() { return true; }
   function storeLib(src, lib) {
     lib.epg = lib.epg || {};
-    B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
+    B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays'); // build 147: in stukken
     B.idb.set('chan:' + src.id, lib.channels.map(function (x) { return { name: x.name, epgID: x.epgID, streamURL: x.streamURL, stalkerCmd: x.stalkerCmd || null }; }));
   }
   /** Catalogus van een server laden (cache eerst). fetch=false: alleen uit de cache. */
@@ -664,7 +674,7 @@
     if (isActive(src.id)) return Promise.resolve(catNow(src.id));
     if (cats[lid] && (cats[lid].fresh || !fetch)) return Promise.resolve(cats[lid]);
     if (loading[lid]) return loading[lid];
-    var p = loading[lid] = B.idb.get('lib:' + src.id).then(function (c) {
+    var p = loading[lid] = B.idb.getBig('lib:' + src.id).then(function (c) {
       if (c && c.lib) {
         put(src, c.lib, c.at);
         // build 145: een bewaarde catalogus is goed (bijwerken kiest de gebruiker zelf)
@@ -685,7 +695,7 @@
       delete loading[lid];
       if (c && !c.epgAsked) {
         c.epgAsked = true;
-        B.idb.get('epg:' + src.id).then(function (e) { if (e && e.epg && cats[lid] === c) { c.epg = e.epg; B.emit('epg'); } });
+        B.idb.getBig('epg:' + src.id).then(function (e) { if (e && e.epg && cats[lid] === c) { c.epg = e.epg; B.emit('epg'); } });
       }
       return c;
     }, function () { delete loading[lid]; return null; });
@@ -695,9 +705,14 @@
     var lid = lower(src.id);
     raw.channels = raw.channels || []; raw.movies = raw.movies || []; raw.series = raw.series || [];
     var old = cats[lid];
-    cats[lid] = { src: src, raw: raw, idx: X.buildIndex(raw), at: at || Date.now(), epg: old ? old.epg : null, epgAsked: old ? old.epgAsked : false };
+    // build 147: de index in stukjes; tot hij klaar is een lege index (de rijen volgen via changedSoon)
+    var c = cats[lid] = { src: src, raw: raw, idx: X.buildIndex(null), at: at || Date.now(), epg: old ? old.epg : null, epgAsked: old ? old.epgAsked : false };
     views[lid] = null;
-    changedSoon();
+    X.buildIndexChunked(raw).then(function (idx) {
+      if (cats[lid] !== c) return;
+      c.idx = idx;
+      return warmView(src.id);
+    }).then(function () { changedSoon(); }, function () { changedSoon(); });
   }
   /**
    * Gids van een andere server (voor nu/straks en terugkijken). Eerst de cache; ontbreekt hij of is hij oud, dan rustig
@@ -728,7 +743,11 @@
   }
   X.version = 0;
   // wisselen naar een server die we al geladen hebben: zijn catalogus is dan de actieve
-  B.on('library', function () { activeCat = null; X.version++; });
+  // build 147: één keer per bibliotheekversie ophogen (ook al in de warmers, vóór het event 'library': dan gelden de
+  // vooraf berekende Voor jou en Nieuw op Bingr, die X.version in hun sleutel hebben)
+  var xsLibVer = -1;
+  function bumpForLib() { if (xsLibVer !== Lib.version) { xsLibVer = Lib.version; X.version++; } }
+  B.on('library', function () { if (!activeCat || activeCat.raw !== Lib.raw) activeCat = null; bumpForLib(); });
   B.on('sources', function () {
     Object.keys(cats).forEach(function (k) { var s = D.sourceById(k); if (!s) { delete cats[k]; delete views[k]; } else cats[k].src = s; });
     X.version++;
@@ -755,6 +774,43 @@
     return lib;
   }
   X.view = viewOf;
+  /** build 147: gefilterde weergave van een andere server vooraf in stukjes (anders deed viewOf dat in één keer). */
+  function warmView(sid) {
+    if (isActive(sid)) return Promise.resolve();
+    var lid = lower(sid), c = cats[lid];
+    if (!c) return Promise.resolve();
+    var src = D.sourceById(sid) || c.src;
+    var ctx = Lib.contextFor(src);
+    var key = JSON.stringify(ctx) + '|' + Lib.version;
+    var v = views[lid];
+    if (v && v.raw === c.raw && v.key === key) return Promise.resolve();
+    return B.task.run('catalogus filteren', function () {
+      return Lib.applyChunked(c.raw, ctx).then(function (lib) {
+        var byId = Object.create(null);
+        function tag(type) { return function (x) { x._src = src; byId[x.id] = { type: type, item: x }; }; }
+        return B.chunked(lib.channels, tag('channel')).then(function () { return B.chunked(lib.movies, tag('movie')); })
+          .then(function () { return B.chunked(lib.series, tag('series')); }).then(function () {
+            if (cats[lid] !== c || Lib.version + '' !== key.split('|').pop()) return;
+            lib.byId = byId;
+            views[lid] = { raw: c.raw, key: key, lib: lib };
+          });
+      });
+    }).catch(B.noop);
+  }
+  X.warmView = warmView;
+  // build 147: na een nieuwe bibliotheek (ander profiel, kinderslot) de weergaven van de andere servers en de index van
+  // de actieve server vooraf, als laatste stappen vóór het event 'library'
+  if (Lib.warmers) {
+    Lib.warmers.push(function () {
+      bumpForLib();
+      if (!Lib.source) return;
+      var raw = Lib.raw;
+      if (!raw || (!raw.channels.length && !raw.movies.length && !raw.series.length)) return;
+      if (activeCat && activeCat.raw === raw) return;
+      return X.buildIndexChunked(raw).then(function (idx) { if (Lib.raw === raw) activeCat = { src: Lib.source, raw: raw, idx: idx, at: Date.now(), active: true }; });
+    });
+    Lib.warmers.push(function () { return B.steps(Object.keys(cats).map(function (k) { return function () { return warmView(cats[k].src.id); }; })); });
+  }
 
   // MARK: tegels (weergave over alle servers)
 

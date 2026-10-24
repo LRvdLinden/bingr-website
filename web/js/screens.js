@@ -193,6 +193,7 @@
     var s = String(p || '');
     // build 146: de Windows-app (platform "windows")
     if (/^windows$/i.test(s.trim())) return U.icon('windows');
+    // build 147: LG TV (platform "webos") valt hieronder op het tv-icoon, net als de Samsung TV
     var k = /^(apple ?tv|tvos)$/i.test(s.trim()) ? 'appletv' : /iPhone|^Android$/.test(s) ? 'phone' : /iPad|tablet/i.test(s) ? 'tablet' : /^Mac$/.test(s) ? 'laptop' : /browser/i.test(s) ? 'browser' : 'tv';
     var svg = U.icon('tv');
     if (k === 'appletv') {
@@ -288,8 +289,11 @@
           p.kids ? h('div.pf-kids', L('Kids')) : null
         ]);
         tile.addEventListener('click', function () {
-          if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { onPick(p); }, S.avatar(p, 'pinav'));
-          else onPick(p);
+          // build 147 (diagnose): het pincodescherm is wachten op de gebruiker
+          if (pin) {
+            if (B.diag) { B.diag.waitStart('pin'); B.diag.mark('pin_shown'); }
+            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); onPick(p); }, S.avatar(p, 'pinav'));
+          } else onPick(p);
         });
         grid.appendChild(tile);
       });
@@ -774,8 +778,9 @@
         'categories': function () {
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
-          lib.movieGroups.slice(0, 8).forEach(function (g) { out.push(U.row(g, (mg[g] || []).slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, R.link(['movies', g]))); });
-          lib.seriesGroups.slice(0, 6).forEach(function (g) { out.push(U.row(g, (sg[g] || []).slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, R.link(['series', g]))); });
+          // build 147: elke rij als functie; fillRow bouwt ze één voor één in een eigen macrotaak (14 rijen × 30 tegels)
+          lib.movieGroups.slice(0, 8).forEach(function (g) { out.push(function () { return U.row(g, (mg[g] || []).slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, R.link(['movies', g])); }); });
+          lib.seriesGroups.slice(0, 6).forEach(function (g) { out.push(function () { return U.row(g, (sg[g] || []).slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, R.link(['series', g])); }); });
           return out;
         }
       };
@@ -825,6 +830,10 @@
       var gi = -1;
       lay.forEach(function (r, i) { if (r.key === 'browse') gi = i; });
       autoGenres = gi > 0 && lay[gi - 1].key === 'live';
+      // build 147: de eerste rijen meteen, de rest elk in een eigen macrotaak (Home met 15+ rijen en honderden tegels
+      // hield de hoofdthread anders in één keer vast); de holders staan wel meteen op hun plek
+      var later = [], shown = 0, my = ++fillJob;
+      filled = {};
       lay.forEach(function (r) {
         var k = r.key;
         if (!r.visible) {
@@ -832,15 +841,42 @@
           if (k === 'live' && autoGenres) { liveSlot = h('div.rowgroup.live-slot', { hidden: true }); rows.appendChild(liveSlot); }
           return;
         }
-        var nodes = b[k]();
-        nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
-        var holder = h('div.rowgroup', { 'data-k': k }, nodes);
+        var holder = h('div.rowgroup', { 'data-k': k });
         blocks[k] = holder;
         if (!(k === 'browse' && autoGenres)) rows.appendChild(holder);
         keysBuilt[k] = true;
+        if (shown++ < FIRST_ROWS) fillRow(b, k); else later.push(k);
       });
       placeGenres();
+      var tid = later.length ? B.task.begin('rijen opbouwen') : 0;
+      B.steps(later.map(function (k) {
+        return function () { if (my === fillJob && blocks[k] && !filled[k] && el.isConnected !== false) { fillRow(b, k); placeGenres(); } };
+      })).then(function () { if (tid) B.task.end(tid); });
       loadDiscover();
+    }
+    var FIRST_ROWS = 3, fillJob = 0, filled = {};
+    function fillRow(b, k) {
+      var holder = blocks[k];
+      if (!holder || !b[k]) return;
+      filled[k] = true;
+      return putNodes(holder, b[k]());
+    }
+    /** Knopen in een holder; functies (rijen die nog gebouwd moeten worden) elk in een eigen macrotaak. */
+    var putGen = 0;
+    function putNodes(holder, nodes) {
+      nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
+      var my = holder._put = ++putGen;
+      U.clear(holder);
+      var lazy = [];
+      nodes.forEach(function (n) {
+        if (typeof n !== 'function') { holder.appendChild(n); return; }
+        if (!lazy.length && !holder.firstChild) { var x = n(); if (x) holder.appendChild(x); return; }
+        lazy.push(n);
+      });
+      if (!lazy.length) return;
+      return B.steps(lazy.map(function (f) {
+        return function () { if (holder._put !== my || !holder.isConnected) return; var x = f(); if (x) { holder.appendChild(x); placeGenres(); } };
+      }));
     }
     /** build 111: TMDB-rijen en de titelindex op de achtergrond; daarna alleen die rijen opnieuw. */
     var discJob = 0;
@@ -856,7 +892,7 @@
     // build 140: TMDB-aanbevelingen voor Voor jou binnen, of nieuwe titels gezien (Nieuw op Bingr)
     var offFy = B.on('forYou', function () { if (rows) refreshRows(['foryou']); });
     var offSeen = B.on('seen', function () { if (rows) refreshRows(['streaming']); });
-    pg.destroy = function () { offDiscover(); offFy(); offSeen(); stopHero(); };
+    pg.destroy = function () { fillJob++; offDiscover(); offFy(); offSeen(); stopHero(); };
 
     // MARK: uitgelicht (build 140): vaste roulerende selectie
     var heroEl = null, heroItems = [], heroIdx = 0, heroTimer = null, heroSig = '';
@@ -909,13 +945,12 @@
         var holder = blocks[k];
         if (!holder || !b[k]) return;
         var nodes = b[k]();
-        nodes = (Array.isArray(nodes) ? nodes : [nodes]).filter(Boolean);
         // scrollpositie van de rij bewaren
         var tr = holder.querySelector('.row-track'), x = tr ? tr.scrollLeft : 0;
-        U.clear(holder);
-        U.append(holder, nodes);
+        putNodes(holder, nodes);
         var tr2 = holder.querySelector('.row-track');
         if (tr2) tr2.scrollLeft = x;
+        filled[k] = true;
       });
       placeGenres();
     }
@@ -1985,7 +2020,7 @@
         }
         var gv = h('span.st-value', '…');
         row(sec, L('TV guide'), gv, null, { icon: 'guide' });
-        if (src) B.idb.get('epg:' + src.id).then(function (c) { gv.textContent = c && c.at ? L('Updated') + ' ' + U.fmtDate(c.at) + ' ' + B.fmtTime(c.at) : L('Not loaded yet'); }, function () { gv.textContent = '—'; });
+        if (src) B.idb.getMeta('epg:' + src.id).then(function (c) { gv.textContent = c && c.at ? L('Updated') + ' ' + U.fmtDate(c.at) + ' ' + B.fmtTime(c.at) : L('Not loaded yet'); }, function () { gv.textContent = '—'; });
         else gv.textContent = '—';
       },
       profiles: function (prof, main) {

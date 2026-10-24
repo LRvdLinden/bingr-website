@@ -355,12 +355,14 @@ const icons = {
   "browser": SV('<rect x="4" y="7" width="40" height="34" rx="3"/><path d="M4 16h40M10 11.5h.01M15 11.5h.01"/>'),
 };
 const isTizen = (p) => /^(tizen|samsung tv)$/i.test(p || "");
+// LG TV-app (webOS, build 147) meldt zich met platform "webos": tv-icoon zoals de Samsung TV
+const isWebOS = (p) => /^(webos|lg ?tv)$/i.test(String(p || "").trim());
 const isBrowser = (p) => /^browser$/i.test(p || "");
 const isWindows = (p) => /^windows$/i.test(p || "");
 // Apple TV ook bij een andere schrijfwijze ("appletv", "tvOS"), zoals DeviceText.isAppleTV op iOS
 const isAppleTV = (p) => /^(apple ?tv|tvos)$/i.test(String(p || "").trim());
-const devIcon = (p) => icons[isTizen(p) ? "tizen" : isBrowser(p) ? "browser" : isWindows(p) ? "windows" : isAppleTV(p) ? "Apple TV" : p] || icons["Android TV"];
-const platLabel = (p) => isTizen(p) ? "Samsung TV" : isBrowser(p) ? "Browser" : isWindows(p) ? "Windows" : (p || "");
+const devIcon = (p) => icons[isTizen(p) || isWebOS(p) ? "tizen" : isBrowser(p) ? "browser" : isWindows(p) ? "windows" : isAppleTV(p) ? "Apple TV" : p] || icons["Android TV"];
+const platLabel = (p) => isTizen(p) ? "Samsung TV" : isWebOS(p) ? "LG TV" : isBrowser(p) ? "Browser" : isWindows(p) ? "Windows" : (p || "");
 // zelfde iconen en kleuren als de apps (iOS-symboolnaam → emoji, kleurindex → verloop)
 const SYM = { tv:"📺", globe:"🌐", sportscourt:"⚽", crown:"👑", flame:"🔥", film:"🎬", popcorn:"🍿", star:"⭐", gamecontroller:"🎮", "moon.stars":"🌙", bolt:"⚡", heart:"❤️",
   "waveform.path.ecg":"🎧", hare:"🐰", forward:"🚀", sparkle:"🌈", link:"🔗", "bubble.left":"💬", wifi:"📶", umbrella:"☂️", play:"▶️", "book.closed":"📕", person:"🧸", paintbrush:"🎭" };

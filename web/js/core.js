@@ -29,7 +29,7 @@
     supabaseKey: SB.anonKey || 'sb_publishable_lpIup6Omq5kW2k3oICGZ4g_HPGac5A3',
     platform: B.isWindowsApp ? 'windows' : 'browser',
     // build 146: de build van deze code; ../assets/changelog.json mag hem alleen ophogen (B.loadBuild in app.js)
-    build: '146',
+    build: '147',
     version: '1.0.1'
   };
 
@@ -114,6 +114,8 @@
   B.chunked = function (list, each, budget) {
     budget = budget || 12;
     var i = 0, cancelled = false;
+    // build 147: korte lijsten met zware items (sorteren in stukjes) elke keer de tijd controleren, lange elke 64
+    var mask = list.length < 1024 ? 0 : 63;
     var p = new Promise(function (resolve, reject) {
       function step() {
         if (cancelled) { reject(new Error('cancelled')); return; }
@@ -122,7 +124,7 @@
           while (i < list.length) {
             each(list[i], i);
             i++;
-            if ((i & 63) === 0 && Date.now() - t0 > budget) break;
+            if ((i & mask) === 0 && Date.now() - t0 > budget) break;
           }
         } catch (e) { reject(e); return; }
         if (i >= list.length) resolve();
@@ -132,6 +134,80 @@
     });
     p.cancel = function () { cancelled = true; };
     return p;
+  };
+  /**
+   * Build 147: werk na "klaar" nooit lang op de hoofdthread. B.task houdt bij welke (zware) taak er loopt, zodat de
+   * hang-detectie (diag.js) kan zeggen waar de app mee bezig was: begin(naam) → token, end(token). Namen zijn vaste
+   * teksten zoals op de andere platforms ("catalogus sorteren", "sync toepassen", "pin migreren").
+   */
+  var taskStack = [], taskSeq = 0;
+  B.task = {
+    begin: function (name) {
+      var t = { id: ++taskSeq, name: String(name || ''), at: Date.now() };
+      taskStack.push(t);
+      if (B.task.onChange) { try { B.task.onChange(); } catch (e) { /* stil */ } }
+      return t.id;
+    },
+    end: function (id) {
+      for (var i = taskStack.length - 1; i >= 0; i--) if (taskStack[i].id === id) { taskStack.splice(i, 1); break; }
+      if (B.task.onChange) { try { B.task.onChange(); } catch (e) { /* stil */ } }
+    },
+    /** Naam van de taak die het laatst begon en nog loopt (of ''). */
+    current: function () { return taskStack.length ? taskStack[taskStack.length - 1].name : ''; },
+    /** Alle lopende taken, oudste eerst (de "stack" van de webspeler: de browser geeft geen echte stack van de hoofdthread). */
+    names: function () { return taskStack.map(function (t) { return t.name; }); },
+    /** Promise-werk als taak: run(naam, fn) → fn() (Promise of waarde), de taak eindigt als het klaar is. */
+    run: function (name, fn) {
+      var id = B.task.begin(name);
+      var p;
+      try { p = Promise.resolve(fn()); } catch (e) { p = Promise.reject(e); }
+      p.then(function () { B.task.end(id); }, function () { B.task.end(id); });
+      return p;
+    }
+  };
+  /** Terug naar de browser (één macrotaak): tussen zware stappen, zodat invoer en tekenen voorgaan. */
+  // setTimeout (geen scheduler.postTask): eerlijk op volgorde met de andere timers van de app; invoer en tekenen gaan
+  // in de browser toch voor
+  B.yieldTask = function () {
+    return new Promise(function (r) { setTimeout(r, Date.now() - B.lastKeyAt < 200 ? 16 : 0); });
+  };
+  /** Stappen na elkaar, elk in een eigen macrotaak: steps = [function () {…}, …]; een stap mag een Promise geven. */
+  B.steps = function (steps) {
+    var i = 0;
+    function next() {
+      if (i >= steps.length) return Promise.resolve();
+      var f = steps[i++];
+      return B.yieldTask().then(function () { return f(); }).then(next, function (e) { B.log('stap', e && e.message); return next(); });
+    }
+    return next();
+  };
+  /** Lijst in stukjes omzetten: map(item) → waarde of null/undefined (dan overgeslagen). Promise met de nieuwe lijst. */
+  B.chunkedMap = function (list, fn, budget) {
+    var out = [];
+    return B.chunked(list || [], function (x, i) { var v = fn(x, i); if (v != null) out.push(v); }, budget).then(function () { return out; });
+  };
+  /** Sorteren zonder de hoofdthread lang vast te houden: kleine lijsten meteen, grote in stukjes (mergesort, stabiel). */
+  B.sortChunked = function (list, cmp) {
+    list = list || [];
+    if (list.length < 3000) return Promise.resolve(list.slice().sort(cmp));
+    var RUN = 1024, runs = [];
+    for (var i = 0; i < list.length; i += RUN) runs.push(list.slice(i, i + RUN));
+    return B.chunked(runs, function (r) { r.sort(cmp); }, 10).then(function () {
+      function merge() {
+        if (runs.length <= 1) return Promise.resolve(runs[0] || []);
+        var next = [];
+        var pairs = [];
+        for (var j = 0; j < runs.length; j += 2) pairs.push([runs[j], runs[j + 1] || []]);
+        return B.chunked(pairs, function (pr) {
+          var a = pr[0], b = pr[1], o = new Array(a.length + b.length), x = 0, y = 0, k = 0;
+          while (x < a.length && y < b.length) o[k++] = cmp(b[y], a[x]) < 0 ? b[y++] : a[x++];
+          while (x < a.length) o[k++] = a[x++];
+          while (y < b.length) o[k++] = b[y++];
+          next.push(o);
+        }, 10).then(function () { runs = next; return merge(); });
+      }
+      return merge();
+    });
   };
   /** Binair zoeken in een op `start` gesorteerde lijst: index van het laatste item met start <= t (of -1). */
   B.bsearchStart = function (list, t) {
@@ -276,6 +352,108 @@
             t.onerror = function () { resolve(); };
           } catch (e) { resolve(); }
         });
+      });
+    },
+    /**
+     * Build 147: grote records (bibliotheek, tv-gids) in stukken. IndexedDB kopieert een waarde bij put() en bij het
+     * lezen op de hoofdthread (structured clone); een bibliotheek van 10k+ titels in één record hield de webspeler
+     * zo honderden ms vast. Nu: kop onder `k` ({_big: 2, base, arr: {veld: stukken}, keys: stukken}) en de stukken
+     * onder `k#a:<veld>:<n>` (lijsten, PART items) of `k#k:<n>` (een object met veel sleutels, zoals de gids), elk in
+     * een eigen transactie en macrotaak. field = het veld van het record dat gesplitst wordt ('lib' of 'epg');
+     * mode 'arrays' = de lijsten van dat object splitsen, 'keys' = het object zelf per groep sleutels.
+     * Een oud record (één stuk) blijft leesbaar.
+     */
+    setBig: function (k, rec, field, mode) {
+      var PART = 1500, KEYS = 150;
+      var obj = rec && rec[field];
+      if (!obj || typeof obj !== 'object') return B.idb.set(k, rec);
+      var head = { _big: 2, field: field, mode: mode, base: {}, arr: {}, keys: 0 };
+      Object.keys(rec).forEach(function (f) { if (f !== field) head.base[f] = rec[f]; });
+      var parts = [];
+      if (mode === 'keys') {
+        var ks = Object.keys(obj);
+        for (var i = 0; i < ks.length; i += KEYS) {
+          var part = {};
+          for (var j = i; j < Math.min(ks.length, i + KEYS); j++) part[ks[j]] = obj[ks[j]];
+          parts.push([k + '#k:' + head.keys++, part]);
+        }
+      } else {
+        head.rest = {};
+        Object.keys(obj).forEach(function (f) {
+          var v = obj[f];
+          if (!Array.isArray(v)) { head.rest[f] = v; return; }
+          head.arr[f] = 0;
+          for (var i2 = 0; i2 < v.length || (i2 === 0 && head.arr[f] === 0); i2 += PART) {
+            parts.push([k + '#a:' + f + ':' + head.arr[f]++, v.slice(i2, i2 + PART)]);
+            if (!v.length) break;
+          }
+        });
+      }
+      var oldHead = null;
+      var tid = B.task.begin(field === 'epg' ? 'gids bewaren' : 'catalogus bewaren');
+      return B.idb.get(k).then(function (o) { oldHead = o && o._big ? o : null; }).then(function () {
+        var i3 = 0;
+        function next() {
+          if (i3 >= parts.length) return Promise.resolve();
+          var pr = parts[i3++];
+          return B.yieldTask().then(function () { return B.idb.set(pr[0], pr[1]); }).then(next);
+        }
+        return next();
+      }).then(function () { return B.idb.set(k, head); }).then(function () {
+        // stukken van de vorige versie die er nu niet meer zijn
+        if (!oldHead) return;
+        var dels = [];
+        if (oldHead.mode === 'keys') for (var a = head.mode === 'keys' ? head.keys : 0; a < (oldHead.keys || 0); a++) dels.push(k + '#k:' + a);
+        else Object.keys(oldHead.arr || {}).forEach(function (f) {
+          for (var b = head.arr && head.arr[f] ? head.arr[f] : 0; b < oldHead.arr[f]; b++) dels.push(k + '#a:' + f + ':' + b);
+        });
+        return Promise.all(dels.map(function (x) { return B.idb.del(x); }));
+      }).then(function () { B.task.end(tid); }, function () { B.task.end(tid); });
+    },
+    /** Grote records lezen (zie setBig): stuk voor stuk, elk in een eigen macrotaak; oud formaat = zoals het is. */
+    getBig: function (k) {
+      return B.idb.get(k).then(function (head) {
+        if (!head || !head._big) return head;
+        var tid = B.task.begin(head.field === 'epg' ? 'gids laden' : 'catalogus laden');
+        var rec = B.assign({}, head.base), obj = {}, ok = true;
+        var names = [];
+        if (head.mode === 'keys') for (var i = 0; i < head.keys; i++) names.push([k + '#k:' + i, null]);
+        else {
+          B.assign(obj, head.rest || {});
+          Object.keys(head.arr || {}).forEach(function (f) { obj[f] = []; for (var j = 0; j < head.arr[f]; j++) names.push([k + '#a:' + f + ':' + j, f]); });
+        }
+        var n = 0;
+        function next() {
+          if (n >= names.length || !ok) return Promise.resolve();
+          var nm = names[n++];
+          return B.yieldTask().then(function () { return B.idb.get(nm[0]); }).then(function (part) {
+            if (part == null) { ok = false; return; }
+            if (nm[1] == null) B.assign(obj, part);
+            else { var a = obj[nm[1]]; for (var x = 0; x < part.length; x++) a.push(part[x]); }
+            return next();
+          });
+        }
+        return next().then(function () {
+          B.task.end(tid);
+          if (!ok) return null; // een stuk ontbreekt: als niet bewaard behandelen
+          rec[head.field] = obj;
+          return rec;
+        }, function () { B.task.end(tid); return null; });
+      });
+    },
+    /** Alleen de kop (bv. `at`) zonder de stukken; oud formaat = het hele record. */
+    getMeta: function (k) {
+      return B.idb.get(k).then(function (head) { return head && head._big ? B.assign({}, head.base) : head; });
+    },
+    /** Groot record met zijn stukken verwijderen. */
+    delBig: function (k) {
+      return B.idb.get(k).then(function (head) {
+        var dels = [k];
+        if (head && head._big) {
+          if (head.mode === 'keys') for (var i = 0; i < head.keys; i++) dels.push(k + '#k:' + i);
+          else Object.keys(head.arr || {}).forEach(function (f) { for (var j = 0; j < head.arr[f]; j++) dels.push(k + '#a:' + f + ':' + j); });
+        }
+        return Promise.all(dels.map(function (x) { return B.idb.del(x); }));
       });
     },
     clear: function () {

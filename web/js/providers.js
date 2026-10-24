@@ -52,14 +52,13 @@
     return out;
   };
 
-  P.m3uLibrary = function (text, playlistID) {
+  /** build 147: M3U-bouwer per regel (add), zodat een grote lijst ook in stukjes kan (P.m3uLibraryAsync). */
+  function m3uBuilder(playlistID) {
     var channels = [], movies = [], seriesMap = {}, seriesEps = {}, seriesOrder = [];
     var number = 0;
     var other = L('Other');
     var prefix = String(playlistID).slice(0, 8);
-    var entries = P.m3uEntries(text);
-    for (var i = 0; i < entries.length; i++) {
-      var e = entries[i];
+    function add(e) {
       var group = e.attrs['group-title'] || other;
       var logo = urlValue(e.attrs['tvg-logo']);
       var lower = e.url.toLowerCase();
@@ -96,12 +95,30 @@
         });
       }
     }
-    var series = seriesOrder.map(function (k) {
-      var s = seriesMap[k];
-      s.episodes = seriesEps[k].sort(function (a, b) { return a.season - b.season || a.number - b.number; });
-      return s;
-    });
-    return { channels: channels, movies: movies, series: series, epg: {} };
+    function done() {
+      var series = seriesOrder.map(function (k) {
+        var s = seriesMap[k];
+        s.episodes = seriesEps[k].sort(function (a, b) { return a.season - b.season || a.number - b.number; });
+        return s;
+      });
+      var lib = { channels: channels, movies: movies, series: series, epg: {} };
+      // build 147 (diagnose): per soort wat de lijst leverde (één bestand: ophalen mislukt geldt dan voor alles)
+      lib.fetch = { live: { status: channels.length ? 'ok' : 'empty', count: channels.length }, movie: { status: movies.length ? 'ok' : 'empty', count: movies.length },
+        series: { status: series.length ? 'ok' : 'empty', count: series.length } };
+      return lib;
+    }
+    return { add: add, done: done };
+  }
+  P.m3uLibrary = function (text, playlistID) {
+    var b = m3uBuilder(playlistID), entries = P.m3uEntries(text);
+    for (var i = 0; i < entries.length; i++) b.add(entries[i]);
+    return b.done();
+  };
+  /** build 147: zelfde uitkomst als m3uLibrary, maar de regels in stukjes (de hoofdthread blijft vrij). */
+  P.m3uLibraryAsync = function (text, playlistID) {
+    var b = m3uBuilder(playlistID), entries = P.m3uEntries(text);
+    text = null;
+    return B.task.run('catalogus verwerken', function () { return B.chunked(entries, b.add); }).then(function () { return b.done(); });
   };
 
   P.m3uEpgURL = function (text) {
@@ -209,30 +226,48 @@
   Xtream.prototype.list = function (action) {
     return B.getJSON(this.api(action), null, 120000).then(items, function () { return []; });
   };
+  /** Korte foutcode zonder adres (diagnose): timeout, network, http_500, bad_json, … */
+  function errCode(e) {
+    var m = String((e && e.message) || 'error');
+    return /^(timeout|network|bad_json|bad_url|http_\d{3})$/.test(m) ? m : 'error';
+  }
+  P.errCode = errCode;
+  /** build 147: zoals list, maar met de uitkomst: {list, failed, error}. Een fout bij de ene lijst raakt de andere niet. */
+  Xtream.prototype.listStatus = function (action) {
+    return B.getJSON(this.api(action), null, 120000).then(function (j) { return { list: items(j), failed: false }; },
+      function (e) { return { list: [], failed: true, error: errCode(e) }; });
+  };
   function catMap(cats, other) {
     var m = {};
     cats.forEach(function (c) { var id = B.str(c && c.category_id); if (id != null && !B.has(m, id)) m[id] = c.category_name || other; });
     return m;
   }
-  Xtream.prototype.library = function () {
+  /**
+   * build 147: bibliotheek in stukjes omzetten (10k+ films hield de hoofdthread honderden ms vast) en per soort de
+   * uitkomst bijhouden (lib.fetch: ok / empty / failed met een korte foutcode). Series wachten niet eindeloos: zijn
+   * zenders en films er al en duren de series nog langer dan LATE_MS, dan gaat de bibliotheek zonder series door
+   * (series: failed, "timeout") en komen ze via opts.onLateSeries(series, fetch) alsnog binnen als ze toch aankomen.
+   */
+  var LATE_MS = 45000;
+  Xtream.prototype.library = function (opts) {
     var self = this;
-    var acts = ['get_live_categories', 'get_live_streams', 'get_vod_categories', 'get_vod_streams', 'get_series_categories', 'get_series'];
-    return Promise.all(acts.map(function (a) { return self.list(a); })).then(function (r) {
-      var other = L('Other');
-      var lc = catMap(r[0], other), vc = catMap(r[2], other), sc = catMap(r[4], other);
-      var ext = self.preferHLS ? 'm3u8' : 'ts';
-      var base = self.server, u = self.username, p = self.password;
-      var channels = [], movies = [], series = [];
-      r[1].forEach(function (l) {
-        var sid = B.str(l.stream_id); if (sid == null) return;
-        channels.push({
+    opts = opts || {};
+    var other = L('Other');
+    var ext = self.preferHLS ? 'm3u8' : 'ts';
+    var base = self.server, u = self.username, p = self.password;
+    function mapChannels(r, lc) {
+      return B.chunkedMap(r.list, function (l) {
+        var sid = B.str(l && l.stream_id); if (sid == null) return null;
+        return {
           id: 'x' + sid, name: l.name || 'Channel', logo: urlValue(l.stream_icon), group: lc[B.str(l.category_id) || ''] || other,
           streamURL: base + '/live/' + u + '/' + p + '/' + sid + '.' + ext, epgID: l.epg_channel_id || null,
           number: B.int(l.num), catchupDays: B.int(l.tv_archive) === 1 ? (B.int(l.tv_archive_duration) || 0) : 0
-        });
+        };
       });
-      r[3].forEach(function (v) {
-        var sid = B.str(v.stream_id); if (sid == null) return;
+    }
+    function mapMovies(r, vc) {
+      return B.chunkedMap(r.list, function (v) {
+        var sid = B.str(v && v.stream_id); if (sid == null) return null;
         var pt = B.parseTitle(v.name || '');
         var added = B.num(v.added);
         var mv = {
@@ -243,10 +278,12 @@
         };
         var vcl = B.clang.parse(v.name);
         if (vcl) mv.cl = vcl;
-        movies.push(mv);
+        return mv;
       });
-      r[5].forEach(function (s) {
-        var sid = B.int(s.series_id); if (sid == null) return;
+    }
+    function mapSeries(r, sc) {
+      return B.chunkedMap(r.list, function (s) {
+        var sid = B.int(s && s.series_id); if (sid == null) return null;
         var pt = B.parseTitle(s.name || '');
         var y = B.int(s.year) || (s.releaseDate ? B.int(String(s.releaseDate).slice(0, 4)) : null) || pt.year;
         var lm = B.num(s.last_modified);   // build 111: laatst bijgewerkt, voor "Nieuw toegevoegd"
@@ -256,9 +293,40 @@
         };
         var scl = B.clang.parse(s.name);
         if (scl) se.cl = scl;
-        series.push(se);
+        return se;
       });
-      return { channels: channels, movies: movies, series: series, epg: {} };
+    }
+    function status(r, n) { return r.failed ? { status: 'failed', count: 0, error: r.error } : { status: n ? 'ok' : 'empty', count: n }; }
+    var main = Promise.all(['get_live_categories', 'get_live_streams', 'get_vod_categories', 'get_vod_streams'].map(function (a) { return self.listStatus(a); }));
+    var ser = Promise.all([self.listStatus('get_series_categories'), self.listStatus('get_series')]);
+    var late = false;
+    var serOrLate = main.then(function () {
+      return Promise.race([ser, new Promise(function (r) { setTimeout(function () { r(null); }, LATE_MS); })]);
+    });
+    return Promise.all([main, serOrLate]).then(function (x) {
+      var r = x[0], rs = x[1];
+      var lib = { channels: [], movies: [], series: [], epg: {}, fetch: {} };
+      var lc = catMap(r[0].list, other), vc = catMap(r[2].list, other);
+      return B.task.run('catalogus verwerken', function () {
+        return mapChannels(r[1], lc).then(function (c) { lib.channels = c; return mapMovies(r[3], vc); }).then(function (m) {
+          lib.movies = m;
+          lib.fetch.live = status(r[1], lib.channels.length);
+          lib.fetch.movie = status(r[3], lib.movies.length);
+          if (!rs) {
+            late = true;
+            lib.fetch.series = { status: 'failed', count: 0, error: 'timeout' };
+            return;
+          }
+          return mapSeries(rs[1], catMap(rs[0].list, other)).then(function (se) { lib.series = se; lib.fetch.series = status(rs[1], se.length); });
+        });
+      }).then(function () {
+        if (late && opts.onLateSeries) {
+          ser.then(function (rs2) {
+            return mapSeries(rs2[1], catMap(rs2[0].list, other)).then(function (se) { opts.onLateSeries(se, status(rs2[1], se.length)); });
+          }).catch(B.noop);
+        }
+        return lib;
+      });
     });
   };
   /** Afleveringen per seizoen: {"1": [...]} of een lijst met lijsten (zoals episodeGroups op Android). */
@@ -441,6 +509,7 @@
       var gMap = {};
       items(r[0]).forEach(function (g) { if (g && g.id != null && !B.has(gMap, String(g.id))) gMap[String(g.id)] = g.title || other; });
       var chans = (r[1] && r[1].data) || [];
+      lib.liveFailed = r[1] == null;
       lib.channels = chans.filter(function (c) { return c && c.id != null; }).map(function (c) {
         return {
           id: 'st' + c.id, name: c.name || 'Channel', logo: urlValue(c.logo), group: gMap[String(c.tv_genre_id || '')] || other,
@@ -471,7 +540,15 @@
         });
       });
       return chain;
-    }).then(function () { return lib; });
+    }).then(function () {
+      // build 147 (diagnose): per soort de uitkomst
+      lib.fetch = {
+        live: lib.liveFailed ? { status: 'failed', count: 0, error: 'error' } : { status: lib.channels.length ? 'ok' : 'empty', count: lib.channels.length },
+        movie: { status: lib.movies.length ? 'ok' : 'empty', count: lib.movies.length }, series: { status: lib.series.length ? 'ok' : 'empty', count: lib.series.length }
+      };
+      delete lib.liveFailed;
+      return lib;
+    });
   };
   Stalker.prototype.createLink = function (cmd, live) {
     var self = this;
@@ -627,8 +704,11 @@
     var reader = new XMLTVReader(wanted);
     var gz = bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
     var dec = makeDecoder();
-    var CHUNK = 256 * 1024;
-    return new Promise(function (resolve) {
+    // build 147: kleinere stukken (gzip pakt ~10× uit): elke stap blijft zo onder ~50 ms, ook op een trage tv of telefoon
+    var CHUNK = gz ? 4 * 1024 : 32 * 1024;
+    var tid = B.task.begin('gids verwerken');
+    return new Promise(function (resolve0) {
+      function resolve(v) { B.task.end(tid); resolve0(v); }
       var inflator = null, failed = false;
       if (gz) {
         if (!window.pako || !window.pako.Inflate) { resolve({}); return; }
@@ -640,7 +720,7 @@
       function step() {
         var t0 = Date.now();
         try {
-          while (off < bytes.length && Date.now() - t0 < 14) {
+          while (off < bytes.length && Date.now() - t0 < 8) {
             var part = bytes.subarray(off, Math.min(bytes.length, off + CHUNK));
             off += part.length;
             if (inflator) {

@@ -155,6 +155,29 @@
     idx = { key: key, by: by, known: known, total: total, sorted: {} };
     return idx;
   }
+  /** build 147: dezelfde index in stukjes, vooraf (Lib.warmers), zodat de rij Categorieën op Home niet alles doorzoekt. */
+  function indexAsync() {
+    var k = kinds();
+    var key = Lib.version + '|' + arVer + '|' + k.movie + k.series + '|' + (Lib.source ? Lib.source.id : '');
+    if (idx && idx.key === key) return Promise.resolve();
+    var by = {}, cnt = { known: 0, total: 0 }, lib = Lib.lib;
+    C.genres.forEach(function (g) { by[g.key] = { movie: [], series: [] }; });
+    function run(list, type) {
+      var isShow = type === 'series';
+      return B.chunked(list, function (x) {
+        var t = tmdbKeys(x, isShow), ks = t && t.length ? t : providerKeys(x);
+        cnt.total++; if (t) cnt.known++;
+        for (var j = 0; j < ks.length; j++) by[ks[j]][type].push(x);
+      });
+    }
+    return B.task.run('categorieën indexeren', function () {
+      return (k.movie ? run(lib.movies, 'movie') : Promise.resolve()).then(function () { return k.series ? run(lib.series, 'series') : null; });
+    }).then(function () {
+      if (Lib.lib !== lib) return;
+      idx = { key: key, by: by, known: cnt.known, total: cnt.total, sorted: {} };
+    });
+  }
+  if (Lib.warmers) Lib.warmers.push(function () { return C.available() && Lib.source ? indexAsync() : null; });
   /** Categorieën van de server (zelfde naam bij films en series = één tegel), in de volgorde van de server. */
   function serverCats() {
     var k = kinds();

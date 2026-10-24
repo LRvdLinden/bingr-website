@@ -374,6 +374,8 @@
   A.platformLabel = function (p) {
     var s = String(p || '').toLowerCase();
     if (s === 'tizen' || s === 'samsung tv') return L('Samsung TV');
+    // build 147: de LG TV-app (webOS)
+    if (s === 'webos' || s === 'lg tv' || s === 'lgtv') return 'LG TV';
     if (s === 'browser' || s === 'web') return L('Browser');
     // build 146: de Windows-app
     if (s === 'windows') return 'Windows';

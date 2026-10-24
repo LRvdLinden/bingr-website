@@ -109,8 +109,11 @@
     for (var i = 0; i < w.length; i += 16) compress(st, w.subarray(i, i + 16));
     return st;
   }
-  /** PBKDF2-HMAC-SHA256 in pure JavaScript; dkLen max. 32. */
-  PIN.pbkdf2Js = function (pin, salt, iter, dkLen) {
+  /**
+   * PBKDF2-HMAC-SHA256 in pure JavaScript als stappenteller (build 147): run(n) doet hooguit n iteraties en geeft true
+   * als hij klaar is; result() geeft de bytes. Zo kan het ook in stukjes op de hoofdthread (zonder Worker).
+   */
+  function pbkdf2State(pin, salt, iter, dkLen) {
     dkLen = dkLen || HASH_BYTES;
     if (dkLen > 32) throw new Error('dkLen > 32');
     var key = utf8(pin), i;
@@ -138,19 +141,80 @@
     for (i = 0; i < 8; i++) blk[i] = ih[i];
     u.set(outer); compress(u, blk);
     t.set(u);
-    for (var n = 1; n < iter; n++) { hmac32(u, u); for (i = 0; i < 8; i++) t[i] ^= u[i]; }
-    var out = new Uint8Array(dkLen);
-    for (i = 0; i < dkLen; i++) out[i] = (t[i >> 2] >>> (24 - (i & 3) * 8)) & 255;
-    return out;
+    var n = 1;
+    return {
+      run: function (max) {
+        var stop = Math.min(iter, n + max);
+        for (; n < stop; n++) { hmac32(u, u); for (var k = 0; k < 8; k++) t[k] ^= u[k]; }
+        return n >= iter;
+      },
+      result: function () {
+        var out = new Uint8Array(dkLen);
+        for (var k = 0; k < dkLen; k++) out[k] = (t[k >> 2] >>> (24 - (k & 3) * 8)) & 255;
+        return out;
+      }
+    };
+  }
+  /** PBKDF2-HMAC-SHA256 in pure JavaScript; dkLen max. 32. */
+  PIN.pbkdf2Js = function (pin, salt, iter, dkLen) {
+    var s = pbkdf2State(pin, salt, iter, dkLen);
+    s.run(iter);
+    return s.result();
   };
+  /** In stukjes van ~2000 iteraties (~10–30 ms), elk in een eigen macrotaak: de hoofdthread blijft vrij. */
+  PIN.pbkdf2JsChunked = function (pin, salt, iter, dkLen) {
+    return new Promise(function (resolve, reject) {
+      var s;
+      try { s = pbkdf2State(pin, salt, iter, dkLen); } catch (e) { reject(e); return; }
+      (function step() {
+        try { if (s.run(2000)) { resolve(s.result()); return; } } catch (e) { reject(e); return; }
+        setTimeout(step, 0);
+      })();
+    });
+  };
+
+  // build 147: zonder crypto.subtle (geen veilige context, oude webview) rekent een Web Worker (js/pin-worker.js, zelfde
+  // code; CSP worker-src 'self'); lukt dat niet, dan in stukjes op de hoofdthread. Nooit meer 100.000 iteraties in één keer.
+  var worker = null, workerBroken = false, wSeq = 0, wWait = {};
+  function viaWorker(pin, salt, iter) {
+    if (workerBroken || typeof root.Worker !== 'function' || typeof root.document === 'undefined') return null;
+    try {
+      if (!worker) {
+        worker = new root.Worker('js/pin-worker.js?v=147');
+        worker.onmessage = function (e) {
+          var d = e.data || {}, w = wWait[d.id];
+          if (!w) return;
+          delete wWait[d.id];
+          if (d.ok) w.resolve(new Uint8Array(d.out)); else w.fallback();
+        };
+        worker.onerror = function () {
+          workerBroken = true;
+          Object.keys(wWait).forEach(function (k) { var w = wWait[k]; delete wWait[k]; w.fallback(); });
+        };
+      }
+    } catch (e) { workerBroken = true; return null; }
+    return new Promise(function (resolve) {
+      var id = ++wSeq;
+      var fallback = function () { resolve(PIN.pbkdf2JsChunked(pin, salt, iter, HASH_BYTES)); };
+      wWait[id] = { resolve: resolve, fallback: fallback };
+      try { worker.postMessage({ id: id, pin: pin, salt: Array.prototype.slice.call(salt), iter: iter }); } catch (e) { delete wWait[id]; fallback(); }
+    });
+  }
+  function deriveJs(pin, salt, iter) {
+    var tid = B.task ? B.task.begin('pin controleren') : 0;
+    var p = viaWorker(pin, salt, iter) || PIN.pbkdf2JsChunked(pin, salt, iter, HASH_BYTES);
+    p.then(function () { if (tid) B.task.end(tid); }, function () { if (tid) B.task.end(tid); });
+    return p;
+  }
+  PIN._deriveJs = deriveJs;
 
   /** PBKDF2 met WebCrypto, anders pbkdf2Js. Geeft een Promise met de bytes. */
   PIN.derive = function (pin, salt, iter) {
     var s = subtle();
-    if (!s) return new Promise(function (resolve) { setTimeout(function () { resolve(PIN.pbkdf2Js(pin, salt, iter, HASH_BYTES)); }, 0); });
+    if (!s) return deriveJs(pin, salt, iter);
     return s.importKey('raw', utf8(pin), 'PBKDF2', false, ['deriveBits']).then(function (key) {
       return s.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: new Uint8Array(salt), iterations: iter }, key, HASH_BYTES * 8);
-    }).then(function (bits) { return new Uint8Array(bits); }, function () { return PIN.pbkdf2Js(pin, salt, iter, HASH_BYTES); });
+    }).then(function (bits) { return new Uint8Array(bits); }, function () { return deriveJs(pin, salt, iter); });
   };
 
   function randomSalt() {

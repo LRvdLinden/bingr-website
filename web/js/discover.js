@@ -196,6 +196,18 @@
    * één van beide (stonden er al bij de eerste catalogus) daarna, laatst in de lijst van de server eerst. Over alle
    * servers (actieve eerst bij gelijke tijd), dezelfde titel op twee servers = één.
    */
+  /** De k grootste op key (en alles wat gelijk is aan de k-de), ongesorteerd; snel ook bij 10k+ items. */
+  function topBy(list, k, key) {
+    if (list.length <= k * 2) return list;
+    var v = new Float64Array(list.length);
+    for (var i = 0; i < list.length; i++) v[i] = key(list[i]) || 0;
+    v.sort();
+    var thr = v[v.length - k];
+    return list.filter(function (e) { return (key(e) || 0) >= thr; });
+  }
+  X.topBy = topBy;
+  // build 147: vooraf (vóór het event 'library'): Nieuw op Bingr voor de rij (30) en voor Uitgelicht (16)
+  if (Lib.warmers) Lib.warmers.push(function () { if (B.app && B.app.profile) { X.newOnBingr(30); X.newOnBingr(16); } });
   X.newOnBingr = function (n) {
     n = n || 30;
     var libs = B.xs ? B.xs.libs(null) : [Lib.lib];
@@ -215,6 +227,8 @@
           }
         });
       });
+      // build 147: alleen de nieuwste ~n×3 sorteren (drempel via een getallenlijst), niet alle 10k+ titels
+      dated = topBy(dated, n * 3, function (e) { return e.t; });
       dated.sort(function (a, b) { return (b.t - a.t) || (a.li - b.li) || (b.i - a.i); });
       var out = B.xs ? B.xs.dedupe(dated.slice(0, n * 3)) : dated;
       if (out.length < n) {

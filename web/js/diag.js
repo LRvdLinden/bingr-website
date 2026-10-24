@@ -1,4 +1,16 @@
 /*
+ * Build 147: diagnose-schema 2 (docs/ACCOUNT.md van iptv-ios-appletv, "Build 147"; server: _shared/diagnostics.ts):
+ * - Hang-detectie: PerformanceObserver 'longtask' (als de browser dat kent) en een detector voor gaten in een interval
+ *   van 500 ms (ook Safari/Firefox). Alleen op de voorgrond (tabblad zichtbaar) telt het als hang. Per hang: duur, taak
+ *   (B.task, bv. "catalogus filteren"), mijlpaal en de lopende taken als "stack" (de browser geeft geen stack van de
+ *   hoofdthread). Elke 2 s een teken van leven in de opslag; geen pagehide terwijl het tabblad zichtbaar was en er een
+ *   taak liep = de vorige start liep vast.
+ * - Eerlijke starttijden: app-tijd los van wachten op de gebruiker ("Wie kijkt er?" → profiel gekozen, pincodescherm →
+ *   pincode goed); samenvatting good / slow (app-tijd > 5 s of een hang > 2 s) / hung (hang > 10 s of een fout).
+ * - Ophalen per server en soort (fetch: ok / empty / failed / hidden), verbinding (navigator.connection: wifi, mobiel,
+ *   ethernet, anders onbekend; vanaf het begin gevolgd) en opslag (één totaal = cache + catalogus + downloads, en vrij).
+ * - Elke diagnose (ook de app-diagnose) bevat de startdiagnose: deze start en de vorige met zijn probleem.
+ *
  * Bingr web, build 146: diagnose (contract docs/ACCOUNT.md van iptv-ios-appletv, "Build 146" → "Diagnose-bijlage").
  * - Startdiagnose: mijlpalen met tijd (ms sinds het laden) en geheugen, "vorige start niet klaar" en de laatste fout die
  *   de webspeler niet opving (window.onerror / unhandledrejection, alleen uit /web/js/), met een opgeschoonde stack.
@@ -44,7 +56,7 @@
   var prev = B.store.get('diag.boot', null);
   G.previous = prev && typeof prev === 'object' ? prev : null;
   G.prevIncomplete = !!(G.previous && G.previous.done === false);
-  var boot = { at: new Date(T0).toISOString(), build: null, done: false, ms: [] };
+  var boot = { at: new Date(T0).toISOString(), build: null, done: false, ms: [], closed: false, vis: true };
   function saveBoot() { boot.build = B.int(B.config.build) || null; B.store.set('diag.boot', boot); }
   /** Mijlpaal: name = ^[a-z][a-z0-9_.-]{0,39}$, ok optioneel. Eén keer per naam. */
   G.mark = function (name, ok) {
@@ -58,7 +70,7 @@
     saveBoot();
   };
   /** Start is klaar ("Wie kijkt er?" of het hoofdscherm staat er). */
-  G.ready = function () { if (!boot.done) { boot.done = true; saveBoot(); } };
+  G.ready = function () { if (!boot.done) { boot.done = true; boot.readyAt = now(); saveBoot(); } };
   G.milestones = function () { return boot.ms.slice(); };
   saveBoot();
   G.mark('start');
@@ -66,6 +78,163 @@
   B.on('library', function () { G.mark('library'); });
   B.on('epg', function () { G.mark('epg'); });
   B.on('playerOpened', function () { G.mark('player'); });
+  G.boot = boot;
+  /** Wachten op de gebruiker: begin (profielkeuze, pincodescherm) en einde (gekozen, pincode goed). */
+  // build 147: na elkaar, nooit dubbel geteld (een nieuwe wachttijd sluit de open wachttijd); '*' sluit alles
+  G.waitStart = function (what) {
+    if (boot.done && boot.ms.some(function (m) { return m.name === 'servers_loaded'; })) return; // start al helemaal klaar
+    G.waitEnd('*');
+    if (!boot.wait) boot.wait = [];
+    if (boot.wait.length < 20) boot.wait.push({ k: what, from: now(), to: null });
+    saveBoot();
+  };
+  G.waitEnd = function (what) {
+    var w = boot.wait || [], t = now(), any = false;
+    for (var i = 0; i < w.length; i++) if (w[i].to == null && (what === '*' || w[i].k === what)) { w[i].to = t; any = true; }
+    if (any) saveBoot();
+  };
+
+  // MARK: build 147: hang-detectie
+
+  var HANG_MIN = 250;               // vanaf hier vastleggen (na "klaar" mag de hoofdthread nooit langer vastzitten)
+  boot.hangs = [];                  // max. 8, langste eerst: {ms, at, task, milestone, afterReady, stack}
+  boot.maxHang = 0;
+  function visible() { try { return document.visibilityState !== 'hidden'; } catch (e) { return true; } }
+  var hiddenAt = visible() ? 0 : now();
+  document.addEventListener('visibilitychange', function () { if (!visible()) hiddenAt = now(); });
+  function lastMilestone() { return boot.ms.length ? boot.ms[boot.ms.length - 1].name : 'start'; }
+  function noteHang(ms, at, how) {
+    ms = Math.round(ms); at = Math.round(at);
+    if (ms < HANG_MIN) return;
+    var names = B.task ? B.task.names() : [];
+    var task = names.length ? names[names.length - 1] : (lastTask && lastTask.t > at - 50 ? lastTask.name : '');
+    // dezelfde blokkade via longtask én het interval: één keer (de langste)
+    for (var i = 0; i < boot.hangs.length; i++) {
+      var hh = boot.hangs[i];
+      if (at >= hh.at - 50 && at <= hh.at + hh.ms + 50) {
+        if (ms > hh.ms) { hh.ms = ms; hh.how = how; }
+        if (!hh.task && task) hh.task = task;
+        finish();
+        return;
+      }
+    }
+    boot.hangs.push({ ms: ms, at: at, task: task, milestone: lastMilestone(), afterReady: boot.readyAt != null && at >= boot.readyAt, how: how, stack: names.slice(-10) });
+    finish();
+    function finish() {
+      boot.hangs.sort(function (a, b) { return b.ms - a.ms; });
+      boot.hangs = boot.hangs.slice(0, 8);
+      boot.maxHang = boot.hangs.length ? boot.hangs[0].ms : 0;
+      saveBoot();
+    }
+  }
+  G.hangs = function () { return boot.hangs.slice(); };
+  // laatst afgelopen taak (een longtask wordt pas gemeld als hij voorbij is; dan is de taak vaak al klaar)
+  var lastTask = null;
+  if (B.task) B.task.onChange = function () { var c = B.task.current(); if (c) lastTask = { name: c, t: now() }; else if (lastTask) lastTask.t = now(); };
+  try {
+    if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).indexOf('longtask') >= 0) {
+      new PerformanceObserver(function (list) {
+        list.getEntries().forEach(function (e) {
+          // alleen op de voorgrond (de hele taak lang zichtbaar)
+          if (!visible() || hiddenAt > e.startTime) return;
+          noteHang(e.duration, e.startTime, 'longtask');
+        });
+      }).observe({ type: 'longtask', buffered: true });
+      G.longtasks = true;
+    }
+  } catch (e) { /* niet beschikbaar */ }
+  // gaten in een interval: werkt overal; op de achtergrond remt de browser timers af, dat telt niet
+  var TICK = 500, lastTick = now(), lastAliveSave = 0;
+  setInterval(function () {
+    var t = now(), gap = t - lastTick - TICK;
+    var fg = visible() && hiddenAt < lastTick;
+    // met longtask (Chrome, Edge, WebView2) telt alleen die: een vol wachtrijtje met korte taken geeft ook een gat in
+    // het interval, maar is geen hang. Zonder longtask (Safari, Firefox) is het gat de beste maat.
+    if (gap >= HANG_MIN && fg && !G.longtasks) noteHang(gap, lastTick + TICK, 'interval');
+    lastTick = t;
+    if (t - lastAliveSave >= 2000) {
+      lastAliveSave = t;
+      boot.alive = t; boot.vis = visible(); boot.cur = B.task ? B.task.names().slice(-5) : [];
+      saveBoot();
+    }
+  }, TICK);
+  window.addEventListener('pagehide', function () { boot.closed = true; boot.alive = now(); saveBoot(); });
+  window.addEventListener('pageshow', function (e) { if (e && e.persisted) { boot.closed = false; saveBoot(); } });
+
+  // MARK: build 147: verbinding (vanaf het begin gevolgd)
+
+  /** wifi | cellular | ethernet | unknown (wat navigator.connection weet; anders onbekend). */
+  function netNow() {
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    var t = c && c.type, et = c && c.effectiveType;
+    var type = t === 'wifi' || t === 'ethernet' || t === 'cellular' ? t : (t === 'wimax' ? 'cellular' : 'unknown');
+    return { type: type, effectiveType: et || null, online: navigator.onLine !== false, downlink: c && c.downlink != null ? c.downlink : null };
+  }
+  G.net = netNow;
+  boot.net = netNow();
+  try {
+    var conn = navigator.connection;
+    if (conn && conn.addEventListener) conn.addEventListener('change', function () { boot.net = netNow(); saveBoot(); });
+  } catch (e) { /* stil */ }
+  window.addEventListener('online', function () { boot.net = netNow(); saveBoot(); });
+  window.addEventListener('offline', function () { boot.net = netNow(); saveBoot(); });
+
+  // MARK: build 147: starttijden en samenvatting
+
+  /** Wachten op de gebruiker tot `end` ms (alleen afgesloten wachttijden, en de lopende tot nu). */
+  function userWait(b, end) {
+    var sum = 0;
+    (b.wait || []).forEach(function (w) {
+      var to = w.to == null ? end : Math.min(w.to, end);
+      if (to > w.from) sum += to - w.from;
+    });
+    return Math.round(sum);
+  }
+  function msOf(b, name) { for (var i = 0; i < b.ms.length; i++) if (b.ms[i].name === name) return b.ms[i].ms; return null; }
+  /** Einde van de start: catalogus er (build 147), anders servers geladen, anders het hoofdscherm, anders "Wie kijkt er?". */
+  function startEnd(b) {
+    var e = msOf(b, 'catalog');
+    if (e == null) e = msOf(b, 'servers_loaded');
+    if (e == null) e = msOf(b, 'main');
+    if (e == null) e = msOf(b, 'profiles');
+    return e;
+  }
+  /** {summary, appMs, userWaitMs, maxHangMs} van een start (deze of een bewaarde). */
+  G.startSummary = function (b) {
+    b = b || boot;
+    var end = startEnd(b);
+    var wait = userWait(b, end == null ? (b.alive || now()) : end);
+    var app = end == null ? null : Math.max(0, Math.round(end - wait));
+    var hang = (b.hangs || []).reduce(function (m, x) { return Math.max(m, x.ms || 0); }, 0);
+    var crashed = !!b.crashed;
+    var summary = crashed || hang > 10000 ? 'hung' : ((app != null && app > 5000) || hang > 2000 ? 'slow' : 'good');
+    return { summary: summary, appMs: app == null ? undefined : app, userWaitMs: wait, maxHangMs: hang };
+  };
+  /**
+   * De vorige start: {problem: none|hang|crash|not_finished, milestone, seconds, foreground, task, at, build, stack}.
+   * crash = fout in die start; hang = een hang > 2 s, of het tabblad stond zichtbaar met een lopende taak en de pagina
+   * sloot niet netjes (vastgelopen en weggeklikt); not_finished = de start kwam niet tot "klaar".
+   */
+  G.previousStart = function () {
+    var pb = G.previous;
+    if (!pb || !pb.at) return null;
+    var hs = pb.hangs || [], big = hs[0] || null;
+    var o = { problem: 'none', milestone: pb.ms && pb.ms.length ? pb.ms[pb.ms.length - 1].name : undefined, at: pb.at, build: pb.build || undefined };
+    var c = G.crash();
+    var crashIn = c && c.at && pb.at && c.at >= pb.at && (!boot.at || c.at < boot.at);
+    if (crashIn || pb.crashed) { o.problem = 'crash'; o.foreground = pb.vis !== false; if (c) o.stack = (c.stack || []).slice(0, 30); }
+    else if (big && big.ms > 2000) {
+      o.problem = 'hang'; o.seconds = Math.round(big.ms / 100) / 10; o.foreground = true; o.task = big.task || undefined;
+      o.milestone = big.milestone || o.milestone; o.stack = big.stack || [];
+    } else if (pb.closed === false && pb.vis !== false && pb.cur && pb.cur.length) {
+      o.problem = 'hang'; o.foreground = true; o.task = pb.cur[pb.cur.length - 1]; o.stack = pb.cur.slice();
+      if (pb.alive != null) o.seconds = undefined;
+    } else if (pb.done === false) {
+      o.problem = 'not_finished'; o.foreground = pb.vis !== false; o.task = pb.cur && pb.cur.length ? pb.cur[pb.cur.length - 1] : undefined;
+      if (pb.alive != null) o.seconds = Math.round(pb.alive / 100) / 10;
+    }
+    return JSON.parse(JSON.stringify(o));
+  };
 
   // MARK: fouten die niemand opving (alleen van de webspeler zelf)
 
@@ -78,6 +247,7 @@
   function record(type, reason, stack) {
     var c = { at: new Date().toISOString(), type: G.scrub(type || 'Error', 80), reason: G.scrub(reason || '', 300), stack: frames(stack), build: B.int(B.config.build) || null };
     B.store.set('diag.crash', c);
+    boot.crashed = true;
     G.mark('crash', false);
   }
   window.addEventListener('error', function (e) {
@@ -97,12 +267,21 @@
   });
   G.crash = function () { var c = B.store.get('diag.crash', null); return c && c.at ? c : null; };
   /** Crash die nog niet als startdiagnose is aangeboden of verstuurd (Support-tab). */
-  G.crashToOffer = function () {
+  // build 147: ook na een vorige start die vastliep (hang > 2 s) de startdiagnose aanbieden
+  function toOffer() {
+    var seen = B.store.get('diag.crashSeen', '');
     var c = G.crash();
-    if (!c) return null;
-    return B.store.get('diag.crashSeen', '') === c.at ? null : c;
+    if (c && seen !== c.at) return c;
+    var p = G.previousStart ? G.previousStart() : null;
+    if (p && p.problem === 'hang' && p.at && seen !== p.at && B.store.get('diag.hangSeen', '') !== p.at) return { at: p.at, hang: true };
+    return null;
+  }
+  G.crashToOffer = toOffer;
+  G.crashOffered = function () {
+    var o = toOffer();
+    if (!o) return;
+    if (o.hang) B.store.set('diag.hangSeen', o.at); else B.store.set('diag.crashSeen', o.at);
   };
-  G.crashOffered = function () { var c = G.crash(); if (c) B.store.set('diag.crashSeen', c.at); };
 
   // MARK: apparaat
 
@@ -206,28 +385,66 @@
     }, function () { return { check: 'fail', ms: Date.now() - t0 }; });
   };
   function netType() {
-    var c = navigator.connection;
-    var t = c && c.type;
-    if (!navigator.onLine) return 'none';
-    if (t === 'wifi' || t === 'ethernet' || t === 'cellular' || t === 'none') return t;
-    return t ? 'other' : 'unknown';
+    var n = netNow();
+    if (!n.online) return 'none';
+    return n.type;
   }
+  /**
+   * build 147: opslag als één totaal met de delen die samen dat totaal zijn: catalogus (IndexedDB: bibliotheek, gids,
+   * covers-index), cache (de rest: service worker, lokale opslag) en downloads (de webspeler downloadt niets: 0), plus wat
+   * de browser nog vrij geeft. Zonder usageDetails (Safari, Firefox) telt alles als catalogus.
+   * Geeft {v2: {totalMB, cacheMB, catalogMB, downloadsMB, freeMB}, v1: {usedMB, freeMB, cacheMB, dbMB}}.
+   */
   function storage() {
-    if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve({});
+    if (!navigator.storage || !navigator.storage.estimate) return Promise.resolve({ v2: {}, v1: {} });
     return navigator.storage.estimate().then(function (e) {
-      var used = (e.usage || 0) / 1048576, quota = (e.quota || 0) / 1048576;
-      var o = { usedMB: Math.round(used), dbMB: Math.round(e.usageDetails && e.usageDetails.indexedDB ? e.usageDetails.indexedDB / 1048576 : used) };
-      if (e.usageDetails && e.usageDetails.caches != null) o.cacheMB = Math.round(e.usageDetails.caches / 1048576); else o.cacheMB = o.dbMB;
-      if (quota) o.freeMB = Math.round(Math.max(0, quota - used));
-      return o;
-    }, function () { return {}; });
+      var MB = 1048576, used = e.usage || 0, quota = e.quota || 0, det = e.usageDetails || null;
+      var total = Math.round(used / MB);
+      var catalog = det && det.indexedDB != null ? Math.min(total, Math.round(det.indexedDB / MB)) : total;
+      var downloads = 0, cache = Math.max(0, total - catalog - downloads);
+      var v2 = { totalMB: total, cacheMB: cache, catalogMB: catalog, downloadsMB: downloads };
+      if (quota) v2.freeMB = Math.round(Math.max(0, quota - used) / MB);
+      var v1 = { usedMB: total, dbMB: catalog, cacheMB: cache };
+      if (v2.freeMB != null) v1.freeMB = v2.freeMB;
+      return { v2: v2, v1: v1, detailed: !!det };
+    }, function () { return { v2: {}, v1: {} }; });
   }
+  G.storage = storage;
+  /**
+   * build 147: ophalen per server (s1, s2, … in de volgorde van het account) en soort: ok / empty / failed / hidden.
+   * hidden = de server leverde wel, maar na verborgen categorieën, kinderslot of het kinderprofiel blijft er niets over.
+   */
+  G.fetchRows = function () {
+    var D = B.data, Lib = B.lib, X = B.xs, out = [];
+    var srcs = (D && D.sources) || [];
+    var st = (Lib && Lib.fetchStatus) || {};
+    srcs.forEach(function (s, i) {
+      var lid = String(s.id).toLowerCase(), rec = st[lid];
+      var active = Lib && Lib.source && String(Lib.source.id).toLowerCase() === lid;
+      var view = null;
+      try { view = active ? Lib.lib : (X && X.catalog && X.catalog(s.id) && X.view ? X.view(s.id) : null); } catch (e) { view = null; }
+      var raw = active ? Lib.raw : (X && X.catalog && X.catalog(s.id) ? X.catalog(s.id).raw : null);
+      [['live', 'channels'], ['movie', 'movies'], ['series', 'series']].forEach(function (k) {
+        var f = rec && rec.kinds && rec.kinds[k[0]];
+        var have = raw ? (raw[k[1]] || []).length : null;
+        var row = { server: 's' + (i + 1), kind: k[0] };
+        if (f) { row.status = f.status; row.count = f.count || 0; if (f.error) row.error = G.scrub(f.error, 60); }
+        else if (have != null) { row.status = have ? 'ok' : 'empty'; row.count = have; }
+        else return;
+        // uit de cache gestart: de aantallen van nu
+        if (row.status === 'ok' && have != null && have > 0) row.count = have;
+        if (row.status === 'ok' && view && (view[k[1]] || []).length === 0 && row.count > 0) row.status = 'hidden';
+        out.push(row);
+      });
+    });
+    return out.slice(0, 30);
+  };
   /** Per server (zonder naam of adres) wanneer de lijst in deze browser is bijgewerkt: [{n, kind, at, active}]. */
   function serverUpdates() {
     var D = B.data, Lib = B.lib;
     var list = (D && D.sources) || [];
     return Promise.all(list.map(function (s, i) {
-      return B.idb.get('lib:' + s.id).then(function (c) {
+      return B.idb.getMeta('lib:' + s.id).then(function (c) {
         return { n: i + 1, kind: s.kind || '', at: c && c.at ? c.at : null, active: !!(Lib && Lib.source && String(Lib.source.id).toLowerCase() === String(s.id).toLowerCase()) };
       }, function () { return { n: i + 1, kind: s.kind || '', at: null }; });
     }));
@@ -243,7 +460,7 @@
       var jobs = kind === 'app' ? [G.pingBackend(), G.pingProvider(), storage(), serverUpdates()] : [null, null, storage(), serverUpdates()];
       return Promise.all(jobs);
     }).then(function (r) {
-      var backend = r[0], provider = r[1], sto = r[2] || {}, ups = r[3] || [];
+      var backend = r[0], provider = r[1], sto2 = r[2] || { v2: {}, v1: {} }, sto = sto2.v1 || {}, ups = r[3] || [];
       var srcs = (D && D.sources) || [];
       var kinds = [];
       srcs.forEach(function (s) { if (s.kind && kinds.indexOf(s.kind) < 0) kinds.push(s.kind); });
@@ -261,16 +478,25 @@
       };
       if (backend) { state.network.backend = backend.check; if (backend.ms != null) state.network.backendMs = backend.ms; }
       if (provider) { state.network.provider = provider.check; if (provider.ms != null) state.network.providerMs = provider.ms; }
+      // build 147 (schema 2): altijd de startdiagnose erbij (deze start en de vorige met zijn probleem)
+      var sum = G.startSummary(boot), prevS = G.previousStart();
+      var start = { summary: sum.summary, appMs: sum.appMs, userWaitMs: sum.userWaitMs, maxHangMs: sum.maxHangMs };
+      if (prevS) start.previous = prevS;
+      var net2 = { type: state.network.type === 'none' ? 'unknown' : state.network.type, online: state.network.online };
+      if (backend) { net2.backend = backend.check; if (backend.ms != null) net2.backendMs = backend.ms; }
+      if (provider) { net2.provider = provider.check; if (provider.ms != null) net2.providerMs = provider.ms; }
       var payload = {
-        schema: 1, kind: kind, createdAt: new Date().toISOString(), app: G.app(), device: G.device(),
+        schema: 2, kind: kind, createdAt: new Date().toISOString(), app: G.app(), device: G.device(), start: start,
         milestones: boot.ms.map(function (m) { var o = { name: m.name, ms: m.ms }; if (m.ok != null) o.ok = m.ok; return o; }),
+        fetch: G.fetchRows(), network: net2, storage: sto2.v2 || {},
         memory: G.memory(), state: state
       };
       var c = G.crash();
       if (c) payload.crash = { at: c.at, type: c.type, reason: c.reason, stack: c.stack, build: c.build || undefined };
       payload = JSON.parse(JSON.stringify(payload)); // undefined weg
       var LO = B.xs && B.xs.loadOnOpen;
-      return { payload: payload, extra: { servers: ups, loadOnOpen: LO ? LO.mode() : null, prevIncomplete: G.prevIncomplete, previous: G.previous } };
+      return { payload: payload, extra: { servers: ups, loadOnOpen: LO ? LO.mode() : null, prevIncomplete: G.prevIncomplete, previous: G.previous,
+        hangs: boot.hangs.slice(), effectiveType: netNow().effectiveType, storageDetailed: !!sto2.detailed, longtasks: !!G.longtasks } };
     });
   };
 })();

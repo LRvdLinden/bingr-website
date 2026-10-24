@@ -272,20 +272,65 @@
     lastRaw = raw; lastCtx = key;
     if (applyJob) { applyJob.cancel(); applyJob = null; }
     var size = raw.channels.length + raw.movies.length + raw.series.length;
-    if (size < 6000) { finishApply(Lib.apply(raw, ctx)); return Promise.resolve(); }
+    if (size < SMALL) { finishApply(Lib.apply(raw, ctx)); return Promise.resolve(); }
+    // build 147: grote bibliotheek: filteren, indexen en de afgeleide lijsten (Top 10, Voor jou, categorieën) elk in
+    // stukjes, als taak "catalogus filteren"; de schermen krijgen pas het eindresultaat (event 'library')
+    var tid = B.task.begin('catalogus filteren');
     var job = applyJob = Lib.applyChunked(raw, ctx);
-    return job.then(function (lib) {
-      if (applyJob !== job) return;
-      applyJob = null;
-      finishApply(lib);
-    }, B.noop);
+    var cancelled = false;
+    var p = job.then(function (lib) {
+      if (applyJob !== wrap || cancelled) return;
+      return indexChunked(lib).then(function () {
+        if (applyJob !== wrap || cancelled) return;
+        Lib.lib = lib;
+        Lib.version++;
+        memo = {};
+        return warmDerived().then(function () {
+          if (applyJob !== wrap || cancelled) return;
+          applyJob = null;
+          B.emit('library');
+        });
+      });
+    }, B.noop).then(function () { B.task.end(tid); }, function () { B.task.end(tid); });
+    var wrap = { cancel: function () { cancelled = true; job.cancel(); } };
+    applyJob = wrap;
+    return p;
   };
+  /** Kleiner dan dit (items) = in één keer filteren (~ enkele ms); groter = in stukjes. */
+  var SMALL = 4000;
   function finishApply(lib) {
     Lib.lib = lib;
     buildIndexes();
     Lib.version++;
     memo = {};
     B.emit('library');
+  }
+  /**
+   * build 147: afgeleide lijsten vooraf uitrekenen, elk in een eigen macrotaak, zodat het eerste tekenen van Home
+   * (event 'library') ze uit Lib.memo haalt in plaats van 10k titels te sorteren. Andere modules melden zich aan met
+   * Lib.warmers.push(function () { … }) (mag een Promise geven).
+   */
+  Lib.warmers = [];
+  function warmDerived() {
+    var steps = [
+      function () { Lib.top10(Lib.lib.movies); }, function () { Lib.top10(Lib.lib.series); },
+      function () { Lib.recent(Lib.lib.movies); }, function () { Lib.recent(Lib.lib.series); }
+    ].concat(Lib.warmers.map(function (w) { return function () { return w(); }; }));
+    return B.steps(steps);
+  }
+  /** Indexen (groepen, byId) in stukjes op een nieuwe bibliotheek, vóór die actief wordt. */
+  function indexChunked(l) {
+    var cg = [], mg = [], sg = [], seen = [Object.create(null), Object.create(null), Object.create(null)];
+    l.byId = Object.create(null);
+    function each(list, type, groups, si) {
+      return B.chunked(list, function (x) {
+        if (!seen[si][x.group]) { seen[si][x.group] = true; groups.push(x.group); }
+        l.byId[x.id] = { type: type, item: x };
+      });
+    }
+    return each(l.channels, 'channel', cg, 0).then(function () { return each(l.movies, 'movie', mg, 1); })
+      .then(function () { return each(l.series, 'series', sg, 2); })
+      .then(function () { l.channelGroups = cg; l.movieGroups = mg; l.seriesGroups = sg; });
   }
 
   function groupsOf(list) {
@@ -391,22 +436,24 @@
     return w;
   }
   function fetchLibrary(src) {
+    return fetchLibraryNow(src).then(function (lib) { noteFetch(src, lib, null); return lib; }, function (e) { noteFetch(src, null, e); throw e; });
+  }
+  function fetchLibraryNow(src) {
     var kind = src.kind;
     var pw = D.secret(src, 'password');
     if (kind === 'M3U / M3U8') {
       var u = P.urlValue(src.m3uURL);
       if (!u) return Promise.reject(new Error(L('Invalid URL')));
       return B.getText(u, null, 180000).then(function (text) {
-        var lib = P.m3uLibrary(text, src.id);
         // build 128: gids-URL uit de kop lezen vóór de tekst wordt vrijgegeven (anders faalde een M3U zonder eigen gids-URL)
-        lib.epgURL = P.urlValue(src.epgURL) || P.m3uEpgURL(text);
-        text = null;
-        return lib;
+        var epgURL = P.urlValue(src.epgURL) || P.m3uEpgURL(text);
+        // build 147: in stukjes (een lijst met tienduizenden regels hield de hoofdthread vast)
+        return P.m3uLibraryAsync(text, src.id).then(function (lib) { lib.epgURL = epgURL; return lib; });
       });
     }
     if (kind === 'Xtream Codes') {
       var x = new P.Xtream(src, pw);
-      return x.authenticate().then(function () { return x.library(); }).then(function (lib) {
+      return x.authenticate().then(function () { return x.library({ onLateSeries: function (se, st) { lateSeries(src, se, st); } }); }).then(function (lib) {
         lib.epgURL = P.urlValue(src.epgURL) || x.xmltvURL();
         return lib;
       });
@@ -431,13 +478,49 @@
     }
     return Promise.reject(new Error(L('This kind of server is not supported in the browser yet.')));
   }
+  /**
+   * build 147 (diagnose, schema 2 `fetch`): per server en soort wat het laatste ophalen gaf: ok (met aantal), empty
+   * (de provider leverde niets), failed (korte foutcode, nooit een adres). "Alles verborgen" rekent diag.js uit met de
+   * gefilterde weergave. Bewaard per server-id in de lokale opslag (diag.fetch), alleen aantallen en codes.
+   */
+  Lib.fetchStatus = B.store.get('diag.fetch', {}) || {};
+  function noteFetch(src, lib, err) {
+    var lid = String(src.id).toLowerCase(), f;
+    if (lib) {
+      f = lib.fetch || {};
+      ['live', 'movie', 'series'].forEach(function (k) {
+        if (f[k]) return;
+        var n = (k === 'live' ? lib.channels : k === 'movie' ? lib.movies : lib.series || []).length;
+        f[k] = { status: n ? 'ok' : 'empty', count: n };
+      });
+    } else {
+      var code = P.errCode ? P.errCode(err) : 'error';
+      if (code === 'error' && err && /sign in|inloggen/i.test(String(err.message || ''))) code = 'auth';
+      f = { live: { status: 'failed', count: 0, error: code }, movie: { status: 'failed', count: 0, error: code }, series: { status: 'failed', count: 0, error: code } };
+    }
+    Lib.fetchStatus[lid] = { at: Date.now(), kinds: f };
+    B.store.set('diag.fetch', Lib.fetchStatus);
+  }
+  Lib.noteFetch = noteFetch;
+  /** Series die na de rest binnenkwamen (Xtream, trage provider): in de bibliotheek, de cache en de diagnose. */
+  function lateSeries(src, series, st) {
+    var lid = String(src.id).toLowerCase();
+    var rec = Lib.fetchStatus[lid];
+    if (rec && rec.kinds) { rec.kinds.series = st; B.store.set('diag.fetch', Lib.fetchStatus); }
+    if (!(Lib.source && String(Lib.source.id).toLowerCase() === lid) || !series.length) return;
+    Lib.raw.series = series;
+    B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: Lib.raw }, 'lib', 'arrays');
+    Lib.applyFilters(true);
+  }
   /** build 128: gids van een server (cache in IndexedDB, anders XMLTV); ook voor andere servers (xs.js). */
   Lib.fetchEpg = function (src, lib, force) {
     if (!lib || !lib.epgURL || B.media.isMediaServer(src.kind)) return Promise.resolve(null);
-    return B.idb.get('epg:' + src.id).then(function (c) {
+    // build 147: de gids staat in stukken in IndexedDB (B.idb.getBig/setBig)
+    return (force ? B.idb.getMeta('epg:' + src.id) : B.idb.getBig('epg:' + src.id)).then(function (c) {
       if (!force) return c ? c.epg : null;
       return P.loadXMLTV(lib.epgURL, wantedEpg(lib)).then(function (epg) {
-        if (Object.keys(epg).length) B.idb.set('epg:' + src.id, { at: Date.now(), epg: epg });
+        if (Object.keys(epg).length) { B.idb.setBig('epg:' + src.id, { at: Date.now(), epg: epg }, 'epg', 'keys'); return epg; }
+        if (c && !c.epg) return B.idb.getBig('epg:' + src.id).then(function (o) { return o && o.epg ? o.epg : {}; });
         return Object.keys(epg).length ? epg : (c ? c.epg : {});
       });
     });
@@ -568,7 +651,8 @@
     }
     Lib.loading = true;
     B.emit('loading');
-    return B.idb.get('lib:' + src.id).then(function (cached) {
+    // build 147: in stukken gelezen (B.idb.getBig), zodat het lezen van 10k+ titels de hoofdthread niet vasthoudt
+    return B.idb.getBig('lib:' + src.id).then(function (cached) {
       if (my !== gen) { libDone(opts, null); return; }
       if (cached && cached.lib && !force) {
         Lib.raw = cached.lib; Lib.raw.epg = Lib.raw.epg || {};
@@ -599,7 +683,7 @@
       // Jellyfin/Emby leveren hun gids zelf mee; bij de andere komt hij later uit XMLTV
       var ownEpg = B.media.isMediaServer(src.kind) ? (lib.epg || {}) : null;
       lib.epg = ownEpg || {};
-      B.idb.set('lib:' + src.id, { at: Date.now(), lib: lib });
+      B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays');
       // alleen de zenders apart, voor de reservebron op andere servers
       B.idb.set('chan:' + src.id, lib.channels.map(function (c) { return { name: c.name, epgID: c.epgID, streamURL: c.streamURL, stalkerCmd: c.stalkerCmd || null }; }));
       if (my !== gen) { libDone(opts, null); return; }

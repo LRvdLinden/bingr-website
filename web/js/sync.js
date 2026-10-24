@@ -336,7 +336,7 @@
       return A.putSources(list, main).then(function (at) {
         applySources({ sources: list, mainSourceID: main, updatedAt: at });
         if (lower(B.store.get('activeSource', '')) === lower(id)) B.store.del('activeSource');
-        B.idb.del('lib:' + id); B.idb.del('epg:' + id); B.idb.del('chan:' + id);
+        B.idb.delBig('lib:' + id); B.idb.delBig('epg:' + id); B.idb.del('chan:' + id);
       });
     });
   };
@@ -637,12 +637,15 @@
       if (v == null || !B.pin.valid(String(v))) return;
       mig.push({ name: name, d: d, pin: String(v) });
     });
+    // build 147: als taak "pin migreren" (hang-detectie); het hashen zelf loopt nooit op de hoofdthread vast (pin.js)
+    var tid = mig.length ? B.task.begin('pin migreren') : 0;
     return Promise.all(mig.map(function (m) {
       return B.pin.make(m.pin).then(function (h) {
         m.d.pinHash = h; m.d.pin = null;
         return A.putState(m.name, m.d);
       }).catch(function (e) { B.log('pincode hashen', e && e.message); });
     })).then(function () {
+      if (tid) B.task.end(tid);
       var pins = {};
       Object.keys(sections).forEach(function (name) {
         if (lower(name).indexOf('profile.') !== 0) return;
@@ -667,7 +670,9 @@
    */
   D.syncState = function () {
     if (syncing) return syncing;
+    var stid = 0;
     syncing = A.getState().then(function (all) {
+      stid = B.task.begin('sync toepassen');
       if (!all) { D.lastSync = { at: B.iso(), ok: false }; B.store.set('lastSync', D.lastSync); return false; }
       // instellingen: het geheel van de server; wijzigingen van deze tv die nog niet geüpload zijn gaan erover en worden verstuurd
       if (all.settings) {
@@ -698,6 +703,7 @@
       return mergeActive(all);
       });
     }).catch(function (e) { B.log('sync', e); D.lastSync = { at: B.iso(), ok: false }; B.store.set('lastSync', D.lastSync); return false; }).then(function (r) {
+      if (stid) B.task.end(stid);
       syncing = null;
       // build 140 (Mijn lijst): een wijziging tijdens deze sync (na het lezen van de server) kwam niet mee; de timer
       // van die wijziging kreeg deze (lopende) sync terug en verstuurde dus niets. Nu meteen nog een ronde.

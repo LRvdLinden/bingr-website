@@ -1184,3 +1184,9 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
   .sp-msg { max-width: 100%; }
   .epg-note { flex-wrap: wrap; }
 }
+
+/* build 147: samenvatting van de start in Support → Diagnose */
+.sp-sum .st-label b { font-weight: 700; }
+.sp-sum-good .st-label b { color: #46d369; }
+.sp-sum-slow .st-label b { color: #f5c451; }
+.sp-sum-hung .st-label b { color: #ff5a5f; }

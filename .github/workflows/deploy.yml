@@ -33,7 +33,10 @@ jobs:
 
       # build 146: pincode als hash (web/js/pin.js) tegen de testvectoren van het contract; faalt = niet uploaden
       - name: Unittests webspeler
-        run: node tools/test/pin_test.js
+        # build 147: na "klaar" geen lange taken (catalogus van 10k films, gids, pincode in stukjes)
+        run: |
+          node tools/test/pin_test.js
+          node tools/test/longtask_test.js
 
       - name: lftp en Pillow installeren
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp python3-pil

@@ -390,13 +390,37 @@
     var t = { ok: L('OK'), slow: L('Slow'), fail: L('Not reachable'), skipped: L('Not checked'), unknown: '—' }[c] || '—';
     return ms != null && c !== 'skipped' ? t + ' (' + ms + ' ms)' : t;
   };
+  function secs(ms) { return (Math.round((ms || 0) / 100) / 10).toFixed(1).replace('.', B.lang === 'en' || B.lang === 'zh-Hans' ? '.' : ',') + ' s'; }
+  /** build 147: taaknaam (vaste Nederlandse tekst, zoals op de andere platforms) in de taal van de app. */
+  var TASKS = {
+    'catalogus laden': 'Loading catalogue', 'catalogus verwerken': 'Processing catalogue', 'catalogus filteren': 'Filtering catalogue',
+    'catalogus indexeren': 'Indexing catalogue', 'catalogus bewaren': 'Saving catalogue', 'categorieën indexeren': 'Indexing categories',
+    'gids laden': 'Loading TV guide', 'gids verwerken': 'Processing TV guide', 'gids bewaren': 'Saving TV guide', 'rijen opbouwen': 'Building rows',
+    'sync toepassen': 'Applying sync', 'pin migreren': 'Migrating PIN', 'pin controleren': 'Checking PIN'
+  };
+  function taskLabel(t) { return TASKS[t] ? L(TASKS[t]) : t; }
+  SP.taskLabel = taskLabel;
   SP.renderDiagnose = function (list) {
     var S = B.screens, G = B.diag;
     var sec = S.stSection(list, L('This device'));
     infoRows(sec, G.deviceRows());
 
     sec = S.stSection(list, L('Start diagnostics'), L('How Bingr started on this device: the steps with their time and memory use.'));
-    if (G.prevIncomplete) sec.appendChild(h('div.st-row.info.sp-warn', [U.icon('warn', 'st-ic'), h('span.st-label', L('The previous start did not finish.'))]));
+    // build 147: samenvatting bovenaan (app-tijd los van wachten op jou), de vorige start en de langste hangs
+    var sum = G.startSummary(), SUM = { good: L('Good'), slow: L('Slow'), hung: L('Stuck') };
+    sec.appendChild(h('div.st-row.info.sp-sum.sp-sum-' + sum.summary, [h('span.st-label', h('b', L('Start') + ': ' + SUM[sum.summary])),
+      h('span.st-value', (sum.appMs != null ? L('App time %s', secs(sum.appMs)) : L('Not finished yet')) + ' · ' + L('waiting for you %s', secs(sum.userWaitMs)))]));
+    if (sum.maxHangMs) {
+      var hs = G.hangs();
+      infoRows(sec, [[L('Longest hang'), secs(sum.maxHangMs) + (hs[0] && hs[0].task ? ' · ' + taskLabel(hs[0].task) : '') + (hs[0] && hs[0].afterReady ? ' · ' + L('after ready') : '')]]);
+    }
+    var pv = G.previousStart();
+    if (pv && pv.problem !== 'none') {
+      var PRB = { hang: L('Stuck'), crash: L('Error'), not_finished: L('Not finished') };
+      var txt = PRB[pv.problem] + (pv.seconds != null ? ' · ' + secs(pv.seconds * 1000) : '') + (pv.task ? ' · ' + taskLabel(pv.task) : '') +
+        (pv.milestone ? ' · ' + L('after %s', pv.milestone) : '') + (pv.foreground === false ? ' · ' + L('in the background') : '');
+      sec.appendChild(h('div.st-row.info.sp-warn', [U.icon('warn', 'st-ic'), h('span.st-label', L('Previous start')), h('span.st-value', txt)]));
+    } else if (G.prevIncomplete) sec.appendChild(h('div.st-row.info.sp-warn', [U.icon('warn', 'st-ic'), h('span.st-label', L('The previous start did not finish.'))]));
     G.milestones().forEach(function (m) {
       sec.appendChild(h('div.st-row.info', [h('span.st-label', m.name), h('span.st-value', (m.ms / 1000).toFixed(2) + ' s' + (m.mb != null ? ' · ' + m.mb + ' MB' : '') + (m.ok === false ? ' · ✕' : ''))]));
     });
@@ -427,11 +451,30 @@
         rows.push([L('Last account sync'), st.lastSync ? when(st.lastSync) + ' · ' + (st.lastSyncOk ? L('OK') : L('Failed')) : L('Never')]);
         rows.push([L('Bingr server'), CHECK(net.backend, net.backendMs)]);
         rows.push([L('Your server'), CHECK(net.provider, net.providerMs)]);
-        rows.push([L('Connection'), (net.online ? L('Online') : L('Offline')) + (net.type && net.type !== 'unknown' ? ' · ' + net.type : '')]);
-        rows.push([L('Storage'), sto.usedMB != null ? sto.usedMB + ' MB' + (sto.freeMB != null ? ' · ' + L('%d MB free', sto.freeMB) : '') : '—']);
+        // build 147: verbinding als woord (wifi, mobiel, ethernet, onbekend) en opslag als totaal met zijn delen
+        var NET = { wifi: L('Wi-Fi'), cellular: L('Mobile'), ethernet: L('Ethernet'), unknown: L('Unknown'), none: L('Unknown') };
+        var n2 = p.network || {};
+        rows.push([L('Connection'), (net.online ? L('Online') : L('Offline')) + ' · ' + (NET[n2.type] || L('Unknown')) + (r.extra.effectiveType ? ' (' + r.extra.effectiveType + ')' : '')]);
+        var s2 = p.storage || {};
+        rows.push([L('Storage'), s2.totalMB != null ? L('%d MB in total', s2.totalMB) + (s2.freeMB != null ? ' · ' + L('%d MB free', s2.freeMB) : '') : '—']);
+        if (s2.totalMB != null) {
+          rows.push(['  ' + L('Catalogue'), s2.catalogMB + ' MB']);
+          rows.push(['  ' + L('Cache'), s2.cacheMB + ' MB']);
+          rows.push(['  ' + L('Downloads'), s2.downloadsMB + ' MB']);
+        }
         rows.push([L('Memory'), mem.appMB != null ? mem.appMB + ' MB' + (mem.totalMB ? ' · ' + L('device %d MB', mem.totalMB) : '') : (mem.totalMB ? L('device %d MB', mem.totalMB) : '—')]);
         rows.push([L('Active profiles'), String(st.profiles || 0)]);
         rows.push([L('Library'), L('%d channels · %d movies · %d series', st.channels || 0, st.movies || 0, st.series || 0)]);
+        // build 147: per server en soort wat het ophalen gaf
+        var KIND = { live: L('Channels'), movie: L('Movies'), series: L('Series') };
+        var STAT = { ok: L('delivered'), empty: L('provider delivered nothing'), failed: L('fetching failed'), hidden: L('all hidden') };
+        (p.fetch || []).forEach(function (f) {
+          var t = STAT[f.status] || f.status;
+          if (f.status === 'ok' || f.status === 'hidden') t += ' · ' + f.count;
+          if (f.status === 'hidden') t += ' (' + L('hidden categories or kids filter') + ')';
+          if (f.error) t += ' · ' + f.error;
+          rows.push([L('Server %d', parseInt(f.server.slice(1), 10)) + ' · ' + KIND[f.kind], t]);
+        });
         infoRows(out, rows);
         out.appendChild(h('div.dlg-buttons.sp-diag-btns', [
           h('a.btn.primary.small', { href: '#/support/new?kind=app' }, [U.icon('share'), h('span', L('Send to support'))]),

@@ -331,10 +331,18 @@
       (lib.series || []).slice(0, 3000).forEach(function (x) { pool.push({ type: 'series', item: x }); });
     });
     function sc(x) { var r = x.rating || 0; if (r > 10) r = r / 10; return r + (x.addedAt && Date.now() - x.addedAt < 30 * 86400000 ? 1 : 0); }
-    pool.sort(function (a, b) { return sc(b.item) - sc(a.item); });
-    for (var i = 0; i < pool.length && out.length < 30; i++) add(pool[i].type, pool[i].item);
+    // build 147: eerst alleen de beste ~300 sorteren; is dat niet genoeg (veel al bekeken), dan de rest erachter
+    var top = B.discover && B.discover.topBy && pool.length > 2000 ? B.discover.topBy(pool, 300, function (e) { return sc(e.item); }) : pool;
+    top.sort(function (a, b) { return sc(b.item) - sc(a.item); });
+    for (var i = 0; i < top.length && out.length < 30; i++) add(top[i].type, top[i].item);
+    if (out.length < 30 && top !== pool) {
+      pool.sort(function (a, b) { return sc(b.item) - sc(a.item); });
+      for (var i2 = 0; i2 < pool.length && out.length < 30; i2++) add(pool[i2].type, pool[i2].item);
+    }
     return out.slice(0, 30);
   }
+  // build 147: Voor jou vooraf (vóór het event 'library'), zodat Home en Uitgelicht hem uit Lib.memo halen
+  if (Lib && Lib.warmers) Lib.warmers.push(function () { if (B.app && B.app.profile && S.forYou) S.forYou(); });
   S.forYou = function () {
     var p = prof();
     var libs = B.xs ? B.xs.libs(null) : [Lib.lib];
