@@ -62,7 +62,9 @@ async function measure(name, fn) {
   steps++; if (sync > maxStep) maxStep = sync;
   const r = await pr;
   measuring = false;
-  console.log(`${name}: ${steps} stappen, langste ${maxStep.toFixed(1)} ms, totaal ${(performance.now() - t0).toFixed(0)} ms`);
+  const line = `${name}: ${steps} stappen, langste ${maxStep.toFixed(1)} ms, totaal ${(performance.now() - t0).toFixed(0)} ms`;
+  console.log(line);
+  if (process.env.GITHUB_ACTIONS) console.log('::notice title=longtask_test::' + line);
   assert.ok(maxStep < LIMIT, `${name}: een stap duurde ${maxStep.toFixed(1)} ms (grens ${LIMIT} ms)`);
   return r;
 }
@@ -111,4 +113,9 @@ async function measure(name, fn) {
   // B.task: de lopende taak voor de hang-detectie
   const id = B.task.begin('catalogus sorteren'); assert.strictEqual(B.task.current(), 'catalogus sorteren'); B.task.end(id); assert.strictEqual(B.task.current(), '');
   console.log('longtask_test: alles goed');
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  // in GitHub Actions als annotatie (de logboeken zijn niet altijd leesbaar)
+  if (process.env.GITHUB_ACTIONS) console.log('::error title=longtask_test::' + String((e && e.stack) || e).split('\n').slice(0, 4).join(' | '));
+  process.exit(1);
+});
