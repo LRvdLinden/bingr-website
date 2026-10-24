@@ -391,14 +391,9 @@
     return ms != null && c !== 'skipped' ? t + ' (' + ms + ' ms)' : t;
   };
   function secs(ms) { return (Math.round((ms || 0) / 100) / 10).toFixed(1).replace('.', B.lang === 'en' || B.lang === 'zh-Hans' ? '.' : ',') + ' s'; }
-  /** build 147: taaknaam (vaste Nederlandse tekst, zoals op de andere platforms) in de taal van de app. */
-  var TASKS = {
-    'catalogus laden': 'Loading catalogue', 'catalogus verwerken': 'Processing catalogue', 'catalogus filteren': 'Filtering catalogue',
-    'catalogus indexeren': 'Indexing catalogue', 'catalogus bewaren': 'Saving catalogue', 'categorieën indexeren': 'Indexing categories',
-    'gids laden': 'Loading TV guide', 'gids verwerken': 'Processing TV guide', 'gids bewaren': 'Saving TV guide', 'rijen opbouwen': 'Building rows',
-    'sync toepassen': 'Applying sync', 'pin migreren': 'Migrating PIN', 'pin controleren': 'Checking PIN'
-  };
-  function taskLabel(t) { return TASKS[t] ? L(TASKS[t]) : t; }
+  /** build 148: taak- en mijlpaalcodes (snake_case) in de taal van de app (B.diag.codeLabel; oude Nederlandse namen ook). */
+  function taskLabel(t) { return B.diag && B.diag.codeLabel ? B.diag.codeLabel(t) : t; }
+  function nf(n) { try { return Number(n || 0).toLocaleString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang); } catch (e) { return String(n || 0); } }
   SP.taskLabel = taskLabel;
   SP.renderDiagnose = function (list) {
     var S = B.screens, G = B.diag;
@@ -412,18 +407,39 @@
       h('span.st-value', (sum.appMs != null ? L('App time %s', secs(sum.appMs)) : L('Not finished yet')) + ' · ' + L('waiting for you %s', secs(sum.userWaitMs)))]));
     if (sum.maxHangMs) {
       var hs = G.hangs();
-      infoRows(sec, [[L('Longest hang'), secs(sum.maxHangMs) + (hs[0] && hs[0].task ? ' · ' + taskLabel(hs[0].task) : '') + (hs[0] && hs[0].afterReady ? ' · ' + L('after ready') : '')]]);
+      var lh = G.longestHang ? G.longestHang() : null;
+      // build 148: langste hang van deze start met taak, mijlpaal en de lopende taken ("stack")
+      infoRows(sec, [[L('Longest hang'), secs(sum.maxHangMs) + (lh && lh.task ? ' · ' + taskLabel(lh.task) : '') +
+        (lh && lh.milestone ? ' · ' + L('after %s', taskLabel(lh.milestone)) : '') + (hs[0] && hs[0].afterReady ? ' · ' + L('after ready') : '')]]);
+      if (lh && lh.stack && lh.stack.length > 1) sec.appendChild(h('pre.sp-stack', lh.stack.map(taskLabel).join('\n')));
     }
     var pv = G.previousStart();
     if (pv && pv.problem !== 'none') {
       var PRB = { hang: L('Stuck'), crash: L('Error'), not_finished: L('Not finished') };
       var txt = PRB[pv.problem] + (pv.seconds != null ? ' · ' + secs(pv.seconds * 1000) : '') + (pv.task ? ' · ' + taskLabel(pv.task) : '') +
-        (pv.milestone ? ' · ' + L('after %s', pv.milestone) : '') + (pv.foreground === false ? ' · ' + L('in the background') : '');
+        (pv.milestone ? ' · ' + L('after %s', taskLabel(pv.milestone)) : '') + (pv.foreground === false ? ' · ' + L('in the background') : '');
       sec.appendChild(h('div.st-row.info.sp-warn', [U.icon('warn', 'st-ic'), h('span.st-label', L('Previous start')), h('span.st-value', txt)]));
     } else if (G.prevIncomplete) sec.appendChild(h('div.st-row.info.sp-warn', [U.icon('warn', 'st-ic'), h('span.st-label', L('The previous start did not finish.'))]));
     G.milestones().forEach(function (m) {
-      sec.appendChild(h('div.st-row.info', [h('span.st-label', m.name), h('span.st-value', (m.ms / 1000).toFixed(2) + ' s' + (m.mb != null ? ' · ' + m.mb + ' MB' : '') + (m.ok === false ? ' · ✕' : ''))]));
+      sec.appendChild(h('div.st-row.info', [h('span.st-label', taskLabel(m.name)), h('span.st-value', (m.ms / 1000).toFixed(2) + ' s' + (m.mb != null ? ' · ' + m.mb + ' MB' : '') + (m.ok === false ? ' · ✕' : ''))]));
     });
+    // build 148: haperingen tijdens het afspelen
+    (G.stalls ? G.stalls() : []).slice(-5).forEach(function (st) {
+      sec.appendChild(h('div.st-row.info', [h('span.st-label', taskLabel('playback_stall')),
+        h('span.st-value', secs(st.ms) + ' · ' + L('after %s', secs(st.afterMs)) + (st.task ? ' · ' + taskLabel(st.task) : ''))]));
+    });
+    // build 148: de laatste 5 keer bijwerken van een server, per fase met duur en geheugen
+    var ups = G.updates ? G.updates() : [];
+    if (ups.length) {
+      var us = S.stSection(list, L('Server updates'), L('The last 5 updates: fetching, reading in, indexing, applying and saving, with time and memory.'));
+      var RES = { ok: L('OK'), failed: L('Failed'), cancelled: L('Cancelled') };
+      ups.forEach(function (u) {
+        var n = parseInt(String(u.server).slice(1), 10) || 0;
+        us.appendChild(h('div.st-row.info', [h('span.st-label', [h('span', L('Server %d', n) + ' · ' + when(u.at)),
+          h('span.st-sub', (u.phases || []).map(function (x) { return taskLabel(x.code) + ' ' + secs(x.ms) + (x.memMB != null ? ' (' + x.memMB + ' MB)' : ''); }).join(' · '))]),
+          h('span.st-value', (RES[u.result] || u.result) + ' · ' + secs(u.totalMs) + (u.peakMB != null ? ' · ' + L('peak %d MB', u.peakMB) : ''))]));
+      });
+    }
     var c = G.crash();
     if (c) {
       var cr = h('div.st-row.info.sp-crashrow', [h('span.st-label', [h('span', L('Last error') + ': ' + c.type), h('span.st-sub', c.reason + ' · ' + when(c.at) + (c.build ? ' · build ' + c.build : ''))])]);
@@ -470,8 +486,20 @@
         var STAT = { ok: L('delivered'), empty: L('provider delivered nothing'), failed: L('fetching failed'), hidden: L('all hidden') };
         (p.fetch || []).forEach(function (f) {
           var t = STAT[f.status] || f.status;
-          if (f.status === 'ok' || f.status === 'hidden') t += ' · ' + f.count;
-          if (f.status === 'hidden') t += ' (' + L('hidden categories or kids filter') + ')';
+          if (f.delivered != null && f.visible != null && f.status !== 'failed') {
+            // build 148: "36.593 geleverd · 10.286 zichtbaar (26.307 verborgen door categorieën)"
+            t = nf(f.delivered) + ' ' + L('delivered') + ' · ' + nf(f.visible) + ' ' + L('visible');
+            var hd = f.hidden || {}, why = [];
+            if (hd.categories) why.push(L('%@ hidden by categories', nf(hd.categories)));
+            if (hd.kids) why.push(L('%@ hidden by kids filter', nf(hd.kids)));
+            if (hd.duplicates) why.push(L('%@ duplicates', nf(hd.duplicates)));
+            if (hd.other) why.push(L('%@ hidden otherwise', nf(hd.other)));
+            if (why.length) t += ' (' + why.join(', ') + ')';
+            if (!f.delivered && f.status === 'empty') t = L('provider delivered nothing');
+          } else {
+            if (f.status === 'ok' || f.status === 'hidden') t += ' · ' + nf(f.count);
+            if (f.status === 'hidden') t += ' (' + L('hidden categories or kids filter') + ')';
+          }
           if (f.error) t += ' · ' + f.error;
           rows.push([L('Server %d', parseInt(f.server.slice(1), 10)) + ' · ' + KIND[f.kind], t]);
         });

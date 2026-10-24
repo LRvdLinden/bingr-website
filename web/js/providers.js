@@ -118,7 +118,7 @@
   P.m3uLibraryAsync = function (text, playlistID) {
     var b = m3uBuilder(playlistID), entries = P.m3uEntries(text);
     text = null;
-    return B.task.run('catalogus verwerken', function () { return B.chunked(entries, b.add); }).then(function () { return b.done(); });
+    return B.task.run('parse', function () { return B.chunked(entries, b.add); }).then(function () { return b.done(); });
   };
 
   P.m3uEpgURL = function (text) {
@@ -263,7 +263,7 @@
           streamURL: base + '/live/' + u + '/' + p + '/' + sid + '.' + ext, epgID: l.epg_channel_id || null,
           number: B.int(l.num), catchupDays: B.int(l.tv_archive) === 1 ? (B.int(l.tv_archive_duration) || 0) : 0
         };
-      });
+      }, 0, true);
     }
     function mapMovies(r, vc) {
       return B.chunkedMap(r.list, function (v) {
@@ -279,7 +279,7 @@
         var vcl = B.clang.parse(v.name);
         if (vcl) mv.cl = vcl;
         return mv;
-      });
+      }, 0, true);
     }
     function mapSeries(r, sc) {
       return B.chunkedMap(r.list, function (s) {
@@ -294,7 +294,7 @@
         var scl = B.clang.parse(s.name);
         if (scl) se.cl = scl;
         return se;
-      });
+      }, 0, true);
     }
     function status(r, n) { return r.failed ? { status: 'failed', count: 0, error: r.error } : { status: n ? 'ok' : 'empty', count: n }; }
     var main = Promise.all(['get_live_categories', 'get_live_streams', 'get_vod_categories', 'get_vod_streams'].map(function (a) { return self.listStatus(a); }));
@@ -307,7 +307,8 @@
       var r = x[0], rs = x[1];
       var lib = { channels: [], movies: [], series: [], epg: {}, fetch: {} };
       var lc = catMap(r[0].list, other), vc = catMap(r[2].list, other);
-      return B.task.run('catalogus verwerken', function () {
+      if (opts.onPhase) opts.onPhase('parse');
+      return B.task.run('parse', function () {
         return mapChannels(r[1], lc).then(function (c) { lib.channels = c; return mapMovies(r[3], vc); }).then(function (m) {
           lib.movies = m;
           lib.fetch.live = status(r[1], lib.channels.length);
@@ -680,6 +681,13 @@
     this.buf = '';
     return out;
   };
+  /** build 148: zelfde als finish(), maar per zender in stukjes (12k zenders × 36 uur hield de hoofdthread ~140 ms vast). */
+  XMLTVReader.prototype.finishChunked = function () {
+    var out = this.out, keys = Object.keys(out);
+    this.buf = '';
+    var by = function (a, b) { return a.start - b.start; };
+    return B.chunked(keys, function (k) { out[k].sort(by); }, 8).then(function () { return out; });
+  };
   P.XMLTVReader = XMLTVReader;
 
   /** XMLTV-tekst → {kanaal-id: [programma's]} in één keer (tests en kleine gidsen). */
@@ -706,7 +714,7 @@
     var dec = makeDecoder();
     // build 147: kleinere stukken (gzip pakt ~10× uit): elke stap blijft zo onder ~50 ms, ook op een trage tv of telefoon
     var CHUNK = gz ? 4 * 1024 : 32 * 1024;
-    var tid = B.task.begin('gids verwerken');
+    var tid = B.task.begin('guide_parse');
     return new Promise(function (resolve0) {
       function resolve(v) { B.task.end(tid); resolve0(v); }
       var inflator = null, failed = false;
@@ -732,7 +740,7 @@
         if (failed || off >= bytes.length) {
           try { reader.push(dec.decode(new Uint8Array(0), false)); } catch (e) { /* stil */ }
           bytes = null;
-          resolve(reader.finish());
+          reader.finishChunked().then(resolve, function () { resolve({}); });
           return;
         }
         setTimeout(step, Date.now() - B.lastKeyAt < 250 ? 24 : 0);

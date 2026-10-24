@@ -638,7 +638,7 @@
       mig.push({ name: name, d: d, pin: String(v) });
     });
     // build 147: als taak "pin migreren" (hang-detectie); het hashen zelf loopt nooit op de hoofdthread vast (pin.js)
-    var tid = mig.length ? B.task.begin('pin migreren') : 0;
+    var tid = mig.length ? B.task.begin('pin_migrate') : 0;
     return Promise.all(mig.map(function (m) {
       return B.pin.make(m.pin).then(function (h) {
         m.d.pinHash = h; m.d.pin = null;
@@ -672,7 +672,7 @@
     if (syncing) return syncing;
     var stid = 0;
     syncing = A.getState().then(function (all) {
-      stid = B.task.begin('sync toepassen');
+      stid = B.task.begin('sync_apply');
       if (!all) { D.lastSync = { at: B.iso(), ok: false }; B.store.set('lastSync', D.lastSync); return false; }
       // instellingen: het geheel van de server; wijzigingen van deze tv die nog niet geüpload zijn gaan erover en worden verstuurd
       if (all.settings) {

@@ -29,7 +29,7 @@
     supabaseKey: SB.anonKey || 'sb_publishable_lpIup6Omq5kW2k3oICGZ4g_HPGac5A3',
     platform: B.isWindowsApp ? 'windows' : 'browser',
     // build 146: de build van deze code; ../assets/changelog.json mag hem alleen ophogen (B.loadBuild in app.js)
-    build: '147',
+    build: '148',
     version: '1.0.1'
   };
 
@@ -182,32 +182,81 @@
     return next();
   };
   /** Lijst in stukjes omzetten: map(item) → waarde of null/undefined (dan overgeslagen). Promise met de nieuwe lijst. */
-  B.chunkedMap = function (list, fn, budget) {
+  // build 148: free = true geeft de items van de invoer stap voor stap vrij (list[i] = null), zodat de ruwe lijst van de
+  // provider en de nieuwe catalogus niet allebei helemaal in het geheugen staan (alleen voor een lijst die verder niemand gebruikt)
+  B.chunkedMap = function (list, fn, budget, free) {
     var out = [];
-    return B.chunked(list || [], function (x, i) { var v = fn(x, i); if (v != null) out.push(v); }, budget).then(function () { return out; });
-  };
-  /** Sorteren zonder de hoofdthread lang vast te houden: kleine lijsten meteen, grote in stukjes (mergesort, stabiel). */
-  B.sortChunked = function (list, cmp) {
     list = list || [];
-    if (list.length < 3000) return Promise.resolve(list.slice().sort(cmp));
-    var RUN = 1024, runs = [];
-    for (var i = 0; i < list.length; i += RUN) runs.push(list.slice(i, i + RUN));
-    return B.chunked(runs, function (r) { r.sort(cmp); }, 10).then(function () {
-      function merge() {
-        if (runs.length <= 1) return Promise.resolve(runs[0] || []);
-        var next = [];
-        var pairs = [];
-        for (var j = 0; j < runs.length; j += 2) pairs.push([runs[j], runs[j + 1] || []]);
-        return B.chunked(pairs, function (pr) {
-          var a = pr[0], b = pr[1], o = new Array(a.length + b.length), x = 0, y = 0, k = 0;
-          while (x < a.length && y < b.length) o[k++] = cmp(b[y], a[x]) < 0 ? b[y++] : a[x++];
-          while (x < a.length) o[k++] = a[x++];
-          while (y < b.length) o[k++] = b[y++];
-          next.push(o);
-        }, 10).then(function () { runs = next; return merge(); });
+    return B.chunked(list, function (x, i) { var v = fn(x, i); if (free) list[i] = null; if (v != null) out.push(v); }, budget).then(function () { if (free) list.length = 0; return out; });
+  };
+  /**
+   * Sorteren zonder de hoofdthread lang vast te houden: kleine lijsten meteen, grote in stukjes.
+   * Build 148: echte stapjes. Een merge sort van onderop (stabiel) die midden in een merge kan stoppen: per stap
+   * hooguit ~budget ms (de tijd wordt elke 256 vergelijkingen gecontroleerd), dan terug naar de browser. Build 147 deed
+   * per stap een hele merge (2 × 5k titels = 173 ms op CI). Geeft een nieuwe lijst; cancel() via de Promise.
+   */
+  B.sortChunked = function (list, cmp, budget) {
+    list = list || [];
+    budget = budget || 8;
+    var n = list.length;
+    if (n < 2000) { var q = Promise.resolve(list.slice().sort(cmp)); q.cancel = B.noop; return q; }
+    var src = list.slice(), dst = new Array(n), RUN = 32;
+    var runAt = 0;                                   // fase 1: blokjes van 32 met insertion sort
+    var width = RUN, lo = 0, i = 0, j = 0, k = 0, mid = 0, hi = 0, inMerge = false; // fase 2: mergen
+    var cancelled = false;
+    var p = new Promise(function (resolve, reject) {
+      function step() {
+        if (cancelled) { reject(new Error('cancelled')); return; }
+        var t0 = Date.now(), ops = 0;
+        try {
+          while (runAt < n) {
+            var e = Math.min(n, runAt + RUN);
+            for (var x = runAt + 1; x < e; x++) {
+              var v = src[x], y = x - 1;
+              while (y >= runAt && cmp(src[y], v) > 0) { src[y + 1] = src[y]; y--; }
+              src[y + 1] = v;
+            }
+            ops += RUN * 4;
+            runAt = e;
+            if (ops >= 256) { ops = 0; if (Date.now() - t0 > budget) { setTimeout(step, B.lastKeyAt && Date.now() - B.lastKeyAt < 200 ? 16 : 0); return; } }
+          }
+          while (width < n) {
+            if (!inMerge) {
+              if (lo >= n) { var t = src; src = dst; dst = t; width *= 2; lo = 0; continue; }
+              mid = Math.min(n, lo + width); hi = Math.min(n, lo + 2 * width);
+              i = lo; j = mid; k = lo; inMerge = true;
+            }
+            while (k < hi) {
+              if (i < mid && (j >= hi || cmp(src[j], src[i]) >= 0)) dst[k++] = src[i++];
+              else dst[k++] = src[j++];
+              if ((++ops & 255) === 0 && Date.now() - t0 > budget) { setTimeout(step, B.lastKeyAt && Date.now() - B.lastKeyAt < 200 ? 16 : 0); return; }
+            }
+            inMerge = false; lo = hi;
+          }
+        } catch (err) { reject(err); return; }
+        resolve(src);
       }
-      return merge();
+      step();
     });
+    p.cancel = function () { cancelled = true; };
+    return p;
+  };
+  /**
+   * Build 148: de eerste n van een lijst volgens cmp, zonder alles te sorteren (Top 10, Nieuwste 30): zelfde uitkomst als
+   * list.slice().sort(cmp).slice(0, n) (stabiel), maar O(lengte × log n) in plaats van de hele lijst sorteren.
+   */
+  B.topN = function (list, n, cmp) {
+    var out = [];
+    if (!n || n < 1) return out;
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i];
+      if (out.length >= n && cmp(x, out[out.length - 1]) >= 0) continue;
+      var lo = 0, hi = out.length;
+      while (lo < hi) { var m = (lo + hi) >> 1; if (cmp(x, out[m]) < 0) hi = m; else lo = m + 1; }
+      out.splice(lo, 0, x);
+      if (out.length > n) out.pop();
+    }
+    return out;
   };
   /** Binair zoeken in een op `start` gesorteerde lijst: index van het laatste item met start <= t (of -1). */
   B.bsearchStart = function (list, t) {
@@ -390,7 +439,7 @@
         });
       }
       var oldHead = null;
-      var tid = B.task.begin(field === 'epg' ? 'gids bewaren' : 'catalogus bewaren');
+      var tid = B.task.begin(field === 'epg' ? 'guide_save' : 'save');
       return B.idb.get(k).then(function (o) { oldHead = o && o._big ? o : null; }).then(function () {
         var i3 = 0;
         function next() {
@@ -414,7 +463,7 @@
     getBig: function (k) {
       return B.idb.get(k).then(function (head) {
         if (!head || !head._big) return head;
-        var tid = B.task.begin(head.field === 'epg' ? 'gids laden' : 'catalogus laden');
+        var tid = B.task.begin(head.field === 'epg' ? 'guide_load' : 'catalog_load');
         var rec = B.assign({}, head.base), obj = {}, ok = true;
         var names = [];
         if (head.mode === 'keys') for (var i = 0; i < head.keys; i++) names.push([k + '#k:' + i, null]);

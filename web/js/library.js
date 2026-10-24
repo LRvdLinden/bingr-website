@@ -160,15 +160,21 @@
       return own(c.renamed, 'group:' + m) || m;
     }
     var groupOK = Object.create(null);
+    // build 148: waarom iets niet zichtbaar is (diagnose: geleverd naast zichtbaar), per soort
+    var stats = { live: hz(), movie: hz(), series: hz() };
+    function hz() { return { categories: 0, kids: 0, duplicates: 0, other: 0 }; }
+    var why = '';
     function visible(id, g) {
-      if (hidden[id]) return false;
-      if (B.has(groupOK, g)) return groupOK[g];
-      var m = own(c.merged, g) || g;
-      // build 128: categorie aan/uit per profiel (hiddenCategories); het oude "group:"-blok van de bron telt niet meer
-      var ok = !own(hc, g) && !own(hc, m) && !isLocked(g) && !isLocked(m);
-      groupOK[g] = ok;
-      return ok;
+      if (hidden[id]) { why = 'other'; return false; }
+      if (!B.has(groupOK, g)) {
+        var m = own(c.merged, g) || g;
+        // build 128: categorie aan/uit per profiel (hiddenCategories); het oude "group:"-blok van de bron telt niet meer
+        groupOK[g] = own(hc, g) || own(hc, m) ? 'categories' : (isLocked(g) || isLocked(m) ? 'other' : '');
+      }
+      why = groupOK[g];
+      return !why;
     }
+    function drop(kind, w) { stats[kind][w || 'other']++; return null; }
     var AR = B.ageRatings;
     var CLs = B.clang ? B.clang.strip : function (t) { return t; };
     /** build 140: kinderprofiel: categorie van de server (vóór hernoemen/samenvoegen) moet een kindercategorie zijn; een
@@ -186,23 +192,27 @@
     }
     return {
       channel: function (ch) {
-        if (!visible(ch.id, ch.group)) return null;
+        if (!visible(ch.id, ch.group)) return drop('live', why);
         // build 140: kinderprofiel: zenders volgen alleen de categorie (de zendernaam telt niet)
-        if (kids && !PC.isKidsCategory(ch.group)) return null;
+        if (kids && !PC.isKidsCategory(ch.group)) return drop('live', 'kids');
         var o = B.assign({}, ch, { group: group(ch.group), name: own(c.renamed, ch.id) || ch.name, rawGroup: ch.group });
-        if (!kids && ageLimit != null && !PC.channelAllowedFor(o.name, o.rawGroup, ageLimit, ctx.strict)) return null;
+        if (!kids && ageLimit != null && !PC.channelAllowedFor(o.name, o.rawGroup, ageLimit, ctx.strict)) return drop('live', 'kids');
         return o;
       },
       movie: function (m) {
-        if (!visible(m.id, m.group) || !ageOK(m, false)) return null;
+        if (!visible(m.id, m.group)) return drop('movie', why);
+        if (!ageOK(m, false)) return drop('movie', 'kids');
         // taal-tag ("Animal (IT)", "NL | …") niet in de getoonde titel; rawTitle blijft voor TMDB, Trakt en sleutels
         return B.assign({}, m, { group: group(m.group), title: own(c.renamed, m.id) || CLs(m.title), rawTitle: m.title, rawGroup: m.group });
       },
       series: function (x) {
-        if (!visible(x.id, x.group) || !ageOK(x, true)) return null;
+        if (!visible(x.id, x.group)) return drop('series', why);
+        if (!ageOK(x, true)) return drop('series', 'kids');
         return B.assign({}, x, { group: group(x.group), title: own(c.renamed, x.id) || CLs(x.title), rawTitle: x.title, rawGroup: x.group });
       },
-      sortChannels: function (channels) {
+      stats: stats,
+      needsSort: function () { return !!((c.groupOrder && c.groupOrder.length) || Object.keys(c.channelOrder || {}).length); },
+      sortChannels: function (channels, chunked) {
         if (!((c.groupOrder && c.groupOrder.length) || Object.keys(c.channelOrder || {}).length)) return channels;
         var gIndex = Object.create(null); (c.groupOrder || []).forEach(function (g, i) { if (!B.has(gIndex, g)) gIndex[g] = i; });
         var natural = Object.create(null), n = 0;
@@ -211,14 +221,17 @@
         Object.keys(c.channelOrder || {}).forEach(function (g) { (c.channelOrder[g] || []).forEach(function (id, i) { cIndex[id] = i; }); });
         var original = Object.create(null);
         channels.forEach(function (ch, i) { if (!B.has(original, ch.id)) original[ch.id] = 100000 + i; });
-        return channels.sort(function (a, b) {
+        var cmp = function (a, b) {
           var ga = B.has(gIndex, a.group) ? gIndex[a.group] : natural[a.group];
           var gb = B.has(gIndex, b.group) ? gIndex[b.group] : natural[b.group];
           if (ga !== gb) return ga - gb;
           var ia = B.has(cIndex, a.id) ? cIndex[a.id] : original[a.id];
           var ib = B.has(cIndex, b.id) ? cIndex[b.id] : original[b.id];
           return ia - ib;
-        });
+        };
+        // build 148: grote lijsten in stukjes (B.sortChunked, zelfde volgorde: stabiel)
+        if (chunked) return B.sortChunked(channels, cmp);
+        return channels.sort(cmp);
       }
     };
   }
@@ -228,7 +241,9 @@
   Lib.apply = function (raw, ctx) {
     var f = makeFilter(ctx);
     function run(list, fn) { var out = []; for (var i = 0; i < list.length; i++) { var o = fn(list[i]); if (o) out.push(o); } return out; }
-    return { channels: f.sortChannels(run(raw.channels, f.channel)), movies: run(raw.movies, f.movie), series: run(raw.series, f.series), epg: raw.epg || {} };
+    var out = { channels: f.sortChannels(run(raw.channels, f.channel)), movies: run(raw.movies, f.movie), series: run(raw.series, f.series), epg: raw.epg || {} };
+    out.stats = statsOf(raw, out, f.stats);
+    return out;
   };
   /** In stukjes filteren (grote bibliotheken): de afstandsbediening blijft reageren. */
   Lib.applyChunked = function (raw, ctx) {
@@ -243,11 +258,22 @@
     var p = run(raw.channels, f.channel, out.channels)
       .then(function () { return run(raw.movies, f.movie, out.movies); })
       .then(function () { return run(raw.series, f.series, out.series); })
-      .then(function () { out.channels = f.sortChannels(out.channels); return out; });
-    p.cancel = function () { cancelled = true; if (job) job.cancel(); };
+      .then(function () {
+        if (cancelled) throw new Error('cancelled');
+        if (!f.needsSort()) return out.channels;
+        job = f.sortChannels(out.channels, true);
+        return job;
+      })
+      .then(function (chs) { out.channels = chs; out.stats = statsOf(raw, out, f.stats); return out; });
+    p.cancel = function () { cancelled = true; if (job && job.cancel) job.cancel(); };
     return p;
   };
 
+  /** build 148: per soort geleverd, zichtbaar en waarom de rest verborgen is (diagnose-schema 3, fetch[].hidden). */
+  function statsOf(raw, out, hid) {
+    function one(k, rl, ol) { return { delivered: (rl || []).length, visible: (ol || []).length, hidden: hid[k] }; }
+    return { live: one('live', raw.channels, out.channels), movie: one('movie', raw.movies, out.movies), series: one('series', raw.series, out.series) };
+  }
   /** Telt op bij elke nieuwe gefilterde bibliotheek; afgeleide lijsten (collecties, top 10, groepen) worden per versie gecachet. */
   Lib.version = 0;
   var memo = {};
@@ -265,22 +291,29 @@
    * Niets veranderd (zelfde bibliotheek, zelfde instellingen, geen nieuwe leeftijden)? Dan niets doen:
    * zo tekent de heartbeat niet elke 5 minuten alle schermen opnieuw.
    */
-  Lib.applyFilters = function (force) {
+  Lib.applyFilters = function (force, tr) {
     var raw = Lib.raw, ctx = context();
     var key = JSON.stringify(ctx) + '|' + ageVersion;
     if (!force && raw === lastRaw && key === lastCtx && !applyJob) return Promise.resolve();
     lastRaw = raw; lastCtx = key;
     if (applyJob) { applyJob.cancel(); applyJob = null; }
     var size = raw.channels.length + raw.movies.length + raw.series.length;
-    if (size < SMALL) { finishApply(Lib.apply(raw, ctx)); return Promise.resolve(); }
+    if (size < SMALL) {
+      var ta = Date.now(), small = Lib.apply(raw, ctx);
+      if (tr) tr.add('apply', Date.now() - ta);
+      ta = Date.now(); finishApply(small);
+      if (tr) tr.add('index', Date.now() - ta);
+      return Promise.resolve();
+    }
     // build 147: grote bibliotheek: filteren, indexen en de afgeleide lijsten (Top 10, Voor jou, categorieën) elk in
     // stukjes, als taak "catalogus filteren"; de schermen krijgen pas het eindresultaat (event 'library')
-    var tid = B.task.begin('catalogus filteren');
+    var tid = B.task.begin('catalog_filter');
     var job = applyJob = Lib.applyChunked(raw, ctx);
-    var cancelled = false;
-    var p = job.then(function (lib) {
+    var cancelled = false, out = 'cancelled';
+    var p = (tr ? tr.time('apply', job) : job).then(function (lib) {
       if (applyJob !== wrap || cancelled) return;
-      return indexChunked(lib).then(function () {
+      var ix = indexChunked(lib);
+      return (tr ? tr.time('index', ix) : ix).then(function () {
         if (applyJob !== wrap || cancelled) return;
         Lib.lib = lib;
         Lib.version++;
@@ -288,10 +321,11 @@
         return warmDerived().then(function () {
           if (applyJob !== wrap || cancelled) return;
           applyJob = null;
+          out = 'ok';
           B.emit('library');
         });
       });
-    }, B.noop).then(function () { B.task.end(tid); }, function () { B.task.end(tid); });
+    }, B.noop).then(function () { B.task.end(tid); return out; }, function () { B.task.end(tid); return out; });
     var wrap = { cancel: function () { cancelled = true; job.cancel(); } };
     applyJob = wrap;
     return p;
@@ -435,16 +469,25 @@
     });
     return w;
   }
+  // build 148: elk bijwerken met fasen (B.diag.update): fetch en parse hier; index, apply en save bij wie de lijst gebruikt
+  // (Lib.refresh, xs.js). De tracker hangt onzichtbaar aan de lijst (lib._upd, niet bewaard).
   function fetchLibrary(src) {
-    return fetchLibraryNow(src).then(function (lib) { noteFetch(src, lib, null); return lib; }, function (e) { noteFetch(src, null, e); throw e; });
+    var tr = B.diag && B.diag.update ? B.diag.update(src) : null;
+    return fetchLibraryNow(src, tr).then(function (lib) {
+      noteFetch(src, lib, null);
+      if (tr) { tr.close(); try { Object.defineProperty(lib, '_upd', { value: tr, enumerable: false, configurable: true }); } catch (e) { /* stil */ } }
+      return lib;
+    }, function (e) { noteFetch(src, null, e); if (tr) tr.end('failed'); throw e; });
   }
-  function fetchLibraryNow(src) {
+  function fetchLibraryNow(src, tr) {
+    var phase = function (c) { if (tr) tr.phase(c); };
     var kind = src.kind;
     var pw = D.secret(src, 'password');
     if (kind === 'M3U / M3U8') {
       var u = P.urlValue(src.m3uURL);
       if (!u) return Promise.reject(new Error(L('Invalid URL')));
       return B.getText(u, null, 180000).then(function (text) {
+        phase('parse');
         // build 128: gids-URL uit de kop lezen vóór de tekst wordt vrijgegeven (anders faalde een M3U zonder eigen gids-URL)
         var epgURL = P.urlValue(src.epgURL) || P.m3uEpgURL(text);
         // build 147: in stukjes (een lijst met tienduizenden regels hield de hoofdthread vast)
@@ -453,7 +496,7 @@
     }
     if (kind === 'Xtream Codes') {
       var x = new P.Xtream(src, pw);
-      return x.authenticate().then(function () { return x.library({ onLateSeries: function (se, st) { lateSeries(src, se, st); } }); }).then(function (lib) {
+      return x.authenticate().then(function () { return x.library({ onPhase: phase, onLateSeries: function (se, st) { lateSeries(src, se, st); } }); }).then(function (lib) {
         lib.epgURL = P.urlValue(src.epgURL) || x.xmltvURL();
         return lib;
       });
@@ -463,6 +506,7 @@
       // build 130: alleen voor de actieve server; een andere server (xs.js) mag de portal van de actieve niet vervangen
       if (Lib.source && String(Lib.source.id).toLowerCase() === String(src.id).toLowerCase()) Lib.stalker = st;
       return st.connect().then(function () { return st.library(); }).then(function (lib) {
+        phase('parse');
         lib.epgURL = P.urlValue(src.epgURL);
         return lib;
       });
@@ -474,7 +518,7 @@
           var sec = { session: B.media.sessionString(ns) };
           D.saveSource({ id: src.id, serverURL: ns.serverURI, secrets: sec }).catch(B.noop);
         }
-      }).then(function (lib) { lib.epgURL = P.urlValue(src.epgURL); return lib; });
+      }).then(function (lib) { phase('parse'); lib.epgURL = P.urlValue(src.epgURL); return lib; });
     }
     return Promise.reject(new Error(L('This kind of server is not supported in the browser yet.')));
   }
@@ -683,17 +727,20 @@
       // Jellyfin/Emby leveren hun gids zelf mee; bij de andere komt hij later uit XMLTV
       var ownEpg = B.media.isMediaServer(src.kind) ? (lib.epg || {}) : null;
       lib.epg = ownEpg || {};
-      B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays');
+      var tr = lib._upd || null;
+      var saved = B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays');
+      if (tr) saved = tr.time('save', saved);
       // alleen de zenders apart, voor de reservebron op andere servers
       B.idb.set('chan:' + src.id, lib.channels.map(function (c) { return { name: c.name, epgID: c.epgID, streamURL: c.streamURL, stalkerCmd: c.stalkerCmd || null }; }));
-      if (my !== gen) { libDone(opts, null); return; }
+      if (my !== gen) { libDone(opts, null); if (tr) tr.end('cancelled'); return; }
       var epg = Lib.raw && Lib.source && Lib.source.id === src.id ? Lib.raw.epg : {};
       lib.epg = ownEpg || epg || {};
       // build 140: nieuwe titels t.o.v. de vorige catalogus van deze server (Nieuw op Bingr)
       Lib.noteSeen(src, Lib.source && Lib.source.id === src.id ? Lib.raw : null, lib);
       Lib.raw = lib;
       Lib.loading = false;
-      Lib.applyFilters();
+      var applied = Lib.applyFilters(false, tr);
+      if (tr) Promise.all([saved, applied]).then(function (r) { tr.end(r[1] === 'cancelled' ? 'cancelled' : 'ok'); }, function () { tr.end('failed'); });
       libDone(opts, true);
       return loadEpg(src, lib, true);
     }, function (e) {
@@ -928,14 +975,15 @@
     var withPoster = items.filter(function (x) { return x.poster; });
     var pool = withPoster.length ? withPoster : items;
     var rated = pool.filter(function (x) { return (x.rating || 0) > 0; });
-    if (rated.length >= 10) return rated.slice().sort(function (a, b) { return (b.rating || 0) - (a.rating || 0); }).slice(0, 10);
+    // build 148: alleen de eerste 10 zoeken (B.topN), niet 37k titels sorteren; zelfde uitkomst
+    if (rated.length >= 10) return B.topN(rated, 10, function (a, b) { return (b.rating || 0) - (a.rating || 0); });
     var recent = pool.filter(function (x) { return x.addedAt; });
-    if (recent.length >= 10) return recent.slice().sort(function (a, b) { return b.addedAt - a.addedAt; }).slice(0, 10);
+    if (recent.length >= 10) return B.topN(recent, 10, function (a, b) { return b.addedAt - a.addedAt; });
     return pool.slice(0, 10);
   }
   Lib.recent = function (items, n) {
     var key = items === Lib.lib.movies ? 'recent:m:' + (n || 30) : items === Lib.lib.series ? 'recent:s:' + (n || 30) : null;
-    function run() { return items.filter(function (x) { return x.addedAt; }).sort(function (a, b) { return b.addedAt - a.addedAt; }).slice(0, n || 30); }
+    function run() { return B.topN(items.filter(function (x) { return x.addedAt; }), n || 30, function (a, b) { return b.addedAt - a.addedAt; }); }
     return key ? Lib.memo(key, run) : run();
   };
 })();

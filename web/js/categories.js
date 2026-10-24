@@ -170,7 +170,7 @@
         for (var j = 0; j < ks.length; j++) by[ks[j]][type].push(x);
       });
     }
-    return B.task.run('categorieën indexeren', function () {
+    return B.task.run('category_index', function () {
       return (k.movie ? run(lib.movies, 'movie') : Promise.resolve()).then(function () { return k.series ? run(lib.series, 'series') : null; });
     }).then(function () {
       if (Lib.lib !== lib) return;

@@ -185,8 +185,20 @@
   function Engine(ev, video) {
     this.ev = ev; this.v = video; this.hls = null; this.ts = null; this.how = null; this.started = false;
     var self = this;
-    video.onwaiting = function () { self.ev.buffering(true); };
-    video.onplaying = function () { self.ev.buffering(false); self.ev.state(); };
+    // build 148: haperingen tijdens het afspelen (playback_stall) voor de diagnose: na het eerste beeld, niet bij zelf spoelen
+    var stallAt = 0, firstPlay = 0, seekAt = 0;
+    video.addEventListener('seeking', function () { seekAt = Date.now(); });
+    video.onwaiting = function () {
+      self.ev.buffering(true);
+      if (firstPlay && !stallAt && !video.seeking && Date.now() - seekAt > 1500) stallAt = Date.now();
+    };
+    video.onplaying = function () {
+      self.ev.buffering(false); self.ev.state();
+      if (!firstPlay) firstPlay = Date.now();
+      else if (stallAt && B.diag && B.diag.stall) B.diag.stall(Date.now() - stallAt, stallAt - firstPlay, self.how || '');
+      stallAt = 0;
+    };
+    video.addEventListener('emptied', function () { firstPlay = 0; stallAt = 0; });
     video.onpause = function () { self.ev.state(); };
     video.onplay = function () { self.ev.state(); };
     video.onended = function () { self.ev.ended(); };

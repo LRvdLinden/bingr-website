@@ -125,8 +125,8 @@
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
     document.addEventListener('keydown', globalKeys);
-    Promise.all([withTimeout(loadBuild(), 2500), A.init().then(function (x) { if (B.diag) B.diag.mark('session', !!x); return x; }), introReady]).then(function (r) {
-      if (B.diag) B.diag.mark('splash');
+    Promise.all([withTimeout(loadBuild(), 2500), A.init().then(function (x) { if (B.diag) B.diag.mark('account', !!x); return x; }), introReady]).then(function (r) {
+      if (B.diag) B.diag.mark('intro_done');
       if (r[1]) {
         afterLogin(false);
         A.refresh().then(function (res) { if (res === 'invalid') toLogin(); });
@@ -163,7 +163,7 @@
       A.fetchConfig().then(function (ok) { if (ok) B.emit('config'); });
       var haveCache = D.profiles.length > 0;
       var sync = Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function (x) {
-        if (B.diag) { B.diag.mark('profiles_synced', !!x[0]); B.diag.mark('sources', !!x[1]); B.diag.mark('state', !!x[2]); }
+        if (B.diag) { B.diag.mark('profile', !!x[0]); B.diag.mark('servers', !!x[1]); B.diag.mark('state_sync', !!x[2]); }
         D.migrateAccent(); return x;
       });
       return withTimeout(sync, haveCache ? 50 : 8000).then(showProfiles);
@@ -196,7 +196,7 @@
     if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname + location.search);
     show(S.profiles(pickFromList));
     // build 147: vanaf hier wacht de app op de gebruiker (telt niet als app-tijd)
-    if (B.diag) { B.diag.mark('profiles'); B.diag.waitStart('profiles'); B.diag.ready(); }
+    if (B.diag) { B.diag.mark('profile_picker'); B.diag.waitStart('profiles'); B.diag.ready(); }
     document.title = L("Who's watching?") + ' · Bingr';
     app.applyAccent(B.store.get('lastAccent', 'red'));
   }
@@ -253,7 +253,7 @@
     main = S.main();
     show(main);
     main.start();
-    if (B.diag) { B.diag.mark('main'); B.diag.ready(); }
+    if (B.diag) { B.diag.mark('home'); B.diag.ready(); }
     // build 146: deeplink naar Support (pushmelding support_reply, #/support/ticket?n=…)
     if (B.support && B.support.tryPending) setTimeout(function () { if (app.profile === p) B.support.tryPending(); }, 0);
     // build 145: na het laden van de open server de keuze van "Servers laden bij openen" (de vraag, Altijd of niets)

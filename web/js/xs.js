@@ -86,7 +86,7 @@
     }
     var mv = (raw && raw.movies) || [], se = (raw && raw.series) || [], ch = (raw && raw.channels) || [];
     if (chunked) {
-      return B.task.run('catalogus indexeren', function () {
+      return B.task.run('index', function () {
         return B.chunked(mv, function (m) { add('movie', m); }).then(function () { return B.chunked(se, function (x) { add('series', x); }); })
           .then(function () { return B.chunked(ch, addChannel); }).then(function () { return idx; });
       });
@@ -664,7 +664,9 @@
   function cacheFresh() { return true; }
   function storeLib(src, lib) {
     lib.epg = lib.epg || {};
-    B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays'); // build 147: in stukken
+    var sv = B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays'); // build 147: in stukken
+    // build 148: fasen van het bijwerken (diagnose): bewaren hier, indexen en toepassen in put()
+    if (lib._upd) lib._upd.saved = lib._upd.time('save', sv);
     B.idb.set('chan:' + src.id, lib.channels.map(function (x) { return { name: x.name, epgID: x.epgID, streamURL: x.streamURL, stalkerCmd: x.stalkerCmd || null }; }));
   }
   /** Catalogus van een server laden (cache eerst). fetch=false: alleen uit de cache. */
@@ -708,11 +710,15 @@
     // build 147: de index in stukjes; tot hij klaar is een lege index (de rijen volgen via changedSoon)
     var c = cats[lid] = { src: src, raw: raw, idx: X.buildIndex(null), at: at || Date.now(), epg: old ? old.epg : null, epgAsked: old ? old.epgAsked : false };
     views[lid] = null;
-    X.buildIndexChunked(raw).then(function (idx) {
+    var tr = raw._upd || null;
+    var ix = X.buildIndexChunked(raw);
+    (tr ? tr.time('index', ix) : ix).then(function (idx) {
       if (cats[lid] !== c) return;
       c.idx = idx;
-      return warmView(src.id);
-    }).then(function () { changedSoon(); }, function () { changedSoon(); });
+      return tr ? tr.time('apply', warmView(src.id)) : warmView(src.id);
+    }).then(function () { changedSoon(); }, function () { changedSoon(); }).then(function () {
+      if (tr) Promise.resolve(tr.saved).then(function () { tr.end(cats[lid] === c ? 'ok' : 'cancelled'); }, function () { tr.end('failed'); });
+    });
   }
   /**
    * Gids van een andere server (voor nu/straks en terugkijken). Eerst de cache; ontbreekt hij of is hij oud, dan rustig
@@ -784,7 +790,7 @@
     var key = JSON.stringify(ctx) + '|' + Lib.version;
     var v = views[lid];
     if (v && v.raw === c.raw && v.key === key) return Promise.resolve();
-    return B.task.run('catalogus filteren', function () {
+    return B.task.run('catalog_filter', function () {
       return Lib.applyChunked(c.raw, ctx).then(function (lib) {
         var byId = Object.create(null);
         function tag(type) { return function (x) { x._src = src; byId[x.id] = { type: type, item: x }; }; }

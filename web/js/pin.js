@@ -180,7 +180,7 @@
     if (workerBroken || typeof root.Worker !== 'function' || typeof root.document === 'undefined') return null;
     try {
       if (!worker) {
-        worker = new root.Worker('js/pin-worker.js?v=147');
+        worker = new root.Worker('js/pin-worker.js?v=148');
         worker.onmessage = function (e) {
           var d = e.data || {}, w = wWait[d.id];
           if (!w) return;
@@ -201,7 +201,7 @@
     });
   }
   function deriveJs(pin, salt, iter) {
-    var tid = B.task ? B.task.begin('pin controleren') : 0;
+    var tid = B.task ? B.task.begin('pin_check') : 0;
     var p = viaWorker(pin, salt, iter) || PIN.pbkdf2JsChunked(pin, salt, iter, HASH_BYTES);
     p.then(function () { if (tid) B.task.end(tid); }, function () { if (tid) B.task.end(tid); });
     return p;

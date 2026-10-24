@@ -22,6 +22,16 @@
  * Nooit: URL's, servernamen, gebruikersnamen, e-mailadressen, titels. De server schoont het ook nog op.
  * Wordt direct na core.js geladen (zo vroeg mogelijk, voor de fouten van de rest).
  */
+/*
+ * Build 148: diagnose-schema 3 (bovenop schema 2):
+ * - Mijlpalen en taken zijn codes (snake_case Engels, vaste set; zie CODES); de bijlage bevat alleen codes en getallen,
+ *   in beeld staat de vertaling in de app-taal (G.codeLabel). Oude namen uit een bewaarde start worden omgezet (OLD).
+ * - start.longestHang: de langste hang van deze start (duur, taak, mijlpaal, voorgrond, stack).
+ * - updates: de laatste 5 keer bijwerken van een server: fasen fetch → parse → index → apply → save met duur en geheugen.
+ * - fetch[]: delivered / visible / hidden {categories, kids, duplicates, other} per server en soort.
+ * - playback.stalls: haperingen tijdens het afspelen (code playback_stall, tijd na het eerste beeld en duur).
+ * - app.lang: de app-taal.
+ */
 (function () {
   'use strict';
   var B = window.B;
@@ -51,6 +61,36 @@
     return n ? s.slice(0, n) : s;
   };
 
+  // MARK: build 148: codes (mijlpalen en taken) met een tekst per taal
+
+  /** Vaste set (diagnose-schema 3) plus de codes die alleen de webspeler heeft; waarde = Engelse tekst (sleutel voor B.L). */
+  var CODES = {
+    started: 'Started', storage: 'Storage', account: 'Account', first_frame: 'First frame', intro_done: 'Intro done',
+    profile_picker: 'Profile picker', profile_picked: 'Profile chosen', pin_screen: 'PIN screen', pin_ok: 'PIN correct',
+    profile: 'Profiles', servers: 'Servers', home: 'Home', catalog: 'Catalogue', ready: 'Ready', fetch: 'Fetching',
+    parse: 'Reading in', index: 'Indexing', apply: 'Applying', save: 'Saving', sync_apply: 'Applying sync',
+    catalog_filter: 'Filtering catalogue', catalog_sort: 'Sorting catalogue', catalog_meta: 'Catalogue info', pin_migrate: 'Migrating PIN',
+    rows_build: 'Building rows', guide_parse: 'Processing TV guide',
+    // nieuw in build 148 (webspeler)
+    state_sync: 'Account settings', servers_loaded: 'Servers loaded', guide: 'TV guide', player: 'Player', crash: 'Error',
+    catalog_load: 'Loading catalogue', category_index: 'Indexing categories', guide_load: 'Loading TV guide', guide_save: 'Saving TV guide',
+    pin_check: 'Checking PIN', playback_stall: 'Playback stall'
+  };
+  /** Namen van build 146/147 (mijlpalen en Nederlandse taaknamen) → code. */
+  var OLD = {
+    start: 'started', dom: 'first_frame', session: 'account', splash: 'intro_done', profiles_synced: 'profile', sources: 'servers',
+    state: 'state_sync', profiles: 'profile_picker', pin_shown: 'pin_screen', main: 'home', library: 'apply', epg: 'guide',
+    'catalogus laden': 'catalog_load', 'catalogus verwerken': 'parse', 'catalogus filteren': 'catalog_filter', 'catalogus indexeren': 'index',
+    'catalogus bewaren': 'save', 'catalogus sorteren': 'catalog_sort', 'categorieën indexeren': 'category_index', 'gids laden': 'guide_load',
+    'gids verwerken': 'guide_parse', 'gids bewaren': 'guide_save', 'rijen opbouwen': 'rows_build', 'sync toepassen': 'sync_apply',
+    'pin migreren': 'pin_migrate', 'pin controleren': 'pin_check'
+  };
+  G.CODES = CODES;
+  /** Code (of een oude naam) → code. */
+  G.code = function (x) { x = String(x == null ? '' : x); return B.has(CODES, x) ? x : (B.has(OLD, x) ? OLD[x] : x); };
+  /** Code → tekst in de app-taal (onbekend: de code zelf). */
+  G.codeLabel = function (x) { var c = G.code(x); return B.has(CODES, c) ? L(CODES[c]) : c; };
+
   // MARK: startdiagnose
 
   var prev = B.store.get('diag.boot', null);
@@ -58,11 +98,12 @@
   G.prevIncomplete = !!(G.previous && G.previous.done === false);
   var boot = { at: new Date(T0).toISOString(), build: null, done: false, ms: [], closed: false, vis: true };
   function saveBoot() { boot.build = B.int(B.config.build) || null; B.store.set('diag.boot', boot); }
-  /** Mijlpaal: name = ^[a-z][a-z0-9_.-]{0,39}$, ok optioneel. Eén keer per naam. */
+  /** Mijlpaal: code (snake_case, build 148), ok optioneel. Eén keer per code. */
   G.mark = function (name, ok) {
-    if (!/^[a-z][a-z0-9_.-]{0,39}$/.test(name) || boot.ms.length >= 40) return;
+    name = G.code(name);
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(name) || boot.ms.length >= 40) return;
     for (var i = 0; i < boot.ms.length; i++) if (boot.ms[i].name === name) return;
-    var e = { name: name, ms: Math.min(600000, now()) };
+    var e = { name: name, ms: Math.min(3600000, now()) };
     if (ok === true || ok === false) e.ok = ok;
     var mb = heapMB();
     if (mb != null) e.mb = mb;
@@ -70,19 +111,19 @@
     saveBoot();
   };
   /** Start is klaar ("Wie kijkt er?" of het hoofdscherm staat er). */
-  G.ready = function () { if (!boot.done) { boot.done = true; boot.readyAt = now(); saveBoot(); } };
+  G.ready = function () { if (!boot.done) { boot.done = true; boot.readyAt = now(); G.mark('ready'); saveBoot(); } };
   G.milestones = function () { return boot.ms.slice(); };
   saveBoot();
-  G.mark('start');
-  if (document.readyState !== 'loading') G.mark('dom'); else document.addEventListener('DOMContentLoaded', function () { G.mark('dom'); });
-  B.on('library', function () { G.mark('library'); });
-  B.on('epg', function () { G.mark('epg'); });
+  G.mark('started');
+  if (document.readyState !== 'loading') G.mark('first_frame'); else document.addEventListener('DOMContentLoaded', function () { G.mark('first_frame'); });
+  B.on('library', function () { G.mark('apply'); });
+  B.on('epg', function () { G.mark('guide'); });
   B.on('playerOpened', function () { G.mark('player'); });
   G.boot = boot;
   /** Wachten op de gebruiker: begin (profielkeuze, pincodescherm) en einde (gekozen, pincode goed). */
   // build 147: na elkaar, nooit dubbel geteld (een nieuwe wachttijd sluit de open wachttijd); '*' sluit alles
   G.waitStart = function (what) {
-    if (boot.done && boot.ms.some(function (m) { return m.name === 'servers_loaded'; })) return; // start al helemaal klaar
+    if (boot.done && boot.ms.some(function (m) { return G.code(m.name) === 'servers_loaded'; })) return; // start al helemaal klaar
     G.waitEnd('*');
     if (!boot.wait) boot.wait = [];
     if (boot.wait.length < 20) boot.wait.push({ k: what, from: now(), to: null });
@@ -102,7 +143,7 @@
   function visible() { try { return document.visibilityState !== 'hidden'; } catch (e) { return true; } }
   var hiddenAt = visible() ? 0 : now();
   document.addEventListener('visibilitychange', function () { if (!visible()) hiddenAt = now(); });
-  function lastMilestone() { return boot.ms.length ? boot.ms[boot.ms.length - 1].name : 'start'; }
+  function lastMilestone() { return boot.ms.length ? boot.ms[boot.ms.length - 1].name : 'started'; }
   function noteHang(ms, at, how) {
     ms = Math.round(ms); at = Math.round(at);
     if (ms < HANG_MIN) return;
@@ -190,13 +231,13 @@
     });
     return Math.round(sum);
   }
-  function msOf(b, name) { for (var i = 0; i < b.ms.length; i++) if (b.ms[i].name === name) return b.ms[i].ms; return null; }
+  function msOf(b, name) { for (var i = 0; i < b.ms.length; i++) if (G.code(b.ms[i].name) === name) return b.ms[i].ms; return null; }
   /** Einde van de start: catalogus er (build 147), anders servers geladen, anders het hoofdscherm, anders "Wie kijkt er?". */
   function startEnd(b) {
     var e = msOf(b, 'catalog');
     if (e == null) e = msOf(b, 'servers_loaded');
-    if (e == null) e = msOf(b, 'main');
-    if (e == null) e = msOf(b, 'profiles');
+    if (e == null) e = msOf(b, 'home');
+    if (e == null) e = msOf(b, 'profile_picker');
     return e;
   }
   /** {summary, appMs, userWaitMs, maxHangMs} van een start (deze of een bewaarde). */
@@ -219,21 +260,88 @@
     var pb = G.previous;
     if (!pb || !pb.at) return null;
     var hs = pb.hangs || [], big = hs[0] || null;
-    var o = { problem: 'none', milestone: pb.ms && pb.ms.length ? pb.ms[pb.ms.length - 1].name : undefined, at: pb.at, build: pb.build || undefined };
+    var o = { problem: 'none', milestone: pb.ms && pb.ms.length ? G.code(pb.ms[pb.ms.length - 1].name) : undefined, at: pb.at, build: pb.build || undefined };
     var c = G.crash();
     var crashIn = c && c.at && pb.at && c.at >= pb.at && (!boot.at || c.at < boot.at);
     if (crashIn || pb.crashed) { o.problem = 'crash'; o.foreground = pb.vis !== false; if (c) o.stack = (c.stack || []).slice(0, 30); }
     else if (big && big.ms > 2000) {
-      o.problem = 'hang'; o.seconds = Math.round(big.ms / 100) / 10; o.foreground = true; o.task = big.task || undefined;
-      o.milestone = big.milestone || o.milestone; o.stack = big.stack || [];
+      o.problem = 'hang'; o.seconds = Math.round(big.ms / 100) / 10; o.foreground = true; o.task = big.task ? G.code(big.task) : undefined;
+      o.milestone = big.milestone ? G.code(big.milestone) : o.milestone; o.stack = (big.stack || []).map(G.code);
     } else if (pb.closed === false && pb.vis !== false && pb.cur && pb.cur.length) {
-      o.problem = 'hang'; o.foreground = true; o.task = pb.cur[pb.cur.length - 1]; o.stack = pb.cur.slice();
+      o.problem = 'hang'; o.foreground = true; o.task = G.code(pb.cur[pb.cur.length - 1]); o.stack = pb.cur.map(G.code);
       if (pb.alive != null) o.seconds = undefined;
     } else if (pb.done === false) {
-      o.problem = 'not_finished'; o.foreground = pb.vis !== false; o.task = pb.cur && pb.cur.length ? pb.cur[pb.cur.length - 1] : undefined;
+      o.problem = 'not_finished'; o.foreground = pb.vis !== false; o.task = pb.cur && pb.cur.length ? G.code(pb.cur[pb.cur.length - 1]) : undefined;
       if (pb.alive != null) o.seconds = Math.round(pb.alive / 100) / 10;
     }
     return JSON.parse(JSON.stringify(o));
+  };
+
+  /** build 148: langste hang van deze start: {ms, task, milestone, foreground, stack} (of null). */
+  G.longestHang = function () {
+    var x = boot.hangs[0];
+    if (!x) return null;
+    return { ms: x.ms, task: x.task ? G.code(x.task) : '', milestone: G.code(x.milestone || ''), foreground: true, stack: (x.stack || []).map(G.code).slice(0, 30), afterReady: !!x.afterReady };
+  };
+
+  // MARK: build 148: haperingen tijdens het afspelen (playback_stall)
+
+  boot.stalls = [];
+  /** ms = duur van de hapering, after = ms na het eerste beeld van deze stream, how = hls / ts / native. */
+  G.stall = function (ms, after, how) {
+    ms = Math.round(ms);
+    if (!(ms >= 200)) return;
+    var names = B.task ? B.task.names() : [];
+    var e = { code: 'playback_stall', at: Math.min(3600000, now() - ms), ms: Math.min(3600000, ms), afterMs: Math.max(0, Math.round(after || 0)) };
+    if (names.length) e.task = G.code(names[names.length - 1]);
+    if (how) e.engine = String(how).slice(0, 12);
+    boot.stalls.push(e);
+    if (boot.stalls.length > 20) boot.stalls.shift();
+    saveBoot();
+  };
+  G.stalls = function () { return (boot.stalls || []).slice(); };
+
+  // MARK: build 148: bijwerken per server (fetch → parse → index → apply → save)
+
+  var PHASES = ['fetch', 'parse', 'index', 'apply', 'save'];
+  G.updates = function () { var u = B.store.get('diag.updates', []); return Array.isArray(u) ? u.slice(0, 5) : []; };
+  /**
+   * Begin van het bijwerken van een server: tracker met phase(code) (vorige fase dicht, nieuwe open), close(),
+   * time(code, promise) (duur van een fase die naast een andere loopt) en end(ok|failed|cancelled). Server = s1, s2, …
+   * op volgorde in het account; nooit een naam of adres.
+   */
+  G.update = function (src) {
+    var list = (B.data && B.data.sources) || [], n = 0;
+    for (var i = 0; i < list.length; i++) if (src && String(list[i].id).toLowerCase() === String(src.id).toLowerCase()) { n = i + 1; break; }
+    var t0 = now(), ph = {}, cur = { code: 'fetch', from: t0 }, peak = heapMB(), ended = false;
+    function rec(code, ms) {
+      var mb = heapMB();
+      if (mb != null && (peak == null || mb > peak)) peak = mb;
+      var o = ph[code] || (ph[code] = { code: code, ms: 0 });
+      o.ms += Math.max(0, Math.round(ms));
+      if (mb != null) o.memMB = mb;
+    }
+    var api = {
+      phase: function (code) { if (ended) return; if (cur) rec(cur.code, now() - cur.from); cur = code ? { code: code, from: now() } : null; },
+      close: function () { api.phase(null); },
+      time: function (code, p) {
+        var f = now();
+        return Promise.resolve(p).then(function (v) { rec(code, now() - f); return v; }, function (e) { rec(code, now() - f); throw e; });
+      },
+      add: function (code, ms) { rec(code, ms); },
+      end: function (result) {
+        if (ended) return;
+        api.close(); ended = true;
+        var u = { server: n ? 's' + n : 's0', at: new Date(Date.now() - (now() - t0)).toISOString(),
+          phases: PHASES.filter(function (c) { return ph[c]; }).map(function (c) { return ph[c]; }),
+          totalMs: Math.round(now() - t0), result: result === 'failed' || result === 'cancelled' ? result : 'ok' };
+        if (peak != null) u.peakMB = peak;
+        var all = G.updates();
+        all.unshift(u);
+        B.store.set('diag.updates', all.slice(0, 5));
+      }
+    };
+    return api;
   };
 
   // MARK: fouten die niemand opving (alleen van de webspeler zelf)
@@ -332,7 +440,7 @@
     return d;
   };
   G.app = function () {
-    var a = { platform: B.isWindowsApp ? 'windows' : 'web', version: B.config.version, build: B.int(B.config.build) || undefined };
+    var a = { platform: B.isWindowsApp ? 'windows' : 'web', version: B.config.version, build: B.int(B.config.build) || undefined, lang: B.lang };
     try { if (B.player && B.player.engineName) a.engine = B.player.engineName(); } catch (e) { /* stil */ }
     if (!a.engine) a.engine = window.Hls ? 'hls.js' : 'html5';
     return a;
@@ -434,6 +542,13 @@
         // uit de cache gestart: de aantallen van nu
         if (row.status === 'ok' && have != null && have > 0) row.count = have;
         if (row.status === 'ok' && view && (view[k[1]] || []).length === 0 && row.count > 0) row.status = 'hidden';
+        // build 148 (schema 3): geleverd naast zichtbaar, met de reden van het verschil
+        var stv = view && view.stats && view.stats[k[0]];
+        if (stv) {
+          row.delivered = stv.delivered; row.visible = stv.visible;
+          var hd = stv.hidden || {};
+          row.hidden = { categories: hd.categories || 0, kids: hd.kids || 0, duplicates: hd.duplicates || 0, other: hd.other || 0 };
+        } else if (have != null) { row.delivered = have; }
         out.push(row);
       });
     });
@@ -482,15 +597,19 @@
       var sum = G.startSummary(boot), prevS = G.previousStart();
       var start = { summary: sum.summary, appMs: sum.appMs, userWaitMs: sum.userWaitMs, maxHangMs: sum.maxHangMs };
       if (prevS) start.previous = prevS;
+      var lh = G.longestHang();
+      if (lh) start.longestHang = { ms: lh.ms, task: lh.task || undefined, milestone: lh.milestone || undefined, foreground: lh.foreground, stack: lh.stack };
       var net2 = { type: state.network.type === 'none' ? 'unknown' : state.network.type, online: state.network.online };
       if (backend) { net2.backend = backend.check; if (backend.ms != null) net2.backendMs = backend.ms; }
       if (provider) { net2.provider = provider.check; if (provider.ms != null) net2.providerMs = provider.ms; }
       var payload = {
-        schema: 2, kind: kind, createdAt: new Date().toISOString(), app: G.app(), device: G.device(), start: start,
-        milestones: boot.ms.map(function (m) { var o = { name: m.name, ms: m.ms }; if (m.ok != null) o.ok = m.ok; return o; }),
-        fetch: G.fetchRows(), network: net2, storage: sto2.v2 || {},
+        schema: 3, kind: kind, createdAt: new Date().toISOString(), app: G.app(), device: G.device(), start: start,
+        // build 148: code (schema 3); name = dezelfde code voor een server die nog schema 2 leest
+        milestones: boot.ms.map(function (m) { var c = G.code(m.name), o = { code: c, name: c, ms: m.ms }; if (m.ok != null) o.ok = m.ok; return o; }),
+        fetch: G.fetchRows(), updates: G.updates(), network: net2, storage: sto2.v2 || {},
         memory: G.memory(), state: state
       };
+      if (boot.stalls && boot.stalls.length) payload.playback = { stalls: boot.stalls.slice(-20) };
       var c = G.crash();
       if (c) payload.crash = { at: c.at, type: c.type, reason: c.reason, stack: c.stack, build: c.build || undefined };
       payload = JSON.parse(JSON.stringify(payload)); // undefined weg

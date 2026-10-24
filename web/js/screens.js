@@ -291,7 +291,7 @@
         tile.addEventListener('click', function () {
           // build 147 (diagnose): het pincodescherm is wachten op de gebruiker
           if (pin) {
-            if (B.diag) { B.diag.waitStart('pin'); B.diag.mark('pin_shown'); }
+            if (B.diag) { B.diag.waitStart('pin'); B.diag.mark('pin_screen'); }
             U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); onPick(p); }, S.avatar(p, 'pinav'));
           } else onPick(p);
         });
@@ -848,7 +848,7 @@
         if (shown++ < FIRST_ROWS) fillRow(b, k); else later.push(k);
       });
       placeGenres();
-      var tid = later.length ? B.task.begin('rijen opbouwen') : 0;
+      var tid = later.length ? B.task.begin('rows_build') : 0;
       B.steps(later.map(function (k) {
         return function () { if (my === fillJob && blocks[k] && !filled[k] && el.isConnected !== false) { fillRow(b, k); placeGenres(); } };
       })).then(function () { if (tid) B.task.end(tid); });
