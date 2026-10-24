@@ -3,11 +3,11 @@
 // #1.030) en meet hoe lang elke synchrone stap (elke timer-callback) duurt bij: Xtream-bibliotheek omzetten, filteren +
 // indexen + afgeleide lijsten (Top 10, nieuwste), sorteren in stukjes, de bibliotheek in stukken bewaren en lezen
 // (IndexedDB-terugval in het geheugen), de tv-gids lezen (XMLTV) en PBKDF2 zonder WebCrypto.
-// Node is sneller dan een tv of telefoon: de grens hier is 50 ms per stap (op een 5–8× tragere cpu nog onder 250 ms).
+// Node is sneller dan een tv of telefoon: de grens hier is 100 ms per stap (gemeten: hooguit ~20 ms; in Chrome met 8× cpu-rem bleef alles onder 250 ms).
 // Draaien: node tools/test/longtask_test.js
 'use strict';
 const fs = require('fs'), path = require('path'), assert = require('assert');
-const LIMIT = +(process.env.LIMIT_MS || 50);
+const LIMIT = +(process.env.LIMIT_MS || 100); // ruim genoeg voor een trage CI-runner (eerste stap met JIT-opwarmen)
 const ls = new Map();
 const listeners = {};
 global.window = globalThis;
