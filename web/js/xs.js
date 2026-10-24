@@ -703,10 +703,12 @@
    * Gids van een andere server (voor nu/straks en terugkijken). Eerst de cache; ontbreekt hij of is hij oud, dan rustig
    * ophalen (XMLTV van die server, met zijn eigen gegevens), hooguit eens per 30 minuten per server bij een fout.
    */
-  var epgBusy = {};
+  var epgBusy = {}, epgWanted = {};
   X.epgOf = function (sid) {
     var lid = lower(sid), c = cats[lid];
     if (!c) return {};
+    // build 146: alleen de bewaarde gids (fetchEpg zonder force); bijwerken gaat mee met Servers vernieuwen
+    epgWanted[lid] = true;
     if ((!c.epg || !c.epgFresh) && !epgBusy[lid] && !(c.epgFailed && Date.now() - c.epgFailed < 30 * 60000)) {
       epgBusy[lid] = true;
       var src = D.sourceById(sid) || c.src;
@@ -1416,7 +1418,7 @@
       put(src, lib, Date.now());
       cats[lid].fresh = true;
       delete failed[lid];
-      if (old && old.epg && lib.epgURL && !B.media.isMediaServer(src.kind)) {
+      if ((old && old.epg || epgWanted[lid]) && lib.epgURL && !B.media.isMediaServer(src.kind)) {
         var c = cats[lid];
         return withTimeout(Lib.fetchEpg(src, lib, true), REFRESH_TIMEOUT).then(function (epg) {
           if (cats[lid] === c && epg && Object.keys(epg).length) { c.epg = epg; c.epgFresh = true; c.epgAsked = true; B.emit('epg'); }

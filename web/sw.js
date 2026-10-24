@@ -60,7 +60,7 @@ function safeHttps(u) {
   try { var x = new URL(String(u), WEB); return x.protocol === 'https:' || x.origin === ORIGIN ? x.href : null; } catch (e) { return null; }
 }
 
-/** Waar een tik naartoe gaat: {url, reminder?}. */
+/** Waar een tik naartoe gaat: {url, reminder?, support?}. */
 function target(data) {
   data = data || {};
   var kind = String(data.kind || '');
@@ -80,6 +80,14 @@ function target(data) {
     }
     return { url: WEB };
   }
+  if (kind === 'support_reply') {
+    // build 146: antwoord van support → data.url (https://bingr.online/web/#/support/ticket?n=<nummer>); zonder bruikbare
+    // url het ticket in de webspeler (nummer uit data.ticket of de deeplink bingr://support/ticket?n=…)
+    var n = String(data.ticket || q.n || '').replace(/[^0-9]/g, '');
+    var u = safeHttps(data.url);
+    if (!u || u.indexOf(WEB) !== 0) u = WEB + '#/support' + (n ? '/ticket?n=' + n : '');
+    return { url: u, support: { n: n } };
+  }
   // admin (en alles onbekends): de link van het beheer, anders de webspeler
   return { url: safeHttps(data.url) || WEB };
 }
@@ -93,6 +101,7 @@ self.addEventListener('notificationclick', function (event) {
     if (t.url.indexOf(WEB) === 0 && web.length) {
       var c = web[0];
       if (t.reminder) c.postMessage({ type: 'bingr-push-open', reminder: t.reminder });
+      if (t.support) c.postMessage({ type: 'bingr-push-open', support: t.support });
       return c.focus ? c.focus() : c;
     }
     // zelfde pagina al open (bijv. de changelog): die naar voren halen

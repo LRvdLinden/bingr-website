@@ -269,9 +269,9 @@
 <script src="../assets/config.js"></script>
 <script src="../assets/js/account.js?v=141"></script>
 <script src="../assets/js/auth-forms.js?v=5"></script>
-<script src="../assets/js/userbtn.js?v=94" data-base="../"></script>
+<script src="../assets/js/userbtn.js?v=146" data-base="../"></script>
 <script src="../assets/js/stats.js?v=68"></script>
-<script src="../assets/js/console.js?v=89"></script>
+<script src="../assets/js/console.js?v=146"></script>
 <script>
 const { sb, $, t, pwToggles, busy, cfg, lang } = Bingr;
 const tr = t({
@@ -400,9 +400,30 @@ function profileAvatar(id, name) {
   const inner = sym.startsWith("kid") ? `<img src="../assets/img/${esc(sym)}.png" alt="">` : (av.emoji && !/^[a-z.]+$/.test(av.emoji) ? esc(av.emoji) : (SYM[sym] || "📺"));
   return `<span class="pav" data-pid="${esc(p.id)}" style="background:linear-gradient(135deg,${pal[0]},${pal[1]})">${inner}</span>`;
 }
+// Build 146: profielen alleen nog via device-auth (get_profiles / put_profiles; versleuteld op de server). Kent de functie
+// de actie niet (400 unknown_action, alleen bij een terugrol), dan de oude route via account_data.
+async function getProfiles() {
+  try { const j = await call("get_profiles"); return Array.isArray(j.profiles) ? j.profiles : []; }
+  catch (e) {
+    if (e.message !== "unknown_action") throw e;
+    const { data } = await sb.from("account_data").select("profiles").maybeSingle();
+    return (data && data.profiles) || [];
+  }
+}
+async function putProfiles(profiles) {
+  try { const j = await call("put_profiles", { profiles }); if (!Array.isArray(j.profiles)) throw new Error("x"); return j.profiles; }
+  catch (e) {
+    if (e.message !== "unknown_action") throw e;
+    const { data: s } = await sb.auth.getSession();
+    const uid = s.session && s.session.user.id;
+    const { error } = await sb.from("account_data").update({ profiles, updated_at: new Date().toISOString() }).eq("user_id", uid);
+    if (error) throw error;
+    return profiles;
+  }
+}
+window.BingrProfiles = { get: getProfiles, put: putProfiles };
 async function loadProfiles() {
-  const { data } = await sb.from("account_data").select("profiles").maybeSingle();
-  const list = ((data && data.profiles) || []).filter((p) => p && !p.deleted).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const list = (await getProfiles()).filter((p) => p && !p.deleted).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   PROF.list = list;
   if (!list.length) { $("profiles").innerHTML = `<p class="muted" style="grid-column:1/-1">${tr("noProfiles")}</p>`; return; }
   $("profiles").innerHTML = list.map((p, i) => {
@@ -429,21 +450,17 @@ async function makeMain(b) {
   if (!confirm(tr("makeMainAsk").replace("%s", b.dataset.name).replace("%o", cur ? cur.name : "—"))) return;
   b.disabled = true; $("accErr").textContent = "";
   try {
-    const { data: s } = await sb.auth.getSession();
-    const uid = s.session && s.session.user.id;
-    const { data, error } = await sb.from("account_data").select("profiles").maybeSingle();
-    if (error || !uid || !data || !Array.isArray(data.profiles)) throw new Error("x");
+    const current = await getProfiles();
     const now = new Date().toISOString(), id = String(b.dataset.id).toLowerCase();
     let found = false;
-    const profiles = data.profiles.map((o) => {
+    const profiles = current.map((o) => {
       if (!o || !o.id || o.deleted === true) return o;
       const on = String(o.id).toLowerCase() === id;
       if (on) found = true;
       return !!o.isMain === on ? o : Object.assign({}, o, { isMain: on, updatedAt: now });
     });
     if (!found) throw new Error("x");
-    const { error: e2 } = await sb.from("account_data").update({ profiles, updated_at: now }).eq("user_id", uid);
-    if (e2) throw e2;
+    await putProfiles(profiles);
     $("accErr").textContent = "";
     await loadProfiles();
   } catch (e) { $("accErr").textContent = tr("generic"); b.disabled = false; }

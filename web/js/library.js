@@ -377,7 +377,8 @@
 
   // MARK: laden en cachen
 
-  var EPG_TTL = 4 * 3600000;
+  // build 146: geen eigen verversen op tijd meer (was 4 uur): de gids volgt "Servers laden bij openen" (Nu bijwerken,
+  // Altijd, of Servers vernieuwen). Zonder force alleen de bewaarde gids.
   /** Gewenste gidskanalen met per kanaal de ondergrens: zenders met terugkijken tot 3 dagen terug, de rest 3 uur. */
   function wantedEpg(lib) {
     var w = {}, now = Date.now();
@@ -434,13 +435,53 @@
   Lib.fetchEpg = function (src, lib, force) {
     if (!lib || !lib.epgURL || B.media.isMediaServer(src.kind)) return Promise.resolve(null);
     return B.idb.get('epg:' + src.id).then(function (c) {
-      if (c && !force && Date.now() - c.at < EPG_TTL) return c.epg;
+      if (!force) return c ? c.epg : null;
       return P.loadXMLTV(lib.epgURL, wantedEpg(lib)).then(function (epg) {
         if (Object.keys(epg).length) B.idb.set('epg:' + src.id, { at: Date.now(), epg: epg });
         return Object.keys(epg).length ? epg : (c ? c.epg : {});
       });
     });
   };
+  // MARK: build 146: tv-gids verlopen (geen programma's meer voor nu of de komende uren)
+
+  /** Loopt de gids van de actieve server leeg? (er is een gids, maar niets meer dat over 2 uur nog loopt) */
+  Lib.epgExpired = function () {
+    var epg = Lib.raw && Lib.raw.epg, src = Lib.source;
+    if (!src || !epg || B.media.isMediaServer(src.kind)) return false;
+    var keys = Object.keys(epg);
+    if (!keys.length) return false;
+    var horizon = Date.now() + 2 * 3600000, any = false;
+    for (var i = 0; i < keys.length; i++) {
+      var list = epg[keys[i]];
+      if (!list || !list.length) continue;
+      any = true;
+      if ((list[list.length - 1].end || 0) > horizon) return false;
+    }
+    return any;
+  };
+  var epgNote = null, epgNoteFor = null;
+  function hideEpgNote() { if (epgNote) { epgNote.remove(); epgNote = null; } }
+  /** Kleine melding onderin (niet blokkerend) met Bijwerken; één keer per server tot de gids verandert. */
+  Lib.checkEpgExpired = function () {
+    var U = B.ui, app = B.app;
+    if (!U || !app || !app.profile || app.profile.kids || !Lib.source) { hideEpgNote(); return; }
+    if (B.xs && B.xs.refreshing && B.xs.refreshing()) return;
+    if (!Lib.epgExpired()) { hideEpgNote(); epgNoteFor = null; return; }
+    var key = String(Lib.source.id).toLowerCase();
+    if (epgNote || epgNoteFor === key) return;
+    epgNoteFor = key;
+    var h = U.h, L = B.L;
+    var upd = U.button(L('Update'), function () { hideEpgNote(); if (B.xs) B.xs.refreshAll(); else Lib.select(Lib.source, true); }, { primary: true, cls: 'small', icon: 'refresh' });
+    var x = U.button('', function () { hideEpgNote(); }, { cls: 'small', icon: 'close', title: L('Close') });
+    epgNote = h('div.epg-note', { role: 'status' }, [U.icon('guide', 'epg-note-ic'), h('span', L('The TV guide has expired. Update your servers.')), upd, x]);
+    document.body.appendChild(epgNote);
+  };
+  B.on('epg', function () { epgNoteFor = null; setTimeout(Lib.checkEpgExpired, 500); });
+  B.on('library', function () { setTimeout(Lib.checkEpgExpired, 1500); });
+  setInterval(function () { if (!document.hidden) Lib.checkEpgExpired(); }, 10 * 60000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(Lib.checkEpgExpired, 1000); });
+  B.on('signedOut', hideEpgNote);
+
   function loadEpg(src, lib, force) {
     if (!lib.epgURL) return Promise.resolve();
     if (B.media.isMediaServer(src.kind)) return Promise.resolve();

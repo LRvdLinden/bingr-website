@@ -24,7 +24,21 @@
   D.mainSourceID = B.store.get('mainSourceID', null);
   D.settings = B.store.get('settings', null);            // {data, updatedAt} zoals de server het gaf
   D.collections = B.store.get('collections', null);      // ruwe section-data
-  D.pins = B.store.get('pins', {}) || {};                // kleine letters profiel-id → pincode
+  // build 146: kleine letters profiel-id → pinHash ({alg, iter, salt, hash}); nooit de pincode zelf
+  D.pins = B.store.get('pins', {}) || {};
+  (function () {
+    // oude opslag (≤ 145) had de pincode zelf: meteen hashen en alleen de hash bewaren
+    var plain = Object.keys(D.pins).filter(function (k) { return typeof D.pins[k] === 'string'; });
+    if (!plain.length || !B.pin) return;
+    var tmp = {};
+    plain.forEach(function (k) { tmp[k] = D.pins[k]; delete D.pins[k]; });
+    B.store.set('pins', D.pins);
+    plain.forEach(function (k) {
+      if (!B.pin.valid(tmp[k])) return;
+      B.pin.make(tmp[k]).then(function (h) { if (!D.pins[k]) { D.pins[k] = h; B.store.set('pins', D.pins); B.emit('profiles'); } }).catch(B.noop);
+    });
+  })();
+  D.lastSync = B.store.get('lastSync', null);           // build 146 (diagnose): {at, ok} van de laatste account-sync
   // instellingen die op deze tv gewijzigd zijn maar nog niet geüpload (offline): {shared: {sleutel: waarde}, intro: {sleutel: markering}}
   var pendingSettings = B.store.get('settingsPending', null);
 
@@ -185,7 +199,14 @@
     return a != null ? a : (p.kids ? 12 : null);
   };
   D.strict = function (p) { var a = D.ageLimit(p); return !!(p && p.kids) || (a != null && a <= 12); };
+  /** pinHash van een profiel, of null (geen pincode). Alleen om te weten óf er een pincode is: controleren = D.checkPin. */
   D.pinFor = function (p) { return p ? (D.pins[lower(p.id)] || null) : null; };
+  /** build 146: klopt de pincode? Promise<boolean> (PBKDF2, vaste-tijdvergelijking). */
+  D.checkPin = function (p, pin) {
+    var h = D.pinFor(p);
+    if (!h) return Promise.resolve(false);
+    return B.pin.verify(String(pin || ''), h);
+  };
 
   function applyProfiles(list) {
     var active = (list || []).filter(function (p) { return p && p.id && p.deleted !== true; });
@@ -208,7 +229,8 @@
         var main = { id: B.uuid().toUpperCase(), name: name, avatar: { symbol: 'tv', colorIndex: 0, emoji: '📺' }, kids: false,
           ageLimit: null, isMain: true, order: 0, photo: null, updatedAt: B.iso() };
         list = list.concat([main]);
-        A.writeProfiles(list);
+        // build 146: put_profiles geeft de samengevoegde lijst terug; die geldt
+        return A.writeProfiles(list).then(function (merged) { applyProfiles(merged || list); return true; });
       }
       applyProfiles(list);
       return true;
@@ -226,7 +248,7 @@
       list.forEach(function (o) {
         if (o && lower(o.id) === lower(profileId) && o.deleted !== true) { o.accentColor = key; o.updatedAt = B.iso(); changed = true; }
       });
-      if (changed) return A.writeProfiles(list).then(function () { applyProfiles(list); });
+      if (changed) return A.writeProfiles(list).then(function (merged) { if (merged) applyProfiles(merged); });
     }).catch(B.noop);
   };
 
@@ -245,7 +267,7 @@
         if (o && o.id && o.deleted !== true && !ACCENTS[lower(o.accentColor)]) { o.accentColor = old; o.updatedAt = now; changed = true; }
       });
       if (!changed) { B.store.set('accentMigrated', true); return; }
-      return A.writeProfiles(list).then(function (ok) { if (ok) { B.store.set('accentMigrated', true); applyProfiles(list); } });
+      return A.writeProfiles(list).then(function (merged) { if (merged) { B.store.set('accentMigrated', true); applyProfiles(merged); } });
     }).catch(B.noop);
   };
 
@@ -575,6 +597,8 @@
     P.st = (saved && saved.st) || { sets: { myList: {}, favorites: {}, watched: {}, recentChannels: {} }, progress: {}, history: {} };
     SET_FIELDS.forEach(function (f) { P.st.sets[f] = P.st.sets[f] || {}; });
     P.base = (saved && saved.base) || null;
+    // build 146: lokaal nooit een pincode als tekst (oude kopie van ≤ 145): weg; de hash komt bij de volgende sync
+    if (P.base && typeof P.base.pin === 'string') { delete P.base.pin; if (!B.has(P.base, 'pinHash')) delete P.base.pinUpdatedAt; }
     P.names = (saved && saved.names) || [];
     P.dirty = !!(saved && saved.dirty);
     // build 128: remap (catalogmeta) op dit profiel
@@ -596,23 +620,43 @@
     return true;
   };
 
-  /** Pincodes van alle profielen uit de state (pin staat in profile.<id>). */
+  /**
+   * Build 146: pincodes van alle profielen uit de state (profile.<id>: pinHash, pin en pinUpdatedAt zijn één geheel; het
+   * geheel met de nieuwste pinUpdatedAt wint). Een geldige pinHash geldt altijd (pin negeren). Zonder pinHash maar met
+   * een pincode als tekst (oude app): meteen hashen, pinHash zetten, pin = null, pinUpdatedAt NIET veranderen, en
+   * uploaden. Past `sections` aan (zodat het samenvoegen van het actieve profiel de hash meeneemt).
+   */
   function readPins(sections) {
-    var pins = {};
+    var mig = [];
     Object.keys(sections).forEach(function (name) {
       if (lower(name).indexOf('profile.') !== 0) return;
       var d = sections[name] && sections[name].data;
-      if (!d || !B.has(d, 'pin')) return;
+      if (!d || typeof d !== 'object' || B.pin.parse(d.pinHash)) return;
       var v = d.pin;
       if (v && typeof v === 'object') v = v.pin || v.value || v.code;
-      var id = lower(name.slice(8));
-      var at = time(d.pinUpdatedAt) || 0;
-      var cur = pins[id];
-      if (!cur || at >= cur.at) pins[id] = { at: at, pin: v ? String(v) : null };
+      if (v == null || !B.pin.valid(String(v))) return;
+      mig.push({ name: name, d: d, pin: String(v) });
     });
-    var out = {};
-    Object.keys(pins).forEach(function (k) { if (pins[k].pin) out[k] = pins[k].pin; });
-    return out;
+    return Promise.all(mig.map(function (m) {
+      return B.pin.make(m.pin).then(function (h) {
+        m.d.pinHash = h; m.d.pin = null;
+        return A.putState(m.name, m.d);
+      }).catch(function (e) { B.log('pincode hashen', e && e.message); });
+    })).then(function () {
+      var pins = {};
+      Object.keys(sections).forEach(function (name) {
+        if (lower(name).indexOf('profile.') !== 0) return;
+        var d = sections[name] && sections[name].data;
+        if (!d || (!B.has(d, 'pinHash') && !B.has(d, 'pin'))) return;
+        var id = lower(name.slice(8));
+        var at = time(d.pinUpdatedAt) || 0;
+        var cur = pins[id];
+        if (!cur || at >= cur.at) pins[id] = { at: at, h: B.pin.parse(d.pinHash) };
+      });
+      var out = {};
+      Object.keys(pins).forEach(function (k) { if (pins[k].h) out[k] = pins[k].h; });
+      return out;
+    });
   }
 
   var syncing = null, lastProgressUpload = 0, timer = null;
@@ -624,7 +668,7 @@
   D.syncState = function () {
     if (syncing) return syncing;
     syncing = A.getState().then(function (all) {
-      if (!all) return false;
+      if (!all) { D.lastSync = { at: B.iso(), ok: false }; B.store.set('lastSync', D.lastSync); return false; }
       // instellingen: het geheel van de server; wijzigingen van deze tv die nog niet geüpload zijn gaan erover en worden verstuurd
       if (all.settings) {
         D.settings = { data: all.settings.data || {}, updatedAt: all.settings.updatedAt };
@@ -635,8 +679,12 @@
       if (all.collections) D.collections = all.collections.data || null;
       if (pendingCollections.length) { D.collections = applyCollectionChanges(D.collections, pendingCollections); uploadCollections(all.collections ? all.collections.data : null); }
       if (JSON.stringify(D.collections) !== colBefore) B.emit('collections');
-      D.pins = readPins(all);
+      return readPins(all).then(function (pins) {
+      var pinsChanged = JSON.stringify(pins) !== JSON.stringify(D.pins);
+      D.pins = pins;
+      D.lastSync = { at: B.iso(), ok: true }; B.store.set('lastSync', D.lastSync);
       save();
+      if (pinsChanged) B.emit('profiles');
       B.emit('settings');
       // connections (Trakt/OpenSubtitles) en herinneringen voegen zelf samen
       B.emit('state', all);
@@ -648,7 +696,8 @@
       if (!P.id) return true;
       editsAtMerge = edits;
       return mergeActive(all);
-    }).catch(function (e) { B.log('sync', e); return false; }).then(function (r) {
+      });
+    }).catch(function (e) { B.log('sync', e); D.lastSync = { at: B.iso(), ok: false }; B.store.set('lastSync', D.lastSync); return false; }).then(function (r) {
       syncing = null;
       // build 140 (Mijn lijst): een wijziging tijdens deze sync (na het lezen van de server) kwam niet mee; de timer
       // van die wijziging kreeg deze (lopende) sync terug en verstuurde dus niets. Nu meteen nog een ronde.
@@ -749,7 +798,8 @@
   var WHOLE = [
     { fields: ['prefs'], at: function (d) { var v = d && d.prefs; return v && typeof v === 'object' ? time(v.updatedAt) || time(d.prefsUpdatedAt) || 0 : 0; } },
     { fields: ['homeLayout'], at: function (d) { var v = d && d.homeLayout; return v && typeof v === 'object' ? time(v.updatedAt) || 0 : 0; } },
-    { fields: ['pin', 'pinUpdatedAt'], at: function (d) { return d && B.has(d, 'pin') ? time(d.pinUpdatedAt) || 0 : 0; } }
+    // build 146: pinHash, pin en pinUpdatedAt samen
+    { fields: ['pinHash', 'pin', 'pinUpdatedAt'], at: function (d) { return d && (B.has(d, 'pin') || B.has(d, 'pinHash')) ? time(d.pinUpdatedAt) || 0 : 0; } }
   ];
   function hasAny(st) {
     var any = Object.keys(st.progress).length || Object.keys(st.history).length;
@@ -1448,10 +1498,10 @@
       }
       o.updatedAt = B.iso();
       if (idx >= 0) list[idx] = o; else list.push(o);
-      return A.writeProfiles(list).then(function (ok) {
-        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
-        applyProfiles(list);
-        return o;
+      return A.writeProfiles(list).then(function (merged) {
+        if (!merged) throw new Error(L('Something went wrong. Please try again.'));
+        applyProfiles(merged);
+        return D.profileById(o.id) || o;
       });
     });
   };
@@ -1467,12 +1517,12 @@
         photo = o.photo && o.photo.path;
         return { id: o.id, deleted: true, deletedAt: now, updatedAt: now };
       });
-      return A.writeProfiles(list).then(function (ok) {
-        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
+      return A.writeProfiles(list).then(function (merged) {
+        if (!merged) throw new Error(L('Something went wrong. Please try again.'));
         if (photo && A.deletePhoto) A.deletePhoto(photo);
         delete D.pins[lower(id)];
         B.store.del(pkey(id));
-        applyProfiles(list);
+        applyProfiles(merged);
       });
     });
   };
@@ -1492,9 +1542,9 @@
         var c = Object.assign({}, o); c.isMain = on; c.updatedAt = now; return c;
       });
       if (!found) throw new Error(L('Something went wrong. Please try again.'));
-      return A.writeProfiles(list).then(function (ok) {
-        if (!ok) throw new Error(L('Something went wrong. Please try again.'));
-        applyProfiles(list);
+      return A.writeProfiles(list).then(function (merged) {
+        if (!merged) throw new Error(L('Something went wrong. Please try again.'));
+        applyProfiles(merged);
         // build 97: het actieve profiel is een nieuw object (isMain veranderd): B.app.profile bijwerken en opnieuw
         // melden, zodat wat alleen het hoofdprofiel ziet meteen verdwijnt of verschijnt
         var cur = B.app && B.app.profile;
@@ -1518,26 +1568,36 @@
       return D.saveProfile({ id: id, photo: { path: path, updated: B.iso() } });
     });
   };
-  /** Pincode van een profiel zetten of wissen (profile.<id>: pin + pinUpdatedAt; het geheel met de nieuwste tijd wint). */
+  /**
+   * Pincode van een profiel zetten of wissen (build 146, profile.<id>): instellen = nieuwe pinHash (nieuwe salt), pin null,
+   * pinUpdatedAt = nu; verwijderen = pinHash null, pin null, pinUpdatedAt = nu. Het geheel met de nieuwste tijd wint.
+   */
   D.setPin = function (profileId, pin) {
-    var now = B.iso(), lid = lower(profileId);
+    var lid = lower(profileId);
     pin = pin ? String(pin) : null;
-    if (pin) D.pins[lid] = pin; else delete D.pins[lid];
-    save();
-    B.emit('profiles');
-    if (P.id && lower(P.id) === lid) {
-      P.base = P.base ? B.copy(P.base) : {};
-      P.base.pin = pin; P.base.pinUpdatedAt = now;
-      changed(false);
-      return D.flush();
-    }
-    var name = 'profile.' + profileId;
-    return A.getState([name]).then(function (all) {
-      if (!all) throw new Error(L('No internet connection.'));
-      var key = Object.keys(all).filter(function (n) { return lower(n) === lower(name); })[0] || name;
-      var d = all[key] && all[key].data && typeof all[key].data === 'object' ? B.copy(all[key].data) : {};
-      d.pin = pin; d.pinUpdatedAt = now; d.updatedAt = now;
-      return A.putState(key, d).then(function (at) { if (at == null) throw new Error(L('Something went wrong. Please try again.')); });
+    var hp = pin ? B.pin.make(pin) : Promise.resolve(null);
+    return hp.then(function (hash) {
+      var now = B.iso();
+      if (hash) D.pins[lid] = hash; else delete D.pins[lid];
+      save();
+      B.emit('profiles');
+      if (P.id && lower(P.id) === lid) {
+        P.base = P.base ? B.copy(P.base) : {};
+        P.base.pinHash = hash; P.base.pin = null; P.base.pinUpdatedAt = now;
+        changed(false);
+        return D.flush();
+      }
+      var name = 'profile.' + profileId;
+      return A.getState([name]).then(function (all) {
+        if (!all) throw new Error(L('No internet connection.'));
+        var key = Object.keys(all).filter(function (n) { return lower(n) === lower(name); })[0] || name;
+        var d = all[key] && all[key].data && typeof all[key].data === 'object' ? B.copy(all[key].data) : {};
+        d.pinHash = hash; d.pin = null; d.pinUpdatedAt = now; d.updatedAt = now;
+        // lokale kopie van dat profiel (pstate) ook bijwerken, zodat een latere sync de oude pincode niet terugzet
+        var saved = B.store.get(pkey(profileId), null);
+        if (saved && saved.base) { saved.base.pinHash = hash; saved.base.pin = null; saved.base.pinUpdatedAt = now; B.store.set(pkey(profileId), saved); }
+        return A.putState(key, d).then(function (at) { if (at == null) throw new Error(L('Something went wrong. Please try again.')); });
+      });
     });
   };
 

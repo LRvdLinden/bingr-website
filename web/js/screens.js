@@ -191,6 +191,8 @@
   var APPLETV = '<path d="M5.20687 19.4314L14.2907 19.4314C15.949 19.4314 17.3557 19.2815 18.3579 18.2793C19.3476 17.2792 19.4976 15.8974 19.4976 14.2246L19.4976 5.22355C19.4976 3.55067 19.3476 2.1668 18.3579 1.16882C17.3536 0.176964 15.949 0.0166814 14.2907 0.0166814L5.18577 0.0166814C3.55067 0.0166814 2.14188 0.179074 1.14179 1.17093C0.149932 2.17102 0 3.55489 0 5.1921L0 14.2246C0 15.8974 0.147822 17.2917 1.13968 18.2793C2.14188 19.2815 3.5361 19.4314 5.20687 19.4314ZM4.93695 17.8607C3.93656 17.8607 2.87758 17.7212 2.2877 17.1313C1.69781 16.5414 1.57069 15.497 1.57069 14.4945L1.57069 4.98508C1.57069 3.95535 1.69781 2.90461 2.28559 2.31473C2.87547 1.72274 3.94078 1.58737 4.9684 1.58737L14.5606 1.58737C15.561 1.58737 16.6179 1.72696 17.2078 2.31684C17.7997 2.90672 17.9269 3.95113 17.9269 4.95363L17.9269 14.4945C17.9269 15.497 17.7976 16.5414 17.2078 17.1313C16.6179 17.7233 15.561 17.8607 14.5606 17.8607Z"/><path d="M4.85163 12.6004C5.26284 12.6004 5.4373 12.3138 5.94819 12.3138C6.47155 12.3138 6.59616 12.6004 7.04476 12.6004C7.49335 12.6004 7.79241 12.1768 8.09148 11.7655C8.39054 11.3045 8.54007 10.8434 8.54007 10.8185C8.52761 10.8185 7.64288 10.4571 7.64288 9.46027C7.64288 8.61293 8.32823 8.22664 8.36562 8.18925C7.92948 7.56621 7.23167 7.54128 7.04476 7.54128C6.53386 7.54128 6.12265 7.82789 5.86097 7.82789C5.58683 7.82789 5.22546 7.56621 4.77687 7.56621C3.95444 7.56621 3.1071 8.2391 3.1071 9.53503C3.1071 10.345 3.40616 11.1923 3.79245 11.7406C4.14136 12.2141 4.42796 12.6004 4.85163 12.6004ZM5.89835 7.45406C6.5214 7.45406 7.16937 6.78117 7.15691 6.04597C7.16937 6.00859 7.15691 5.95875 7.14444 5.92136C6.48402 5.94628 5.81112 6.60671 5.81112 7.32945C5.81112 7.36683 5.81112 7.42914 5.82359 7.4416C5.83605 7.45406 5.86097 7.45406 5.89835 7.45406ZM11.0073 12.5755C11.2192 12.5755 11.4435 12.563 11.5556 12.5381L11.5805 12.5257L11.5805 11.7157L11.5432 11.7157C11.4809 11.7282 11.3313 11.7406 11.2316 11.7406C10.8578 11.7406 10.6958 11.5662 10.6958 11.1799L10.6958 8.60046L11.593 8.60046L11.593 7.77804L10.6958 7.77804L10.6958 6.65656L9.68648 6.65656L9.68648 7.77804L9.00112 7.77804L9.00112 8.60046L9.68648 8.60046L9.68648 11.292C9.68648 12.2017 10.0728 12.5755 11.0073 12.5755ZM13.6864 12.5381L14.7332 12.5381L16.4029 7.77804L15.3562 7.77804L14.2223 11.4914L13.0759 7.77804L11.9917 7.77804Z"/>';
   S.platformIcon = function (p) {
     var s = String(p || '');
+    // build 146: de Windows-app (platform "windows")
+    if (/^windows$/i.test(s.trim())) return U.icon('windows');
     var k = /^(apple ?tv|tvos)$/i.test(s.trim()) ? 'appletv' : /iPhone|^Android$/.test(s) ? 'phone' : /iPad|tablet/i.test(s) ? 'tablet' : /^Mac$/.test(s) ? 'laptop' : /browser/i.test(s) ? 'browser' : 'tv';
     var svg = U.icon('tv');
     if (k === 'appletv') {
@@ -271,7 +273,7 @@
       if (!m) return;
       var go = function () { history.replaceState(null, '', location.pathname + location.search + '#/profiles'); onPick(m); };
       var pin = D.pinFor(m);
-      if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, go, S.avatar(m, 'pinav')); else go();
+      if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(m, x); }, go, S.avatar(m, 'pinav')); else go();
     }, { cls: 'ghost pf-manage' });
     var el = h('div.profiles-screen', [h('header.login-top', [h('a.logo', { href: '../' }, 'BINGR')]),
       h('div.pf-wrap', [h('h1.pf-title', L("Who's watching?")), grid, manage])]);
@@ -286,7 +288,7 @@
           p.kids ? h('div.pf-kids', L('Kids')) : null
         ]);
         tile.addEventListener('click', function () {
-          if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { onPick(p); }, S.avatar(p, 'pinav'));
+          if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { onPick(p); }, S.avatar(p, 'pinav'));
           else onPick(p);
         });
         grid.appendChild(tile);
@@ -408,7 +410,7 @@
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
     ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid']];
   // build 140: pagina's waarmee je een kinderprofiel verlaat (instellingen, account, Mijn Bingr): eerst de ouderpoort
-  var KIDS_GATED = { settings: 1, mybingr: 1, profiles: 1, homelayout: 1, catprefs: 1, stats: 1 };
+  var KIDS_GATED = { settings: 1, support: 1, mybingr: 1, profiles: 1, homelayout: 1, catprefs: 1, stats: 1 };
 
   S.main = function () {
     var content = h('main.content', { id: 'content', tabindex: '-1' });
@@ -430,6 +432,9 @@
       var p = B.app.profile;
       if (p) profBtn.appendChild(S.avatar(p, 'small'));
       profBtn.appendChild(U.icon('down', 'caret'));
+      // build 146: ongelezen antwoorden van support (Instellingen opent via dit menu)
+      var bd = B.support && B.support.badge('on-prof');
+      if (bd) profBtn.appendChild(bd);
     }
     drawProf();
     profBtn.addEventListener('click', function (e) { e.stopPropagation(); profileMenu(profBtn); });
@@ -523,6 +528,7 @@
       B.on('profileData', function () { if (page && page.onData) soon('data', doData, 300); }),
       B.on('epg', function () { if (page && page.onEpg) soon('epg', doEpg, 300); }),
       B.on('profiles', drawProf),
+      B.on('support', drawProf),
       B.on('collections', function () { if (page && page.onCollections) soon('coll', doColl, 150); }),
       B.on('trakt', function () { if (page && page.onData) soon('data', doData, 300); }),
       // vinkjes op álle posters (ook Films, Series, zoeken en categorie-rijen, die geen onData hebben)
@@ -568,14 +574,21 @@
       menu.appendChild(it);
     }
     if (menu.children.length) menu.appendChild(h('div.menu-sep'));
+    // build 146: alle servers één voor één vernieuwen (zoals de knop Vernieuwen), direct boven Wissel profiel; niet bij een
+    // kinderprofiel
+    if (cur && !cur.kids && D.sources.length && B.xs) item('refresh', L('Refresh servers'), function () { B.xs.refreshAll(); });
     item('users', L('Switch profile'), function () { B.app.switchProfile(); });
     if (D.isMain(cur)) item('edit', L('Manage profiles'), null, '#/profiles');
     item('user', L('My Bingr'), null, '#/mybingr');
     item('gear', L('Settings'), null, '#/settings');
+    var stIt = menu.lastChild, bd = B.support && B.support.badge();
+    if (bd) stIt.appendChild(bd);
     // build 140: kinderprofiel: naar het account pas na de rekensom
     if (cur && cur.kids) item('account', L('Account and devices'), function () { B.app.leaveKids(function () { location.href = '../account/'; }); });
     else item('account', L('Account and devices'), null, '../account/');
-    item('help', L('Support'), null, S.SUPPORT_URL, true);
+    item('help', L('Support'), null, '#/support');
+    var spIt = menu.lastChild, bd2 = B.support && B.support.badge();
+    if (bd2) spIt.appendChild(bd2);
     menu.appendChild(h('div.menu-sep'));
     item('logout', L('Sign out'), function () { confirmSignOut(); });
     var r = anchor.getBoundingClientRect();
@@ -1738,8 +1751,9 @@
   /** Rij in een lijst met instellingen (ook gebruikt door Mijn Bingr en de beheerschermen). */
   /** Supportsite (build 75): opent in een nieuw tabblad, onder Account en apparaten. */
   S.SUPPORT_URL = 'https://support.bingr.online';
+  // build 146: Support zit in de app (Instellingen → Support), met het aantal ongelezen antwoorden
   S.supportRow = function (sec, sub) {
-    return S.stRow(sec, L('Support'), null, function () { window.open(S.SUPPORT_URL, '_blank', 'noopener'); }, { icon: 'help', sub: sub || null });
+    return S.stRow(sec, L('Support'), B.support ? B.support.badge() : null, function () { location.hash = '#/support'; }, { icon: 'help', sub: sub || null });
   };
   /** Trailers automatisch afspelen (build 83): standaard aan, per browser. */
   S.autoplayTrailers = function () { return B.store.get('autoplayTrailers', true) !== false; };
@@ -1770,203 +1784,280 @@
     return s;
   };
 
-  S.pages.settings = function () {
+  // build 146: Instellingen in tabs, op alle apps gelijk (Algemeen, Afspelen, Taal en ondertitels, Servers, Profielen en
+  // kinderslot, Account, Koppelingen, Support, Diagnose, Over). Route #/settings/<tab>; Support ook als #/support,
+  // #/support/ticket?n=<nummer> en #/support/new (doel van de pushmelding support_reply).
+  var ST_TABS = [['general', 'General', 'gear'], ['playback', 'Playback', 'play'], ['language', 'Language and subtitles', 'subs'],
+    ['servers', 'Servers', 'layers'], ['profiles', 'Profiles and parental lock', 'users'], ['account', 'Account', 'account'],
+    ['connections', 'Connections', 'link'], ['support', 'Support', 'help'], ['diagnose', 'Diagnostics', 'chart'], ['about', 'About', 'info']];
+  S.settingsTabs = ST_TABS;
+  S.pages.support = function (r) { return S.pages.settings(r); };
+
+  /** Apparaten van het account (list_devices) met platformnaam en icoon. */
+  S.devicesSheet = function () {
+    var body = h('div.wn-sheet', [h('div.trakt-wait', [U.spinner()])]);
+    var dlg = U.modal({ title: L('Devices'), body: body, cls: 'wn-dlg', buttons: [{ label: L('Close') }] });
+    A.listDevices().then(function (r) {
+      if (!document.body.contains(dlg.el)) return;
+      U.clear(body);
+      body.appendChild(h('p.muted.small', L('%d of %d devices', r.devices.length, r.limit)));
+      var list = h('div.limit-list');
+      r.devices.forEach(function (d) {
+        var sub = A.platformLabel(d.platform) + (d.lastSeenAt ? ' · ' + U.fmtDate(d.lastSeenAt) : '') + (d.current ? ' · ' + L('This device') : '');
+        list.appendChild(h('div.limit-row', [S.platformIcon(d.platform), h('div', [h('div', d.name), h('div.muted.small', sub)])]));
+      });
+      body.appendChild(list);
+      body.appendChild(h('p.muted.small', L('Rename or remove devices on bingr.online/account.')));
+    }, function (e) { U.clear(body); body.appendChild(h('p.muted', (e && e.message) || L('Something went wrong. Please try again.'))); });
+    return dlg;
+  };
+
+  S.pages.settings = function (r) {
+    r = r || U.router.current || U.router.parse();
+    var isSupport = r.parts[0] === 'support';
+    var tab = isSupport ? 'support' : (r.parts[1] || 'general');
+    if (!ST_TABS.some(function (x) { return x[0] === tab; })) tab = 'general';
+    var nav = h('nav.st-tabs', { 'aria-label': L('Settings') });
     var list = h('div.st-list');
-    var el = h('div.page.settings', [h('div.page-head', [h('h1', L('Settings'))]), list]);
+    var el = h('div.page.settings.st-tabbed', [h('div.page-head', [h('h1', L('Settings'))]), h('div.st-wrap', [nav, h('div.st-body', [list])])]);
     var pg = { el: el, title: L('Settings') };
+    function drawNav() {
+      U.clear(nav);
+      ST_TABS.forEach(function (x) {
+        var href = x[0] === 'support' ? '#/support' : '#/settings/' + x[0];
+        var a = h('a.st-tab' + (x[0] === tab ? '.active' : ''), { href: href }, [U.icon(x[2], 'st-tab-ic'), h('span', L(x[1]))]);
+        if (x[0] === tab) a.setAttribute('aria-current', 'page');
+        if (x[0] === 'support' && B.support) { var bd = B.support.badge(); if (bd) a.appendChild(bd); }
+        nav.appendChild(a);
+      });
+      setTimeout(function () { var act = nav.querySelector('.st-tab.active'); if (act && act.scrollIntoView && nav.scrollWidth > nav.clientWidth) act.scrollIntoView({ block: 'nearest', inline: 'center' }); }, 0);
+    }
     function section(t, foot) { return S.stSection(list, t, foot); }
     var row = S.stRow;
     function onOff(v) { return v ? L('On') : L('Off'); }
+    var cleanup = null;
     function render() {
+      if (cleanup) { try { cleanup(); } catch (e) { /* stil */ } cleanup = null; }
       U.clear(list);
+      drawNav();
       var prof = B.app.profile;
       var main = D.isMain(prof);
-      var sec = section(L('Account'));
-      row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
-      row(sec, L('Account and devices'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
-      S.supportRow(sec, L('Help, questions and support tickets'));
-      S.planRow(sec);
-      S.watchingNowRow(sec);
-      row(sec, L('Statistics'), B.plan.has('stats') ? (main ? L('All profiles') : prof.name) : B.plan.badge(), function () { location.hash = '#/stats'; }, { icon: 'chart' });
-      row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
-
-      sec = section(L('Profile'), main ? null : L('Profiles are managed in the main account.'));
-      var pRow = row(sec, L('Switch profile'), prof.name, function () { B.app.switchProfile(); });
-      pRow.insertBefore(S.avatar(prof, 'tiny'), pRow.firstChild);
-      var themes = B.plan.has('themes');
-      var accent = themes ? D.accentKey(prof) : 'red';
-      var sw = h('span.st-value.swatch', [h('i', { style: { background: D.accents[accent] } }), L(accent.charAt(0).toUpperCase() + accent.slice(1))]);
-      if (!themes) sw.appendChild(B.plan.badge());
-      var aRow = row(sec, L('Accent color'), null, !themes ? function () { B.plan.sheet('themes'); } : function () {
-        U.choose(L('Accent color'), Object.keys(D.accents).map(function (k) { return { value: k, label: L(k.charAt(0).toUpperCase() + k.slice(1)) }; }), accent, function (v) {
-          B.app.applyAccent(v);
-          D.setAccent(prof.id, v).then(function () { B.app.applyAccent(); render(); });
-          render();
-        });
-      });
-      aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
-      if (main) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users' });
-      row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
-      row(sec, L('Collections'), String(D.collectionsFor(prof.id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
-      row(sec, L('Watch history'), null, function () { location.hash = '#/history'; }, { icon: 'history' });
-
-      S.connectionsSection(list, render);
-
-      if (main) {
-        sec = section(L('Interface'));
-        var start = String(D.shared('startScreen', 'home') || 'home');
-        var starts = [['home', L('Home')], ['live', L('Live TV')], ['movies', L('Movies')], ['series', L('Series')]];
-        var startLabel = L('Home');
-        starts.forEach(function (x) { if (x[0] === start) startLabel = x[1]; });
-        row(sec, L('Start screen'), startLabel, function () {
-          U.choose(L('Start screen'), starts.map(function (x) { return { value: x[0], label: x[1] }; }), start, function (v) { D.setShared('startScreen', v); render(); });
-        });
-        var hiddenTabs = (D.shared('hiddenTabs', []) || []).slice();
-        [['live', L('Show Live TV')], ['movies', L('Show Movies')], ['series', L('Show Series')]].forEach(function (t) {
-          var on = hiddenTabs.indexOf(t[0]) < 0;
-          row(sec, t[1], null, function () {
-            var next = hiddenTabs.filter(function (k) { return k !== t[0]; });
-            if (on) next.push(t[0]);
-            D.setShared('hiddenTabs', next);
-            if (next.indexOf(String(D.shared('startScreen', 'home'))) >= 0) D.setShared('startScreen', 'home');
-            B.app.rebuildNav();
-          }, { toggle: on });
-        });
-      }
-
-      // build 130: elk profiel ziet en gebruikt alle servers van het account (kiezen, zoeken, andere bron, vernieuwen);
-      // toevoegen, wijzigen en verwijderen blijft bij het hoofdprofiel
-      sec = section(L('Server'), main ? null : L('Every profile uses all servers of the account. Servers are added and changed in the main profile.'));
-      var src = Lib.source;
-      row(sec, L('Active server'), src ? src.name : L('None'), function () { if (!D.sources.length) { U.toast(L('No servers yet')); return; } chooseServer(); });
-      // build 130: alle servers van het account (actieve eerst, de rest op de achtergrond), niet alleen de actieve
-      var rs = B.xs && B.xs.refreshing();
-      row(sec, L('Refresh now'), rs ? L('Updating…') : null, function () {
-        if (!D.sources.length) { U.toast(L('No servers yet')); return; }
-        if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
-      }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
-      // build 145: "Servers laden bij openen" (per browser, niet gesynct) in plaats van de vernieuwtermijn (refreshInterval)
-      if (B.xs && B.xs.loadOnOpen && !(prof && prof.kids)) {
-        var LO = B.xs.loadOnOpen, lmode = LO.mode();
-        var lmodes = [['ask', L('Ask')], ['always', L('Always')], ['never', L('Never, manually only')]], lLabel = L('Ask');
-        lmodes.forEach(function (x) { if (x[0] === lmode) lLabel = x[1]; });
-        row(sec, L('Load servers on open'), lLabel, function () {
-          U.choose(L('Load servers on open'), lmodes.map(function (x) { return { value: x[0], label: x[1] }; }), lmode, function (v) {
-            LO.setMode(v); render();
-          });
-        }, { icon: 'clock', sub: L('Bingr opens with your saved list. Choose whether it asks to update your servers, updates them right away, or only when you refresh.') });
-      }
-      if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
-      // nog een server erbij: met Gratis maar één (bestaande servers blijven bruikbaar)
-      if (main) {
-        var canAdd = B.plan.canAddServer(D.sources.length);
-        row(sec, L('Add server'), canAdd ? null : B.plan.badge(), canAdd ? function () { location.href = '../account/'; } : function () { B.plan.sheet('servers'); },
-          { icon: 'plus', sub: canAdd ? L('Servers are added on bingr.online/account.') : null });
-      }
-
-      sec = section(L('Audio & subtitles'), L('These choices apply to this profile only.'));
-      var CLg = B.clang;
-      var langOpts = ['nl', 'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'tr', 'ar', 'hi'];
-      function pv(key, sharedKey) { var v = D.profilePref(key); return v != null ? v : String(D.shared(sharedKey, '') || ''); }
-      // build 91: alleen het hoofdprofiel (of een account zonder profielen) wijzigt de gedeelde stand; andere profielen alleen hun eigen
-      function setPref(sharedKey, prefKey, v) {
-        if (!D.profiles.length || D.isMain(B.app.profile)) D.setShared(sharedKey, v);
-        D.setProfilePref(prefKey, v);
-      }
-      var aud = pv('audioLanguage', 'audioLanguage');
-      function audLabel(v) { return v === 'stream' ? L('As in the stream') : (v ? CLg.name(v) : L('Same as app') + ' (' + CLg.name(B.lang) + ')'); }
-      row(sec, L('Default audio language'), audLabel(aud), function () {
-        U.choose(L('Default audio language'), [{ value: '', label: audLabel('') }, { value: 'stream', label: L('As in the stream') }]
-          .concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), aud, function (v) { setPref('audioLanguage', 'audioLanguage', v); render(); });
-      });
-      var autoS = CLg.autoSubtitles();
-      var autoLabels = { off: L('Off'), whenNeeded: L('When needed'), always: L('Always') };
-      row(sec, L('Automatic subtitles'), autoLabels[autoS], function () {
-        U.choose(L('Automatic subtitles'), ['whenNeeded', 'always', 'off'].map(function (v) { return { value: v, label: autoLabels[v] }; }), autoS, function (v) {
-          setPref('autoSubtitles', 'autoSubtitles', v); render();
-        });
-      });
-      var subRaw = pv('streamSubtitleLanguage', 'subtitleLanguage');
-      var subCur = subRaw === 'off' ? '' : CLg.norm(subRaw);
-      var subAuto = L('Same as app') + ' (' + CLg.name(CLg.appLanguage()) + ')';
-      row(sec, L('Subtitle language'), subCur ? CLg.name(subCur) : subAuto, function () {
-        U.choose(L('Subtitle language'), [{ value: '', label: subAuto }].concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), subCur, function (v) {
-          setPref('subtitleLanguage', 'streamSubtitleLanguage', v); render();
-        });
-      });
-      var OS = B.opensubtitles;
-      if (OS.isLoggedIn()) {
-        var osl = OS.defaultLanguage();
-        var oslabel = '';
-        OS.languages.forEach(function (l) { if (l[0].slice(0, 2) === osl.slice(0, 2)) oslabel = l[1]; });
-        if (osl && !oslabel) oslabel = CLg.name(osl) || osl;
-        row(sec, L('Default subtitle language') + ' (OpenSubtitles)', osl ? oslabel : L('All'), function () {
-          U.choose(L('Default subtitle language'), [{ value: '', label: L('All') }].concat(OS.languages.map(function (l) { return { value: l[0], label: l[1] }; })), osl, function (v) {
-            setPref('openSubtitlesLanguage', 'subtitleLanguage', v); render();
-          });
-        });
-      }
-
-      sec = section(L('App'));
-      var lang = D.shared('appLanguage', '') || '';
-      var langLabel = L('Automatic');
-      B.languages.forEach(function (l) { if (l[0] === lang && l[0]) langLabel = l[1]; });
-      row(sec, L('Language'), langLabel, function () {
-        U.choose(L('Language'), B.languages.map(function (l) { return { value: l[0], label: l[0] ? l[1] : L('Automatic') }; }), lang, function (v) {
-          D.setShared('appLanguage', v);
-          B.app.setLanguage(v);
-        });
-      });
-      // pushmeldingen (berichten van Bingr en herinneringen), per browser; toestemming pas na deze klik
-      if (B.push) B.push.settingsRow(sec, row, render);
-      // build 83: trailer zonder geluid in de kop van film- en seriepagina's (per browser, zoals per apparaat in de apps)
-      var trOn = S.autoplayTrailers();
-      row(sec, L('Play trailers automatically'), null, function () { S.setAutoplayTrailers(!trOn); render(); },
-        { toggle: trOn, icon: 'trailer', sub: trOn ? L('Muted, on movie and series pages. Not with data saver or Reduce Motion on.') : null });
-
-      var mainPin = D.pinFor(D.mainProfile());
-      sec = section(L('Parental lock'), main ? (mainPin ? null : L('Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).')) : null);
-      var pcOn = B.bool(D.shared('parentalControl', false)) === true;
-      function withPin(go) { if (mainPin) U.askPIN(L('Enter PIN'), function (x) { return x === mainPin; }, go); else go(); }
-      row(sec, L('Lock adult content with this PIN'), main ? null : onOff(pcOn), main ? function () {
-        var go = function () { D.setShared('parentalControl', !pcOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); };
-        if (pcOn) withPin(go); else go();
-      } : null, main ? { toggle: pcOn, icon: 'lock' } : { icon: 'lock' });
-      if (main && pcOn) {
-        var autoOn = B.bool(D.shared('parentalAutoLockAdult', true)) !== false;
-        row(sec, L('Lock adult groups automatically'), null, function () {
-          withPin(function () { D.setShared('parentalAutoLockAdult', !autoOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); });
-        }, { toggle: autoOn });
-      }
-      if (mainPin) {
-        row(sec, PC.isUnlocked() ? L('Lock now') : L('Unlock with PIN'), null, function () {
-          if (PC.isUnlocked()) { PC.lock(); render(); return; }
-          U.askPIN(L('Enter PIN'), function (x) { return x === mainPin; }, function () { PC.unlock(); render(); });
-        }, { icon: PC.isUnlocked() ? 'lock' : 'unlock' });
-      }
-      if (D.ageLimit(prof) != null) row(sec, L('Age limit'), prof.kids ? L('Kids profile') : D.ageLimit(prof) + '+', null);
-
-      sec = section(L('Keyboard shortcuts'));
-      [['Space / K', L('Play / pause')], ['← →', L('10 seconds back / forward')], ['↑ ↓', L('Volume, or another channel during live TV')],
-        ['F', L('Full screen')], ['M', L('Mute')], ['Esc', L('Close the player')], ['/', L('Search')], ['Shift + F10', L('More options for a title or channel')]].forEach(function (k) {
-        var r2 = row(sec, k[1], null, null);
-        r2.appendChild(h('kbd', k[0]));
-      });
-
-      // build 112: verplichte bronvermelding van TMDB en JustWatch onder Over (stond eerder onder de Home-rijen)
-      sec = section(L('About'), B.discover ? B.discover.attribution() : null);
-      row(sec, 'Bingr ' + B.config.version + (B.config.build ? ' (build ' + B.config.build + ')' : ''), L('Browser') + ' · ' + A.deviceDisplayName(), null);
-      row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
+      var fn = TABS[tab];
+      if (fn) cleanup = fn(prof, main) || null;
     }
+    var TABS = {
+      general: function (prof, main) {
+        var sec = section(L('App'));
+        var lang = D.shared('appLanguage', '') || '';
+        var langLabel = L('Automatic');
+        B.languages.forEach(function (l) { if (l[0] === lang && l[0]) langLabel = l[1]; });
+        row(sec, L('Language'), langLabel, function () {
+          U.choose(L('Language'), B.languages.map(function (l) { return { value: l[0], label: l[0] ? l[1] : L('Automatic') }; }), lang, function (v) {
+            D.setShared('appLanguage', v);
+            B.app.setLanguage(v);
+          });
+        }, { icon: 'globe' });
+        // pushmeldingen (berichten van Bingr, herinneringen en antwoorden van support), per browser
+        if (B.push) B.push.settingsRow(sec, row, render);
+        sec = section(L('Start screen and tabs'), main ? null : L('Profiles are managed in the main account.'));
+        if (main) {
+          var start = String(D.shared('startScreen', 'home') || 'home');
+          var starts = [['home', L('Home')], ['live', L('Live TV')], ['movies', L('Movies')], ['series', L('Series')]];
+          var startLabel = L('Home');
+          starts.forEach(function (x) { if (x[0] === start) startLabel = x[1]; });
+          row(sec, L('Start screen'), startLabel, function () {
+            U.choose(L('Start screen'), starts.map(function (x) { return { value: x[0], label: x[1] }; }), start, function (v) { D.setShared('startScreen', v); render(); });
+          }, { icon: 'home' });
+          var hiddenTabs = (D.shared('hiddenTabs', []) || []).slice();
+          [['live', L('Show Live TV')], ['movies', L('Show Movies')], ['series', L('Show Series')]].forEach(function (t) {
+            var on = hiddenTabs.indexOf(t[0]) < 0;
+            row(sec, t[1], null, function () {
+              var next = hiddenTabs.filter(function (k) { return k !== t[0]; });
+              if (on) next.push(t[0]);
+              D.setShared('hiddenTabs', next);
+              if (next.indexOf(String(D.shared('startScreen', 'home'))) >= 0) D.setShared('startScreen', 'home');
+              B.app.rebuildNav();
+            }, { toggle: on });
+          });
+        }
+        row(sec, L('Home screen'), null, function () { location.hash = '#/homelayout'; }, { icon: 'rows' });
+        if (!prof.kids) row(sec, L('Show categories'), null, function () { location.hash = '#/catprefs'; }, { icon: 'grid' });
+        sec = section(L('Accent color'));
+        var themes = B.plan.has('themes');
+        var accent = themes ? D.accentKey(prof) : 'red';
+        var sw = h('span.st-value.swatch', [h('i', { style: { background: D.accents[accent] } }), L(accent.charAt(0).toUpperCase() + accent.slice(1))]);
+        if (!themes) sw.appendChild(B.plan.badge());
+        var aRow = row(sec, L('Accent color'), null, !themes ? function () { B.plan.sheet('themes'); } : function () {
+          U.choose(L('Accent color'), Object.keys(D.accents).map(function (k) { return { value: k, label: L(k.charAt(0).toUpperCase() + k.slice(1)) }; }), accent, function (v) {
+            B.app.applyAccent(v);
+            D.setAccent(prof.id, v).then(function () { B.app.applyAccent(); render(); });
+            render();
+          });
+        });
+        aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
+      },
+      playback: function () {
+        var sec = section(L('Player'), L('The browser plays HLS, MP4/WebM and live MPEG-TS itself; buffer and deinterlacing are handled by the browser.'));
+        // build 83: trailer zonder geluid in de kop van film- en seriepagina's (per browser)
+        var trOn = S.autoplayTrailers();
+        row(sec, L('Play trailers automatically'), null, function () { S.setAutoplayTrailers(!trOn); render(); },
+          { toggle: trOn, icon: 'trailer', sub: trOn ? L('Muted, on movie and series pages. Not with data saver or Reduce Motion on.') : null });
+        row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
+        sec = section(L('Keyboard shortcuts'));
+        [['Space / K', L('Play / pause')], ['← →', L('10 seconds back / forward')], ['↑ ↓', L('Volume, or another channel during live TV')],
+          ['F', L('Full screen')], ['M', L('Mute')], ['Esc', L('Close the player')], ['/', L('Search')], ['Shift + F10', L('More options for a title or channel')]].forEach(function (k) {
+          var r2 = row(sec, k[1], null, null);
+          r2.appendChild(h('kbd', k[0]));
+        });
+      },
+      language: function () {
+        var sec = section(L('Audio & subtitles'), L('These choices apply to this profile only.'));
+        var CLg = B.clang;
+        var langOpts = ['nl', 'en', 'de', 'fr', 'es', 'it', 'pt', 'pl', 'tr', 'ar', 'hi'];
+        function pv(key, sharedKey) { var v = D.profilePref(key); return v != null ? v : String(D.shared(sharedKey, '') || ''); }
+        // build 91: alleen het hoofdprofiel (of een account zonder profielen) wijzigt de gedeelde stand
+        function setPref(sharedKey, prefKey, v) {
+          if (!D.profiles.length || D.isMain(B.app.profile)) D.setShared(sharedKey, v);
+          D.setProfilePref(prefKey, v);
+        }
+        var aud = pv('audioLanguage', 'audioLanguage');
+        function audLabel(v) { return v === 'stream' ? L('As in the stream') : (v ? CLg.name(v) : L('Same as app') + ' (' + CLg.name(B.lang) + ')'); }
+        row(sec, L('Default audio language'), audLabel(aud), function () {
+          U.choose(L('Default audio language'), [{ value: '', label: audLabel('') }, { value: 'stream', label: L('As in the stream') }]
+            .concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), aud, function (v) { setPref('audioLanguage', 'audioLanguage', v); render(); });
+        }, { icon: 'audio' });
+        var subRaw = pv('streamSubtitleLanguage', 'subtitleLanguage');
+        var subCur = subRaw === 'off' ? '' : CLg.norm(subRaw);
+        var subAuto = L('Same as app') + ' (' + CLg.name(CLg.appLanguage()) + ')';
+        row(sec, L('Subtitle language'), subCur ? CLg.name(subCur) : subAuto, function () {
+          U.choose(L('Subtitle language'), [{ value: '', label: subAuto }].concat(langOpts.map(function (c) { return { value: c, label: CLg.name(c) }; })), subCur, function (v) {
+            setPref('subtitleLanguage', 'streamSubtitleLanguage', v); render();
+          });
+        }, { icon: 'subs' });
+        var autoS = CLg.autoSubtitles();
+        var autoLabels = { off: L('Off'), whenNeeded: L('When needed'), always: L('Always') };
+        row(sec, L('Automatic subtitles'), autoLabels[autoS], function () {
+          U.choose(L('Automatic subtitles'), ['whenNeeded', 'always', 'off'].map(function (v) { return { value: v, label: autoLabels[v] }; }), autoS, function (v) {
+            setPref('autoSubtitles', 'autoSubtitles', v); render();
+          });
+        });
+        var OS = B.opensubtitles;
+        sec = section('OpenSubtitles');
+        if (OS.ready() && OS.isLoggedIn()) {
+          var osl = OS.defaultLanguage();
+          var oslabel = '';
+          OS.languages.forEach(function (l) { if (l[0].slice(0, 2) === osl.slice(0, 2)) oslabel = l[1]; });
+          if (osl && !oslabel) oslabel = CLg.name(osl) || osl;
+          row(sec, L('Default subtitle language') + ' (OpenSubtitles)', osl ? oslabel : L('All'), function () {
+            U.choose(L('Default subtitle language'), [{ value: '', label: L('All') }].concat(OS.languages.map(function (l) { return { value: l[0], label: l[1] }; })), osl, function (v) {
+              setPref('openSubtitlesLanguage', 'subtitleLanguage', v); render();
+            });
+          }, { icon: 'subs' });
+        } else row(sec, 'OpenSubtitles', L('Not linked'), function () { location.hash = '#/settings/connections'; }, { icon: 'subs', sub: L('Link OpenSubtitles under Connections to search subtitles for movies and series.') });
+      },
+      servers: function (prof, main) {
+        // build 130: elk profiel ziet en gebruikt alle servers van het account; toevoegen en wijzigen blijft bij het hoofdprofiel
+        var sec = section(L('Your servers'), main ? null : L('Every profile uses all servers of the account. Servers are added and changed in the main profile.'));
+        var src = Lib.source;
+        row(sec, L('Active server'), src ? src.name : L('None'), function () { if (!D.sources.length) { U.toast(L('No servers yet')); return; } chooseServer(); }, { icon: 'tv' });
+        var rs = B.xs && B.xs.refreshing();
+        row(sec, L('Refresh now'), rs ? L('Updating…') : null, function () {
+          if (!D.sources.length) { U.toast(L('No servers yet')); return; }
+          if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
+        }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
+        if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
+        if (main) {
+          var canAdd = B.plan.canAddServer(D.sources.length);
+          row(sec, L('Add server'), canAdd ? null : B.plan.badge(), canAdd ? function () { location.href = '../account/'; } : function () { B.plan.sheet('servers'); },
+            { icon: 'plus', sub: canAdd ? L('Servers are added on bingr.online/account.') : null });
+        }
+        // build 145: "Servers laden bij openen" (per browser); build 146: de tv-gids volgt dezelfde keuze
+        sec = section(L('Updating'), L('The TV guide is updated together with your servers: when you choose Update now, with Always, or with Refresh now. It is no longer refreshed on a timer.'));
+        if (B.xs && B.xs.loadOnOpen && !(prof && prof.kids)) {
+          var LO = B.xs.loadOnOpen, lmode = LO.mode();
+          var lmodes = [['ask', L('Ask')], ['always', L('Always')], ['never', L('Never, manually only')]], lLabel = L('Ask');
+          lmodes.forEach(function (x) { if (x[0] === lmode) lLabel = x[1]; });
+          row(sec, L('Load servers on open'), lLabel, function () {
+            U.choose(L('Load servers on open'), lmodes.map(function (x) { return { value: x[0], label: x[1] }; }), lmode, function (v) {
+              LO.setMode(v); render();
+            });
+          }, { icon: 'clock', sub: L('Bingr opens with your saved list. Choose whether it asks to update your servers, updates them right away, or only when you refresh.') });
+        }
+        var gv = h('span.st-value', '…');
+        row(sec, L('TV guide'), gv, null, { icon: 'guide' });
+        if (src) B.idb.get('epg:' + src.id).then(function (c) { gv.textContent = c && c.at ? L('Updated') + ' ' + U.fmtDate(c.at) + ' ' + B.fmtTime(c.at) : L('Not loaded yet'); }, function () { gv.textContent = '—'; });
+        else gv.textContent = '—';
+      },
+      profiles: function (prof, main) {
+        var sec = section(L('Profiles'), main ? null : L('Profiles are managed in the main account.'));
+        var pRow = row(sec, L('Switch profile'), prof.name, function () { B.app.switchProfile(); });
+        pRow.insertBefore(S.avatar(prof, 'tiny'), pRow.firstChild);
+        if (main) row(sec, L('Manage profiles'), String(D.profiles.length), function () { location.hash = '#/profiles'; }, { icon: 'users', sub: L('Names, pictures, kids profiles and PIN codes.') });
+        row(sec, L('Collections'), String(D.collectionsFor(prof.id).length), function () { location.hash = '#/collections'; }, { icon: 'stack' });
+        row(sec, L('Watch history'), null, function () { location.hash = '#/history'; }, { icon: 'history' });
+
+        var mainP = D.mainProfile(), mainPin = D.pinFor(mainP);
+        sec = section(L('Parental lock'), main ? (mainPin ? null : L('Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).')) : null);
+        var pcOn = B.bool(D.shared('parentalControl', false)) === true;
+        function withPin(go) { if (mainPin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, go); else go(); }
+        row(sec, L('Lock adult content with this PIN'), main ? null : onOff(pcOn), main ? function () {
+          var go = function () { D.setShared('parentalControl', !pcOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); };
+          if (pcOn) withPin(go); else go();
+        } : null, main ? { toggle: pcOn, icon: 'lock' } : { icon: 'lock' });
+        if (main && pcOn) {
+          var autoOn = B.bool(D.shared('parentalAutoLockAdult', true)) !== false;
+          row(sec, L('Lock adult groups automatically'), null, function () {
+            withPin(function () { D.setShared('parentalAutoLockAdult', !autoOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); });
+          }, { toggle: autoOn });
+        }
+        if (mainPin) {
+          row(sec, PC.isUnlocked() ? L('Lock now') : L('Unlock with PIN'), null, function () {
+            if (PC.isUnlocked()) { PC.lock(); render(); return; }
+            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, function () { PC.unlock(); render(); });
+          }, { icon: PC.isUnlocked() ? 'lock' : 'unlock' });
+        }
+        if (D.ageLimit(prof) != null) row(sec, L('Age limit'), prof.kids ? L('Kids profile') : D.ageLimit(prof) + '+', null);
+        if (D.profiles.some(function (p) { return !!D.pinFor(p); })) sec.appendChild(h('p.st-foot', L('Also update Bingr on your other devices, otherwise the PIN won’t work there.')));
+      },
+      account: function (prof, main) {
+        var sec = section(L('Account'));
+        row(sec, L('Signed in as %@', A.email() || ''), null, null, { icon: 'account' });
+        S.planRow(sec);
+        row(sec, L('Devices'), null, function () { S.devicesSheet(); }, { icon: 'laptop' });
+        S.watchingNowRow(sec);
+        row(sec, L('Statistics'), B.plan.has('stats') ? (main ? L('All profiles') : prof.name) : B.plan.badge(), function () { location.hash = '#/stats'; }, { icon: 'chart' });
+        row(sec, L('Account and devices'), L('Devices, profiles and servers'), function () { location.href = '../account/'; }, { icon: 'gear' });
+        row(sec, L('Sign out'), null, confirmSignOut, { danger: true, icon: 'logout' });
+      },
+      connections: function () { S.connectionsSection(list, render); },
+      support: function () {
+        var box = h('div.sp-box');
+        list.appendChild(box);
+        return B.support ? B.support.render(box, r) : null;
+      },
+      diagnose: function () { return B.support ? B.support.renderDiagnose(list) : null; },
+      about: function () {
+        // build 112: verplichte bronvermelding van TMDB en JustWatch onder Over
+        var sec = section(L('About'), B.discover ? B.discover.attribution() : null);
+        row(sec, 'Bingr ' + B.config.version + (B.config.build ? ' (build ' + B.config.build + ')' : ''), (B.isWindowsApp ? 'Windows' : L('Browser')) + ' · ' + A.deviceDisplayName(), null, { icon: 'info' });
+        row(sec, L('What’s new'), null, function () { window.open('https://bingr.online/changelog/?p=web', '_blank', 'noopener'); }, { icon: 'sparkle' });
+        row(sec, L('Privacy'), null, function () { window.open('https://bingr.online/privacy.html', '_blank', 'noopener'); }, { icon: 'lock' });
+        row(sec, L('Terms of use'), null, function () { window.open('https://bingr.online/voorwaarden/', '_blank', 'noopener'); }, { icon: 'list' });
+        row(sec, L('Help and support site'), null, function () { window.open(S.SUPPORT_URL, '_blank', 'noopener'); }, { icon: 'help', sub: 'support.bingr.online' });
+      }
+    };
     pg.refresh = render;
-    var offs = [B.on('connections', render), B.on('traktStatus', render), B.on('profiles', function () { if (el.parentNode) render(); }),
-      B.on('settings', function () { if (el.parentNode) render(); }), B.on('plan', function () { if (el.parentNode) render(); }),
-      B.on('push', function () { if (el.parentNode) render(); }),
-      // build 130: "Nu vernieuwen" begint of is klaar (de regel toont "Bijwerken…" zolang het loopt)
-      B.on('xsRefresh', function () { var busy = !!(B.xs && B.xs.refreshing()); if (el.parentNode && busy !== lastBusy) { lastBusy = busy; render(); } })];
+    // support en diagnose tekenen zichzelf (een formulier mag niet verdwijnen door een sync op de achtergrond)
+    function live() { return el.parentNode && tab !== 'support' && tab !== 'diagnose'; }
+    var offs = [B.on('connections', function () { if (live()) render(); }), B.on('traktStatus', function () { if (live()) render(); }),
+      B.on('profiles', function () { if (live()) render(); }), B.on('settings', function () { if (live()) render(); }),
+      B.on('plan', function () { if (live()) render(); }), B.on('push', function () { if (live()) render(); }),
+      B.on('support', function () { if (el.parentNode) drawNav(); }),
+      // build 130: "Nu vernieuwen" begint of is klaar
+      B.on('xsRefresh', function () { var busy = !!(B.xs && B.xs.refreshing()); if (live() && busy !== lastBusy) { lastBusy = busy; render(); } })];
     var lastBusy = !!(B.xs && B.xs.refreshing());
-    pg.onCollections = render;
-    pg.destroy = function () { offs.forEach(function (f) { f(); }); };
+    pg.onCollections = function () { if (live()) render(); };
+    pg.destroy = function () { offs.forEach(function (f) { f(); }); if (cleanup) { try { cleanup(); } catch (e) { /* stil */ } } };
     render();
     return pg;
   };

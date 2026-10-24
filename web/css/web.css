@@ -1110,3 +1110,77 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 .catprefs-search { gap: 10px; }
 .catprefs-search .ic { width: 18px; height: 18px; color: var(--sec); }
 .catprefs-q { flex: 1; min-width: 0; background: transparent; border: 0; color: inherit; font-size: 15px; padding: 6px 0; outline: none; }
+
+/* build 146: Instellingen in tabs (smal: tabs als scrollbare rij; breed: kolom links) */
+.st-wrap { display: flex; flex-direction: column; gap: 8px; }
+.st-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 14px 0 4px; margin: 0 calc(var(--gutter) * -1); padding-left: var(--gutter); padding-right: var(--gutter); }
+.st-tabs::-webkit-scrollbar { display: none; }
+.st-tab { display: inline-flex; align-items: center; gap: 8px; flex: none; padding: 8px 14px; border-radius: 99px; background: var(--card); color: var(--sec); font-size: 14px; font-weight: 600; white-space: nowrap; position: relative; }
+.st-tab:hover, .st-tab:focus-visible { background: var(--card2); color: #fff; outline: none; }
+.st-tab.active { background: #fff; color: #111; }
+.st-tab-ic { width: 18px; height: 18px; }
+.st-body { min-width: 0; flex: 1; }
+@media (min-width: 980px) {
+  .st-wrap { flex-direction: row; align-items: flex-start; gap: 32px; }
+  .st-tabs { flex-direction: column; overflow: visible; margin: 0; padding: 26px 0 0; width: 240px; flex: none; position: sticky; top: calc(var(--top) + 8px); gap: 2px; }
+  .st-tab { border-radius: 8px; background: none; padding: 10px 14px; }
+  .st-tab.active { background: var(--card2); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+}
+/* teller ongelezen (Support) */
+.sp-badge { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--red); color: #fff; font-size: 12px; font-weight: 800; line-height: 1; margin-left: auto; }
+.st-tab .sp-badge { margin-left: 4px; }
+.prof-btn { position: relative; }
+.sp-badge.on-prof { position: absolute; top: -2px; right: 14px; min-width: 18px; height: 18px; font-size: 11px; padding: 0 5px; box-shadow: 0 0 0 2px var(--bg); }
+.menu-it .sp-badge { margin-left: auto; }
+/* Support */
+.sp-box { margin-top: 18px; }
+.sp-head { display: flex; align-items: center; gap: 16px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 4px; }
+.sp-head p { flex: 1; min-width: 220px; }
+.sp-item .st-sub, .st-sub { font-size: 13px; color: var(--sec); }
+.sp-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); flex: none; }
+.sp-dot.off { background: transparent; }
+.sp-item.unread .st-label > span:first-child { font-weight: 800; }
+.sp-empty { margin-top: 20px; }
+.sp-crash { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; background: #3a2a0a; border: 1px solid #7a5a12; border-radius: 10px; padding: 14px 16px; margin: 16px 0 0; }
+.sp-crash > div:nth-child(2) { flex: 1; min-width: 200px; }
+.sp-crash-ic { width: 24px; height: 24px; color: #f5b30b; flex: none; }
+.sp-crash-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.sp-ticket { margin-top: 14px; max-width: 760px; }
+.sp-thead h2 { font-size: 22px; margin-bottom: 4px; overflow-wrap: anywhere; }
+.sp-note { display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 99px; background: #3a2a0a; color: #f5c451; font-size: 13px; font-weight: 700; }
+.sp-msgs { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+.sp-msg { max-width: 88%; padding: 12px 14px; border-radius: 12px; background: var(--card); }
+.sp-msg.mine { align-self: flex-end; background: #26324a; }
+.sp-who { font-size: 12.5px; color: var(--sec); font-weight: 700; margin-bottom: 6px; }
+.sp-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sp-text a { text-decoration: underline; }
+.sp-att { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12.5px; color: var(--sec); }
+.sp-att .ic { width: 16px; height: 16px; }
+.sp-event { align-self: center; font-size: 12.5px; color: var(--muted); }
+.sp-reply, .sp-closed { display: flex; flex-direction: column; gap: 10px; }
+.sp-ta, .form-input { width: 100%; padding: 12px 14px; border-radius: 6px; border: 1px solid #ffffff2e; background: #161616; color: #fff; font: inherit; font-size: 16px; resize: vertical; }
+.sp-ta:focus, .form-input:focus { outline: none; border-color: #fff; background: #222; }
+.sp-new { max-width: 640px; margin-top: 14px; }
+.sp-diag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.sp-diag p { flex-basis: 100%; }
+.sp-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+.sp-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--sec); text-decoration: underline; cursor: pointer; font-size: 14px; }
+.sp-json { max-height: 60vh; overflow: auto; background: #111; border-radius: 8px; padding: 12px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sp-stack { margin: 0; padding: 10px 16px; background: #111; font-size: 12px; color: var(--sec); white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 0 0 10px 10px; }
+.sp-warn { color: #f5c451; }
+.sp-appdiag { background: var(--card); border-radius: 10px; }
+.sp-appdiag > .dlg-buttons { padding: 14px 16px; }
+.sp-appdiag .st-row { background: none; }
+.st-row.info .st-value { max-width: 60%; white-space: normal; }
+/* tv-gids verlopen (build 146): kleine melding onderin, niet blokkerend */
+.epg-note { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + var(--tabbar)); z-index: 250; display: flex; align-items: center; gap: 12px; background: #1f1f1f; border: 1px solid #ffffff26; border-radius: 10px; padding: 10px 10px 10px 14px; box-shadow: 0 10px 30px #0009; width: max-content; max-width: calc(100vw - 32px); font-size: 14.5px; }
+.epg-note span { flex: 1; min-width: 0; }
+.epg-note-ic { width: 22px; height: 22px; color: var(--sec); flex: none; }
+/* pincode controleren (PBKDF2) */
+.pin-dots.checking span { opacity: .45; }
+.pin-err.pin-lock { color: #f5c451; }
+@media (max-width: 700px) {
+  .sp-msg { max-width: 100%; }
+  .epg-note { flex-wrap: wrap; }
+}

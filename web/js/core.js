@@ -13,13 +13,24 @@
   // MARK: config (zelfde publieke waarden als de Android-app; geheime sleutels komen van de server)
 
   var SB = window.BINGR_SUPABASE || {};
+  /**
+   * Build 146: draait de webspeler in de Windows-app (Tauri-schil, bingr-windows)? Die zet bij het begin van elke pagina
+   * <html data-bingr-app="windows"> en window.__bingrMediaKey (src-tauri/src/inject.js). Dan heet het platform "windows"
+   * (register_device, heartbeat, diagnose); in de browser "browser". Push blijft altijd platform "web" (Web Push).
+   */
+  B.isWindowsApp = (function () {
+    try {
+      var de = document.documentElement;
+      return (de && de.getAttribute('data-bingr-app') === 'windows') || typeof window.__bingrMediaKey === 'function';
+    } catch (e) { return false; }
+  })();
   B.config = {
     supabaseUrl: SB.url || 'https://vjewsncmsxmhmhnoxwqx.supabase.co',
     supabaseKey: SB.anonKey || 'sb_publishable_lpIup6Omq5kW2k3oICGZ4g_HPGac5A3',
-    platform: 'browser',
-    // buildnummer komt uit ../assets/changelog.json (zelfde bron als de rest van de site), zie B.loadBuild
-    build: '',
-    version: '1.0.0'
+    platform: B.isWindowsApp ? 'windows' : 'browser',
+    // build 146: de build van deze code; ../assets/changelog.json mag hem alleen ophogen (B.loadBuild in app.js)
+    build: '146',
+    version: '1.0.1'
   };
 
   // MARK: kleine hulpfuncties

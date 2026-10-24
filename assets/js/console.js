@@ -196,8 +196,9 @@ window.BingrConsole = (function () {
     return normalize(sec && sec.data, colProfiles);
   }
   async function loadCollections() {
-    const { data } = await sb.from("account_data").select("profiles").maybeSingle();
-    colProfiles = ((data && data.profiles) || []).filter((p) => p && !p.deleted && p.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    // build 146: profielen via device-auth get_profiles (account/index.html, BingrProfiles)
+    const list = window.BingrProfiles ? await window.BingrProfiles.get() : [];
+    colProfiles = (list || []).filter((p) => p && !p.deleted && p.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     colSec = await fetchCollections();
     if (!colProfiles.some((p) => p.id === colProfile)) colProfile = colProfiles.length ? colProfiles[0].id : null;
     $("colProfile").innerHTML = colProfiles.map((p) => `<option value="${esc(p.id)}"${p.id === colProfile ? " selected" : ""}>${esc(p.name || "")}</option>`).join("");

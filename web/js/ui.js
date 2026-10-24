@@ -119,6 +119,9 @@
     grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',
     sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M14 6h7M14 12h5M14 18h3"/>',
     // pushmeldingen (Instellingen → App)
+    // build 146: apparaten (Instellingen → Account) en de Windows-app
+    laptop: '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20"/>',
+    windows: '<path d="M3 5.5l7.5-1v7H3zM12.5 4.2L21 3v8.5h-8.5zM3 12.5h7.5v7L3 18.5zM12.5 12.5H21V21l-8.5-1.2z" fill="currentColor" stroke="none"/>',
     bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
     heart: '<path d="M12 20s-7-4.4-9-8.6C1.5 8.2 3.5 5 6.7 5c2 0 3.4 1.1 4.3 2.4h2C13.9 6.1 15.3 5 17.3 5c3.2 0 5.2 3.2 3.7 6.4-2 4.2-9 8.6-9 8.6z"/>'
   };
@@ -313,33 +316,68 @@
 
   /** Pincode vragen (4 cijfers); check(pin) → true als hij klopt. */
   /** Pincode vragen; avatar (optioneel) = element dat boven de stippen staat (rond, zoals in de apps). */
-  U.askPIN = function (title, check, onOK, avatar) {
-    var val = '';
+  /**
+   * build 146: check(pin) mag ook een Promise<boolean> geven (pinHash: PBKDF2); dan staat er "Controleren…". Pincode-limiet
+   * (build 141, B.pin): na 5 foute pogingen een oplopende wachttijd; dan wordt er niets vergeleken. opts.free = geen limiet
+   * (een nieuwe pincode kiezen).
+   */
+  U.askPIN = function (title, check, onOK, avatar, opts) {
+    opts = opts || {};
+    var val = '', checking = false, lockTimer = null;
+    var limited = !opts.free && B.pin;
     var dots = h('div.pin-dots');
     var err = h('div.pin-err');
     var input = h('input.pin-input', { type: 'password', inputmode: 'numeric', autocomplete: 'off', maxlength: '4', 'aria-label': title, pattern: '[0-9]*' });
     function draw() { U.clear(dots); for (var i = 0; i < 4; i++) dots.appendChild(h('span' + (i < val.length ? '.on' : ''))); }
     var dlg;
-    function attempt() {
-      if (val.length < 4) return;
-      if (check(val)) { dlg.close(); onOK(); return; }
+    function showLock() {
+      clearTimeout(lockTimer);
+      var w = limited ? B.pin.remaining() : 0;
+      if (!w) { if (err.classList.contains('pin-lock')) { err.textContent = ''; err.classList.remove('pin-lock'); } return false; }
+      err.textContent = L('Too many incorrect PINs. Try again in %@.', B.pin.lockout.shortText(w));
+      err.classList.add('pin-lock');
+      lockTimer = setTimeout(showLock, 1000);
+      return true;
+    }
+    function wrong() {
+      if (limited) B.pin.failed();
       err.textContent = L('Wrong PIN');
       dots.classList.add('shake');
-      setTimeout(function () { dots.classList.remove('shake'); val = ''; input.value = ''; draw(); }, 450);
+      setTimeout(function () { dots.classList.remove('shake'); val = ''; input.value = ''; draw(); showLock(); }, 450);
     }
-    input.addEventListener('input', function () { val = input.value.replace(/\D/g, '').slice(0, 4); input.value = val; err.textContent = ''; draw(); attempt(); });
+    function attempt() {
+      if (val.length < 4 || checking) return;
+      if (showLock()) { val = ''; input.value = ''; draw(); return; }
+      var res;
+      try { res = check(val); } catch (e) { res = false; }
+      function done(ok) {
+        checking = false; dots.classList.remove('checking');
+        if (ok) { if (limited) B.pin.succeeded(); clearTimeout(lockTimer); dlg.close(); onOK(); return; }
+        wrong();
+      }
+      if (res && typeof res.then === 'function') {
+        checking = true; dots.classList.add('checking'); err.textContent = L('Checking…');
+        res.then(function (ok) { if (!ok) err.textContent = ''; done(!!ok); }, function () { err.textContent = ''; done(false); });
+        return;
+      }
+      done(!!res);
+    }
+    input.addEventListener('input', function () { if (checking) { input.value = val; return; } val = input.value.replace(/\D/g, '').slice(0, 4); input.value = val; err.textContent = ''; draw(); attempt(); });
     var pad = h('div.pin-pad');
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].forEach(function (k) {
       if (!k) { pad.appendChild(h('span')); return; }
       var b = h('button.pin-key', { type: 'button', 'aria-label': k === '⌫' ? L('Delete') : k }, k);
       b.addEventListener('click', function () {
+        if (checking) return;
         if (k === '⌫') val = val.slice(0, -1); else if (val.length < 4) val += k;
         input.value = val; err.textContent = ''; draw(); attempt();
       });
       pad.appendChild(b);
     });
     draw();
-    dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }] });
+    dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }],
+      onClose: function () { clearTimeout(lockTimer); } });
+    showLock();
     setTimeout(function () { input.focus(); }, 40);
     return dlg;
   };
@@ -521,8 +559,8 @@
   U.choosePIN = function (onDone, avatar) {
     var first = null;
     U.askPIN(L('Choose a 4-digit PIN'), function (x) { first = x; return true; }, function () {
-      U.askPIN(L('Enter the PIN again'), function (x) { return x === first; }, function () { onDone(first); }, avatar);
-    }, avatar);
+      U.askPIN(L('Enter the PIN again'), function (x) { return x === first; }, function () { onDone(first); }, avatar, { free: true });
+    }, avatar, { free: true });
   };
 
   // MARK: rijen (horizontaal scrollen met pijlen op de computer)

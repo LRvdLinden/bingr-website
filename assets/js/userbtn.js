@@ -37,8 +37,20 @@
   function refresh(s, done) {
     if (!s || !s.access_token || (s.expires_at && s.expires_at * 1000 < Date.now())) return;
     var h = { apikey: CFG.anonKey, Authorization: "Bearer " + s.access_token };
-    fetch(CFG.url + "/rest/v1/account_data?select=profiles", { headers: h }).then(function (r) { return r.json(); }).then(function (rows) {
-      var list = ((rows && rows[0] && rows[0].profiles) || []).filter(function (p) { return p && !p.deleted; });
+    // build 146: profielen via device-auth get_profiles (versleuteld op de server); kent de functie die actie niet
+    // (400 unknown_action, alleen bij een terugrol), dan de oude route via account_data
+    fetch(CFG.url + "/functions/v1/device-auth", { method: "POST", headers: { apikey: CFG.anonKey, Authorization: h.Authorization, "Content-Type": "application/json" }, body: JSON.stringify({ action: "get_profiles" }) })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.ok && j && Array.isArray(j.profiles)) return j.profiles;
+          if (r.status === 400 && j && j.error === "unknown_action") {
+            return fetch(CFG.url + "/rest/v1/account_data?select=profiles", { headers: h }).then(function (x) { return x.json(); })
+              .then(function (rows) { return (rows && rows[0] && rows[0].profiles) || []; });
+          }
+          throw new Error("profiles");
+        });
+      }).then(function (all) {
+      var list = (all || []).filter(function (p) { return p && !p.deleted; });
       var main = list.filter(function (p) { return p.isMain; })[0] || list[0];
       if (!main) return;
       var av = main.avatar || {}, rec = { email: s.user.email, sym: av.symbol || "tv", color: av.colorIndex || 0, emoji: av.emoji && !/^[a-z.]+$/.test(av.emoji) ? av.emoji : null };

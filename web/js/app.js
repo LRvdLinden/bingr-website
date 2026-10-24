@@ -100,7 +100,7 @@
         var web = e && e.items && e.items.some(function (i) { return (i.platforms || []).indexOf('web') >= 0; });
         var b = B.int(e && e.build); if (web && b > max) max = b;
       });
-      if (max) B.config.build = String(max);
+      if (max > (B.int(B.config.build) || 0)) B.config.build = String(max);
     }).catch(B.noop);
   }
 
@@ -110,6 +110,8 @@
     B.migrate();
     // pushmeldingen: service worker (alleen push) en een zender uit een herinnering (#/live?channel=…)
     if (B.push) B.push.init();
+    // build 146: link naar een supportticket (#/support/ticket?n=…, pushmelding support_reply): na het kiezen van een profiel
+    if (B.support) B.support.init();
     // link naar een titel uit de nieuwsbrief (#/titel?…): onthouden tot er een profiel en bibliotheek is
     if (B.titleLink) B.titleLink.init();
     B.setLanguage(D.shared('appLanguage', '') || '');
@@ -123,7 +125,8 @@
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
     document.addEventListener('keydown', globalKeys);
-    Promise.all([withTimeout(loadBuild(), 2500), A.init(), introReady]).then(function (r) {
+    Promise.all([withTimeout(loadBuild(), 2500), A.init().then(function (x) { if (B.diag) B.diag.mark('session', !!x); return x; }), introReady]).then(function (r) {
+      if (B.diag) B.diag.mark('splash');
       if (r[1]) {
         afterLogin(false);
         A.refresh().then(function (res) { if (res === 'invalid') toLogin(); });
@@ -151,7 +154,7 @@
     D.checkAccountSwitch();
     B.plan.load();
     show(splash());
-    var reg = (fresh || !A.isRegistered()) ? A.registerDevice() : Promise.resolve('ok');
+    var reg = (fresh || !A.isRegistered() || A.platformChanged()) ? A.registerDevice() : Promise.resolve('ok');
     reg.then(function (r) {
       if (r && r.limit) { showLimit(r); return; }
       // token voor de proxy (http-servers, video en afbeeldingen via bingr's server); ververst zichzelf
@@ -159,10 +162,15 @@
       B.plan.fetch();
       A.fetchConfig().then(function (ok) { if (ok) B.emit('config'); });
       var haveCache = D.profiles.length > 0;
-      var sync = Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function (x) { D.migrateAccent(); return x; });
+      var sync = Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function (x) {
+        if (B.diag) { B.diag.mark('profiles_synced', !!x[0]); B.diag.mark('sources', !!x[1]); B.diag.mark('state', !!x[2]); }
+        D.migrateAccent(); return x;
+      });
       return withTimeout(sync, haveCache ? 50 : 8000).then(showProfiles);
     });
     startHeartbeat();
+    // build 146: ongelezen supportantwoorden (badge op Support, Instellingen en de profielknop)
+    if (B.support) setTimeout(function () { B.support.refresh(); }, 2500);
     // pushmeldingen: opnieuw registreren als token, taal, build of account anders is (alleen als ze aan staan)
     if (B.push) B.push.sync();
   }
@@ -187,6 +195,7 @@
     if (p) { pickProfile(p); return; }
     if (location.hash && location.hash !== '#/') history.replaceState(null, '', location.pathname + location.search);
     show(S.profiles(pickFromList));
+    if (B.diag) { B.diag.mark('profiles'); B.diag.ready(); }
     document.title = L("Who's watching?") + ' · Bingr';
     app.applyAccent(B.store.get('lastAccent', 'red'));
   }
@@ -220,7 +229,7 @@
   app.pickProfileWithPin = function (p) {
     app.leaveKids(function () {
       var pin = D.pinFor(p);
-      if (pin) U.askPIN(L('Enter PIN'), function (x) { return x === pin; }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
+      if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { pickProfile(p); }, S.avatar(p, 'pinav'));
       else pickProfile(p);
     }, p);
   };
@@ -239,9 +248,13 @@
     main = S.main();
     show(main);
     main.start();
+    if (B.diag) { B.diag.mark('main'); B.diag.ready(); }
+    // build 146: deeplink naar Support (pushmelding support_reply, #/support/ticket?n=…)
+    if (B.support && B.support.tryPending) setTimeout(function () { if (app.profile === p) B.support.tryPending(); }, 0);
     // build 145: na het laden van de open server de keuze van "Servers laden bij openen" (de vraag, Altijd of niets)
     if (B.xs && B.xs.profileOpened) B.xs.profileOpened();
     Lib.select(src).then(function () {
+      if (B.diag) B.diag.mark('servers_loaded', !Lib.error);
       if (B.xs && B.xs.afterProfileOpen && app.profile === p) B.xs.afterProfileOpen(Lib.fromCache);
       if (B.push && app.profile === p) B.push.tryPending();
       if (B.titleLink && app.profile === p) B.titleLink.tryPending();
@@ -300,10 +313,11 @@
   function deviceCheck() {
     if (!A.isSignedIn() || checking || onLogin) return;
     checking = true; lastCheck = Date.now();
-    var p = A.isRegistered() ? A.heartbeat() : A.registerDevice().then(function (r) { if (r && r.limit) { showLimit(r); return 'limit'; } return true; });
+    var p = A.isRegistered() && !A.platformChanged() ? A.heartbeat() : A.registerDevice().then(function (r) { if (r && r.limit) { showLimit(r); return 'limit'; } return true; });
     p.then(function (alive) {
       if (alive === 'limit') return;
       if (alive === false) { U.toast(L('This browser was removed from your account.'), 5000); A.revokedSignOut(); return; }
+      if (B.support) B.support.refresh();
       return Promise.all([D.syncProfiles(), D.syncSources(), D.syncState()]).then(function () {
         if (app.profile && !D.profileById(app.profile.id)) { showProfiles(); return; }
         if (app.profile) {

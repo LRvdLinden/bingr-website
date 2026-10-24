@@ -11,7 +11,7 @@
   var h = U.h, R = U.router;
   var L = function () { return B.L.apply(null, arguments); };
 
-  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'catprefs', 'settings', 'stats', 'categorie'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
+  ['history', 'collections', 'collection', 'profiles', 'homelayout', 'catprefs', 'settings', 'support', 'stats', 'categorie'].forEach(function (k) { S.navOwner[k] = 'mybingr'; });
 
   function prof() { return B.app.profile; }
   function srcId() { return Lib.source ? Lib.source.id : ''; }
@@ -752,7 +752,7 @@
         var list = h('div.limit-list');
         r.streams.forEach(function (st) {
           var who = st.deviceName + (st.profileName ? ' · ' + st.profileName : '');
-          list.appendChild(h('div.limit-row', [S.platformIcon(st.platform), h('div', [h('div', who), h('div.muted.small', [st.title || '', st.startedAt ? ' · ' + B.fmtTime(st.startedAt) : ''].join(''))])]));
+          list.appendChild(h('div.limit-row', [S.platformIcon(st.platform), h('div', [h('div', who), h('div.muted.small', [A.platformLabel(st.platform), st.title || '', st.startedAt ? B.fmtTime(st.startedAt) : ''].filter(Boolean).join(' · '))])]));
         });
         body.appendChild(list);
       });
@@ -1339,18 +1339,18 @@
       var row = h('div.pe-btns');
       row.appendChild(U.button(has ? L('Change PIN') : L('Set PIN'), function () {
         U.choosePIN(function (pin) {
-          D.setPin(existing.id, pin).then(function () { U.toast(L('Saved')); }, function (e) { U.toast(e.message); });
-          drawPin();
+          D.setPin(existing.id, pin).then(function () { U.toast(L('Saved')); drawPin(); }, function (e) { U.toast(e.message); drawPin(); });
         }, S.avatar(existing, 'pinav'));
       }, { icon: 'lock', cls: 'small' }));
       if (has) row.appendChild(U.button(L('Remove PIN'), function () {
         U.confirm(L('Remove PIN'), existing.name, L('Remove PIN'), function () {
-          D.setPin(existing.id, null).then(function () { U.toast(L('Saved')); }, function (e) { U.toast(e.message); });
-          drawPin();
+          D.setPin(existing.id, null).then(function () { U.toast(L('Saved')); drawPin(); }, function (e) { U.toast(e.message); drawPin(); });
         }, { danger: true });
       }, { cls: 'small danger' }));
       pinBox.appendChild(row);
       pinBox.appendChild(h('p.muted.small', L('With a PIN, the profile asks for the code when it is chosen in “Who\'s watching?”.')));
+      // build 146: oudere apps kennen de pincode als hash niet
+      if (has) pinBox.appendChild(h('p.muted.small', L('Also update Bingr on your other devices, otherwise the PIN won’t work there.')));
     }
     var adminRows = isMainProfile ? [] : [
       h('div.form-row', [kidsChk, kidsHelp]),

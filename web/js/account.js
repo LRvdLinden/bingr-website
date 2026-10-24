@@ -265,6 +265,26 @@
     if (!id) { id = B.uuid(); B.store.set('deviceId', id); }
     return id;
   };
+  /**
+   * Build 146: Windows 10 of 11. De user agent zegt voor allebei "Windows NT 10.0"; Chromium (ook WebView2 in de
+   * Windows-app) geeft via userAgentData.getHighEntropyValues(['platformVersion']) de echte versie: 13 of hoger = 11.
+   */
+  var winVer = null, highEntropy = null;
+  A.loadOsInfo = function () {
+    if (highEntropy) return highEntropy;
+    var uad = navigator.userAgentData;
+    if (!uad || typeof uad.getHighEntropyValues !== 'function') { highEntropy = Promise.resolve(null); return highEntropy; }
+    highEntropy = uad.getHighEntropyValues(['platformVersion', 'fullVersionList']).then(function (v) {
+      if (v && /Windows/i.test(v.platform || '') && v.platformVersion) {
+        var major = parseInt(String(v.platformVersion).split('.')[0], 10);
+        if (isFinite(major)) winVer = major >= 13 ? '11' : (major > 0 ? '10' : null);
+      }
+      return v;
+    }, function () { return null; });
+    return highEntropy;
+  };
+  A.windowsVersion = function () { return winVer; };
+  A.loadOsInfo();
   /** Browser en systeem uit de user agent: {browser, os, osVersion}. */
   A.agent = function () {
     var ua = navigator.userAgent || '';
@@ -281,14 +301,15 @@
     else if (/iPhone|iPod/.test(ua)) { os = 'iPhone'; m = /OS (\d+[_.]\d+(?:[_.]\d+)?)/.exec(ua); ver = m ? 'iOS ' + m[1].replace(/_/g, '.') : 'iOS'; }
     else if (/Android/.test(ua)) { os = /Mobile/.test(ua) ? 'Android' : 'Android-tablet'; m = /Android (\d+(?:\.\d+)*)/.exec(ua); ver = m ? 'Android ' + m[1] : 'Android'; }
     else if (/CrOS/.test(ua)) { os = 'Chromebook'; ver = 'ChromeOS'; }
-    else if (/Windows/.test(ua)) { os = 'Windows'; m = /Windows NT (\d+\.\d+)/.exec(ua); ver = m ? (m[1] === '10.0' ? 'Windows 10/11' : 'Windows NT ' + m[1]) : 'Windows'; }
+    else if (/Windows/.test(ua)) { os = 'Windows'; m = /Windows NT (\d+\.\d+)/.exec(ua); ver = m ? (m[1] === '10.0' ? (winVer ? 'Windows ' + winVer : 'Windows 10/11') : 'Windows NT ' + m[1]) : 'Windows'; }
     else if (/Macintosh|Mac OS X/.test(ua)) { os = 'Mac'; m = /Mac OS X (\d+[_.]\d+(?:[_.]\d+)?)/.exec(ua); ver = m ? 'macOS ' + m[1].replace(/_/g, '.') : 'macOS'; }
     else if (/Linux/.test(ua)) { os = 'Linux'; ver = 'Linux'; }
     if (os === 'Android-tablet') os = B.lang === 'nl' ? 'Android-tablet' : 'Android tablet';
     return { browser: browser, os: os, osVersion: ver };
   };
-  /** Naam in de apparatenlijst: "Chrome op Mac", "Safari op iPad". */
+  /** Naam in de apparatenlijst: "Chrome op Mac", "Safari op iPad"; in de Windows-app "Windows-pc". */
   A.deviceDisplayName = function () {
+    if (B.isWindowsApp) return L('Windows PC');
     var a = A.agent();
     if (!a.os) return a.browser;
     return a.browser + (B.lang === 'nl' ? ' op ' : ' on ') + a.os;
@@ -300,7 +321,7 @@
     var own = A.deviceId();
     return (list || []).filter(function (d) { return d && d.device_id; }).map(function (d) {
       return {
-        id: d.device_id, name: d.name || d.platform || '?', platform: d.platform || '',
+        id: d.device_id, name: d.name || A.platformLabel(d.platform) || '?', platform: d.platform || '',
         createdAt: B.parseISO(d.created_at), lastSeenAt: B.parseISO(d.last_seen_at),
         current: d.current === true || d.device_id === own
       };
@@ -312,20 +333,27 @@
     return authed(body);
   }
   /** register_device → 'ok' | {limit, devices} (te veel apparaten) | 'failed'. */
+  // build 146: in de Windows-app platform "windows" (anders "browser"); app_version "1.0.1 (146)" (de server leest de build
+  // eruit voor de overgang van de profielen) en de systeemversie gaan ook mee met elke heartbeat
   A.registerDevice = function () {
-    return deviceCall('register_device', A.deviceId(), {
-      name: A.deviceDisplayName(), platform: B.config.platform, app_version: A.appVersion(), os_version: A.agent().osVersion
+    return A.loadOsInfo().then(function () {
+      return deviceCall('register_device', A.deviceId(), {
+        name: A.deviceDisplayName(), platform: B.config.platform, app_version: A.appVersion(), os_version: A.agent().osVersion
+      });
     }).then(function (r) {
       if (!r) return 'failed';
       var j = r.json || {};
       if (r.status === 403 && (r.errorCode === 'device_limit' || j.devices)) return { limit: j.limit || 15, devices: parseDevices(j.devices), plan: j.plan || null };
       if (!r.ok) return 'failed';
       B.store.set('deviceRegistered', true);
+      B.store.set('registeredPlatform', B.config.platform);
       return 'ok';
     });
   };
+  /** Geregistreerd met een ander platform (bv. eerder als "browser" in de Windows-app): opnieuw registreren. */
+  A.platformChanged = function () { return A.isRegistered() && B.store.get('registeredPlatform', 'browser') !== B.config.platform; };
   A.heartbeat = function () {
-    return deviceCall('heartbeat', A.deviceId()).then(function (r) {
+    return deviceCall('heartbeat', A.deviceId(), { app_version: A.appVersion(), os_version: A.agent().osVersion, platform: B.config.platform }).then(function (r) {
       if (!r) return true;
       if (r.json && r.json.revoked === true) return false;
       // abonnement (Gratis/Lifetime): zit het in het antwoord, dan dat; anders apart ophalen
@@ -345,8 +373,16 @@
   /** Platformnaam voor mensen. */
   A.platformLabel = function (p) {
     var s = String(p || '').toLowerCase();
-    if (s === 'tizen') return L('Samsung TV');
-    if (s === 'browser') return L('Browser');
+    if (s === 'tizen' || s === 'samsung tv') return L('Samsung TV');
+    if (s === 'browser' || s === 'web') return L('Browser');
+    // build 146: de Windows-app
+    if (s === 'windows') return 'Windows';
+    if (s === 'ios') return 'iPhone';
+    if (s === 'ipados') return 'iPad';
+    if (s === 'tvos') return 'Apple TV';
+    if (s === 'macos') return 'Mac';
+    if (s === 'android') return 'Android';
+    if (s === 'androidtv') return 'Android TV';
     return String(p || '');
   };
 
@@ -382,7 +418,7 @@
   };
   A.serverKey = function (name) { var k = B.store.get('serverKeys', {}) || {}; return k[name] || ''; };
 
-  // MARK: profielen (PostgREST account_data)
+  // MARK: profielen (build 146: device-auth get_profiles / put_profiles, versleuteld op de server)
 
   function rest(method, path, body, extra) {
     return A.validAccessToken().then(function (token) {
@@ -391,21 +427,53 @@
       return B.http(B.config.supabaseUrl + path, { method: method, headers: h, body: body, timeout: 20000 });
     });
   }
-  A.readProfiles = function () {
+  // Oude route (PostgREST account_data), alleen nog als device-auth de acties niet kent (400 unknown_action: functie te
+  // oud, kan alleen bij een terugrol). Nooit meer rechtstreeks lezen of schrijven als de functie ze wel kent.
+  var legacyProfiles = false;
+  function legacyRead() {
     return rest('GET', '/rest/v1/account_data?select=profiles,updated_at').then(function (r) {
       if (r.status === 401) return A.refresh().then(function () { return null; });
       if (r.status < 200 || r.status >= 300 || !Array.isArray(r.json)) return null;
       var row = r.json[0];
       return row && Array.isArray(row.profiles) ? row.profiles : [];
     }, function () { return null; });
-  };
-  A.writeProfiles = function (profiles) {
+  }
+  function legacyWrite(profiles) {
     var uid = A.userId();
-    if (!uid) return Promise.resolve(false);
+    if (!uid) return Promise.resolve(null);
     return rest('POST', '/rest/v1/account_data', { user_id: uid, profiles: profiles, updated_at: B.iso() },
       { 'Prefer': 'resolution=merge-duplicates,return=minimal' }).then(function (r) {
-      return r.status >= 200 && r.status < 300;
-    }, function () { return false; });
+      return r.status >= 200 && r.status < 300 ? profiles : null;
+    }, function () { return null; });
+  }
+  function unknownAction(r) { return r && r.status === 400 && (r.errorCode === 'unknown_action' || (r.json && r.json.error === 'unknown_action')); }
+  /** Profielen (met tombstones) van de server; null = netwerkfout. */
+  A.readProfiles = function () {
+    if (legacyProfiles) return legacyRead();
+    return authed({ action: 'get_profiles' }).then(function (r) {
+      if (unknownAction(r)) { legacyProfiles = true; return legacyRead(); }
+      if (!r || !r.ok || !r.json || !Array.isArray(r.json.profiles)) return null;
+      A.profilesUpdatedAt = r.json.updatedAt || null;
+      return r.json.profiles;
+    });
+  };
+  /**
+   * De hele lijst (met tombstones) uploaden; de server voegt samen per id (nieuwste updatedAt/deletedAt wint) en geeft
+   * de samengevoegde lijst terug: die moet de app meteen toepassen. null = mislukt (netwerk, 429, 503 try_again).
+   * Pincodes horen niet in de lijst (de server haalt pin, pinHash en pinCode toch weg).
+   */
+  A.writeProfiles = function (profiles) {
+    var clean = (profiles || []).map(function (p) {
+      if (!p || typeof p !== 'object') return p;
+      var o = B.assign({}, p); delete o.pin; delete o.pinHash; delete o.pinCode; return o;
+    });
+    if (legacyProfiles) return legacyWrite(clean);
+    return authed({ action: 'put_profiles', profiles: clean }).then(function (r) {
+      if (unknownAction(r)) { legacyProfiles = true; return legacyWrite(clean); }
+      if (!r || !r.ok || !r.json || r.json.ok === false || !Array.isArray(r.json.profiles)) return null;
+      A.profilesUpdatedAt = r.json.updatedAt || null;
+      return r.json.profiles;
+    });
   };
   /** Profielfoto (Storage-bucket avatars) als object-URL; null bij een fout. */
   A.photoURL = function (path) {
@@ -487,7 +555,7 @@
   function parseStreams(list) {
     return (list || []).filter(function (s) { return s && s.device_id; }).map(function (s) {
       return {
-        deviceId: s.device_id, deviceName: s.device_name || s.platform || '?', platform: s.platform || '',
+        deviceId: s.device_id, deviceName: s.device_name || A.platformLabel(s.platform) || '?', platform: s.platform || '',
         profileId: s.profile_id || '', profileName: s.profile_name || '', title: s.title || '', kind: s.kind || '',
         startedAt: B.parseISO(s.started_at), current: s.device_id === A.deviceId()
       };
