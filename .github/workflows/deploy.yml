@@ -39,7 +39,9 @@ jobs:
         # (123k films, 30k series, 12k zenders, 80% verborgen): piekgeheugen < 500 MB en geen lange stap
         # build 151: sync toepassen en bewaren in stappen/Worker (groot profiel, zelfde uitkomst als ≤ 150); rij Zenders (format_test)
         # build 151: rijen op Home zonder dubbele titels over meer servers (homededupe_test)
+        # build 151c: foutcodes van web-proxy en de server als leesbare melding (proxyerror_test)
         run: |
+          node tools/test/proxyerror_test.js
           node tools/test/pin_test.js
           node tools/test/format_test.js
           node tools/test/homededupe_test.js

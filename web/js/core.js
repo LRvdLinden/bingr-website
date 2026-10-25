@@ -670,10 +670,70 @@
           var r = { status: res.status, text: '', json: null, buffer: null, headers: res.headers, proxied: true };
           if (opt.binary) r.buffer = data;
           else { r.text = data || ''; if (r.text && !opt.noJSON) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
+          noteProxyError(r, res, data);
           return r;
+        }, function () {
+          // build 151c: het antwoord brak halverwege af (bv. te groot of de tijdslimiet van de proxy)
+          clearTimeout(timer);
+          throw new NetError(ctl && ctl.signal.aborted ? 'timeout' : 'proxy_cut', true);
         });
-      }, function () { clearTimeout(timer); throw new NetError('network', true); });
+      }, function () { clearTimeout(timer); throw new NetError(ctl && ctl.signal.aborted ? 'timeout' : 'network', true); });
     });
+  };
+  /**
+   * build 151c: fout van de proxy zelf (JSON {error}, zonder X-Upstream-Status) of van de server van de gebruiker
+   * (X-Upstream-Status, ongewijzigd doorgegeven)? r.proxyError = code van de proxy, r.upstreamStatus = status van de server.
+   */
+  function noteProxyError(r, res, data) {
+    var up = res.headers && res.headers.get ? res.headers.get('x-upstream-status') : null;
+    r.upstreamStatus = up ? Number(up) : null;
+    if (r.status >= 200 && r.status < 300) return;
+    if (up) return;
+    var t = typeof data === 'string' ? data : '';
+    if (!t && data && typeof data.byteLength === 'number' && data.byteLength < 512) { try { t = new TextDecoder().decode(data); } catch (e) { t = ''; } }
+    if (!t || t.length > 512) return;
+    try { var j = JSON.parse(t); if (j && typeof j.error === 'string' && /^[a-z_]{1,40}$/.test(j.error)) r.proxyError = j.error; } catch (e) { /* geen JSON */ }
+  }
+  /** build 151c: NetError voor een antwoord buiten 2xx: proxy_<code> (fout van de proxy) of http_<status> (van de server). */
+  B.httpError = function (r) {
+    var e = new NetError(r && r.proxyError ? 'proxy_' + r.proxyError : 'http_' + (r ? r.status : 0));
+    e.status = r ? r.status : 0;
+    e.upstream = r && r.upstreamStatus != null ? r.upstreamStatus : (r && r.proxied && !r.proxyError ? r.status : null);
+    return e;
+  };
+  /**
+   * build 151c: leesbare melding bij een foutcode (proxy_…, http_…, timeout, network, bad_json) in plaats van een kale code.
+   * Onbekend: de code zelf (of null als er geen code is).
+   */
+  B.netMessage = function (e) {
+    var m = String((e && e.message) || e || '');
+    var c = /^proxy_([a-z_]+)$/.exec(m), k = c ? c[1] : m;
+    var T = {
+      timeout: 'The server is not responding (time-out).', connect_timeout: 'The server is not responding (time-out).', tls_timeout: 'The server is not responding (time-out).',
+      dns_failed: 'The server address could not be found (DNS). Check the server address.',
+      connect_refused: 'The server refused the connection from Bingr’s server. Your provider may block servers in data centres; the app connects directly and does work.',
+      connect_reset: 'The server broke off the connection from Bingr’s server. Your provider may block servers in data centres; the app connects directly and does work.',
+      connect_failed: 'Bingr’s server could not connect to your server.',
+      no_response: 'The server closed the connection without an answer.',
+      bad_response: 'The server sent an answer Bingr can’t read.',
+      tls_failed: 'The secure connection (https) to the server failed: its certificate is not accepted. Try the server address with http://.',
+      too_large: 'The answer from the server is too large (more than 200 MB).', proxy_cut: 'The answer from the server was cut off (too large or too slow). Try again.',
+      quota_exceeded: 'You’ve reached the usage limit of Bingr’s server for now. Try again later.', rate_limited: 'Too many requests at once. Wait a moment and try again.',
+      host_not_allowed: 'This address is not one of your own servers.', path_not_allowed: 'This address on your server can’t be used via Bingr’s server.',
+      port_not_allowed: 'This port can’t be used via Bingr’s server.', unavailable: 'Bingr’s server is temporarily unavailable. Try again later.',
+      upstream_failed: 'Bingr’s server could not reach your server.', range_not_supported: 'The server does not support this.',
+      not_signed_in: 'Sign in again.', bad_json: 'The server sent an invalid answer.', network: 'No connection. Check your internet connection.'
+    };
+    if (T[k]) return B.L(T[k]);
+    var h = /^http_(\d{3})$/.exec(m);
+    if (h) {
+      var st = Number(h[1]);
+      if (st === 401 || st === 403) return B.L('Your server refused access (%d). Check the username and password, or whether your subscription is still active.').replace('%d', st);
+      if (st === 404) return B.L('Your server doesn’t know this address (404). Check the server address.');
+      if (st >= 500) return B.L('Your server gave an error (%d). Try again later.').replace('%d', st);
+      return B.L('Your server gave an error (%d).').replace('%d', st);
+    }
+    return m || null;
   };
   /** POST naar de proxy met een eigen actie (build 91: OpenSubtitles): {status, json, text, buffer, proxied}. */
   B.proxyPost = function (body, opt) {
@@ -809,13 +869,13 @@
 
   B.getText = function (url, headers, timeout) {
     return B.http(url, { headers: headers, timeout: timeout || 60000 }).then(function (r) {
-      if (r.status < 200 || r.status >= 300) throw new NetError('http_' + r.status);
+      if (r.status < 200 || r.status >= 300) throw B.httpError(r);
       return r.text;
     });
   };
   B.getJSON = function (url, headers, timeout) {
     return B.http(url, { headers: headers, timeout: timeout || 60000 }).then(function (r) {
-      if (r.status < 200 || r.status >= 300) throw new NetError('http_' + r.status);
+      if (r.status < 200 || r.status >= 300) throw B.httpError(r);
       if (r.json == null) throw new NetError('bad_json');
       return r.json;
     });
@@ -867,7 +927,7 @@
   };
   B.getJSONPicked = function (url, headers, timeout, spec) {
     return B.http(url, { headers: headers, timeout: timeout || 60000, noJSON: true }).then(function (r) {
-      if (r.status < 200 || r.status >= 300) throw new NetError('http_' + r.status);
+      if (r.status < 200 || r.status >= 300) throw B.httpError(r);
       var t = r.text; r.text = '';
       return B.parsePicked(t, spec);
     });

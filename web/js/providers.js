@@ -226,10 +226,10 @@
   Xtream.prototype.list = function (action) {
     return B.getJSON(this.api(action), null, 120000).then(items, function () { return []; });
   };
-  /** Korte foutcode zonder adres (diagnose): timeout, network, http_500, bad_json, … */
+  /** Korte foutcode zonder adres (diagnose): timeout, network, http_500, bad_json, proxy_tls_failed (build 151c), … */
   function errCode(e) {
     var m = String((e && e.message) || 'error');
-    return /^(timeout|network|bad_json|bad_url|http_\d{3})$/.test(m) ? m : 'error';
+    return /^(timeout|network|bad_json|bad_url|http_\d{3}|proxy_[a-z_]{1,40})$/.test(m) ? m : 'error';
   }
   P.errCode = errCode;
   /** build 147: zoals list, maar met de uitkomst: {list, failed, error}. Een fout bij de ene lijst raakt de andere niet. */
@@ -314,7 +314,7 @@
     function catsThenList(catAction, listAction, fields, keep) {
       var cp = self.listStatus(catAction);
       var tp = B.http(self.api(listAction), { timeout: 120000, noJSON: true }).then(function (r) {
-        if (r.status < 200 || r.status >= 300) return { e: new B.NetError('http_' + r.status) };
+        if (r.status < 200 || r.status >= 300) return { e: B.httpError(r) };
         var t = r.text; r.text = '';
         return { t: t };
       }, function (e) { return { e: e }; });

@@ -861,7 +861,8 @@
       if (my !== gen) { libDone(opts, null); return; }
       Lib.loading = false;
       libDone(opts, false);
-      if (!Lib.raw.channels.length && !Lib.raw.movies.length && !Lib.raw.series.length) Lib.error = (e && e.message) || L('Something went wrong. Please try again.');
+      // build 151c: leesbare melding (bv. "De server reageert niet (time-out)") in plaats van een kale code als http_502
+      if (!Lib.raw.channels.length && !Lib.raw.movies.length && !Lib.raw.series.length) Lib.error = (B.netMessage && B.netMessage(e)) || (e && e.message) || L('Something went wrong. Please try again.');
       B.emit('library');
     });
   };
