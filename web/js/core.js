@@ -829,8 +829,9 @@
         var d = e.data || {}, w = jwWait[d.id];
         if (!w) return;
         if (d.part) { for (var i = 0; i < d.part.length; i++) w.list.push(d.part[i]); return; }
+        if (d.hpart) { for (var i2 = 0; i2 < d.hpart.length; i2++) w.hidden.push(d.hpart[i2]); return; }
         delete jwWait[d.id];
-        if (d.error) w.fail(d.error); else w.resolve({ list: w.list, skipped: d.skipped || {}, total: d.total || 0 });
+        if (d.error) w.fail(d.error); else w.resolve({ list: w.list, skipped: d.skipped || {}, hidden: w.hidden, total: d.total || 0 });
         // klaar en niets meer te doen: de Worker na 20 s stoppen (zijn geheugen meteen terug)
         clearTimeout(jwIdle);
         jwIdle = setTimeout(function () { if (jw && !Object.keys(jwWait).length) { try { jw.terminate(); } catch (x) { /* stil */ } jw = null; } }, 20000);
@@ -852,7 +853,7 @@
     if (!w) return Promise.resolve().then(local);
     return new Promise(function (resolve, reject) {
       var id = ++jwSeq;
-      jwWait[id] = { list: [], resolve: resolve, fail: function (c) { reject(new NetError(c)); }, fallback: function () { try { resolve(local()); } catch (e) { reject(e); } } };
+      jwWait[id] = { list: [], hidden: [], resolve: resolve, fail: function (c) { reject(new NetError(c)); }, fallback: function () { try { resolve(local()); } catch (e) { reject(e); } } };
       try { w.postMessage({ id: id, text: text, spec: spec }); } catch (e) { var x = jwWait[id]; delete jwWait[id]; x.fallback(); }
     });
   };

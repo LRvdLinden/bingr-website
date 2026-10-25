@@ -960,6 +960,8 @@
       .then(function () { return B.chunked(l.series || [], function (x) { folded(x, 'title'); }); }).catch(B.noop);
   });
   Lib.search = function (q, limit) {
+    // build 149: woorden, normaliseren en rangschikken (search.js)
+    if (B.search && B.search.rankSync) return B.search.rankSync([Lib.lib], q, limit || 40);
     var f = B.fold(q).trim();
     if (!f) return { channels: [], movies: [], series: [] };
     limit = limit || 40;

@@ -31,8 +31,8 @@ assert.strictEqual(B.fmtDate(Date.UTC(2026, 9, 12, 12), { day: 'numeric', month:
 assert.strictEqual(B.fold('Amélie ÇA'), 'amelie ca'); assert.strictEqual(B.fold('Plain Title'), 'plain title');
 // json-lezen: velden en verborgen categorieën
 load('jsonpick.js');
-const r = B.jsonPick(JSON.stringify([{ stream_id: 1, name: 'a', category_id: '1', extra: 'x' }, { stream_id: 2, name: 'b', category_id: 2 }, { stream_id: 3, category_id: '2' }]), { fields: ['stream_id', 'name', 'category_id'], skip: { 2: true } });
-assert.deepStrictEqual(r, { list: [{ stream_id: 1, name: 'a', category_id: '1' }], skipped: { 2: 2 }, total: 3 });
+const r = B.jsonPick(JSON.stringify([{ stream_id: 1, name: 'a', category_id: '1', extra: 'x' }, { stream_id: 2, name: 'b', category_id: 2 }, { stream_id: 3, category_id: '2' }]), { fields: ['stream_id', 'name', 'category_id'], skip: { 2: true }, keep: ['stream_id', 'name'] });
+assert.deepStrictEqual(r, { list: [{ stream_id: 1, name: 'a', category_id: '1' }], skipped: { 2: 2 }, hidden: [[2, 'b'], [3, null]], total: 3 });
 assert.deepStrictEqual(B.jsonPick('{"a":{"x":1}}', {}).list, [{ x: 1 }]);
 assert.strictEqual(B.jsonPick('<html>', {}).error, 'bad_json');
 // Ontdek categorieën (zonder DOM)
@@ -51,4 +51,31 @@ assert.strictEqual(logo('NL | Netflix Series'), '/n.jpg'); assert.strictEqual(lo
 assert.strictEqual(logo('HBO'), '/h.jpg'); assert.strictEqual(logo('NL: Prime Video'), '/p.jpg'); assert.strictEqual(logo('Apple TV+'), '/a.jpg');
 assert.strictEqual(logo('SkyShowtime'), '/s.jpg'); assert.strictEqual(logo('Videoland 4K'), '/v.jpg'); assert.strictEqual(logo('Viaplay'), '/vp.jpg');
 assert.strictEqual(logo('NL | Actie'), ''); assert.strictEqual(logo('Netflixen en chillen'), '');
-console.log('format_test: alles goed');
+// zoeken (search.js): accenten, woordvolgorde, voorvoegsels, deelwoorden, & = and, typefout, volgorde van de treffers
+B.data = { sources: [] }; B.parseTitle = (t) => ({ title: t }); B.chunked = (list, fn) => { list.forEach(fn); return Promise.resolve(); };
+load('search.js');
+const Q = B.search;
+assert.strictEqual(Q.norm('NL | Amélie & Co.', true), 'amelie and co');
+assert.strictEqual(Q.norm('[NL] 4K - Café Society', true), 'cafe society');
+const lib = { channels: [{ name: 'NL: RTL 4 HD' }, { name: 'Discovery Channel' }], series: [{ title: 'Breaking Bad' }],
+  movies: ['NL | Amélie', 'The Lord of the Rings: The Return of the King', 'Fast & Furious', 'Kingdom', 'King', 'The King\'s Speech', 'Spider-Man: No Way Home', 'Interstellar'].map((t) => ({ title: t })) };
+const titles = (q) => Q.rankSync([lib], q, 20).movies.map((m) => m.title);
+assert.deepStrictEqual(titles('amelie'), ['NL | Amélie'], 'accenten en voorvoegsel');
+assert.deepStrictEqual(titles('AMÉLIE'), ['NL | Amélie']);
+assert.deepStrictEqual(titles('king return lord'), ['The Lord of the Rings: The Return of the King'], 'woordvolgorde maakt niet uit');
+assert.deepStrictEqual(titles('fast and furious'), ['Fast & Furious'], '& = and');
+assert.deepStrictEqual(titles('fast furious'), ['Fast & Furious']);
+assert.deepStrictEqual(titles('spiderman').length, 0, 'spiderman is één woord, Spider-Man twee (geen typefout van 1)');
+assert.deepStrictEqual(titles('spider man home'), ['Spider-Man: No Way Home'], 'leestekens');
+assert.deepStrictEqual(titles('stell'), ['Interstellar'], 'deel van een woord');
+assert.deepStrictEqual(titles('intersteller'), ['Interstellar'], 'één typefout bij 5+ letters');
+assert.deepStrictEqual(titles('kng').length, 0, 'geen typefout bij korte woorden');
+assert.deepStrictEqual(titles('king'), ['King', 'Kingdom', 'The Lord of the Rings: The Return of the King', 'The King\'s Speech'], 'exact, begint met, woordbegin (binnen een groep de volgorde van de lijst)');
+assert.deepStrictEqual(Q.rankSync([lib], 'rtl 4', 5).channels.map((c) => c.name), ['NL: RTL 4 HD'], 'zenders');
+assert.strictEqual(Q.score('breaking bad', Q.query('bad breaking')), 2);
+assert.ok(Q.within1('interstellar', 'intersteller') && Q.within1('abcd', 'abdc') && !Q.within1('abc', 'axz'));
+// verborgen categorieën: compacte rijen [id, naam, afbeelding, categorie]
+Q.hiddenHits([{ sid: 'S1', raw: { hiddenMovies: [[1, 'NL | Amélie 2', 'p.jpg', 'Films 3'], [2, 'Iets anders', null, 'Films 3']] } }], 'amelie', 10).then((h) => {
+  assert.deepStrictEqual(h, [{ type: 'movie', title: 'NL | Amélie 2', poster: 'p.jpg', group: 'Films 3', sid: 'S1' }]);
+  console.log('format_test: alles goed');
+});

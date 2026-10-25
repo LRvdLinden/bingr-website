@@ -272,8 +272,13 @@
         if (list(c, 'extra').some(function (e) { return e && e.isRequired === true; })) return false;
         return !list(c, 'extraRequired').length;
       }).map(function (c) { return { type: c.type, id: c.id, name: c.name || c.id }; });
+      // build 149: catalogi waarin je kunt zoeken (extra "search", ook als die verplicht is)
+      var searchable = list(o, 'catalogs').filter(function (c) {
+        if (!c || !c.id || (c.type !== 'movie' && c.type !== 'series')) return false;
+        return list(c, 'extra').some(function (e) { return e && e.name === 'search'; }) || list(c, 'extraSupported').indexOf('search') >= 0;
+      }).map(function (c) { return { type: c.type, id: c.id, name: c.name || c.id }; });
       return { base: m.replace('/manifest.json', ''), name: o.name || 'Addon', resources: resources,
-        types: list(o, 'types').map(String), catalogs: catalogs };
+        types: list(o, 'types').map(String), catalogs: catalogs, searchCatalogs: searchable };
     }, function () { return null; });
   };
   /** Add-ons van een Stremio-bron: account-add-ons (authKey in secrets.password) + eigen URL's (m3uURL), altijd Cinemeta. */
@@ -288,6 +293,48 @@
       urls = urls.filter(function (u) { if (seen[u]) return false; seen[u] = true; return true; });
       return Promise.all(urls.map(Stremio.loadAddon));
     }).then(function (r) { return r.filter(Boolean); });
+  };
+  /** build 149: één meta uit een Stremio-catalogus als film of serie (null als het geen imdb-id heeft). */
+  function stremioItem(m, cat, group) {
+    var id = m && m.id ? String(m.id) : '';
+    if (id.indexOf('tt') !== 0) return null;
+    var year = m.releaseInfo ? B.int(String(m.releaseInfo).slice(0, 4)) : null;
+    var genres = (Array.isArray(m.genres) ? m.genres.join(', ') : m.genres) || null;
+    if (cat.type === 'movie') return { id: 'sm' + id + '-' + cat.id, title: m.name || '?', year: year, poster: urlValue(m.poster), group: group,
+      imdbID: id, rating: num(m.imdbRating), plot: m.description || null, stremio: 'movie|' + id, genres: genres };
+    return { id: 'ss' + id + '-' + cat.id, title: m.name || '?', year: year, poster: urlValue(m.poster), group: group,
+      imdbID: id, plot: m.description || null, rating: num(m.imdbRating), remoteID: id, episodes: [], genres: genres };
+  }
+  /**
+   * build 149: zoeken via de add-ons van een Stremio-bron (/catalog/<type>/<id>/search=<q>.json; getJSON valt zelf terug
+   * op de proxy). → Promise<{movies, series}>, ontdubbeld op imdb-id. Fouten van één add-on tellen niet.
+   */
+  Stremio.search = function (src, q) {
+    var have = M.stremioAddons[src.id];
+    var ap = have ? Promise.resolve(have) : Stremio.addonsFor(src).then(function (a) { M.stremioAddons[src.id] = a; return a; });
+    var moviesL = L('Movies'), seriesL = L('Series');
+    return ap.then(function (addons) {
+      var jobs = [];
+      (addons || []).forEach(function (a) {
+        (a.searchCatalogs || []).slice(0, 6).forEach(function (c) {
+          jobs.push(getJSON(a.base + '/catalog/' + c.type + '/' + encodeURIComponent(c.id) + '/search=' + encodeURIComponent(q) + '.json', null, 15000)
+            .then(function (j) { return { cat: c, metas: list(j, 'metas') }; }, function () { return { cat: c, metas: [] }; }));
+        });
+      });
+      return Promise.all(jobs);
+    }).then(function (res) {
+      var out = { movies: [], series: [] }, seen = {};
+      res.forEach(function (r) {
+        var group = r.cat.name + ' · ' + (r.cat.type === 'movie' ? moviesL : seriesL);
+        r.metas.slice(0, 40).forEach(function (m) {
+          var x = stremioItem(m, r.cat, group);
+          if (!x || seen[r.cat.type + x.imdbID]) return;
+          seen[r.cat.type + x.imdbID] = true;
+          (r.cat.type === 'movie' ? out.movies : out.series).push(x);
+        });
+      });
+      return out;
+    });
   };
   Stremio.prototype.library = function () {
     var jobs = [];

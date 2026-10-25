@@ -69,6 +69,7 @@ B.data = { customization: () => ({}), ageLimit: () => null, strict: () => false,
 B.media = { isMediaServer: () => false };
 load('providers.js');
 load('library.js');
+if (fs.existsSync(path.join(WEB, 'search.js'))) load('search.js');
 const Lib = B.lib, P = B.providers;
 
 // de server: lijsten als JSON-tekst (met de extra velden die een echte Xtream-server meestuurt)
@@ -122,6 +123,14 @@ async function measure(name, fn) {
   await measure('bibliotheek bewaren (in stukken)', () => B.idb.setBig('lib:SRC-2', { at: 1, lib }, 'lib', 'arrays'));
   const back = await measure('bibliotheek lezen (in stukken)', () => B.idb.getBig('lib:SRC-2'));
 
+  if (B.search) {
+    // build 149: zoeken in stukjes over de zichtbare lijsten en de zoekindex van verborgen categorieën
+    const res = await measure('zoeken (zichtbaar, in stukjes)', () => B.search.rank([Lib.lib], 'nummer 1234 film', 40));
+    assert.ok(res.movies.some((m) => /nummer 1234\b/.test(m.title)) || res.movies.length === 0);
+    const hid = await measure('zoeken in verborgen categorieën', () => B.search.hiddenHits([{ sid: 'SRC-2', raw: lib }], 'film nummer 1235', 20));
+    assert.ok(hid.some((x) => /nummer 1235\b/.test(x.title)), 'treffer in een verborgen categorie');
+    assert.ok(hid.every((x) => x.sid === 'SRC-2' && /^Films \d+$/.test(x.group)));
+  }
   const visM = Math.round(N_MOV * 0.2), visS = Math.round(N_SER * 0.2);
   assert.ok(Math.abs(Lib.lib.movies.length - visM) <= 100, 'zichtbare films ' + Lib.lib.movies.length);
   assert.ok(Math.abs(Lib.lib.series.length - visS) <= 50, 'zichtbare series ' + Lib.lib.series.length);

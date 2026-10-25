@@ -308,7 +308,10 @@
      * items uit verborgen categorieën (opts.hidden(naam)) niet in het geheugen komen: alleen een telling per categorie.
      * Lezen in een Web Worker (B.getJSONPicked), alleen de nodige velden.
      */
-    function catsThenList(catAction, listAction, fields) {
+    // build 149: van verborgen items alleen een compacte rij voor het zoeken (id, naam, afbeelding, categorie[, extensie])
+    var K_LIVE = ['stream_id', 'name', 'stream_icon', 'category_id'], K_VOD = ['stream_id', 'name', 'stream_icon', 'category_id', 'container_extension'],
+      K_SER = ['series_id', 'name', 'cover', 'category_id'];
+    function catsThenList(catAction, listAction, fields, keep) {
       var cp = self.listStatus(catAction);
       var tp = B.http(self.api(listAction), { timeout: 120000, noJSON: true }).then(function (r) {
         if (r.status < 200 || r.status >= 300) return { e: new B.NetError('http_' + r.status) };
@@ -324,16 +327,19 @@
         return tp.then(function (x) {
           if (x.e) throw x.e;
           var t = x.t; x.t = null;
-          return B.parsePicked(t, { fields: fields, cat: 'category_id', skip: skip });
+          return B.parsePicked(t, { fields: fields, cat: 'category_id', skip: skip, keep: skip ? keep : null });
         }).then(function (r) {
           var sk = {};
           Object.keys(r.skipped || {}).forEach(function (id) { var g = cm[id] || other; sk[g] = (sk[g] || 0) + r.skipped[id]; });
-          return { map: cm, list: { list: r.list, failed: false, skipped: sk } };
+          // compacte rij: categorie-id → naam (de kolom op index 3)
+          var hid = r.hidden || [];
+          for (var hi = 0; hi < hid.length; hi++) hid[hi][3] = cm[hid[hi][3] == null ? '' : String(hid[hi][3])] || other;
+          return { map: cm, list: { list: r.list, failed: false, skipped: sk, hidden: hid } };
         }, function (e) { return { map: cm, list: { list: [], failed: true, error: errCode(e), skipped: {} } }; });
       });
     }
-    var main = Promise.all([catsThenList('get_live_categories', 'get_live_streams', F_LIVE), catsThenList('get_vod_categories', 'get_vod_streams', F_VOD)]);
-    var ser = catsThenList('get_series_categories', 'get_series', F_SER);
+    var main = Promise.all([catsThenList('get_live_categories', 'get_live_streams', F_LIVE, K_LIVE), catsThenList('get_vod_categories', 'get_vod_streams', F_VOD, K_VOD)]);
+    var ser = catsThenList('get_series_categories', 'get_series', F_SER, K_SER);
     var late = false;
     var serOrLate = main.then(function () {
       return Promise.race([ser, new Promise(function (r) { setTimeout(function () { r(null); }, LATE_MS); })]);
@@ -341,6 +347,8 @@
     return Promise.all([main, serOrLate]).then(function (x) {
       var lv = x[0][0], vv = x[0][1], rs = x[1];
       var lib = { channels: [], movies: [], series: [], epg: {}, fetch: {}, skipped: { live: lv.list.skipped, movie: vv.list.skipped, series: {} } };
+      // build 149: zoekindex van de verborgen categorieën (compacte rijen; setBig bewaart ze in stukken)
+      lib.hiddenLive = lv.list.hidden || []; lib.hiddenMovies = vv.list.hidden || []; lib.hiddenSeries = [];
       if (opts.onPhase) opts.onPhase('parse');
       return B.task.run('parse', function () {
         return mapChannels(lv.list, lv.map).then(function (c) { lib.channels = c; return mapMovies(vv.list, vv.map); }).then(function (m) {
@@ -352,7 +360,7 @@
             lib.fetch.series = { status: 'failed', count: 0, error: 'timeout' };
             return;
           }
-          lib.skipped.series = rs.list.skipped;
+          lib.skipped.series = rs.list.skipped; lib.hiddenSeries = rs.list.hidden || [];
           return mapSeries(rs.list, rs.map).then(function (se) { lib.series = se; lib.fetch.series = status(rs.list, se.length); });
         });
       }).then(function () {

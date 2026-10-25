@@ -1208,3 +1208,7 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 .dc-c5 { --dc: #2c3e94; } .dc-c6 { --dc: #b8336a; } .dc-c7 { --dc: #2e7d32; } .dc-c8 { --dc: #6d4c41; } .dc-c9 { --dc: #00838f; }
 @media (max-width: 860px) { .dc-tile { width: 230px; } .dc-bar { min-height: 60px; } .dc-name { font-size: 1.15rem; } .dc-logo { height: 38px; } }
 @media (min-width: 1600px) { .dc-tile { width: 360px; } .dc-name { font-size: 1.7rem; } }
+/* build 149: zoektreffer in een verborgen categorie */
+.card-hidden .card-img { opacity: .72; }
+.mark-hidden { position: absolute; left: 6px; bottom: 6px; padding: 2px 7px; border-radius: 6px; background: #000000b3; color: #fff; font-size: .72rem; font-weight: 600; }
+.card-sub { font-size: .78rem; color: var(--muted, #9aa0a6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

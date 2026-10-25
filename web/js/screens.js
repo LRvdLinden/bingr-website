@@ -1128,12 +1128,66 @@
       if (!q.trim()) { results.appendChild(h('p.muted.search-hint', L('Type to search your channels, movies and series.'))); return; }
       // build 129: over alle servers van het account (zonder te wisselen; dezelfde titel op twee servers is één treffer)
       shownVersion = B.xs ? B.xs.version : 0;
-      var res = B.xs ? B.xs.searchAll(q, 60) : Lib.search(q, 60);
-      if (!res.channels.length && !res.movies.length && !res.series.length) { results.appendChild(h('div.state', [h('p.muted', L('No results for "%@"', q))])); return; }
+      // build 149: in stukjes (alleen de laatste zoekopdracht telt), plus Stremio-zoekcatalogi en verborgen categorieën
+      var my = ++searchSeq;
+      if (searchJob && searchJob.cancel) searchJob.cancel();
+      var SQ = B.search;
+      if (!SQ) { show(B.xs ? B.xs.searchAll(q, 60) : Lib.search(q, 60), [], my); return; }
+      results.appendChild(h('p.muted.search-hint', L('Searching…')));
+      var job = searchJob = B.xs && B.xs.searchAllAsync ? B.xs.searchAllAsync(q, 60) : SQ.rank([Lib.lib], q, 60);
+      var qNow = q;
+      job.then(function (res) {
+        if (my !== searchSeq) return;
+        var raws = B.xs && B.xs.rawsForSearch ? B.xs.rawsForSearch() : [{ sid: Lib.source && Lib.source.id, raw: Lib.raw }];
+        return SQ.hiddenHits(raws, qNow, 20).then(function (hid) {
+          if (my !== searchSeq) return;
+          show(res, hid, my);
+          // Stremio-add-ons met zoeken: erbij, zonder dubbele (zelfde imdb-id of titel + jaar)
+          SQ.stremio(qNow).then(function (rem) {
+            if (my !== searchSeq || (!rem.movies.length && !rem.series.length)) return;
+            function merge(local, extra) {
+              var seen = {};
+              local.forEach(function (x) { if (x.imdbID) seen['i' + x.imdbID] = 1; seen['t' + SQ.norm(x.title, true) + '|' + (x.year || '')] = 1; });
+              return local.concat(extra.filter(function (x) {
+                var k1 = 'i' + x.imdbID, k2 = 't' + SQ.norm(x.title, true) + '|' + (x.year || '');
+                if (seen[k1] || seen[k2]) return false;
+                seen[k1] = seen[k2] = 1;
+                return true;
+              }));
+            }
+            show({ channels: res.channels, movies: merge(res.movies, rem.movies).slice(0, 80), series: merge(res.series, rem.series).slice(0, 80) }, hid, my);
+          });
+        });
+      }, B.noop);
+    }
+    var searchSeq = 0, searchJob = null;
+    function show(res, hid, my) {
+      if (my !== searchSeq) return;
+      U.clear(results);
+      if (!res.channels.length && !res.movies.length && !res.series.length && !hid.length) { results.appendChild(h('div.state', [h('p.muted', L('No results for "%@"', q))])); return; }
       if (res.movies.length) { results.appendChild(h('h2.row-title.grid-title', L('Movies'))); results.appendChild(U.grid(res.movies, function (m) { return posterCard(m, 'movie'); }, 'posters')); }
       if (res.series.length) { results.appendChild(h('h2.row-title.grid-title', L('Series'))); results.appendChild(U.grid(res.series, function (s) { return posterCard(s, 'series'); }, 'posters')); }
       // Live TV (zenders) altijd als laatste, na films en series
       if (res.channels.length) results.appendChild(U.row(L('Channels'), res.channels.map(function (c) { return channelCard(c, res.channels); }), 'live'));
+      // build 149: treffers in verborgen categorieën onderaan; aanklikken = categorie weer aanzetten (de server laadt opnieuw)
+      if (hid.length) {
+        results.appendChild(h('h2.row-title.grid-title', L('In hidden categories')));
+        results.appendChild(U.grid(hid, hiddenCard, 'posters'));
+      }
+    }
+    function hiddenCard(x) {
+      var card = h('a.card.card-hidden', { href: '#', 'aria-label': x.title + ', ' + L('hidden category') + ' ' + x.group }, [
+        h('div.card-img', [U.img(x.poster, 'poster', x.title), h('span.mark.mark-hidden', L('hidden category'))]),
+        h('div.card-title', x.title), h('div.card-sub', x.group)
+      ]);
+      card.addEventListener('click', function (e) {
+        e.preventDefault();
+        U.confirm(L('Show category?'), L('"%@" is hidden. Show this category again? The server then reloads.', x.group), L('Show'), function () {
+          D.setCategoryHidden(x.sid, x.group, false);
+          U.toast(L('The category is shown again. The server is reloading.'), 5000);
+        });
+      });
+      return card;
     }
     var deb = B.debounce(run, 220);
     input.addEventListener('input', deb);

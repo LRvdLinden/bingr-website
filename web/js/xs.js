@@ -409,8 +409,11 @@
    * Build 129: zoeken over meerdere bibliotheken (actieve server eerst). Eerst wat met de zoekterm begint (alle servers),
    * dan wat hem bevat; zonder dubbele. {channels, movies, series} zoals Lib.search.
    */
+  function dedupeOf(type, items) { return X.dedupeHits(items.map(function (x) { return { type: type, item: x }; })).map(function (hh) { return hh.item; }); }
   X.searchPick = function (libs, q, limit) {
     limit = limit || 40;
+    // build 149: woorden in willekeurige volgorde, genormaliseerd, gerangschikt (search.js)
+    if (B.search && B.search.rankSync) return B.search.rankSync(libs, q, limit, dedupeOf);
     var f = B.fold(q || '').trim();
     var out = { channels: [], movies: [], series: [] };
     if (!f) return out;
@@ -1091,6 +1094,15 @@
   };
   /** Zoeken over alle servers (zonder te wisselen); items van een andere server hebben _src. */
   X.searchAll = function (q, limit) { return X.searchPick(libsFor(null), q, limit || 40); };
+  /** build 149: zoeken over alle servers in stukjes (Promise met cancel()). */
+  X.searchAllAsync = function (q, limit) { return B.search.rank(libsFor(null), q, limit || 40, dedupeOf); };
+  /** build 149: ruwe lijsten (met de zoekindex van verborgen categorieën) van alle servers: [{sid, raw}], actieve eerst. */
+  X.rawsForSearch = function () {
+    var out = [];
+    if (Lib.source && Lib.raw) out.push({ sid: Lib.source.id, raw: Lib.raw });
+    ((D && D.sources) || []).forEach(function (s) { if (isActive(s.id)) return; var c = catNow(s.id); if (c && c.raw) out.push({ sid: s.id, raw: c.raw }); });
+    return out;
+  };
   /** Categorieën voor het collectieformulier: van alle servers, of van één. */
   X.groups = function (onlySid) { return X.groupsOf(libsFor(onlySid && D.sourceById(onlySid) ? onlySid : null)); };
 
