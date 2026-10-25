@@ -979,15 +979,20 @@
           var g = list[i].group;
           if (g == null || seen[g]) continue;
           seen[g] = true;
-          var e = byName[g];
-          if (!e) { e = byName[g] = { name: g, srcs: [], f: B.fold(g) }; out.push(e); }
-          e.srcs.push(src);
+          // build 150: dezelfde opgeschoonde naam (zonder "NL |", "4K", "(MULTI)", hoofdletterongevoelig) = één regel;
+          // de schakelaar zet alle onderliggende categorieën (per server, exacte naam) tegelijk aan of uit
+          var cc = B.catClean(g), fk = B.fold(cc.name);
+          var e = byName[fk];
+          if (!e) { e = byName[fk] = { name: cc.name, srcs: [], pairs: [], tags: [], f: fk }; out.push(e); }
+          if (e.srcs.indexOf(src) < 0) e.srcs.push(src);
+          e.pairs.push({ src: src, name: g });
+          cc.tags.forEach(function (t) { if (e.tags.indexOf(t) < 0) e.tags.push(t); });
         }
       });
       memo = { key: key, g: { list: out, loading: loadingAny } };
       return memo.g;
     }
-    function isHidden(e) { return e.srcs.every(function (src) { return !!D.hiddenCategoryNames(src.id)[e.name]; }); }
+    function isHidden(e) { return e.pairs.every(function (p) { return !!D.hiddenCategoryNames(p.src.id)[p.name]; }); }
     var many = D.sources.length > 1;
     function setSwitch(tg, on) {
       tg.setAttribute('aria-checked', on ? 'true' : 'false');
@@ -996,14 +1001,15 @@
     }
     function rowFor(e) {
       var on = !isHidden(e);
-      var label = many ? h('span.st-label', [h('span', e.name), h('span.st-sub', e.srcs.map(function (x) { return x.name; }).join(', '))]) : h('span.st-label', e.name);
+      var nm = e.tags.length ? h('span', [e.name, ' ', h('span.cat-chips', e.tags.map(function (t) { return h('span.cat-chip', t); }))]) : h('span', e.name);
+      var label = many ? h('span.st-label', [nm, h('span.st-sub', e.srcs.map(function (x) { return x.name; }).join(', '))]) : h('span.st-label', [nm]);
       var tg = h('button.hl-main', { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false' }, [label, h('span.switch' + (on ? '.on' : ''), [h('i')])]);
       tg._e = e;
       tg.addEventListener('click', function () {
         var nowOn = tg.getAttribute('aria-checked') === 'true';
         // alleen deze schakelaar; opslaan en (uitgesteld) opnieuw filteren doen sync.js en xs.js
         setSwitch(tg, !nowOn);
-        D.setCategoriesHidden(e.srcs.map(function (src) { return { sid: src.id, name: e.name, hidden: nowOn }; }));
+        D.setCategoriesHidden(e.pairs.map(function (p) { return { sid: p.src.id, name: p.name, hidden: nowOn }; }));
       });
       return h('div.st-row.hl-row', [tg]);
     }

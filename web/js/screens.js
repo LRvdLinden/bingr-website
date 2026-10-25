@@ -10,6 +10,12 @@
   var h = U.h, R = U.router;
   var L = function () { return B.L.apply(null, arguments); };
   var S = B.screens = { pages: {}, navOwner: {} };
+  /** build 150: titel van een categorierij; samengevoegd uit meer categorieën = met taalchips ("Netflix  NL · Multi"). */
+  S.groupTitle = function (type, g) {
+    var tags = B.lib.groupSources(type, g).length > 1 ? B.lib.groupTags(type, g) : [];
+    if (!tags.length) return g;
+    return [g, ' ', B.ui.h('span.cat-chips', tags.map(function (t) { return B.ui.h('span.cat-chip', t); }))];
+  };
 
   // MARK: inloggen
 
@@ -781,8 +787,8 @@
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
           // build 147: elke rij als functie; fillRow bouwt ze één voor één in een eigen macrotaak (14 rijen × 30 tegels)
-          lib.movieGroups.slice(0, 8).forEach(function (g) { out.push(function () { return U.row(g, (mg[g] || []).slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, R.link(['movies', g])); }); });
-          lib.seriesGroups.slice(0, 6).forEach(function (g) { out.push(function () { return U.row(g, (sg[g] || []).slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, R.link(['series', g])); }); });
+          lib.movieGroups.slice(0, 8).forEach(function (g) { out.push(function () { return U.row(S.groupTitle('movie', g), (mg[g] || []).slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, R.link(['movies', g])); }); });
+          lib.seriesGroups.slice(0, 6).forEach(function (g) { out.push(function () { return U.row(S.groupTitle('series', g), (sg[g] || []).slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, R.link(['series', g])); }); });
           return out;
         }
       };
@@ -1053,7 +1059,7 @@
             var end = Math.min(groups.length, gi + 6);
             for (; gi < end; gi++) {
               var g = groups[gi];
-              var row = U.row(g, (byG[g] || []).slice(0, 30).map(function (x) { return posterCard(x, type); }), null, R.link([base, g]));
+              var row = U.row(S.groupTitle(type, g), (byG[g] || []).slice(0, 30).map(function (x) { return posterCard(x, type); }), null, R.link([base, g]));
               if (row) rows.insertBefore(row, more);
             }
             if (gi >= groups.length) { if (io) io.disconnect(); more.remove(); }
@@ -1176,14 +1182,18 @@
       }
     }
     function hiddenCard(x) {
-      var card = h('a.card.card-hidden', { href: '#', 'aria-label': x.title + ', ' + L('hidden category') + ' ' + x.group }, [
+      var gShown = B.catName(x.group);
+      var card = h('a.card.card-hidden', { href: '#', 'aria-label': x.title + ', ' + L('hidden category') + ' ' + gShown }, [
         h('div.card-img', [U.img(x.poster, 'poster', x.title), h('span.mark.mark-hidden', L('hidden category'))]),
-        h('div.card-title', x.title), h('div.card-sub', x.group)
+        h('div.card-title', x.title), h('div.card-sub', gShown)
       ]);
       card.addEventListener('click', function (e) {
         e.preventDefault();
-        U.confirm(L('Show category?'), L('"%@" is hidden. Show this category again? The server then reloads.', x.group), L('Show'), function () {
-          D.setCategoryHidden(x.sid, x.group, false);
+        U.confirm(L('Show category?'), L('"%@" is hidden. Show this category again? The server then reloads.', gShown), L('Show'), function () {
+          // build 150: alle verborgen categorieën van deze server met dezelfde opgeschoonde naam (samengevoegd = samen aan)
+          var hid = D.hiddenCategoryNames(x.sid) || {}, fk = B.fold(gShown), list = [{ sid: x.sid, name: x.group, hidden: false }];
+          Object.keys(hid).forEach(function (n) { if (hid[n] && n !== x.group && B.fold(B.catName(n)) === fk) list.push({ sid: x.sid, name: n, hidden: false }); });
+          D.setCategoriesHidden(list);
           U.toast(L('The category is shown again. The server is reloading.'), 5000);
         });
       });

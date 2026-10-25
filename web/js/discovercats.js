@@ -18,14 +18,9 @@
   var DC = B.discoverCats = {};
   var MAX = 10, PALETTE = 10;
 
-  // MARK: naam opschonen ("NL | Netflix", "4K - Disney+", "[EN] Prime Video" → "Netflix", "Disney+", "Prime Video")
-
-  var PREFIX = /^\s*(?:\[[^\]]{1,8}\]\s*|\([^)]{1,8}\)\s*|\|[^|]{1,8}\|\s*|[A-Za-z0-9+]{2,4}(?:\s*[|:»]\s*|\s+[-–]\s*|[-–]\s+))/;
-  DC.cleanName = function (g) {
-    var s = String(g == null ? '' : g).trim(), prev = null;
-    while (s && s !== prev) { prev = s; var n = s.replace(PREFIX, '').trim(); if (n) s = n; else break; }
-    return s.replace(/\s{2,}/g, ' ');
-  };
+  // MARK: naam opschonen ("| NL | NETFLIX", "| MULTI / LINGO | NETFLIX", "4K - Disney+", "[EN] Prime Video" → "Netflix", …)
+  // build 150: één opschoning voor de hele webspeler (B.catName in core.js; ook de rijen, Categorieën en zoeken)
+  DC.cleanName = function (g) { return B.catName(g); };
   /** Vaste kleur per naam (zelfde naam = zelfde kleur op elk apparaat). */
   DC.colorIndex = function (name) {
     var s = B.fold(DC.cleanName(name)), x = 0;
@@ -56,7 +51,16 @@
     disney: ['disneyplus'], disneyplus: ['disneyplus'],
     apple: ['appletvplus', 'appletv'], appletv: ['appletvplus', 'appletv'], appletvplus: ['appletvplus', 'appletv'],
     sky: ['skyshowtime'], showtime: ['skyshowtime', 'showtime'], paramount: ['paramountplus'], paramountplus: ['paramountplus'],
-    npo: ['npoplus', 'npostart'], npoplus: ['npoplus', 'npostart'], npostart: ['npostart', 'npoplus'], ziggo: ['ziggogo'], pathe: ['patheathome', 'pathethuis']
+    npo: ['npoplus', 'npostart'], npoplus: ['npoplus', 'npostart'], npostart: ['npostart', 'npoplus'], ziggo: ['ziggogo', 'ziggotv'], pathe: ['patheathome', 'pathethuis'],
+    // build 150: meer vormen die servers gebruiken
+    netflixkids: ['netflix', 'netflixkids'], netflixoriginals: ['netflix'], hbomaxoriginals: ['hbomax', 'max'], maxoriginals: ['hbomax', 'max'],
+    amazonprimevideo: ['amazonprimevideo', 'primevideo'], primevideoamazon: ['amazonprimevideo', 'primevideo'], amazonprimevid: ['amazonprimevideo'],
+    disneypluskids: ['disneyplus'], disneyplusoriginals: ['disneyplus'], skyshowtimeoriginals: ['skyshowtime'],
+    appletvoriginals: ['appletvplus', 'appletv'], appletvplusoriginals: ['appletvplus', 'appletv'], appleoriginals: ['appletvplus', 'appletv'],
+    videolandplus: ['videoland'], videolandoriginals: ['videoland'], viaplayoriginals: ['viaplay'], nlziet: ['nlziet'],
+    discovery: ['discoveryplus'], discoveryplus: ['discoveryplus'], canal: ['canalplus'], canalplus: ['canalplus'], vtmgo: ['vtmgo'],
+    goplay: ['goplay'], streamz: ['streamz'], dazn: ['dazn'], pathethuis: ['pathethuis', 'patheathome'], patheathome: ['patheathome', 'pathethuis'],
+    npo1: ['npostart', 'npoplus'], npostartplus: ['npoplus', 'npostart']
   };
   /** Logo-URL voor een categorie uit een index {sleutel: url}; null als hij niet bij een dienst hoort. */
   DC.logoFor = function (g, index) {
@@ -132,7 +136,9 @@
       var posters = [];
       for (var j = 0; j < c.list.length && posters.length < 4; j++) if (c.list[j].poster) posters.push(c.list[j].poster);
       if (posters.length < 3) continue; // collage van 3–4 posters, anders past de tegel niet
-      res.push({ type: c.type, group: c.group, name: name, n: c.n, posters: posters });
+      // build 150: samengevoegd uit meer categorieën (talen, kwaliteit) = taalchips op de tegel ("NL · Multi")
+      var tags = Lib.groupSources && Lib.groupSources(c.type, c.group).length > 1 ? Lib.groupTags(c.type, c.group) : [];
+      res.push({ type: c.type, group: c.group, name: name, n: c.n, posters: posters, tags: tags });
     }
     return res;
   };
@@ -141,7 +147,7 @@
 
   function tile(c) {
     var art = h('div.dc-art.n' + c.posters.length, c.posters.map(function (p) { return h('div.dc-p', [U.img(p, 'poster', '')]); }));
-    var bar = h('div.dc-bar', [h('div.dc-name', c.name)]);
+    var bar = h('div.dc-bar', [h('div.dc-name', c.name), c.tags && c.tags.length ? h('div.dc-tags', c.tags.join(' · ')) : null]);
     var a = h('a.dc-tile.dc-c' + DC.colorIndex(c.name), {
       href: R.link([c.type === 'series' ? 'series' : 'movies', c.group]),
       'aria-label': c.name + ', ' + (c.n === 1 ? L('1 title') : L('%d titles', c.n))

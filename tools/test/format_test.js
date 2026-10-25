@@ -11,6 +11,7 @@ Object.defineProperty(globalThis, 'navigator', { value: { userAgent: 'node', lan
 const load = (f) => (0, eval)(fs.readFileSync(path.join(WEB, f), 'utf8'));
 load('core.js');
 const B = globalThis.B;
+const realParseTitle = B.parseTitle;
 // parseISO: zelfde uitkomst als Date.parse voor alle vormen die de apps schrijven
 const cases = ['2026-10-12T18:00:00.000Z', '2026-10-12T18:00:00Z', '2026-10-12T18:00Z', '2026-10-12', '2026-10-12T18:00:00.1234567Z',
   '2026-10-12T18:00:00+02:00', '2026-10-12T18:00:00.5-05:30', '2026-10-12 18:00:00', '2024-02-29T23:59:59.999Z', '2026-10-12T18:00:00+0200'];
@@ -74,8 +75,71 @@ assert.deepStrictEqual(titles('king'), ['King', 'Kingdom', 'The Lord of the Ring
 assert.deepStrictEqual(Q.rankSync([lib], 'rtl 4', 5).channels.map((c) => c.name), ['NL: RTL 4 HD'], 'zenders');
 assert.strictEqual(Q.score('breaking bad', Q.query('bad breaking')), 2);
 assert.ok(Q.within1('interstellar', 'intersteller') && Q.within1('abcd', 'abdc') && !Q.within1('abc', 'axz'));
+// build 150: taal-, land- en kwaliteitsaanduidingen weg (B.catClean/B.catName, één plek in core.js) en samenvoegen
+const CC = (g) => B.catName(g);
+[['| NL | NETFLIX', 'Netflix'], ['| MULTI / LINGO | NETFLIX', 'Netflix'], ['NL: Bioscoop', 'Bioscoop'], ['[EN] Disney+ 4K', 'Disney+'],
+  ['BE ¦ VTM GO', 'VTM GO'], ['NETFLIX (NL)', 'Netflix'], ['TR - DIZI', 'Dizi'], ['4K | UHD | SPORT', 'Sport'], ['| NL | BIOSCOOP', 'Bioscoop'],
+  ['| NL | VIDEOLAND', 'Videoland'], ['NL', 'NL'], ['4K', '4K'], ['Kids NL', 'Kids'], ['MULTI-LINGO | NETFLIX', 'Netflix'], ['NL │ Films', 'Films'],
+  ['UK ★ DRAMA', 'Drama'], ['» NL « Actie', 'Actie'], ['{FR} Comédie', 'Comédie'], ['NL • RTL 4', 'RTL 4'], ['DE — Sport HD', 'Sport'],
+  ['Nederlands | Kinderfilms', 'Kinderfilms'], ['Kids Nederlands', 'Kids'], ['VOD | Netflix', 'Netflix'], ['Netflix MULTI-SUB', 'Netflix'],
+  ['NL: 4K | Actie', 'Actie'], ['EX-YU | Filmovi', 'Filmovi'], ['(NL) HBO MAX', 'HBO Max'], ['NL / PRIME VIDEO', 'Prime Video'],
+  ['NL | NPO START', 'NPO Start'], ['APPLE TV+ [NL]', 'Apple TV+'], ['NL | SKYSHOWTIME', 'SkyShowtime'], ['NL · VIAPLAY', 'Viaplay'],
+  ['BBC', 'BBC'], ['SBS6', 'SBS6'], ['F1', 'F1'], ['ESPN', 'ESPN'], ['NPO', 'NPO'], ['RTL', 'RTL'], ['TV', 'TV'], ['Films', 'Films'], ['SERIES', 'Series'],
+  ['Sci-Fi', 'Sci-Fi'], ['SCI-FI', 'Sci-Fi'], ['Spider-Man', 'Spider-Man'], ['AL-JAZEERA', 'Al-Jazeera'], ['US Open', 'US Open'], ['TOP OF THE POPS', 'Top of the Pops'],
+  ['  | NL |  ', 'NL'], ['', ''], ['Netflix', 'Netflix'], ['HBO Max', 'HBO Max']
+].forEach(([a, b]) => assert.strictEqual(CC(a), b, 'catName ' + JSON.stringify(a)));
+assert.deepStrictEqual(B.catClean('| NL | NETFLIX').tags, ['NL']); assert.deepStrictEqual(B.catClean('| MULTI / LINGO | NETFLIX').tags, ['Multi']);
+assert.deepStrictEqual(B.catClean('NLD | Netflix').tags, ['NL'], 'drieletter-code als chip in twee letters');
+// titels: alleen met scheidingsteken of tussen haakjes (geen "US Marshals" of "The Italian Job" stuk maken)
+[['| MULTI / LINGO | Breaking Bad', 'Breaking Bad'], ['NL | Amélie', 'Amélie'], ['Mission: Impossible', 'Mission: Impossible'], ['US Marshals', 'US Marshals'],
+  ['The Italian Job', 'The Italian Job'], ['Alien: Covenant', 'Alien: Covenant'], ['Dune 4K', 'Dune'], ['Spider-Man: No Way Home', 'Spider-Man: No Way Home'], ['Up', 'Up']
+].forEach(([a, b]) => assert.strictEqual(B.stripTags(a), b, 'stripTags ' + a));
+assert.strictEqual(realParseTitle('| MULTI / LINGO | Breaking Bad (2008)').title, 'Breaking Bad');
+// Ontdek categorieën: dezelfde naam, logo op de opgeschoonde naam
+assert.strictEqual(DC.cleanName('| MULTI / LINGO | NETFLIX'), 'Netflix');
+assert.strictEqual(logo('| NL | NETFLIX'), '/n.jpg'); assert.strictEqual(logo('| MULTI / LINGO | NETFLIX'), '/n.jpg'); assert.strictEqual(logo('| NL | VIDEOLAND'), '/v.jpg');
+assert.strictEqual(logo('NL | HBO MAX'), '/h.jpg'); assert.strictEqual(logo('[NL] DISNEY+ 4K'), '/d.jpg'); assert.strictEqual(logo('NL: PRIME VIDEO'), '/p.jpg');
+assert.strictEqual(logo('| NL | SKYSHOWTIME'), '/s.jpg'); assert.strictEqual(logo('NL · VIAPLAY'), '/vp.jpg'); assert.strictEqual(logo('APPLE TV+ (NL)'), '/a.jpg');
+const idx2 = DC.buildIndex([{ results: [{ provider_name: 'NPO Start', logo_path: '/npo.jpg' }] }]);
+assert.ok(DC.logoFor('| NL | NPO START', idx2), 'NPO Start');
+assert.ok(DC.logoFor('NL | NPO', idx2), 'NPO → NPO Start');
+// zoeken: zelfde opschoning
+assert.strictEqual(Q.norm('| MULTI / LINGO | Breaking Bad', true), 'breaking bad');
+assert.strictEqual(Q.norm('Dune (NL) 4K', true), 'dune');
+// samenvoegen + ontdubbelen (library.js): "| NL | NETFLIX" + "| MULTI / LINGO | NETFLIX" = één categorie "Netflix"
+{
+  const saved = { data: B.data, lib: B.lib, pt: B.parseTitle };
+  B.parseTitle = realParseTitle;
+  B.data = { customization: () => ({}), ageLimit: () => null, strict: () => false, shared: (k, d) => d, lockedGroups: () => [], hiddenCategoryNames: () => ({}), secret: () => '', sources: [] };
+  B.media = { isMediaServer: () => false };
+  B.on = () => () => {};
+  load('language.js'); load('providers.js'); delete B.lib; load('library.js');
+  const L2 = B.lib;
+  const mv = (id, t, g, extra) => Object.assign({ id: 'm' + id, title: t, group: g, poster: 'p' + id }, extra || {});
+  const raw = { channels: [], series: [], movies: [
+    mv(1, 'Squid Game', '| NL | NETFLIX', { tmdb: 93405 }), mv(2, 'Squid Game', '| MULTI / LINGO | NETFLIX', { tmdb: 93405 }),
+    mv(3, 'Wednesday (2022)', '| NL | NETFLIX'), mv(4, 'Wednesday', '| MULTI / LINGO | NETFLIX', { year: 2022 }), mv(5, 'Ozark', '| MULTI / LINGO | NETFLIX'),
+    mv(6, 'Bad Boys', 'NL: Bioscoop'), mv(7, 'Dune', '[EN] Bioscoop 4K') ] };
+  const ctx = { custom: {}, hiddenCats: { '[EN] Bioscoop 4K': true }, lockedGroups: [], kids: false, ageLimit: null, playlist: 'S1' };
+  L2.lib = L2.apply(raw, ctx); L2.version++;
+  assert.deepStrictEqual([...new Set(L2.lib.movies.map((m) => m.group))], ['Netflix', 'Bioscoop'], 'getoonde namen');
+  const by = L2.byGroup('movie');
+  assert.deepStrictEqual(Object.keys(by), ['Netflix', 'Bioscoop']);
+  assert.strictEqual(by.Netflix.length, 3, 'ontdubbeld: Squid Game (TMDB) en Wednesday (titel + jaar) één keer');
+  assert.strictEqual(by['| NL | NETFLIX'], by.Netflix, 'oude naam wijst naar de samengevoegde categorie');
+  assert.deepStrictEqual(L2.groupSources('movie', 'Netflix'), ['| NL | NETFLIX', '| MULTI / LINGO | NETFLIX']);
+  assert.deepStrictEqual(L2.groupTags('movie', 'Netflix'), ['NL', 'Multi']);
+  assert.strictEqual(by.Bioscoop.length, 1, 'verborgen bron blijft verborgen (per bron-id)');
+  B.lang = 'nl';
+  assert.strictEqual(by.Netflix[0].rawGroup, '| NL | NETFLIX', 'bron in de taal van de gebruiker');
+  // hernoemd = eigen naam blijft
+  L2.lib = L2.apply(raw, Object.assign({}, ctx, { custom: { renamed: { 'group:| NL | NETFLIX': 'Mijn Netflix' } } })); L2.version++;
+  assert.deepStrictEqual([...new Set(L2.lib.movies.map((m) => m.group))], ['Mijn Netflix', 'Netflix', 'Bioscoop']);
+  B.data = saved.data; B.parseTitle = saved.pt;
+}
 // verborgen categorieën: compacte rijen [id, naam, afbeelding, categorie]
 Q.hiddenHits([{ sid: 'S1', raw: { hiddenMovies: [[1, 'NL | Amélie 2', 'p.jpg', 'Films 3'], [2, 'Iets anders', null, 'Films 3']] } }], 'amelie', 10).then((h) => {
-  assert.deepStrictEqual(h, [{ type: 'movie', title: 'NL | Amélie 2', poster: 'p.jpg', group: 'Films 3', sid: 'S1' }]);
+  assert.deepStrictEqual(h, [{ type: 'movie', title: 'Amélie 2', poster: 'p.jpg', group: 'Films 3', sid: 'S1' }]);
   console.log('format_test: alles goed');
+  process.exit(0); // build 150: library.js zet timers (heartbeat); niet wachten
 });

@@ -21,6 +21,8 @@
   var JUNK = /[^a-z0-9À-ɏͰ-ϿЀ-ӿ֐-ۿ぀-ヿ㐀-鿿가-힯]+/g;
   /** Zoektekst: opgevouwen, & = and, leestekens weg. title = true: ook landen-/kwaliteitsvoorvoegsels weg. */
   Q.norm = function (s, title) {
+    // build 150: dezelfde opschoning als categorieën en titels (B.stripTags: "| MULTI / LINGO | ", "(NL)", " 4K")
+    if (title && B.stripTags) s = B.stripTags(s);
     s = B.fold(s == null ? '' : s).replace(/&/g, ' and ').replace(/[’'`´]/g, '');
     if (title) {
       var prev = null;

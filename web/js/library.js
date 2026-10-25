@@ -155,9 +155,21 @@
       if (locked[ctx.playlist + '|' + g]) return true;
       return ctx.autoLockAdult && PC.isAdultGroup(g);
     }
+    // build 150: getoonde categorienaam zonder taal-, land- en kwaliteitsaanduidingen (B.catName); dezelfde opgeschoonde
+    // naam (hoofdletterongevoelig) = één categorie ("| NL | NETFLIX" + "| MULTI / LINGO | NETFLIX" = "Netflix"). Een eigen
+    // naam (hernoemd) blijft zoals hij is. Verbergen, vergrendelen en kinderslot blijven op de naam van de server.
+    var gName = Object.create(null), gCanon = Object.create(null);
     function group(g) {
+      var key = g == null ? '' : String(g);
+      if (key in gName) return gName[key];
       var m = own(c.merged, g) || g;
-      return own(c.renamed, 'group:' + m) || m;
+      var r = own(c.renamed, 'group:' + m);
+      if (!r) {
+        var n = B.catName(m) || m, f = B.fold(n);
+        r = gCanon[f] || (gCanon[f] = n);
+      }
+      gName[key] = r;
+      return r;
     }
     var groupOK = Object.create(null);
     // build 148: waarom iets niet zichtbaar is (diagnose: geleverd naast zichtbaar), per soort
@@ -176,7 +188,9 @@
     }
     function drop(kind, w) { stats[kind][w || 'other']++; return null; }
     var AR = B.ageRatings;
-    var CLs = B.clang ? B.clang.strip : function (t) { return t; };
+    var CLs0 = B.clang ? B.clang.strip : function (t) { return t; };
+    // build 150: daarna dezelfde opschoning als categorieën ("| MULTI / LINGO | Titel", "Titel 4K")
+    var CLs = function (t) { var r = CLs0(t); return B.stripTags ? B.stripTags(r) : r; };
     /** build 140: kinderprofiel: categorie van de server (vóór hernoemen/samenvoegen) moet een kindercategorie zijn; een
      *  bekende leeftijd boven de grens = weg, zonder bekende leeftijd mag het (het komt uit een kindercategorie). */
     function kidsOK(x, isShow) {
@@ -215,6 +229,8 @@
       sortChannels: function (channels, chunked) {
         if (!((c.groupOrder && c.groupOrder.length) || Object.keys(c.channelOrder || {}).length)) return channels;
         var gIndex = Object.create(null); (c.groupOrder || []).forEach(function (g, i) { if (!B.has(gIndex, g)) gIndex[g] = i; });
+        // build 150: de volgorde staat op de naam van de server; de zenders hebben de opgeschoonde naam
+        (c.groupOrder || []).forEach(function (g, i) { var n = group(g); if (!B.has(gIndex, n)) gIndex[n] = i; });
         var natural = Object.create(null), n = 0;
         channels.forEach(function (ch) { if (!B.has(natural, ch.group)) natural[ch.group] = 10000 + n++; });
         var cIndex = Object.create(null);
@@ -419,11 +435,66 @@
     return Lib.memo('byGroup:' + type, function () {
       var list = type === 'movie' ? Lib.lib.movies : type === 'series' ? Lib.lib.series : Lib.lib.channels;
       // build 97: zonder prototype, zodat m["constructor"] of m["__proto__"] gewoon een groep is
-      var m = Object.create(null);
-      for (var i = 0; i < list.length; i++) (m[list[i].group] = m[list[i].group] || []).push(list[i]);
+      var m = Object.create(null), raws = Object.create(null), i, x, g;
+      for (i = 0; i < list.length; i++) {
+        x = list[i]; g = x.group;
+        (m[g] = m[g] || []).push(x);
+        // build 150: welke categorieën van de server in deze (samengevoegde) categorie zitten
+        var rg = x.rawGroup != null ? x.rawGroup : g, rr = raws[g] || (raws[g] = []);
+        if (rr[rr.length - 1] !== rg && rr.indexOf(rg) < 0) rr.push(rg);
+      }
+      // build 150: samengevoegd uit meer categorieën: dezelfde titel maar één keer (films en series)
+      if (type !== 'channel') for (g in m) if (raws[g].length > 1) m[g] = dedupe(m[g], type === 'series');
+      // oude namen (deeplinks, eigen collecties, andere apps) wijzen naar de samengevoegde categorie; niet opsombaar
+      for (g in raws) raws[g].forEach(function (r) {
+        if (r === g || B.has(m, r)) return;
+        try { Object.defineProperty(m, r, { value: m[g], enumerable: false, configurable: true }); } catch (e) { /* eigen naam */ }
+        var n = B.catName(r);
+        if (n !== g && !B.has(m, n)) try { Object.defineProperty(m, n, { value: m[g], enumerable: false, configurable: true }); } catch (e) { /* */ }
+      });
+      memo['groupRaw:' + type] = { v: Lib.version, r: raws };
       return m;
     });
   };
+  /** build 150: categorieën van de server in een (samengevoegde) categorie (namen zoals de server ze levert). */
+  Lib.groupSources = function (type, g) {
+    Lib.byGroup(type);
+    var m = memo['groupRaw:' + type];
+    return (m && m.r && B.has(m.r, g) && m.r[g]) || [g];
+  };
+  /** build 150: taal-/landchips van een samengevoegde categorie ("NL", "Multi"). */
+  Lib.groupTags = function (type, g) {
+    var out = [];
+    Lib.groupSources(type, g).forEach(function (r) { B.catClean(r).tags.forEach(function (t) { if (out.indexOf(t) < 0) out.push(t); }); });
+    return out;
+  };
+  /** Sleutel om dezelfde titel te herkennen: TMDB-id, anders genormaliseerde titel + jaar. */
+  Lib.dupKey = function (x) {
+    var t = B.int(x.tmdb != null ? x.tmdb : (x.tmdbID != null ? x.tmdbID : x.tmdbId));
+    if (t) return 't' + t;
+    var p = B.parseTitle(x.rawTitle || x.title);
+    return 'n' + B.fold(p.title).replace(/[^a-z0-9\u00c0-\uffff]+/g, '') + '|' + (x.year || p.year || '');
+  };
+  /** Ontdubbelen; bij twee bronnen wint die in de audio- of app-taal van de gebruiker (anders de eerste). */
+  function dedupe(list, isShow) {
+    var CL = B.clang, pref = '';
+    try { pref = (CL && CL.preferredAudio && CL.preferredAudio()) || B.lang || ''; } catch (e) { pref = B.lang || ''; }
+    pref = String(pref).toLowerCase().slice(0, 2);
+    var langMemo = Object.create(null);
+    function langOf(x) {
+      var rg = x.rawGroup || '';
+      if (!(rg in langMemo)) { var c = CL && CL.fromCategory ? CL.fromCategory(rg) : null; langMemo[rg] = c && c.a ? c.a : ''; }
+      return langMemo[rg];
+    }
+    var at = Object.create(null), out = [];
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i], k = Lib.dupKey(x);
+      if (!(k in at)) { at[k] = out.length; out.push(x); continue; }
+      var j = at[k];
+      if (pref && langOf(out[j]) !== pref && langOf(x) === pref) out[j] = x;
+    }
+    return out;
+  }
   function buildIndexes() {
     var l = Lib.lib;
     l.channelGroups = groupsOf(l.channels);

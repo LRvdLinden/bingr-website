@@ -388,7 +388,7 @@
     var words = String((c && c.query) || '').split(',').map(function (w) { return B.fold(w).trim(); }).filter(Boolean);
     if (!words.length) return [];
     var types = Array.isArray(c.types) && c.types.length ? c.types : ['channel', 'movie', 'series'];
-    var out = [];
+    var out = [], cg = c.group ? B.catName(c.group) : null;
     POOLS.forEach(function (pl) {
       if (types.indexOf(pl[0]) < 0) return;
       var hits = [];
@@ -396,7 +396,8 @@
         var pool = (lib && lib[pl[1]]) || [], n = 0;
         for (var i = 0; i < pool.length && n < limit; i++) {
           var x = pool[i];
-          if (c.group && x.group !== c.group) continue;
+          // build 150: eigen collectie met de naam van de server ("NL | Netflix") = de opgeschoonde categorie
+          if (c.group && x.group !== c.group && x.group !== cg) continue;
           var t = foldOf(x, pl[2]), g = foldOf(x, 'group');
           for (var w = 0; w < words.length; w++) if (t.indexOf(words[w]) >= 0 || g.indexOf(words[w]) >= 0) { hits.push({ type: pl[0], item: x }); n++; break; }
         }

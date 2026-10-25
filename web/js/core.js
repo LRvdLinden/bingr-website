@@ -918,6 +918,191 @@
     return out;
   }
 
+  // MARK: build 150: taal-, land- en kwaliteitsaanduidingen weg (categorieën, titels en zoeken; één plek)
+  // "| NL | NETFLIX" → "Netflix", "| MULTI / LINGO | NETFLIX" → "Netflix", "NL: Bioscoop" → "Bioscoop", "[EN] Disney+ 4K" →
+  // "Disney+", "BE ¦ VTM GO" → "VTM GO", "NETFLIX (NL)" → "Netflix", "TR - DIZI" → "Dizi", "4K | UHD | SPORT" → "Sport",
+  // "Kids NL" → "Kids". Alleen weg als er daarna nog een naam over is ("NL" en "4K" blijven zoals ze zijn).
+  // Voorin en achterin, in elke volgorde: scheidingstekens | ¦ │ : - – — / • · ★ » « en [ ] ( ) { }; taal- en landcodes
+  // (ISO 639-1, ISO 3166-1 en gangbare drieletter-codes), talen/landen voluit (NL en EN), MULTI/LINGO/SUB/DUB/VOSTFR/…,
+  // VOD/FILMS/MOVIES/SERIES (alleen voorin) en kwaliteit (4K, UHD, FHD, HD, SD, HEVC, H265, HDR, DV, …).
+  // Zonder scheidingsteken alleen een code in HOOFDLETTERS ("NL Films", "Kids NL") of kwaliteit achteraan ("Videoland 4K").
+  function tagSet(str) { var o = Object.create(null); str.split(/\s+/).forEach(function (w) { if (w) o[w] = 1; }); return o; }
+  var T_ISO = tagSet(('aa ab ae af ak am an ar as av ay az ba be bg bh bi bm bn bo br bs ca ce ch co cr cs cu cv cy da de dv dz ee el en ' +
+    'eo es et eu fa ff fi fj fo fr fy ga gd gl gn gu gv ha he hi ho hr ht hu hy hz ia id ie ig ii ik io is it iu ja jv ka kg ki kj kk kl km kn ' +
+    'ko kr ks ku kv kw ky la lb lg li ln lo lt lu lv mg mh mi mk ml mn mr ms mt my na nb nd ne ng nl nn no nr nv ny oc oj om or os pa pi pl ps ' +
+    'pt qu rm rn ro ru rw sa sc sd se sg si sk sl sm sn so sq sr ss st su sv sw ta te tg th ti tk tl tn to tr ts tt tw ty ug uk ur uz ve vi ' +
+    'vo wa wo xh yi yo za zh zu').toUpperCase() + ' AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR ' +
+    'BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB ' +
+    'GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW ' +
+    'KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR ' +
+    'NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD ' +
+    'TF TG TH TJ TK TL TM TN TO TR TT TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW UK EU VL ' +
+    'NLD DUT ENG GER DEU FRA FRE SPA ESP ITA POR POL TUR ARA HIN RUS SWE NOR DAN FIN GRE ELL RUM RON HUN CZE CES KOR JPN CHI ZHO THA PER FAS ' +
+    'HEB ALB SQI BUL HRV SRB SRP UKR TAM USA GBR BEL AUT CHE CAN AUS BRA MEX ARG IND PAK IRN IRQ AFG KUR LAT LATAM EXYU EX-YU');
+  // zonder scheidingsteken (in HOOFDLETTERS): alleen de gangbare, geen gewone woorden als IN, NO, IS, TO, ME, MY, AM, AT, AS, SO
+  // (en geen US: "US Open")
+  var T_BARE = tagSet('NL BE VL EN UK GB DE FR ES IT PT BR PL TR AR RU SE DK FI GR RO HU CZ KR JP CN TH IR EXYU ' +
+    'NLD ENG GER DEU FRA ESP ITA POR POL TUR ARA RUS LAT LATAM MULTI MULTISUB MULTISUBS MULTILANG MULTIAUDIO VOSTFR');
+  var T_MULTI = tagSet('MULTI MULTILANG MULTILANGUAGE LANG LINGO MULTILINGO MULTILINGUAL MULTISUB MULTISUBS MULTIAUDIO DUAL SUB SUBS SUBBED ' +
+    'DUB DUBBED VOSTFR VOST VOSE VO VF OV OMU AUDIO');
+  var T_MEDIA = tagSet('VOD SERIES SERIE FILMS FILM MOVIES MOVIE');
+  var T_QUAL = tagSet('4K 8K UHD FHD HD SD HEVC H265 H264 X265 HDR HDR10 DV 1080P 720P 2160P 50FPS 60FPS');
+  // kwaliteit achteraan zonder scheidingsteken, ook in kleine letters ("Videoland 4k")
+  var T_QUAL_ANY = tagSet('4K 8K UHD FHD HD HEVC HDR HDR10 1080P 720P 2160P');
+  // talen en landen voluit (opgevouwen) → taalcode (voor de chip)
+  var T_NAMES = {
+    nederlands: 'NL', nederlandse: 'NL', dutch: 'NL', vlaams: 'NL', vlaamse: 'NL', flemish: 'NL', nederland: 'NL', netherlands: 'NL', holland: 'NL',
+    belgie: 'BE', belgium: 'BE', engels: 'EN', engelse: 'EN', english: 'EN', duits: 'DE', duitse: 'DE', german: 'DE', deutsch: 'DE', duitsland: 'DE', germany: 'DE',
+    frans: 'FR', franse: 'FR', french: 'FR', francais: 'FR', frankrijk: 'FR', france: 'FR', spaans: 'ES', spaanse: 'ES', spanish: 'ES', espanol: 'ES', spanje: 'ES', spain: 'ES',
+    italiaans: 'IT', italiaanse: 'IT', italian: 'IT', italiano: 'IT', italie: 'IT', italy: 'IT', portugees: 'PT', portugese: 'PT', portuguese: 'PT', portugal: 'PT',
+    turks: 'TR', turkse: 'TR', turkish: 'TR', turkce: 'TR', turkije: 'TR', turkey: 'TR', pools: 'PL', poolse: 'PL', polish: 'PL', polen: 'PL', poland: 'PL',
+    arabisch: 'AR', arabische: 'AR', arabic: 'AR', russisch: 'RU', russische: 'RU', russian: 'RU', zweeds: 'SV', swedish: 'SV', noors: 'NO', norwegian: 'NO',
+    deens: 'DA', danish: 'DA', fins: 'FI', finnish: 'FI', grieks: 'EL', greek: 'EL', roemeens: 'RO', romanian: 'RO', hongaars: 'HU', hungarian: 'HU',
+    tsjechisch: 'CS', czech: 'CS', koreaans: 'KO', korean: 'KO', japans: 'JA', japanese: 'JA', chinees: 'ZH', chinese: 'ZH', thai: 'TH', thais: 'TH',
+    perzisch: 'FA', persian: 'FA', farsi: 'FA', hebreeuws: 'HE', hebrew: 'HE', albanees: 'SQ', albanian: 'SQ', bulgaars: 'BG', bulgarian: 'BG',
+    kroatisch: 'HR', croatian: 'HR', servisch: 'SR', serbian: 'SR', oekraiens: 'UK', ukrainian: 'UK', hindi: 'HI', tamil: 'TA', latino: 'ES',
+    engeland: 'EN', england: 'EN', amerika: 'EN', america: 'EN', american: 'EN', amerikaans: 'EN', amerikaanse: 'EN', british: 'EN', brits: 'EN', britse: 'EN'
+  };
+  // chip: drieletter- en landcode → taal (alleen de gangbare; de rest blijft de code zelf)
+  var T_CHIP = { NLD: 'NL', DUT: 'NL', VL: 'NL', ENG: 'EN', UK: 'EN', GB: 'EN', US: 'EN', USA: 'EN', GBR: 'EN', GER: 'DE', DEU: 'DE', FRA: 'FR', FRE: 'FR',
+    SPA: 'ES', ESP: 'ES', LAT: 'ES', LATAM: 'ES', ITA: 'IT', POR: 'PT', BR: 'PT', POL: 'PL', TUR: 'TR', ARA: 'AR', RUS: 'RU', SWE: 'SV', SE: 'SV', DK: 'DA',
+    JP: 'JA', KR: 'KO', CN: 'ZH', GR: 'EL', BEL: 'BE', EXYU: 'EX-YU' };
+  var T_SEPS = '|¦│:\\-–—/•·★»«';
+  var T_LEAD = new RegExp('^[\\s,' + T_SEPS + ']+'), T_TRAIL = new RegExp('[\\s,' + T_SEPS + ']+$');
+  var T_BR_FRONT = /^[\[({]\s*([^\[\](){}]*?)\s*[\])}]/, T_BR_BACK = /[\[({]\s*([^\[\](){}]*?)\s*[\])}]\s*$/;
+  var T_SEG_FRONT = new RegExp('^([^' + T_SEPS + '\\[\\](){}]+?)(\\s*)([' + T_SEPS + ']+)(\\s*)');
+  var T_SEG_BACK = new RegExp('(\\s*)([' + T_SEPS + ']+)(\\s*)([^' + T_SEPS + '\\[\\](){}]+?)\\s*$');
+  var T_TIGHT = /^[\-–\/]+$/;
+  var T_ANY = new RegExp('[' + T_SEPS + '\\[\\](){}]');
+  function tagWord(w) {
+    var u = B.fold(w).toUpperCase().replace(/\./g, '');
+    if (!u) return null;
+    if (u === 'TV') return null; // Tuvalu, maar in een categorie bijna altijd "tv"
+    if (T_ISO[u]) return { k: 'lang', c: T_CHIP[u] || (u.length === 2 ? u : null) };
+    if (B.has(T_NAMES, u.toLowerCase())) return { k: 'lang', c: T_NAMES[u.toLowerCase()] };
+    if (T_MULTI[u]) return { k: 'multi', c: 'Multi' };
+    if (T_MEDIA[u]) return { k: 'media' };
+    if (T_QUAL[u]) return { k: 'qual' };
+    return null;
+  }
+  /** Alle woorden van een stuk tekst zijn aanduidingen? Dan [{k, c}], anders null. title = films/series-woorden niet. */
+  function tagWords(seg, noMedia) {
+    var ws = String(seg).split(/[\s\-–\/,+&]+/).filter(Boolean), out = [];
+    if (!ws.length) return out;
+    for (var i = 0; i < ws.length; i++) {
+      var t = tagWord(ws[i]);
+      if (!t || (noMedia && t.k === 'media')) return null;
+      out.push(t);
+    }
+    return out;
+  }
+  function hasName(s) { return /[0-9A-Za-zÀ-￿]/.test(s); }
+  function isUpperWord(w) { return /^[A-Z0-9][A-Z0-9\-]*$/.test(w); }
+  /**
+   * Aanduidingen voor- en achteraan weg. mode 'cat' (categorieën) of 'title' (titels en zoeken: alleen met scheidingsteken of
+   * tussen haakjes, plus kwaliteit achteraan; geen losse woorden als "US Marshals" of "The Italian").
+   * Geeft {name, tags: [{k, c}]}.
+   */
+  function stripTags(raw, mode) {
+    var s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').replace(/\bEX-YU\b/gi, 'EXYU').trim(), tags = [], cat = mode !== 'title', m, t, rest, guard;
+    var orig = s;
+    for (guard = 0; guard < 12; guard++) {
+      rest = s.replace(T_LEAD, '');
+      if (rest !== s) { if (!hasName(rest)) break; s = rest; }
+      if ((m = T_BR_FRONT.exec(s))) {
+        rest = s.slice(m[0].length);
+        t = m[1] ? tagWords(m[1], !cat) : [];
+        if (t && hasName(rest)) { tags = tags.concat(t); s = rest; continue; }
+        break;
+      }
+      if ((m = T_SEG_FRONT.exec(s))) {
+        rest = s.slice(m[0].length);
+        t = tagWords(m[1], !cat);
+        // "AL-JAZEERA", "UK-Drama": een streepje zonder spaties telt alleen tussen twee aanduidingen ("MULTI-LINGO")
+        if (t && !m[2] && !m[4] && T_TIGHT.test(m[3])) { var nx = rest.split(/[\s\-–\/|¦│:•·★»«]/)[0]; if (!nx || !tagWord(nx)) t = null; }
+        if (t && hasName(rest)) { tags = tags.concat(t); s = rest; continue; }
+      }
+      if (cat) {
+        var sp = s.indexOf(' ');
+        if (sp > 0) {
+          var w0 = s.slice(0, sp);
+          if (isUpperWord(w0) && (T_BARE[w0] || T_MEDIA[w0] || T_QUAL[w0]) && hasName(s.slice(sp + 1))) { tags.push(tagWord(w0)); s = s.slice(sp + 1); continue; }
+        }
+      }
+      break;
+    }
+    for (guard = 0; guard < 12; guard++) {
+      rest = s.replace(T_TRAIL, '');
+      if (rest !== s) { if (!hasName(rest)) break; s = rest; }
+      if ((m = T_BR_BACK.exec(s))) {
+        rest = s.slice(0, m.index);
+        t = m[1] ? tagWords(m[1], true) : [];
+        if (t && hasName(rest)) { tags = tags.concat(t); s = rest.trim(); continue; }
+        break;
+      }
+      if ((m = T_SEG_BACK.exec(s))) {
+        rest = s.slice(0, m.index);
+        t = tagWords(m[4], true);
+        if (t && !m[1] && !m[3] && T_TIGHT.test(m[2])) { var pw = rest.split(/[\s\-–\/|¦│:•·★»«]/).pop(); if (!pw || !tagWord(pw)) t = null; }
+        if (t && hasName(rest)) { tags = tags.concat(t); s = rest.trim(); continue; }
+      }
+      var ls = s.lastIndexOf(' ');
+      if (ls > 0) {
+        var wl = s.slice(ls + 1), before = s.slice(0, ls), uw = wl.toUpperCase();
+        var ok = T_QUAL_ANY[uw] || (cat && ((isUpperWord(wl) && (T_BARE[wl] || T_QUAL[wl])) || B.has(T_NAMES, B.fold(wl))));
+        if (ok && hasName(before)) { tags.push(tagWord(wl) || { k: 'qual' }); s = before; continue; }
+      }
+      break;
+    }
+    s = s.replace(T_LEAD, '').replace(T_TRAIL, '').replace(/\s{2,}/g, ' ').trim();
+    if (!hasName(s)) return { name: orig, tags: [] };
+    return { name: s, tags: tags };
+  }
+  // nette hoofdletters voor een naam die HELEMAAL in hoofdletters staat ("NETFLIX" → "Netflix"); merken en afkortingen blijven
+  var CASE_KEEP = tagSet('BBC NPO RTL SBS VTM GO HBO ESPN TV CNN MTV NOS KRO NCRV AVRO VPRO EO BNN VARA NTR TROS DAZN NBA NFL NHL MLB UFC WWE ' +
+    'UEFA FIFA KPN XXL VIP USA UK NL BE EU DC FX AMC TNT TLC ABC CBS NBC FOX HGTV ID BET UHD HDR HD FHD SD ZDF ARD ORF SRF RAI RTP TVE BVN ' +
+    'TMF JIM CN ITV RTBF VRT NHK KBS SBS TRT ATV RTS HRT MBC LBC CNBC BNR NPO3 IPTV PPV VOD DTM WRC PGA ATP WTA NOS VRT AVA OTT DJ MMA');
+  var CASE_BRAND = { SKYSHOWTIME: 'SkyShowtime', YOUTUBE: 'YouTube', MOTOGP: 'MotoGP', ESPORTS: 'eSports', IMAX: 'IMAX', VIAPLAY: 'Viaplay',
+    STREAMZ: 'Streamz', GOPLAY: 'GoPlay', NLZIET: 'NLZIET', 'DISNEY+': 'Disney+', 'TV+': 'TV+', 'APPLETV+': 'AppleTV+', MCDONALDS: 'McDonalds' };
+  var CASE_SMALL = tagSet('and of the de het een van en in op met voor a an or at to for');
+  function niceCase(s) {
+    if (!/[A-Z]/.test(s) || /[a-z]/.test(s) || /[à-ÿ]/.test(s)) return s; // al gemengd (of kleine letters): laten zoals het is
+    var i = 0;
+    return s.split(' ').map(function (w) {
+      var first = i++ === 0;
+      if (!w) return w;
+      if (B.has(CASE_BRAND, w)) return CASE_BRAND[w];
+      var core = w.replace(/[^A-Za-z0-9À-Þ&]/g, '');
+      if (/\d/.test(w) || CASE_KEEP[core] || /&/.test(core)) return w;
+      if (!first && CASE_SMALL[w.toLowerCase()]) return w.toLowerCase();
+      // "SCI-FI" → "Sci-Fi", "O'NEIL" → "O'Neil"
+      return w.toLowerCase().replace(/(^|[\-'’\/.])([a-zà-þ])/g, function (x, p, c) { return p + c.toUpperCase(); });
+    }).join(' ');
+  }
+  B.niceCase = niceCase;
+  var catMemo = Object.create(null), catMemoN = 0;
+  /** Categorienaam opgeschoond: {name, tags: ['NL', 'Multi']} (tags = taal/land als chip). Gecachet per naam. */
+  B.catClean = function (raw) {
+    var k = String(raw == null ? '' : raw);
+    var hit = catMemo[k];
+    if (hit) return hit;
+    var r = stripTags(k, 'cat'), chips = [];
+    r.tags.forEach(function (t) { if (t && t.c && chips.indexOf(t.c) < 0) chips.push(t.c); });
+    hit = { name: niceCase(r.name), tags: chips };
+    if (++catMemoN > 20000) { catMemo = Object.create(null); catMemoN = 0; }
+    catMemo[k] = hit;
+    return hit;
+  };
+  /** Alleen de opgeschoonde naam. */
+  B.catName = function (raw) { return B.catClean(raw).name; };
+  /** Titels en zoeken: aanduidingen met scheidingsteken of tussen haakjes weg (geen hoofdletters veranderen). */
+  B.stripTags = function (raw) {
+    var s = String(raw == null ? '' : raw);
+    if (!T_ANY.test(s) && !/\b(?:4k|8k|uhd|fhd|hd|hevc|hdr10?|1080p|720p|2160p)\s*$/i.test(s)) return s;
+    return stripTags(s, 'title').name;
+  };
+  B._stripTags = stripTags;
+
   // MARK: titels opschonen (= TitleCleaner.kt)
 
   var tcPrefix = /^\s*(\|[^|]{1,12}\||\[[^\]]{1,12}\]|[A-Z]{2,4}\s*[-:|]\s+)/;
@@ -927,6 +1112,8 @@
   B.parseTitle = function (raw) {
     var s = String(raw || '');
     for (var r = 0; r < 2; r++) s = s.replace(tcPrefix, '');
+    // build 150: zelfde opschoning als categorieën ("| MULTI / LINGO | Titel", "Titel (NL)")
+    s = B.stripTags(s);
     var season = null, ep = null;
     var m = tcEpisode.exec(s);
     if (m) { season = parseInt(m[1], 10); ep = parseInt(m[2], 10); s = s.substring(0, m.index); }
