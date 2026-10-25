@@ -296,34 +296,69 @@
         return se;
       }, 0, true);
     }
-    function status(r, n) { return r.failed ? { status: 'failed', count: 0, error: r.error } : { status: n ? 'ok' : 'empty', count: n }; }
-    var main = Promise.all(['get_live_categories', 'get_live_streams', 'get_vod_categories', 'get_vod_streams'].map(function (a) { return self.listStatus(a); }));
-    var ser = Promise.all([self.listStatus('get_series_categories'), self.listStatus('get_series')]);
+    // build 149: alleen de velden die hierboven gebruikt worden (de rest van het antwoord komt nooit in het geheugen)
+    var F_LIVE = ['stream_id', 'name', 'stream_icon', 'category_id', 'epg_channel_id', 'num', 'tv_archive', 'tv_archive_duration'];
+    var F_VOD = ['stream_id', 'name', 'stream_icon', 'category_id', 'container_extension', 'rating', 'added', 'year'];
+    var F_SER = ['series_id', 'name', 'cover', 'category_id', 'plot', 'rating', 'last_modified', 'year', 'releaseDate', 'genre'];
+    var hiddenFn = typeof opts.hidden === 'function' ? opts.hidden : null;
+    function nOf(m) { var n = 0; for (var k in m) if (B.has(m, k)) n += m[k]; return n; }
+    function status(r, n) { return r.failed ? { status: 'failed', count: 0, error: r.error } : { status: (n + nOf(r.skipped)) ? 'ok' : 'empty', count: n + nOf(r.skipped) }; }
+    /**
+     * build 149: categorieën en lijst tegelijk ophalen; de lijst wordt pas gelezen als de categorieën er zijn, zodat
+     * items uit verborgen categorieën (opts.hidden(naam)) niet in het geheugen komen: alleen een telling per categorie.
+     * Lezen in een Web Worker (B.getJSONPicked), alleen de nodige velden.
+     */
+    function catsThenList(catAction, listAction, fields) {
+      var cp = self.listStatus(catAction);
+      var tp = B.http(self.api(listAction), { timeout: 120000, noJSON: true }).then(function (r) {
+        if (r.status < 200 || r.status >= 300) return { e: new B.NetError('http_' + r.status) };
+        var t = r.text; r.text = '';
+        return { t: t };
+      }, function (e) { return { e: e }; });
+      return cp.then(function (rc) {
+        var cm = catMap(rc.list, other), skip = null;
+        if (hiddenFn) {
+          skip = {};
+          Object.keys(cm).forEach(function (id) { if (hiddenFn(cm[id])) skip[id] = true; });
+        }
+        return tp.then(function (x) {
+          if (x.e) throw x.e;
+          var t = x.t; x.t = null;
+          return B.parsePicked(t, { fields: fields, cat: 'category_id', skip: skip });
+        }).then(function (r) {
+          var sk = {};
+          Object.keys(r.skipped || {}).forEach(function (id) { var g = cm[id] || other; sk[g] = (sk[g] || 0) + r.skipped[id]; });
+          return { map: cm, list: { list: r.list, failed: false, skipped: sk } };
+        }, function (e) { return { map: cm, list: { list: [], failed: true, error: errCode(e), skipped: {} } }; });
+      });
+    }
+    var main = Promise.all([catsThenList('get_live_categories', 'get_live_streams', F_LIVE), catsThenList('get_vod_categories', 'get_vod_streams', F_VOD)]);
+    var ser = catsThenList('get_series_categories', 'get_series', F_SER);
     var late = false;
     var serOrLate = main.then(function () {
       return Promise.race([ser, new Promise(function (r) { setTimeout(function () { r(null); }, LATE_MS); })]);
     });
     return Promise.all([main, serOrLate]).then(function (x) {
-      var r = x[0], rs = x[1];
-      var lib = { channels: [], movies: [], series: [], epg: {}, fetch: {} };
-      var lc = catMap(r[0].list, other), vc = catMap(r[2].list, other);
+      var lv = x[0][0], vv = x[0][1], rs = x[1];
+      var lib = { channels: [], movies: [], series: [], epg: {}, fetch: {}, skipped: { live: lv.list.skipped, movie: vv.list.skipped, series: {} } };
       if (opts.onPhase) opts.onPhase('parse');
       return B.task.run('parse', function () {
-        return mapChannels(r[1], lc).then(function (c) { lib.channels = c; return mapMovies(r[3], vc); }).then(function (m) {
+        return mapChannels(lv.list, lv.map).then(function (c) { lib.channels = c; return mapMovies(vv.list, vv.map); }).then(function (m) {
           lib.movies = m;
-          lib.fetch.live = status(r[1], lib.channels.length);
-          lib.fetch.movie = status(r[3], lib.movies.length);
+          lib.fetch.live = status(lv.list, lib.channels.length);
+          lib.fetch.movie = status(vv.list, lib.movies.length);
           if (!rs) {
             late = true;
             lib.fetch.series = { status: 'failed', count: 0, error: 'timeout' };
             return;
           }
-          return mapSeries(rs[1], catMap(rs[0].list, other)).then(function (se) { lib.series = se; lib.fetch.series = status(rs[1], se.length); });
+          lib.skipped.series = rs.list.skipped;
+          return mapSeries(rs.list, rs.map).then(function (se) { lib.series = se; lib.fetch.series = status(rs.list, se.length); });
         });
       }).then(function () {
         if (late && opts.onLateSeries) {
           ser.then(function (rs2) {
-            return mapSeries(rs2[1], catMap(rs2[0].list, other)).then(function (se) { opts.onLateSeries(se, status(rs2[1], se.length)); });
+            return mapSeries(rs2.list, rs2.map).then(function (se) { opts.onLateSeries(se, status(rs2.list, se.length), rs2.list.skipped); });
           }).catch(B.noop);
         }
         return lib;

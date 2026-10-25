@@ -180,7 +180,7 @@
     if (workerBroken || typeof root.Worker !== 'function' || typeof root.document === 'undefined') return null;
     try {
       if (!worker) {
-        worker = new root.Worker('js/pin-worker.js?v=148');
+        worker = new root.Worker('js/pin-worker.js?v=149');
         worker.onmessage = function (e) {
           var d = e.data || {}, w = wWait[d.id];
           if (!w) return;

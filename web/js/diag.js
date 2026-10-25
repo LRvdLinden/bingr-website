@@ -534,7 +534,8 @@
       var raw = active ? Lib.raw : (X && X.catalog && X.catalog(s.id) ? X.catalog(s.id).raw : null);
       [['live', 'channels'], ['movie', 'movies'], ['series', 'series']].forEach(function (k) {
         var f = rec && rec.kinds && rec.kinds[k[0]];
-        var have = raw ? (raw[k[1]] || []).length : null;
+        // build 149: niet ingelezen items uit verborgen categorieën tellen mee als geleverd
+        var have = raw ? (raw[k[1]] || []).length + (Lib.skippedCount ? Lib.skippedCount(raw, k[0]) : 0) : null;
         var row = { server: 's' + (i + 1), kind: k[0] };
         if (f) { row.status = f.status; row.count = f.count || 0; if (f.error) row.error = G.scrub(f.error, 60); }
         else if (have != null) { row.status = have ? 'ok' : 'empty'; row.count = have; }

@@ -41,6 +41,7 @@ let phase = '';
 const load = (f) => (0, eval)(fs.readFileSync(path.join(WEB, f), 'utf8'));
 load('core.js');
 const B = globalThis.B;
+if (fs.existsSync(path.join(WEB, 'jsonpick.js'))) load('jsonpick.js');
 B.L = (k, ...a) => { let i = 0; return String(k).replace(/%(d|s|@)/g, () => String(a[i++])); };
 if (fs.existsSync(path.join(WEB, 'diag.js'))) load('diag.js');
 load('language.js');
@@ -71,6 +72,16 @@ B.getJSON = (url) => {
     get_series_categories: cats(50, 'Series'), get_series: series };
   if (a === 'get_series' && SERIES_FAIL) return Promise.reject(new B.NetError('timeout', true));
   return Promise.resolve(copy(m[a] || []));
+};
+// build 149: de grote lijsten komen als tekst (B.http met noJSON) en worden gelezen door B.parsePicked (Worker of terugval)
+const texts = {};
+B.http = (url, opt) => {
+  const a = new URL(url).searchParams.get('action');
+  if (a === 'get_series' && SERIES_FAIL) return Promise.reject(new B.NetError('timeout', true));
+  const m = { get_live_streams: live, get_vod_streams: vod, get_series: series };
+  if (!m[a]) return B.getJSON(url).then((j) => ({ status: 200, json: j, text: JSON.stringify(j) }));
+  const t = texts[a] || (texts[a] = JSON.stringify(m[a]));
+  return Promise.resolve({ status: 200, text: t, json: opt && opt.noJSON ? null : JSON.parse(t) });
 };
 
 const gc = () => { if (global.gc) global.gc(); };
@@ -144,6 +155,8 @@ async function measure(name, fn) {
   }
   HIDDEN = {};
 
+  // build 149: opwarmen (de eerste localeCompare laadt ICU-gegevens; op CI gaf dat één stap van 116 ms)
+  'a'.localeCompare('b'); 'a'.localeCompare('b', 'nl'); lib.movies.slice(0, 3000).sort((a, b) => a.title.localeCompare(b.title, 'nl') || a.id.localeCompare(b.id));
   // sorteren: 37k films met localeCompare als tweede sleutel (build 147: één stap van 173 ms bij 10k)
   const cmp = (a, b) => (b.rating || 0) - (a.rating || 0) || a.id.localeCompare(b.id);
   gc();

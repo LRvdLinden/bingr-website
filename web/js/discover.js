@@ -353,7 +353,7 @@
   function dateLabel(t) {
     if (t.kind !== 'upcoming' || !t.date) return null;
     try {
-      return new Date(t.date + 'T12:00:00').toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { day: 'numeric', month: 'short' }).replace(/\.$/, '');
+      return B.fmtDate(new Date(t.date + 'T12:00:00'), { day: 'numeric', month: 'short' }).replace(/\.$/, '');
     } catch (e) { return t.date; }
   }
   /** Rij, of null als hij leeg is (build 112: zonder bronvermelding eronder; die staat in Instellingen → Over). */
@@ -374,7 +374,7 @@
     var first = L('Not in your playlists');
     if (t && t.date) {
       var d = t.date;
-      try { d = new Date(t.date + 'T12:00:00').toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { /* stil */ }
+      try { d = B.fmtDate(new Date(t.date + 'T12:00:00'), { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { /* stil */ }
       first += ' · ' + L('Release date: %@', d).replace('%@', d);
     }
     return [first];

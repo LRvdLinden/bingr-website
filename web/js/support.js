@@ -138,7 +138,7 @@
     if (!t) return '';
     var d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0);
     if (t >= today.getTime()) return B.fmtTime(t);
-    try { return d.toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { day: 'numeric', month: 'short' }) + ' ' + B.fmtTime(t); } catch (e) { return d.toDateString(); }
+    try { return B.fmtDate(d, { day: 'numeric', month: 'short' }) + ' ' + B.fmtTime(t); } catch (e) { return d.toDateString(); }
   }
   /** Platte tekst met aanklikbare https-links (nooit HTML). */
   function linkify(text) {

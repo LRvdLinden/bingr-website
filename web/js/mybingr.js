@@ -173,7 +173,8 @@
   // build 111: 'upcoming' (Binnenkort op Bingr) en 'streaming' (Nieuw op Bingr; namen build 112), TMDB; standaard aan, na 'recent'
   // build 141: de rij "Nieuw toegevoegd" ('recent') is weg; "Nieuw op Bingr" ('streaming') staat op zijn plek (een opgeslagen
   // 'recent' telt als 'streaming' met dezelfde plek en aan/uit; de sleutel blijft in de opgeslagen indeling voor andere apps)
-  var KNOWN = ['continue', 'mylist', 'streaming', 'upcoming', 'foryou', 'top10', 'live', 'browse', 'categories', 'movies', 'series'];
+  // build 149: 'discovercats' = Ontdek categorieën, standaard aan, na Top 10
+  var KNOWN = ['continue', 'mylist', 'streaming', 'upcoming', 'foryou', 'top10', 'discovercats', 'live', 'browse', 'categories', 'movies', 'series'];
   var ALIAS = { genres: 'browse', categorytiles: 'browse' };
   var REPLACED = { recent: 'streaming' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
@@ -217,7 +218,7 @@
   };
   S.homeRowTitle = function (key, colls) {
     var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), upcoming: L('Coming soon to Bingr'),
-      streaming: L('New on Bingr'), foryou: L('For you'), top10: L('Top 10'),
+      streaming: L('New on Bingr'), foryou: L('For you'), top10: L('Top 10'), discovercats: L('Discover categories'),
       live: L('Favorite channels'), browse: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {
@@ -786,7 +787,7 @@
       var diff = Math.round((today - d) / 86400000);
       if (diff === 0) return L('Today');
       if (diff === 1) return L('Yesterday');
-      try { return d.toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return d.toDateString(); }
+      try { return B.fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' }); } catch (e) { return d.toDateString(); }
     }
     function open(e) {
       // build 128: item van elke server (ook niet-actief of verwijderd)
@@ -829,7 +830,7 @@
       if (!entries.length) { box.appendChild(h('div.state', [U.icon('history', 'state-ic'), h('p.muted', L('Nothing watched yet on this profile.'))])); return; }
       var days = [], byDay = {};
       entries.forEach(function (e) {
-        var d = new Date(e.date); d.setHours(0, 0, 0, 0);
+        var d = new Date(typeof e.date === 'string' ? (B.parseISO(e.date) || 0) : e.date); d.setHours(0, 0, 0, 0); // build 149: snelle ISO
         var k = d.getTime();
         if (!byDay[k]) { byDay[k] = []; days.push(k); }
         byDay[k].push(e);

@@ -643,6 +643,6 @@
 
   /** Relatieve tijd ("5 min geleden", "gisteren"). */
   U.fmtDate = function (ms) {
-    try { return new Date(ms).toLocaleDateString(B.lang === 'nl' ? 'nl-NL' : (B.lang || 'en'), { weekday: 'short', day: 'numeric', month: 'short' }); } catch (e) { return new Date(ms).toDateString(); }
+    try { return B.fmtDate(ms, { weekday: 'short', day: 'numeric', month: 'short' }, B.lang === 'nl' ? 'nl-NL' : B.locale()); } catch (e) { return new Date(ms).toDateString(); }
   };
 })();

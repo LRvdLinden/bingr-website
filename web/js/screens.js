@@ -775,6 +775,8 @@
         'series': function () { return U.row(L('Series'), lib.series.slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, '#/series'); },
         // rij met genretegels (build 86); 'categories' hieronder = rijen per categorie van de server
         'browse': function () { return B.categories ? B.categories.homeRow() : null; },
+        // build 149: Ontdek categorieën (grote tegels met posters en een gekleurde balk)
+        'discovercats': function () { return B.discoverCats ? B.discoverCats.homeRow() : null; },
         'categories': function () {
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');
@@ -960,7 +962,7 @@
     pg.onData = function () {
       var lk = JSON.stringify(D.homeLayout());
       if (lk !== layoutKey) { layoutKey = lk; render(); return; }
-      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories' && k !== 'browse'; }));
+      refreshRows(Object.keys(blocks).filter(function (k) { return k !== 'top10' && k !== 'categories' && k !== 'browse' && k !== 'discovercats'; }));
     };
     pg.onCollections = function () { render(); };
     pg.onEpg = function () { refreshRows(['live']); };

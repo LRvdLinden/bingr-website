@@ -769,6 +769,7 @@
     var src = D.sourceById(sid) || c.src;
     var ctx = Lib.contextFor(src);
     var key = JSON.stringify(ctx) + '|' + Lib.version;
+    refetchIfUnhidden(src, c, ctx);
     var v = views[lid];
     if (v && v.raw === c.raw && v.key === key) return v.lib;
     var lib = Lib.apply(c.raw, ctx);
@@ -780,6 +781,12 @@
     return lib;
   }
   X.view = viewOf;
+  /** build 149: staat een niet ingelezen (verborgen) categorie van deze server weer aan, dan de server opnieuw ophalen. */
+  function refetchIfUnhidden(src, c, ctx) {
+    if (!Lib.needsRefetch || c.refetchAsked || !Lib.needsRefetch(c.raw, ctx)) return;
+    c.refetchAsked = true;
+    setTimeout(function () { refreshOther(src); }, 0);
+  }
   /** build 147: gefilterde weergave van een andere server vooraf in stukjes (anders deed viewOf dat in één keer). */
   function warmView(sid) {
     if (isActive(sid)) return Promise.resolve();
@@ -788,6 +795,7 @@
     var src = D.sourceById(sid) || c.src;
     var ctx = Lib.contextFor(src);
     var key = JSON.stringify(ctx) + '|' + Lib.version;
+    refetchIfUnhidden(src, c, ctx);
     var v = views[lid];
     if (v && v.raw === c.raw && v.key === key) return Promise.resolve();
     return B.task.run('catalog_filter', function () {

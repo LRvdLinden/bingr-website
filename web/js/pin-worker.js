@@ -5,7 +5,7 @@
  */
 /* global importScripts */
 self.B = self.B || {};
-importScripts('pin.js?v=148');
+importScripts('pin.js?v=149');
 self.onmessage = function (e) {
   var d = e.data || {};
   try {

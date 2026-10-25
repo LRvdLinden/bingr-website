@@ -29,7 +29,7 @@
     supabaseKey: SB.anonKey || 'sb_publishable_lpIup6Omq5kW2k3oICGZ4g_HPGac5A3',
     platform: B.isWindowsApp ? 'windows' : 'browser',
     // build 146: de build van deze code; ../assets/changelog.json mag hem alleen ophogen (B.loadBuild in app.js)
-    build: '148',
+    build: '149',
     version: '1.0.1'
   };
 
@@ -272,19 +272,81 @@
 
   B.now = function () { return Date.now(); };
   B.iso = function (ms) { return new Date(ms == null ? Date.now() : ms).toISOString(); };
-  /** ISO met 0–7 decimalen (Jellyfin/iOS) naar epoch-ms; null bij onzin. */
+  /**
+   * ISO met 0–7 decimalen (Jellyfin/iOS) naar epoch-ms; null bij onzin.
+   * Build 149: snelle eigen parser voor yyyy-MM-dd[T ]HH:mm[:ss[.f…]][Z|±hh[:]mm] (cijfers tellen + Date.UTC, geen
+   * regex of Date.parse per item; sync, Mijn lijst, voortgang en de cache lezen er duizenden). Alleen wat daar niet in
+   * past gaat nog langs Date.parse. Zonder zone = UTC (zoals de andere apps schrijven).
+   */
+  function dig(s, i, n) {
+    var v = 0;
+    for (var k = 0; k < n; k++) { var c = s.charCodeAt(i + k) - 48; if (!(c >= 0 && c <= 9)) return -1; v = v * 10 + c; }
+    return v;
+  }
+  function fastISO(s) {
+    var L = s.length;
+    if (L < 10 || s.charCodeAt(4) !== 45 || s.charCodeAt(7) !== 45) return NaN;
+    var y = dig(s, 0, 4), mo = dig(s, 5, 2), d = dig(s, 8, 2);
+    if (y < 0 || mo < 1 || mo > 12 || d < 1 || d > 31) return NaN;
+    if (L === 10) return Date.UTC(y, mo - 1, d);
+    var sep = s.charCodeAt(10);
+    if ((sep !== 84 && sep !== 32 && sep !== 116) || L < 16 || s.charCodeAt(13) !== 58) return NaN;
+    var h = dig(s, 11, 2), mi = dig(s, 14, 2), se = 0, ms = 0, i = 16;
+    if (h < 0 || h > 24 || mi < 0 || mi > 59) return NaN;
+    if (i < L && s.charCodeAt(i) === 58) { se = dig(s, i + 1, 2); if (se < 0 || se > 60) return NaN; i += 3; }
+    if (i < L && (s.charCodeAt(i) === 46 || s.charCodeAt(i) === 44)) {
+      i++;
+      var f = 0, n = 0;
+      while (i < L) { var c = s.charCodeAt(i) - 48; if (!(c >= 0 && c <= 9)) break; if (n < 3) { f = f * 10 + c; n++; } else n += 0; i++; }
+      if (!n) return NaN;
+      while (n < 3) { f *= 10; n++; }
+      ms = f;
+    }
+    var off = 0;
+    if (i < L) {
+      var z = s.charCodeAt(i);
+      if (z === 90 || z === 122) { if (i + 1 !== L) return NaN; }
+      else if (z === 43 || z === 45) {
+        var oh = dig(s, i + 1, 2), om = 0, r = L - i - 3;
+        if (oh < 0) return NaN;
+        if (r === 3 && s.charCodeAt(i + 3) === 58) om = dig(s, i + 4, 2);
+        else if (r === 2) om = dig(s, i + 3, 2);
+        else if (r !== 0) return NaN;
+        if (om < 0) return NaN;
+        off = (z === 45 ? -1 : 1) * (oh * 60 + om) * 60000;
+      } else return NaN;
+    }
+    return Date.UTC(y, mo - 1, d, h, mi, se, ms) - off;
+  }
+  B.fastISO = fastISO;
   B.parseISO = function (s) {
     if (s == null) return null;
     if (typeof s === 'number') return s > 1e12 ? s : s * 1000;
     s = String(s).trim();
     if (!s) return null;
-    // fractie op 3 cijfers brengen
+    var t = fastISO(s);
+    if (t === t) return t;
+    // terugval (zeldzaam): fractie op 3 cijfers brengen
     s = s.replace(/\.(\d+)/, function (m, d) { return '.' + (d + '000').slice(0, 3); });
-    if (s.length === 10) s += 'T00:00:00Z';
-    var t = Date.parse(s);
+    t = Date.parse(s);
     if (isNaN(t)) t = Date.parse(s.replace(' ', 'T'));
     return isNaN(t) ? null : t;
   };
+  /**
+   * Build 149: één gedeelde Intl.DateTimeFormat per taal + opties (toLocaleDateString met opties maakt er elke keer een
+   * nieuwe; in een lijst met een datum per rij was dat het dure deel). B.fmtDate(ms, opts) = toLocaleDateString(taal, opts).
+   */
+  var dtfCache = Object.create(null);
+  B.locale = function () { return B.lang === 'zh-Hans' ? 'zh-CN' : (B.lang || 'en'); };
+  B.dateFmt = function (opts, locale) {
+    var loc = locale || B.locale(), key = loc + '|' + JSON.stringify(opts || {});
+    var f = dtfCache[key];
+    if (f) return f;
+    try { f = new Intl.DateTimeFormat(loc, opts || {}); } catch (e) { f = { format: function (d) { return new Date(d).toDateString(); } }; }
+    dtfCache[key] = f;
+    return f;
+  };
+  B.fmtDate = function (ms, opts, locale) { return B.dateFmt(opts, locale).format(ms instanceof Date ? ms : new Date(ms)); };
   B.fmtTime = function (ms) { var d = new Date(ms); return B.pad2(d.getHours()) + ':' + B.pad2(d.getMinutes()); };
   B.fmtDur = function (s) {
     if (!isFinite(s) || s < 0) s = 0;
@@ -432,8 +494,9 @@
           var v = obj[f];
           if (!Array.isArray(v)) { head.rest[f] = v; return; }
           head.arr[f] = 0;
+          // build 149: het stuk pas maken als het bewaard wordt (geen tweede kopie van alle lijsten tegelijk)
           for (var i2 = 0; i2 < v.length || (i2 === 0 && head.arr[f] === 0); i2 += PART) {
-            parts.push([k + '#a:' + f + ':' + head.arr[f]++, v.slice(i2, i2 + PART)]);
+            parts.push([k + '#a:' + f + ':' + head.arr[f]++, null, v, i2]);
             if (!v.length) break;
           }
         });
@@ -445,7 +508,7 @@
         function next() {
           if (i3 >= parts.length) return Promise.resolve();
           var pr = parts[i3++];
-          return B.yieldTask().then(function () { return B.idb.set(pr[0], pr[1]); }).then(next);
+          return B.yieldTask().then(function () { var val = pr[2] ? pr[2].slice(pr[3], pr[3] + PART) : pr[1]; parts[i3 - 1] = null; return B.idb.set(pr[0], val); }).then(next);
         }
         return next();
       }).then(function () { return B.idb.set(k, head); }).then(function () {
@@ -559,7 +622,7 @@
         if (opt.binary) r.buffer = x.response;
         else {
           r.text = x.responseText || '';
-          if (r.text) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } }
+          if (r.text && !opt.noJSON) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } }
         }
         resolve(r);
       };
@@ -598,7 +661,7 @@
           clearTimeout(timer);
           var r = { status: res.status, text: '', json: null, buffer: null, headers: res.headers, proxied: true };
           if (opt.binary) r.buffer = data;
-          else { r.text = data || ''; if (r.text) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
+          else { r.text = data || ''; if (r.text && !opt.noJSON) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
           return r;
         });
       }, function () { clearTimeout(timer); throw new NetError('network', true); });
@@ -621,7 +684,7 @@
           clearTimeout(timer);
           var r = { status: res.status, text: '', json: null, buffer: null, proxied: true };
           if (opt.binary) r.buffer = data;
-          else { r.text = data || ''; if (r.text) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
+          else { r.text = data || ''; if (r.text && !opt.noJSON) { try { r.json = JSON.parse(r.text); } catch (e) { r.json = null; } } }
           return r;
         });
       }, function () { clearTimeout(timer); throw new NetError('network', true); });
@@ -749,6 +812,57 @@
       return r.json;
     });
   };
+  /**
+   * Build 149: grote JSON-lijst (Xtream get_vod_streams e.d.) zonder volledige JSON-boom op de hoofdthread. De tekst komt
+   * binnen zonder JSON.parse; een Web Worker (js/json-worker.js, zelfde code als B.jsonPick in jsonpick.js) leest hem,
+   * houdt per item alleen spec.fields, laat items uit spec.skip (categorie-id's) weg (alleen geteld) en stuurt de lijst
+   * in stukken terug (elk stuk een eigen macrotaak). Zonder Worker: B.jsonPick hier (één stap, wel zonder de rest van de boom).
+   * → Promise<{list, skipped: {categorie-id: aantal}, total}>; fout zoals getJSON (http_…, bad_json, timeout, …).
+   */
+  var jw = null, jwBroken = false, jwSeq = 0, jwWait = {}, jwIdle = 0;
+  function jsonWorker() {
+    if (jwBroken || typeof window.Worker !== 'function' || B.noJSONWorker) return null;
+    if (jw) return jw;
+    try {
+      jw = new window.Worker('js/json-worker.js?v=149');
+      jw.onmessage = function (e) {
+        var d = e.data || {}, w = jwWait[d.id];
+        if (!w) return;
+        if (d.part) { for (var i = 0; i < d.part.length; i++) w.list.push(d.part[i]); return; }
+        delete jwWait[d.id];
+        if (d.error) w.fail(d.error); else w.resolve({ list: w.list, skipped: d.skipped || {}, total: d.total || 0 });
+        // klaar en niets meer te doen: de Worker na 20 s stoppen (zijn geheugen meteen terug)
+        clearTimeout(jwIdle);
+        jwIdle = setTimeout(function () { if (jw && !Object.keys(jwWait).length) { try { jw.terminate(); } catch (x) { /* stil */ } jw = null; } }, 20000);
+      };
+      jw.onerror = function () {
+        jwBroken = true; jw = null;
+        Object.keys(jwWait).forEach(function (k) { var w = jwWait[k]; delete jwWait[k]; w.fallback(); });
+      };
+    } catch (e) { jwBroken = true; jw = null; }
+    return jw;
+  }
+  B.parsePicked = function (text, spec) {
+    var w = jsonWorker();
+    function local() {
+      var r = B.jsonPick(text, spec);
+      if (r.error) throw new NetError(r.error);
+      return r;
+    }
+    if (!w) return Promise.resolve().then(local);
+    return new Promise(function (resolve, reject) {
+      var id = ++jwSeq;
+      jwWait[id] = { list: [], resolve: resolve, fail: function (c) { reject(new NetError(c)); }, fallback: function () { try { resolve(local()); } catch (e) { reject(e); } } };
+      try { w.postMessage({ id: id, text: text, spec: spec }); } catch (e) { var x = jwWait[id]; delete jwWait[id]; x.fallback(); }
+    });
+  };
+  B.getJSONPicked = function (url, headers, timeout, spec) {
+    return B.http(url, { headers: headers, timeout: timeout || 60000, noJSON: true }).then(function (r) {
+      if (r.status < 200 || r.status >= 300) throw new NetError('http_' + r.status);
+      var t = r.text; r.text = '';
+      return B.parsePicked(t, spec);
+    });
+  };
   B.query = function (base, params) {
     var q = [];
     for (var i = 0; i < params.length; i++) q.push(encodeURIComponent(params[i][0]) + '=' + encodeURIComponent(params[i][1]));
@@ -826,8 +940,11 @@
   };
 
   /** Tekst zonder accenten, in kleine letters (zoeken en vergelijken). */
+  // build 149: alleen ASCII (de meeste titels) = alleen toLowerCase, zonder normalize (dat liep teken voor teken)
+  var NON_ASCII = /[^\x00-\x7f]/;
   B.fold = function (s) {
     s = String(s || '').toLowerCase();
+    if (!NON_ASCII.test(s)) return s;
     try { s = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) { /* oude engine */ }
     return s;
   };

@@ -271,9 +271,39 @@
 
   /** build 148: per soort geleverd, zichtbaar en waarom de rest verborgen is (diagnose-schema 3, fetch[].hidden). */
   function statsOf(raw, out, hid) {
-    function one(k, rl, ol) { return { delivered: (rl || []).length, visible: (ol || []).length, hidden: hid[k] }; }
+    // build 149: items uit verborgen categorieën die niet zijn ingelezen (raw.skipped) tellen mee als geleverd + verborgen
+    function one(k, rl, ol) {
+      var sk = skippedCount(raw, k), h = B.assign({}, hid[k]);
+      h.categories = (h.categories || 0) + sk;
+      return { delivered: (rl || []).length + sk, visible: (ol || []).length, hidden: h };
+    }
     return { live: one('live', raw.channels, out.channels), movie: one('movie', raw.movies, out.movies), series: one('series', raw.series, out.series) };
   }
+  /** build 149: aantal niet ingelezen items (verborgen categorieën) van een soort (live, movie, series). */
+  function skippedCount(raw, k) {
+    var m = raw && raw.skipped && raw.skipped[k], n = 0;
+    if (m) for (var g in m) if (B.has(m, g)) n += m[g] || 0;
+    return n;
+  }
+  Lib.skippedCount = skippedCount;
+  /** build 149: welke categorieën verborgen zijn voor het ophalen (null = niets overslaan, zoals bij een kinderprofiel). */
+  function hiddenTest(ctx) {
+    if (!ctx || ctx.kids) return null;
+    var hc = ctx.hiddenCats || {}, merged = (ctx.custom && ctx.custom.merged) || {};
+    if (!Object.keys(hc).length) return null;
+    return function (g) { var m = B.has(merged, g) ? merged[g] : g; return !!((B.has(hc, g) && hc[g]) || (B.has(hc, m) && hc[m])); };
+  }
+  Lib.hiddenTest = hiddenTest;
+  /** build 149: is een niet ingelezen categorie nu wél zichtbaar (aangezet, ander profiel)? Dan opnieuw ophalen. */
+  Lib.needsRefetch = function (raw, ctx) {
+    if (!raw || !raw.skipped) return false;
+    var t = hiddenTest(ctx);
+    return ['live', 'movie', 'series'].some(function (k) {
+      var m = raw.skipped[k] || {};
+      return Object.keys(m).some(function (g) { return m[g] > 0 && !(t && t(g)); });
+    });
+  };
+  var refetchRaw = null;
   /** Telt op bij elke nieuwe gefilterde bibliotheek; afgeleide lijsten (collecties, top 10, groepen) worden per versie gecachet. */
   Lib.version = 0;
   var memo = {};
@@ -296,7 +326,16 @@
     var key = JSON.stringify(ctx) + '|' + ageVersion;
     if (!force && raw === lastRaw && key === lastCtx && !applyJob) return Promise.resolve();
     lastRaw = raw; lastCtx = key;
+    // build 149: een verborgen categorie (niet ingelezen) staat weer aan: deze server opnieuw ophalen
+    if (Lib.source && refetchRaw !== raw && !Lib.loading && Lib.needsRefetch(raw, ctx)) {
+      refetchRaw = raw;
+      var rsrc = Lib.source;
+      setTimeout(function () { if (Lib.source === rsrc && Lib.raw === raw) Lib.refresh(rsrc); }, 0);
+    }
+    // build 149: wordt een lopende ronde (met fasen voor de diagnose) ingehaald, dan meet de nieuwe ronde verder
+    var prevWrap = applyJob;
     if (applyJob) { applyJob.cancel(); applyJob = null; }
+    if (!tr && prevWrap && prevWrap.tr) tr = prevWrap.tr;
     var size = raw.channels.length + raw.movies.length + raw.series.length;
     if (size < SMALL) {
       var ta = Date.now(), small = Lib.apply(raw, ctx);
@@ -310,7 +349,9 @@
     var tid = B.task.begin('catalog_filter');
     var job = applyJob = Lib.applyChunked(raw, ctx);
     var cancelled = false, out = 'cancelled';
-    var p = (tr ? tr.time('apply', job) : job).then(function (lib) {
+    var tApply = Date.now();
+    var p = job.then(function (lib) {
+      if (tr) tr.add('apply', Date.now() - tApply);
       if (applyJob !== wrap || cancelled) return;
       var ix = indexChunked(lib);
       return (tr ? tr.time('index', ix) : ix).then(function () {
@@ -325,8 +366,9 @@
           B.emit('library');
         });
       });
-    }, B.noop).then(function () { B.task.end(tid); return out; }, function () { B.task.end(tid); return out; });
-    var wrap = { cancel: function () { cancelled = true; job.cancel(); } };
+    }, function () { if (tr && cancelled) tr.add('apply', Date.now() - tApply); }).then(function () { B.task.end(tid); return out === 'cancelled' && wrap.next ? wrap.next : out; }, function () { B.task.end(tid); return out; });
+    var wrap = { tr: tr, next: null, cancel: function () { cancelled = true; job.cancel(); } };
+    if (prevWrap) prevWrap.next = p;
     applyJob = wrap;
     return p;
   };
@@ -496,7 +538,7 @@
     }
     if (kind === 'Xtream Codes') {
       var x = new P.Xtream(src, pw);
-      return x.authenticate().then(function () { return x.library({ onPhase: phase, onLateSeries: function (se, st) { lateSeries(src, se, st); } }); }).then(function (lib) {
+      return x.authenticate().then(function () { return x.library({ onPhase: phase, hidden: hiddenTest(context(src)), onLateSeries: function (se, st, sk) { lateSeries(src, se, st, sk); } }); }).then(function (lib) {
         lib.epgURL = P.urlValue(src.epgURL) || x.xmltvURL();
         return lib;
       });
@@ -547,12 +589,13 @@
   }
   Lib.noteFetch = noteFetch;
   /** Series die na de rest binnenkwamen (Xtream, trage provider): in de bibliotheek, de cache en de diagnose. */
-  function lateSeries(src, series, st) {
+  function lateSeries(src, series, st, sk) {
     var lid = String(src.id).toLowerCase();
     var rec = Lib.fetchStatus[lid];
     if (rec && rec.kinds) { rec.kinds.series = st; B.store.set('diag.fetch', Lib.fetchStatus); }
     if (!(Lib.source && String(Lib.source.id).toLowerCase() === lid) || !series.length) return;
     Lib.raw.series = series;
+    if (sk) { Lib.raw.skipped = Lib.raw.skipped || {}; Lib.raw.skipped.series = sk; }
     B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: Lib.raw }, 'lib', 'arrays');
     Lib.applyFilters(true);
   }
@@ -909,6 +952,13 @@
     var k = field === 'name' ? '_fn' : field === 'group' ? '_fg' : '_ft';
     return x[k] != null ? x[k] : (x[k] = B.fold(x[field]));
   }
+  // build 149: zoeksleutels één keer vooraf (in stukjes), niet bij de eerste zoekopdracht voor 30k titels tegelijk
+  Lib.warmers.push(function () {
+    var l = Lib.lib; // niet wachten: Home hoeft hier niet op
+    B.chunked(l.channels || [], function (x) { folded(x, 'name'); })
+      .then(function () { return B.chunked(l.movies || [], function (x) { folded(x, 'title'); }); })
+      .then(function () { return B.chunked(l.series || [], function (x) { folded(x, 'title'); }); }).catch(B.noop);
+  });
   Lib.search = function (q, limit) {
     var f = B.fold(q).trim();
     if (!f) return { channels: [], movies: [], series: [] };

@@ -284,7 +284,7 @@
   var DEPT = { Acting: 'Acting', Directing: 'Directing', Writing: 'Writing', Production: 'Production' };
   function fmtDate(s) {
     if (!s || s.length < 10) return null;
-    try { return new Date(s + 'T12:00:00').toLocaleDateString(B.lang === 'zh-Hans' ? 'zh-CN' : B.lang, { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return s; }
+    try { return B.fmtDate(new Date(s + 'T12:00:00'), { day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return s; }
   }
 
   // build 97: persoonspagina licht het tabblad op waar je vandaan kwam (anders Home)
