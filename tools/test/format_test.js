@@ -52,6 +52,31 @@ assert.strictEqual(logo('NL | Netflix Series'), '/n.jpg'); assert.strictEqual(lo
 assert.strictEqual(logo('HBO'), '/h.jpg'); assert.strictEqual(logo('NL: Prime Video'), '/p.jpg'); assert.strictEqual(logo('Apple TV+'), '/a.jpg');
 assert.strictEqual(logo('SkyShowtime'), '/s.jpg'); assert.strictEqual(logo('Videoland 4K'), '/v.jpg'); assert.strictEqual(logo('Viaplay'), '/vp.jpg');
 assert.strictEqual(logo('NL | Actie'), ''); assert.strictEqual(logo('Netflixen en chillen'), '');
+// build 151: rij Zenders (channelrow.js): recente/favoriete zenders eerst, dan om en om uit de grootste categorieën (logo eerst),
+// hooguit 15, geen dubbele namen, kinderprofiel alleen kindercategorieën, namen opgeschoond
+load('language.js'); load('channelrow.js');
+const CR = B.channelRow;
+assert.strictEqual(CR.cleanName('NL | NPO 1 HD'), 'NPO 1'); assert.strictEqual(CR.cleanName('[NL] Ziggo Sport 4K'), 'Ziggo Sport');
+assert.strictEqual(CR.cleanName('UK: BBC One HD'), 'BBC One'); assert.strictEqual(CR.cleanName('NPO 2'), 'NPO 2');
+B.parental = { isKidsCategory: (g) => /kids/i.test(g) };
+const mk = (id, name, group, logo) => ({ id, name, group, rawGroup: group, logo: logo ? 'https://img.test/' + id + '.png' : null, streamURL: 'https://s.test/' + id });
+const chs = [];
+for (let i = 0; i < 30; i++) chs.push(mk('a' + i, 'NL | Groot ' + i + ' HD', 'Groot', i % 3 !== 0));
+for (let i = 0; i < 10; i++) chs.push(mk('b' + i, 'Middel ' + i, 'Middel', true));
+for (let i = 0; i < 4; i++) chs.push(mk('k' + i, 'Kids ' + i, 'NL | Kids', i !== 0));
+const byG = {}; chs.forEach((c) => (byG[c.group] = byG[c.group] || []).push(c));
+const clib = { channels: chs, channelGroups: ['Middel', 'Groot', 'NL | Kids'] };
+const fav = [mk('m1', 'NL: Mijn zender', 'Middel', false), mk('a5', 'NL | Groot 5', 'Groot', true), { _key: 'x', name: 'Elders' }];
+let pick = CR.pick(fav, clib, false, byG);
+assert.strictEqual(pick.length, 15);
+assert.deepStrictEqual(pick.slice(0, 2).map((c) => c.id), ['m1', 'a5'], 'recente en favorieten eerst; placeholder van een andere server niet');
+assert.strictEqual(pick[2].group, 'Groot', 'daarna de grootste categorie');
+assert.ok(pick.slice(2).every((c) => c.logo), 'genoeg met logo: alleen zenders met een logo als aanvulling');
+assert.strictEqual(new Set(pick.map((c) => B.fold(CR.cleanName(c.name)))).size, 15, 'geen dubbele namen ("Groot 5" en "NL | Groot 5 HD")');
+assert.ok(pick.some((c) => c.group === 'Middel') && pick.some((c) => c.group === 'NL | Kids'), 'om en om uit meer categorieën');
+pick = CR.pick(fav, clib, true, byG);
+assert.deepStrictEqual(pick.map((c) => c.id), ['k1', 'k2', 'k3', 'k0'], 'kinderprofiel: alleen kinderzenders, logo eerst');
+assert.deepStrictEqual(CR.pick([], { channels: [] }, false, {}), []);
 // zoeken (search.js): accenten, woordvolgorde, voorvoegsels, deelwoorden, & = and, typefout, volgorde van de treffers
 B.data = { sources: [] }; B.parseTitle = (t) => ({ title: t }); B.chunked = (list, fn) => { list.forEach(fn); return Promise.resolve(); };
 load('search.js');

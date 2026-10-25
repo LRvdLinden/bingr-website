@@ -783,6 +783,8 @@
         'browse': function () { return B.categories ? B.categories.homeRow() : null; },
         // build 149: Ontdek categorieën (grote tegels met posters en een gekleurde balk)
         'discovercats': function () { return B.discoverCats ? B.discoverCats.homeRow() : null; },
+        // build 151: Zenders (logo's van de eigen server; recente en favoriete zenders eerst)
+        'channels': function () { return B.channelRow ? B.channelRow.homeRow() : null; },
         'categories': function () {
           var out = [];
           var mg = Lib.byGroup('movie'), sg = Lib.byGroup('series');

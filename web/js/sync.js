@@ -401,188 +401,92 @@
 
   // MARK: per profiel (profile.<id>)
 
-  function time(v) {
-    if (v == null) return null;
-    if (typeof v === 'number') return v > 1e12 ? v : v * 1000;
-    return B.parseISO(v);
-  }
-  function putNewer(map, k, item) { var c = map[k]; if (!c || item.at > c.at) map[k] = item; }
-
-  function parseSetField(e, removed) {
-    var out = {};
-    function parseList(a) {
-      a.forEach(function (x) {
-        if (typeof x === 'string' || typeof x === 'number') { if (String(x)) putNewer(out, String(x), { at: 0, on: true }); }
-        else if (x && typeof x === 'object') {
-          var k = x.id || x.key;
-          if (!k) return;
-          var at = time(x.at) || time(x.updatedAt) || 0;
-          putNewer(out, String(k), { at: at, on: !(x.removed === true || x.deleted === true) });
-        }
-      });
-    }
-    if (Array.isArray(e)) parseList(e);
-    else if (e && typeof e === 'object') {
-      var list = Array.isArray(e.items) ? e.items : (Array.isArray(e.ids) ? e.ids : null);
-      if (list) {
-        parseList(list);
-        if (e.removed && typeof e.removed === 'object') Object.keys(e.removed).forEach(function (k) { putNewer(out, k, { at: time(e.removed[k]) || 0, on: false }); });
-      } else {
-        Object.keys(e).forEach(function (k) {
-          var v = e[k];
-          if (v && typeof v === 'object') putNewer(out, k, { at: time(v.at) || time(v.updatedAt) || 0, on: !(v.removed === true || v.deleted === true) });
-          else if (v === true || v === false) putNewer(out, k, { at: 0, on: v });
-          else putNewer(out, k, { at: time(v) || 0, on: true });
-        });
-      }
-    }
-    if (removed && typeof removed === 'object') Object.keys(removed).forEach(function (k) { putNewer(out, k, { at: time(removed[k]) || 0, on: false }); });
-    return out;
-  }
-  function parseProgress(o) {
-    var pos = B.num(o.position) || 0, dur = B.num(o.duration);
-    var frac = B.num(o.fraction);
-    if (frac == null) { if (dur && dur > 0) frac = pos / dur; else return null; }
-    var e = { fraction: frac, position: pos, updated: time(o.updatedAt) || time(o.updated) || 0, title: o.title || '' };
-    if (o.artwork) e.artwork = o.artwork;
-    if (o.playlistID) e.playlistID = o.playlistID;
-    return e;
-  }
-  function parseHistory(o) {
-    if (!o || !o.itemID) return null;
-    var d = time(o.date) || time(o.at);
-    if (!d) return null;
-    var e = { itemID: String(o.itemID), title: o.title || '', type: String(o.type || 'movie').toLowerCase(), date: d };
-    if (o.playlistID) e.playlistID = o.playlistID;
-    if (o.subtitle) e.subtitle = o.subtitle;
-    if (o.artwork) e.artwork = o.artwork;
-    if (o.channelID) e.channelID = o.channelID;
-    return e;
-  }
-  function historyId(e) { return (e.playlistID || '-') + '|' + e.itemID; }
-
-  /** Serverobject → model {sets, progress, history}. */
-  function parseState(o) {
-    var removedObj = (o && o.removed && typeof o.removed === 'object') ? o.removed : {};
-    // verwijderingen per veld: `removed.<veld>` plus de oudere iOS-velden `<veld>Removed` (`progressRemoved`,
-    // `historyRemoved`, …) van Apple-builds vóór 60; per sleutel wint de nieuwste tijd
-    function removedFor(f) {
-      var a = removedObj[f], b = o ? o[f + 'Removed'] : null;
-      a = (a && typeof a === 'object') ? a : null; b = (b && typeof b === 'object' && !Array.isArray(b)) ? b : null;
-      if (!a || !b) return a || b;
-      var out = B.copy(a);
-      Object.keys(b).forEach(function (k) { if (!B.has(out, k) || (time(b[k]) || 0) > (time(out[k]) || 0)) out[k] = b[k]; });
-      return out;
-    }
-    var removed = { progress: removedFor('progress'), history: removedFor('history') };
-    var st = { sets: {}, progress: {}, history: {} };
-    SET_FIELDS.forEach(function (f) { st.sets[f] = parseSetField(o[f], removedFor(f)); });
-    var pr = o.progress || {};
-    Object.keys(pr).forEach(function (k) {
-      var p = pr[k];
-      if (!p || typeof p !== 'object') return;
-      if (p.removed === true || p.deleted === true) putNewer(st.progress, k, { at: time(p.updatedAt) || 0, v: null });
-      else { var e = parseProgress(p); if (e) putNewer(st.progress, k, { at: e.updated, v: e }); }
-    });
-    if (removed.progress) Object.keys(removed.progress).forEach(function (k) { putNewer(st.progress, k, { at: time(removed.progress[k]) || 0, v: null }); });
-    (Array.isArray(o.history) ? o.history : []).forEach(function (h) {
-      var e = parseHistory(h);
-      if (e) putNewer(st.history, historyId(e), { at: e.date, v: e });
-    });
-    if (removed.history) Object.keys(removed.history).forEach(function (k) {
-      var at = time(removed.history[k]) || 0, c = st.history[k];
-      if (!c || at >= c.at) st.history[k] = { at: at, v: null };
-    });
-    return st;
-  }
-  function mergeMaps(a, b) {
-    var out = {};
-    Object.keys(a || {}).forEach(function (k) { out[k] = a[k]; });
-    Object.keys(b || {}).forEach(function (k) { var l = out[k]; if (!l || b[k].at > l.at) out[k] = b[k]; });
-    return out;
-  }
-  function mergeState(a, b) {
-    var st = { sets: {}, progress: mergeMaps(a.progress, b.progress), history: mergeMaps(a.history, b.history) };
-    SET_FIELDS.forEach(function (f) { st.sets[f] = mergeMaps(a.sets[f], b.sets[f]); });
-    return st;
-  }
-  function alive(item) { return item.on === undefined ? item.v != null : item.on; }
-  /** Oude verwijderingen weg, maximale lengtes (20 recente zenders, 300 voortgang, 500 geschiedenis). */
-  function normalize(st) {
-    var cutoff = Date.now() - REMOVED_DAYS * 86400000;
-    function prune(m, max) {
-      var keys = Object.keys(m).filter(function (k) { return alive(m[k]) || m[k].at >= cutoff; });
-      var live = keys.filter(function (k) { return alive(m[k]); }).sort(function (x, y) { return m[y].at - m[x].at; });
-      var keep = {};
-      (max ? live.slice(0, max) : live).forEach(function (k) { keep[k] = true; });
-      var out = {};
-      keys.forEach(function (k) { if (!alive(m[k]) || keep[k]) out[k] = m[k]; });
-      return out;
-    }
-    var o = { sets: {}, progress: prune(st.progress, MAX_PROGRESS), history: prune(st.history, MAX_HISTORY) };
-    SET_FIELDS.forEach(function (f) { o.sets[f] = prune(st.sets[f] || {}, f === 'recentChannels' ? MAX_RECENT : 0); });
-    return o;
-  }
-  function sortedKeys(m, pred) { return Object.keys(m).filter(pred).sort(); }
-
-  /** Model → serverobject; onbekende velden (prefs, pin, homeLayout, …) blijven zoals de server ze had. */
-  function toJSON(base, st) {
-    var out = B.copy(base || {});
-    var removed = {};
-    SET_FIELDS.forEach(function (f) {
-      var m = st.sets[f] || {};
-      out[f] = Object.keys(m).filter(function (k) { return m[k].on; })
-        .sort(function (x, y) { return (m[y].at - m[x].at) || (x < y ? -1 : x > y ? 1 : 0); })
-        .map(function (k) { return { id: k, at: B.iso(m[k].at) }; });
-      removed[f] = {};
-      sortedKeys(m, function (k) { return !m[k].on; }).forEach(function (k) { removed[f][k] = B.iso(m[k].at); });
-    });
-    out.progress = {};
-    removed.progress = {};
-    sortedKeys(st.progress, function () { return true; }).forEach(function (k) {
-      var it = st.progress[k];
-      if (it.v == null) { removed.progress[k] = B.iso(it.at); return; }
-      var e = it.v;
-      var p = { position: e.position, duration: e.fraction > 0 ? e.position / e.fraction : 0, fraction: e.fraction, updatedAt: B.iso(e.updated), title: e.title };
-      if (e.artwork) p.artwork = e.artwork;
-      if (e.playlistID) p.playlistID = e.playlistID;
-      out.progress[k] = p;
-    });
-    var hist = Object.keys(st.history).map(function (k) { return st.history[k]; }).filter(function (x) { return x.v; })
-      .map(function (x) { return x.v; }).sort(function (a, b) { return b.date - a.date; });
-    out.history = hist.map(function (e) {
-      var h = { id: historyId(e), itemID: e.itemID };
-      if (e.playlistID) h.playlistID = e.playlistID;
-      h.title = e.title;
-      if (e.subtitle) h.subtitle = e.subtitle;
-      if (e.artwork) h.artwork = e.artwork;
-      h.type = e.type;
-      if (e.channelID) h.channelID = e.channelID;
-      // `at` en `date` zijn dezelfde tijd (iOS las `at`, Android/Tizen `date`): schrijf allebei
-      h.at = B.iso(e.date);
-      h.date = h.at;
-      return h;
-    });
-    removed.history = {};
-    sortedKeys(st.history, function (k) { return !st.history[k].v; }).forEach(function (k) { removed.history[k] = B.iso(st.history[k].at); });
-    var baseRemoved = (base && base.removed && typeof base.removed === 'object') ? B.copy(base.removed) : {};
-    out.removed = B.assign(baseRemoved, removed);
-    out.updatedAt = B.iso();
-    return out;
-  }
-  function stateKey(st) {
-    // vergelijkingssleutel zonder updatedAt
-    var j = toJSON({}, st); delete j.updatedAt; return JSON.stringify(j);
-  }
+  // build 151: de pure functies (lezen, samenvoegen, opschonen, naar JSON) staan in syncmerge.js, zodat de Worker
+  // (sync-worker.js) precies dezelfde code draait
+  var SM = B.syncMerge;
+  var time = SM.time, parseState = SM.parseState, mergeState = SM.mergeState, normalize = SM.normalize, toJSON = SM.toJSON,
+    stateKey = SM.stateKey, hasAny = SM.hasAny, putNewer = SM.putNewer, parseSetField = SM.parseSetField, historyId = SM.historyId,
+    mergeMaps = SM.mergeMaps;
 
   // Actief profiel: model + basis van de server
   var P = { id: null, st: null, base: null, names: [], dirty: false };
   function pkey(id) { return 'pstate.' + lower(id); }
+  // build 151: bewaren van het actieve profiel. Na een lokale wijziging niet meer meteen (JSON.stringify van het hele
+  // model op de hoofdthread bij elke klik), maar samengevoegd na 400 ms, met de tekst uit de Worker; bij verbergen of
+  // sluiten van de pagina meteen. persistSeq: een oudere tekst overschrijft nooit een nieuwere.
+  var persistSeq = 0, persistTimer = 0;
   function persistP() {
     if (!P.id) return;
+    persistSeq++; clearTimeout(persistTimer); persistTimer = 0;
     B.store.set(pkey(P.id), { st: P.st, base: P.base, names: P.names, dirty: P.dirty });
   }
+  function persistSoon() {
+    if (!P.id || persistTimer) return;
+    persistTimer = setTimeout(function () {
+      persistTimer = 0;
+      if (!P.id) return;
+      var my = ++persistSeq, key = pkey(P.id);
+      syncWorkerCall({ op: 'stringify', obj: { st: P.st, base: P.base, names: P.names, dirty: P.dirty } }).then(function (raw) {
+        if (my === persistSeq && B.store.setRaw) B.store.setRaw(key, raw);
+      }, function () { if (my === persistSeq) persistP(); });
+    }, 400);
+  }
+  function persistNowIfPending() { if (persistTimer) persistP(); }
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', persistNowIfPending);
+    window.addEventListener('beforeunload', persistNowIfPending);
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') persistNowIfPending(); });
+  /** Bewaren met teksten die al klaar zijn (uit de Worker of de stappen): geen JSON.stringify van het model hier. */
+  function persistRaw(id, stStr, baseStr, names, dirty) {
+    var raw = '{"st":' + stStr + ',"base":' + baseStr + ',"names":' + JSON.stringify(names || []) + ',"dirty":' + (dirty ? 'true' : 'false') + '}';
+    if (B.store.setRaw) B.store.setRaw(pkey(id), raw); else B.store.set(pkey(id), JSON.parse(raw));
+  }
+
+  // MARK: Worker voor de sync (build 151)
+  var sw = null, swBroken = false, swSeq = 0, swWait = {}, swIdle = 0;
+  function syncWorker() {
+    if (swBroken || typeof window.Worker !== 'function' || B.noSyncWorker) return null;
+    if (sw) return sw;
+    try {
+      sw = new window.Worker('js/sync-worker.js?v=151');
+      sw.onmessage = function (e) {
+        var d = e.data || {}, w = swWait[d.id];
+        if (!w) return;
+        delete swWait[d.id]; clearTimeout(w.t);
+        if (d.error) w.fail(); else w.ok(d.r);
+        clearTimeout(swIdle);
+        swIdle = setTimeout(function () { if (sw && !Object.keys(swWait).length) { try { sw.terminate(); } catch (x) { /* stil */ } sw = null; } }, 30000);
+      };
+      sw.onerror = function () {
+        swBroken = true; sw = null;
+        Object.keys(swWait).forEach(function (k) { var w = swWait[k]; delete swWait[k]; clearTimeout(w.t); w.fail(); });
+      };
+    } catch (e) { swBroken = true; sw = null; }
+    return sw;
+  }
+  /** Promise met het antwoord van de Worker; zonder Worker (of fout, of na 15 s niets) een afwijzing: dan de terugval. */
+  function syncWorkerCall(msg) {
+    var w = syncWorker();
+    if (!w) return Promise.reject(new Error('no_worker'));
+    return new Promise(function (resolve, reject) {
+      var id = ++swSeq;
+      msg.id = id;
+      swWait[id] = { ok: resolve, fail: function () { reject(new Error('worker')); }, t: setTimeout(function () { if (swWait[id]) { delete swWait[id]; reject(new Error('timeout')); } }, 15000) };
+      try { w.postMessage(msg); } catch (e) { clearTimeout(swWait[id].t); delete swWait[id]; reject(e); }
+    });
+  }
+  /** Samenvoegen: in de Worker, anders op de hoofdthread in stappen (elke stap een eigen macrotaak). */
+  function computeMerge(inp) {
+    function steps() {
+      var r = {};
+      return B.steps(SM.mergeSteps(inp, r)).then(function () { return r; });
+    }
+    return syncWorkerCall({ op: 'merge', inp: inp }).then(function (r) { return r && r.merged ? r : steps(); }, steps);
+  }
+  D._computeMerge = computeMerge;
   D.loadProfileState = function (id) {
+    persistNowIfPending();
     // build 140 (Mijn lijst): wisselen terwijl het vorige profiel nog niet-geüploade wijzigingen had. D.flush() leest de
     // server pas ná het wisselen en voegde dan het nieuwe profiel samen: de toevoeging bleef lokaal en kwam nooit op het
     // andere apparaat aan. Nu gaat het vorige profiel apart naar de server.
@@ -756,12 +660,13 @@
     var id = lower(P.id);
     var names = Object.keys(all).filter(function (n) { return lower(n) === 'profile.' + id; });
     var server = null, base = null;
+    // build 151: lezen en samenvoegen in computeMerge (Worker of stappen); hier alleen welke secties
+    var datas = [];
     names.forEach(function (n) {
       var d = all[n] && all[n].data;
       if (!d || typeof d !== 'object') return;
       if (!base || n === 'profile.' + P.id) base = d;
-      var s = parseState(d);
-      server = server ? mergeState(server, s) : s;
+      datas.push(d);
     });
     // kijkvoorkeuren (prefs), startscherm (homeLayout) en pincode (pin): per onderdeel wint het geheel met de nieuwste
     // tijd; een nieuwere lokale versie blijft staan en gaat mee
@@ -782,22 +687,32 @@
     // build 91: kijkvoorkeuren van een ander apparaat → instellingen opnieuw tekenen
     if (active && JSON.stringify(localBase && localBase.prefs || null) !== JSON.stringify(P.base && P.base.prefs || null)) setTimeout(function () { B.emit('settings'); }, 0);
     if (names.length) P.names = names;
-    var srv = server ? normalize(server) : null;
-    var merged = normalize(srv ? mergeState(P.st, srv) : P.st);
-    if (applyTransforms(merged)) merged = normalize(merged);
-    var changed = stateKey(merged) !== stateKey(P.st);
-    P.st = merged;
-    var needUpload = prefsNewer || (!srv ? hasAny(merged) : stateKey(merged) !== stateKey(srv));
-    P.dirty = false;
-    persistCtx(P, active);
-    if (changed && active) B.emit('profileData');
-    if (!needUpload) return true;
-    var json = toJSON(P.base, merged);
-    var targets = P.names.length ? P.names : ['profile.' + P.id];
-    return Promise.all(targets.map(function (n) { return A.putState(n, json); })).then(function (res) {
-      if (res.some(function (x) { return x == null; })) { P.dirty = true; persistCtx(P, active); return false; }
-      P.base = json; persistCtx(P, active);
-      return true;
+    var local = P.st, e0 = edits, base0 = P.base;
+    return computeMerge({ datas: datas, local: local, base: base0, prefsNewer: prefsNewer }).then(function (r) {
+      var merged = r.merged, late = active && (edits !== e0 || P.st !== local);
+      // wijziging hier tijdens het samenvoegen (of remap-regels van xs.js): op de hoofdthread nog even bijwerken (zeldzaam)
+      if (late) merged = normalize(mergeState(merged, P.st));
+      var transformed = applyTransforms(merged);
+      if (transformed) merged = normalize(merged);
+      var exact = !late && !transformed && P.base === base0;
+      var mk = exact ? r.mergedKey : stateKey(merged);
+      var changed = mk !== r.localKey || late;
+      P.st = merged;
+      var needUpload = prefsNewer || (!r.hasSrv ? hasAny(merged) : mk !== r.srvKey);
+      P.dirty = late;
+      if (exact) { if (active) persistSeq++; persistRaw(P.id, r.stStr, r.baseStr, P.names, P.dirty); } else persistCtx(P, active);
+      if (changed && active) B.emit('profileData');
+      if (!needUpload) return true;
+      var json = exact && r.json ? r.json : toJSON(P.base, merged), jsonStr = exact && r.json ? r.jsonStr : null;
+      var stStr = exact ? r.stStr : null;
+      var targets = P.names.length ? P.names : ['profile.' + P.id];
+      return Promise.all(targets.map(function (n) { return A.putState(n, json); })).then(function (res) {
+        if (res.some(function (x) { return x == null; })) { P.dirty = true; persistCtx(P, active); return false; }
+        P.base = json;
+        // nog steeds hetzelfde model: bewaren met de klare teksten
+        if (stStr && jsonStr && P.st === merged && !P.dirty) { if (active) persistSeq++; persistRaw(P.id, stStr, jsonStr, P.names, false); } else persistCtx(P, active);
+        return true;
+      });
     });
   }
   /** Onderdelen van profile.<id> die als geheel samenvoegen (nieuwste tijd wint), met hun tijd. */
@@ -807,16 +722,11 @@
     // build 146: pinHash, pin en pinUpdatedAt samen
     { fields: ['pinHash', 'pin', 'pinUpdatedAt'], at: function (d) { return d && (B.has(d, 'pin') || B.has(d, 'pinHash')) ? time(d.pinUpdatedAt) || 0 : 0; } }
   ];
-  function hasAny(st) {
-    var any = Object.keys(st.progress).length || Object.keys(st.history).length;
-    SET_FIELDS.forEach(function (f) { if (Object.keys(st.sets[f]).length) any = true; });
-    return !!any;
-  }
-
   /** Lokale wijziging: na ~3 s naar de server (voortgang tijdens afspelen hooguit eens per 30 s). */
   function changed(progressOnly) {
     edits++;
-    P.dirty = true; persistP();
+    // build 151: bewaren samengevoegd en met de tekst uit de Worker (persistSoon), niet bij elke klik op de hoofdthread
+    P.dirty = true; persistSoon();
     B.emit('profileData');
     var wait = 3000;
     if (progressOnly) {

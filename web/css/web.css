@@ -1217,3 +1217,18 @@ a.cast-cell:hover .cast-name, a.cast-cell:focus-visible .cast-name { text-decora
 .card-hidden .card-img { opacity: .72; }
 .mark-hidden { position: absolute; left: 6px; bottom: 6px; padding: 2px 7px; border-radius: 6px; background: #000000b3; color: #fff; font-size: .72rem; font-weight: 600; }
 .card-sub { font-size: .78rem; color: var(--muted, #9aa0a6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* build 151: rij "Zenders" op Home (channelrow.js): logo op een neutrale achtergrond, eronder klein het programma van nu */
+.zc-row .row-track { gap: 14px; }
+.zc-tile { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; width: 180px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; font: inherit; }
+.zc-logo { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #2a2c34; box-shadow: 0 4px 14px #00000059; transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s; }
+.zc-logo .imgbox { width: 100%; height: 100%; background: transparent; }
+.zc-logo img { width: 100%; height: 100%; object-fit: contain; padding: 14px 18px; box-sizing: border-box; }
+.zc-logo .alt, .zc-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 0 10px; font-size: 1.05rem; font-weight: 800; line-height: 1.15; text-align: center; color: #fff; }
+.zc-logo .imgbox.noimg { display: flex; align-items: center; justify-content: center; }
+.zc-now { font-size: 12px; color: var(--muted, #a0a0a8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
+.zc-tile:hover .zc-logo, .zc-tile:focus-visible .zc-logo { transform: scale(1.045); box-shadow: 0 10px 26px #000c, 0 0 0 2px #ffffffd9; }
+.zc-tile:focus-visible { outline: none; }
+[dir=rtl] .zc-tile { text-align: right; }
+@media (max-width: 860px) { .zc-tile { width: 140px; } .zc-logo img { padding: 10px 12px; } .zc-logo .alt, .zc-name { font-size: .9rem; } }
+@media (min-width: 1600px) { .zc-tile { width: 220px; } }

@@ -174,7 +174,8 @@
   // build 141: de rij "Nieuw toegevoegd" ('recent') is weg; "Nieuw op Bingr" ('streaming') staat op zijn plek (een opgeslagen
   // 'recent' telt als 'streaming' met dezelfde plek en aan/uit; de sleutel blijft in de opgeslagen indeling voor andere apps)
   // build 149: 'discovercats' = Ontdek categorieën, standaard aan, na Top 10
-  var KNOWN = ['continue', 'mylist', 'streaming', 'upcoming', 'foryou', 'top10', 'discovercats', 'live', 'browse', 'categories', 'movies', 'series'];
+  // build 151: 'channels' = Zenders (zenderlogo's), standaard aan, direct na Ontdek categorieën
+  var KNOWN = ['continue', 'mylist', 'streaming', 'upcoming', 'foryou', 'top10', 'discovercats', 'channels', 'live', 'browse', 'categories', 'movies', 'series'];
   var ALIAS = { genres: 'browse', categorytiles: 'browse' };
   var REPLACED = { recent: 'streaming' };
   var DEFAULT_HIDDEN = { movies: true, series: true };
@@ -218,7 +219,7 @@
   };
   S.homeRowTitle = function (key, colls) {
     var t = { 'continue': L('Continue watching'), mylist: L('My List'), recent: L('Recently added'), upcoming: L('Coming soon to Bingr'),
-      streaming: L('New on Bingr'), foryou: L('For you'), top10: L('Top 10'), discovercats: L('Discover categories'),
+      streaming: L('New on Bingr'), foryou: L('For you'), top10: L('Top 10'), discovercats: L('Discover categories'), channels: L('Channels'),
       live: L('Favorite channels'), browse: L('Categories'), categories: L('Rows per category'), movies: L('Movies'), series: L('Series') }[key];
     if (t) return t;
     if (String(key).indexOf('collection:') === 0) {

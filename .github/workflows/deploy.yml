@@ -37,11 +37,13 @@ jobs:
         # build 148: 37k films, 12k zenders, 9k series; --expose-gc voor eerlijke geheugencijfers
         # build 149: snelle ISO-parser, gedeelde datumopmakers, JSON in een Worker en Ontdek categorieën; grote server
         # (123k films, 30k series, 12k zenders, 80% verborgen): piekgeheugen < 500 MB en geen lange stap
+        # build 151: sync toepassen en bewaren in stappen/Worker (groot profiel, zelfde uitkomst als ≤ 150); rij Zenders (format_test)
         run: |
           node tools/test/pin_test.js
           node tools/test/format_test.js
           node --expose-gc tools/test/longtask_test.js
           node --expose-gc tools/test/bigserver_test.js
+          node --expose-gc tools/test/sync_test.js
 
       - name: lftp en Pillow installeren
         run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp python3-pil

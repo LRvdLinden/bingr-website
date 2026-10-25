@@ -377,6 +377,14 @@
         return false;
       }
     },
+    /** build 151: een al klare JSON-tekst bewaren (uit een Worker; geen JSON.stringify op de hoofdthread). */
+    setRaw: function (k, raw) {
+      try { window.localStorage.setItem(PREFIX + k, raw); delete memory[k]; return true; } catch (e) {
+        memory[k] = raw;
+        B.log('opslag vol', k, raw.length);
+        return false;
+      }
+    },
     del: function (k) {
       delete memory[k];
       try { window.localStorage.removeItem(PREFIX + k); } catch (e) { /* stil */ }
