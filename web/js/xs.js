@@ -372,6 +372,145 @@
       return true;
     });
   };
+
+  // MARK: build 151: rijen op Home zonder dubbele titels (dezelfde titel/zender op meer servers = één tegel)
+
+  /** IMDb-id ("tt0133093") van een item, of null. */
+  function imdbOf(x) {
+    var v = x && (x.imdb != null ? x.imdb : (x.imdbID != null ? x.imdbID : (x.imdbId != null ? x.imdbId : x.imdb_id)));
+    var m = /tt\d{5,}/i.exec(String(v == null ? '' : v));
+    return m ? m[0].toLowerCase() : null;
+  }
+  X.imdbOf = imdbOf;
+  /** Zendernaam zoals de rij Zenders hem toont, voor vergelijken ("NL | NPO 1 HD" = "NPO 1" = "npo1"). */
+  X.chanKey = function (n) {
+    var s = String(n == null ? '' : n);
+    var c = B.clang && B.clang.strip ? B.clang.strip(s) : s;
+    c = B.stripTags ? B.stripTags(c) : c;
+    return B.fold((c && c.trim()) || s.trim()).replace(NON_WORD, '');
+  };
+  /** Sleutels van een treffer: id's (TMDB, IMDb) en titel + jaar; zenders: de opgeschoonde naam. */
+  function hitKeys(hit) {
+    var x = hit.item, t = hit.type;
+    if (t === 'channel') { var c = X.chanKey(x.name || x.title); return { ids: c ? ['c|' + c] : [], norm: null }; }
+    var ids = [], tm = tmdbOf(x), im = imdbOf(x);
+    if (tm) ids.push(t + '|t|' + tm);
+    if (im) ids.push(t + '|i|' + im);
+    var n = X.normTitle(x.rawTitle || x.title);
+    return { ids: ids, norm: n ? t + '|' + n : null, year: X.yearOf(x) || null, tmdb: tm, imdb: im };
+  }
+  /**
+   * Treffers ({type, item}) in groepen van hetzelfde werk, op volgorde van de eerste treffer: [[hit, …], …].
+   * Zelfde werk = zelfde TMDB- of IMDb-id; anders genormaliseerde titel + jaar (B.parseTitle/fold; zonder jaar aan één
+   * kant telt de titel als er maar één groep met die titel is). Twee verschillende TMDB-/IMDb-id's = nooit samen.
+   * Zenders: de opgeschoonde naam.
+   */
+  X.groupHits = function (list) {
+    var groups = [], byId = Object.create(null), byTY = Object.create(null), byN = Object.create(null);
+    function clash(g, k) { return (k.tmdb && g.tmdb && g.tmdb !== k.tmdb) || (k.imdb && g.imdb && g.imdb !== k.imdb); }
+    (list || []).forEach(function (hit) {
+      if (!hit || !hit.item) return;
+      var k = hitKeys(hit), g = null, i;
+      for (i = 0; i < k.ids.length && !g; i++) g = byId[k.ids[i]] || null;
+      if (g && clash(g, k)) g = null;
+      if (!g && k.norm) {
+        var cands = [];
+        if (k.year) { if (byTY[k.norm + '|' + k.year]) cands.push(byTY[k.norm + '|' + k.year]); if (byTY[k.norm + '|']) cands.push(byTY[k.norm + '|']); }
+        else if (byN[k.norm] && byN[k.norm].length === 1) cands.push(byN[k.norm][0]);
+        for (i = 0; i < cands.length && !g; i++) if (!clash(cands[i], k)) g = cands[i];
+      }
+      if (!g) { g = { hits: [], tmdb: null, imdb: null }; groups.push(g); }
+      g.hits.push(hit);
+      if (k.tmdb && !g.tmdb) g.tmdb = k.tmdb;
+      if (k.imdb && !g.imdb) g.imdb = k.imdb;
+      k.ids.forEach(function (id) { if (!byId[id]) byId[id] = g; });
+      if (k.norm) {
+        var ty = k.norm + '|' + (k.year || '');
+        if (!byTY[ty]) byTY[ty] = g;
+        var l = byN[k.norm] || (byN[k.norm] = []);
+        if (l.indexOf(g) < 0) l.push(g);
+      }
+    });
+    return groups.map(function (g) { return g.hits; });
+  };
+  /** Taal van een bron (titel van de aanbieder, anders de categorie); '' = onbekend. Niet via CL.forItem: id's botsen tussen servers. */
+  function langOfHit(hit) {
+    var CL = B.clang, x = hit.item;
+    if (!CL) return '';
+    var info = null;
+    try {
+      if (hit.type === 'channel') info = CL.fromCategory(x.rawGroup != null ? x.rawGroup : x.group) || CL.parse(x.name);
+      else info = x.cl || CL.parse(x.rawTitle || x.title) || CL.fromCategory(x.rawGroup != null ? x.rawGroup : x.group);
+    } catch (e) { info = null; }
+    return info && info.a ? String(info.a).toLowerCase() : '';
+  }
+  X.langOfHit = langOfHit;
+  /** Talen die de gebruiker wil horen: de audiotaal en de taal van de app. */
+  X.prefLangs = function () {
+    var CL = B.clang, out = [];
+    try { var a = CL && CL.preferredAudio ? CL.preferredAudio() : ''; if (a) out.push(String(a).toLowerCase().slice(0, 2)); } catch (e) { /* geen voorkeur */ }
+    try { var p = CL && CL.appLanguage ? CL.appLanguage() : (B.lang || ''); p = String(p || '').toLowerCase().slice(0, 2); if (p && out.indexOf(p) < 0) out.push(p); } catch (e) { /* */ }
+    return out;
+  };
+  /** Server-id van een item: andere server = item._src, anders de actieve. */
+  function sidOfItem(x, activeId) { return x && x._src ? x._src.id : activeId; }
+  X.sidOfItem = sidOfItem;
+  /**
+   * Welke bron van dezelfde titel blijft staan: eerst die in de audio- of app-taal, dan die van de actieve server, dan de
+   * rest (op volgorde van de lijst). opts: {langs, activeId} (anders uit de instellingen en de actieve server).
+   */
+  X.pickHit = function (hits, opts) {
+    opts = opts || {};
+    if (!hits || hits.length < 2) return hits ? hits[0] : null;
+    var langs = opts.langs || X.prefLangs();
+    var act = opts.activeId !== undefined ? opts.activeId : (B.lib && B.lib.source ? B.lib.source.id : null);
+    var best = null, bestR = 9;
+    hits.forEach(function (hit) {
+      var lg = langOfHit(hit);
+      var r = (lg && langs.indexOf(lg) >= 0 ? 0 : 2) + (act != null && lower(sidOfItem(hit.item, act)) === lower(act) && !hit.item._key ? 0 : 1);
+      if (r < bestR) { best = hit; bestR = r; }
+    });
+    return best;
+  };
+  /**
+   * Rij zonder dubbele: per werk één treffer (X.pickHit), op de plek van de eerste. opts.onMerge(gekozen, andere) voor
+   * wie de andere bronnen nodig heeft (Mijn lijst: alle sleutels verwijderen).
+   */
+  X.dedupeHome = function (list, opts) {
+    opts = opts || {};
+    var langs = opts.langs || X.prefLangs();
+    var o = { langs: langs, activeId: opts.activeId };
+    return X.groupHits(list).map(function (g) {
+      var pick = g.length > 1 ? X.pickHit(g, o) : g[0];
+      if (g.length > 1 && opts.onMerge) opts.onMerge(pick, g.filter(function (hh) { return hh !== pick; }));
+      return pick;
+    });
+  };
+  /**
+   * Verder kijken: dezelfde titel op twee servers = één tegel, met de meest recente voortgang (entries staan nieuwste
+   * eerst, zoals D.progressList); de voortgangssleutels van alle bronnen samen (om te verwijderen). [{x, type, p, keys}]
+   */
+  X.mergeContinue = function (entries, max) {
+    var groups = X.groupHits((entries || []).map(function (e) { return { type: e.type, item: e.x, e: e }; }));
+    var out = groups.map(function (g) {
+      var first = g[0].e, keys = [];
+      g.forEach(function (hh) { (hh.e.keys || []).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); }); });
+      var r = { x: first.x, type: first.type, p: first.p, keys: keys };
+      if (first.x && first.x._progressKeys) first.x._progressKeys = keys;
+      return r;
+    });
+    return max ? out.slice(0, max) : out;
+  };
+  /** Zelfde werk (voor andere bronnen op de detailpagina): zelfde id, of titel + jaar (±1) zonder botsende id's. */
+  X.sameWork = function (type, a, b) {
+    if (!a || !b) return false;
+    var ka = hitKeys({ type: type, item: a }), kb = hitKeys({ type: type, item: b });
+    if ((ka.tmdb && kb.tmdb && ka.tmdb !== kb.tmdb) || (ka.imdb && kb.imdb && ka.imdb !== kb.imdb)) return false;
+    if ((ka.tmdb && ka.tmdb === kb.tmdb) || (ka.imdb && ka.imdb === kb.imdb)) return true;
+    if (!ka.norm || ka.norm !== kb.norm) return false;
+    return !ka.year || !kb.year || Math.abs(ka.year - kb.year) <= 1;
+  };
+
   /** Opgevouwen veld (zelfde cache-sleutels als library.js). */
   function foldOf(x, field) {
     var k = field === 'name' ? '_fn' : field === 'group' ? '_fg' : '_ft';
@@ -899,7 +1038,11 @@
       if (kind === 'title' && hit.type === 'channel') return;
       out.push(hit);
     });
-    return dedupe(out);
+    // build 151: zelfde titel/zender op meer servers = één tegel (bron in de audio-/app-taal, dan de actieve server);
+    // de sleutels van de andere bronnen gaan mee, zodat "Verwijderen uit Mijn lijst" ze allemaal weghaalt
+    return X.dedupeHome(out, { onMerge: function (pick, others) {
+      pick.item._listAlso = others.map(function (o) { return X.keyOf(o.item); });
+    } });
   };
   /** Sleutel van een tegel of item (voor Mijn lijst/favorieten). */
   X.keyOf = function (x) {
@@ -909,6 +1052,33 @@
     return D.key(src ? src.id : '', x.id);
   };
   X.srcOf = function (x) { return (x && x._src) || Lib.source; };
+  /**
+   * build 151: dezelfde film/serie op de andere servers (de bronnen die op Home zijn samengevoegd), voor de detailpagina:
+   * [{src, item, lang}], op volgorde van de servers (actieve eerst). Alleen wat dit profiel op die server mag zien.
+   */
+  X.alternatives = function (type, x) {
+    if (!x || x._key || (type !== 'movie' && type !== 'series')) return [];
+    var own = lower(sidOfItem(x, Lib.source ? Lib.source.id : ''));
+    var out = [];
+    libsFor(null); // ontbrekende catalogi op de achtergrond laden (daarna tekent de pagina opnieuw)
+    orderedSources().forEach(function (s) {
+      if (lower(s.id) === own) return;
+      var cat = catNow(s.id), view = cat ? viewOf(s.id) : null;
+      if (!cat || !view || !cat.idx) return;
+      var cands = [], t = tmdbOf(x), seen = Object.create(null), n = 0;
+      if (t && cat.idx.tmdb[type][t]) cands.push(cat.idx.tmdb[type][t]);
+      cands = cands.concat(cat.idx[type][X.normTitle(x.rawTitle || x.title)] || []);
+      cands.forEach(function (c) {
+        if (n >= 3 || seen[c.id]) return;
+        seen[c.id] = true;
+        var hit = view.byId[c.id];
+        if (!hit || hit.type !== type || !X.sameWork(type, x, hit.item)) return;
+        n++;
+        out.push({ src: s, item: hit.item, lang: langOfHit(hit) });
+      });
+    });
+    return out;
+  };
 
   /**
    * Verder kijken over alle servers: films met voortgang en per serie één kaart (alle sleutels van die serie).
@@ -916,7 +1086,7 @@
    */
   X.continueEntries = function (max) {
     max = max || 20;
-    var out = [], bySeries = {}, seenWork = {};
+    var out = [], bySeries = {};
     function seriesByTitle(sid) {
       var v = viewOf(sid);
       if (!v) return {};
@@ -967,12 +1137,10 @@
         if (ph.type === 'series') bySeries[gk] = entry;
         ph.item._progressKeys = entry.keys;
       }
-      var wk = X.workKey(entry.type, entry.x);
-      if (wk && seenWork[wk]) { seenWork[wk].keys = seenWork[wk].keys.concat(entry.keys); return; }
-      if (wk) seenWork[wk] = entry;
-      if (out.length < max) out.push(entry);
+      out.push(entry);
     });
-    return out;
+    // build 151: dezelfde titel op twee servers = één tegel, met de meest recente voortgang (TMDB/IMDb, anders titel + jaar)
+    return X.mergeContinue(out, max);
   };
 
   /** Geschiedenis over alle servers (zonder dubbele schrijfwijzen; remap toegepast). */

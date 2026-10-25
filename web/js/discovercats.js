@@ -134,7 +134,17 @@
       if (seen[k]) continue;
       seen[k] = true;
       var posters = [];
-      for (var j = 0; j < c.list.length && posters.length < 4; j++) if (c.list[j].poster) posters.push(c.list[j].poster);
+      // build 151: vier verschillende titels (niet twee keer dezelfde film in een andere taal of kwaliteit)
+      var seenW = Object.create(null);
+      for (var j = 0; j < c.list.length && j < 200 && posters.length < 4; j++) {
+        var it = c.list[j];
+        if (!it.poster || seenW['p' + it.poster]) continue;
+        var wk = B.xs && B.xs.workKey ? B.xs.workKey(c.type, it) : null;
+        if (wk && seenW[wk]) continue;
+        if (wk) seenW[wk] = true;
+        seenW['p' + it.poster] = true;
+        posters.push(it.poster);
+      }
       if (posters.length < 3) continue; // collage van 3–4 posters, anders past de tegel niet
       // build 150: samengevoegd uit meer categorieën (talen, kwaliteit) = taalchips op de tegel ("NL · Multi")
       var tags = Lib.groupSources && Lib.groupSources(c.type, c.group).length > 1 ? Lib.groupTags(c.type, c.group) : [];

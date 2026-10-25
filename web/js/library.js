@@ -1099,10 +1099,17 @@
     var pool = withPoster.length ? withPoster : items;
     var rated = pool.filter(function (x) { return (x.rating || 0) > 0; });
     // build 148: alleen de eerste 10 zoeken (B.topN), niet 37k titels sorteren; zelfde uitkomst
-    if (rated.length >= 10) return B.topN(rated, 10, function (a, b) { return (b.rating || 0) - (a.rating || 0); });
+    if (rated.length >= 10) return uniq10(B.topN(rated, 40, function (a, b) { return (b.rating || 0) - (a.rating || 0); }));
     var recent = pool.filter(function (x) { return x.addedAt; });
-    if (recent.length >= 10) return B.topN(recent, 10, function (a, b) { return b.addedAt - a.addedAt; });
-    return pool.slice(0, 10);
+    if (recent.length >= 10) return uniq10(B.topN(recent, 40, function (a, b) { return b.addedAt - a.addedAt; }));
+    return uniq10(pool.slice(0, 40));
+  }
+  /** build 151: Top 10 zonder dezelfde titel twee keer (andere taal/kwaliteit in een andere categorie), bron in de audio-/app-taal. */
+  function uniq10(list) {
+    var X = B.xs;
+    if (!X || !X.dedupeHome || !list.length) return list.slice(0, 10);
+    // één soort per lijst: de soort in de sleutel doet er hier niet toe
+    return X.dedupeHome(list.map(function (x) { return { type: 'movie', item: x }; })).slice(0, 10).map(function (hh) { return hh.item; });
   }
   Lib.recent = function (items, n) {
     var key = items === Lib.lib.movies ? 'recent:m:' + (n || 30) : items === Lib.lib.series ? 'recent:s:' + (n || 30) : null;

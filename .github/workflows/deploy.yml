@@ -38,9 +38,11 @@ jobs:
         # build 149: snelle ISO-parser, gedeelde datumopmakers, JSON in een Worker en Ontdek categorieën; grote server
         # (123k films, 30k series, 12k zenders, 80% verborgen): piekgeheugen < 500 MB en geen lange stap
         # build 151: sync toepassen en bewaren in stappen/Worker (groot profiel, zelfde uitkomst als ≤ 150); rij Zenders (format_test)
+        # build 151: rijen op Home zonder dubbele titels over meer servers (homededupe_test)
         run: |
           node tools/test/pin_test.js
           node tools/test/format_test.js
+          node tools/test/homededupe_test.js
           node --expose-gc tools/test/longtask_test.js
           node --expose-gc tools/test/bigserver_test.js
           node --expose-gc tools/test/sync_test.js

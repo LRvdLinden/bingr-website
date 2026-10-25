@@ -26,7 +26,8 @@
   /** Sleutels in Mijn lijst voor dit item: de eigen sleutel, en bij een TMDB-titel die op elke server (hoort bij geen server). */
   function listKeys(x) {
     if (x.external) return D.setList('myList').filter(function (k) { var i = k.indexOf('|'); return i > 0 && k.slice(i + 1) === String(x.id); });
-    return D.inSet('myList', keyOf(x)) ? [keyOf(x)] : [];
+    // build 151: tegel uit Mijn lijst die voor meer servers staat (samengevoegd): alle sleutels die er nog in staan
+    return [keyOf(x)].concat(x._listAlso || []).filter(function (k, i, all) { return all.indexOf(k) === i && D.inSet('myList', k); });
   }
   S.inMyList = function (x) { return listKeys(x).length > 0; };
   S.toggleMyList = function (x, type) {
@@ -321,9 +322,13 @@
       return m;
     });
   }
+  /** build 151: rij zonder dubbele titels (zelfde titel op meer servers = één, bron in de audio-/app-taal, dan de actieve). */
+  function dedupeRow(list) { return B.xs && B.xs.dedupeHome ? B.xs.dedupeHome(list) : list; }
+  S.dedupeRow = dedupeRow;
   function popular(libs) {
-    var out = [], seen = Object.create(null);
-    function add(type, x) { if (!x || done(type, x)) return; var k = workOf(type, x); if (seen[k]) return; seen[k] = true; out.push({ type: type, item: x }); }
+    var out = [], seen = Object.create(null), MAXP = 90;
+    // build 151: per item (server + id) één keer; dezelfde titel op meer servers ontdubbelt dedupeRow aan het eind
+    function add(type, x) { if (!x || done(type, x)) return; var k = type + '|' + (x._src ? x._src.id : '') + '|' + x.id; if (seen[k]) return; seen[k] = true; out.push({ type: type, item: x }); }
     var tm = Lib.top10(Lib.lib.movies), ts = Lib.top10(Lib.lib.series);
     for (var t = 0; t < 10; t++) { add('movie', tm[t]); add('series', ts[t]); }
     // aanvullen met de best beoordeelde en nieuwste van alle servers
@@ -336,12 +341,12 @@
     // build 147: eerst alleen de beste ~300 sorteren; is dat niet genoeg (veel al bekeken), dan de rest erachter
     var top = B.discover && B.discover.topBy && pool.length > 2000 ? B.discover.topBy(pool, 300, function (e) { return sc(e.item); }) : pool;
     top.sort(function (a, b) { return sc(b.item) - sc(a.item); });
-    for (var i = 0; i < top.length && out.length < 30; i++) add(top[i].type, top[i].item);
-    if (out.length < 30 && top !== pool) {
+    for (var i = 0; i < top.length && out.length < MAXP; i++) add(top[i].type, top[i].item);
+    if (out.length < MAXP && top !== pool) {
       pool.sort(function (a, b) { return sc(b.item) - sc(a.item); });
-      for (var i2 = 0; i2 < pool.length && out.length < 30; i2++) add(pool[i2].type, pool[i2].item);
+      for (var i2 = 0; i2 < pool.length && out.length < MAXP; i2++) add(pool[i2].type, pool[i2].item);
     }
-    return out.slice(0, 30);
+    return dedupeRow(out).slice(0, 30);
   }
   // build 147: Voor jou vooraf (vóór het event 'library'), zodat Home en Uitgelicht hem uit Lib.memo halen
   if (Lib && Lib.warmers) Lib.warmers.push(function () { if (B.app && B.app.profile && S.forYou) S.forYou(); });
@@ -392,20 +397,21 @@
             var wk = workOf(type, x);
             var s3 = recScore[wk] || 0;
             var score = (s1 / (ks.length || 1)) + s2 + s3;
-            if (score <= 0 || seen[wk] || seedWork[wk]) continue;
+            // build 151: dezelfde titel op meer servers mag hier nog dubbel staan; dedupeHome kiest hieronder de bron
+            if (score <= 0 || seedWork[wk]) continue;
             if (done(type, x)) continue;
-            seen[wk] = true;
             var r = x.rating || 0; if (r > 10) r = r / 10;
             cands.push({ type: type, item: x, s: score / (total || 1) + r * 0.01 });
           }
         });
       });
       cands.sort(function (a, b) { return b.s - a.s; });
-      var out = cands.slice(0, 30).map(function (c) { return { type: c.type, item: c.item }; });
+      var out = dedupeRow(cands.slice(0, 150).map(function (c) { return { type: c.type, item: c.item }; })).slice(0, 30);
       if (out.length < 8) {
         var have = Object.create(null);
         out.forEach(function (o) { have[workOf(o.type, o.item)] = true; });
         popular(libs).forEach(function (o) { if (out.length < 20 && !have[workOf(o.type, o.item)] && !seedWork[workOf(o.type, o.item)]) out.push(o); });
+        out = dedupeRow(out);
       }
       return { popular: false, items: out };
     });

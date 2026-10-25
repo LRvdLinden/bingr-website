@@ -38,7 +38,8 @@
     var out = [], seen = Object.create(null);
     function add(ch) {
       if (out.length >= MAX || !playable(ch) || !kidsOK(ch, kids)) return;
-      var k = B.fold(CR.cleanName(ch.name));
+      // build 151: zelfde opgeschoonde naam = dezelfde zender (ook "NPO1" en "NPO 1"), zoals B.xs.dedupeHome
+      var k = B.xs && B.xs.chanKey ? B.xs.chanKey(ch.name) : B.fold(CR.cleanName(ch.name));
       if (!k || seen[k]) return;
       seen[k] = true;
       out.push(ch);
@@ -75,7 +76,8 @@
     if (!B.xs || !B.xs.listTiles) return [];
     var hits = [];
     try { hits = B.xs.listTiles('recentChannels', 'channel').concat(B.xs.listTiles('favorites', 'channel')); } catch (e) { hits = []; }
-    if (B.xs.dedupe) hits = B.xs.dedupe(hits);
+    // build 151: dezelfde zender op meer servers = één (bron in de audio-/app-taal, dan de actieve server)
+    if (B.xs.dedupeHome) hits = B.xs.dedupeHome(hits); else if (B.xs.dedupe) hits = B.xs.dedupe(hits);
     return hits.map(function (x) { return x && x.item; }).filter(Boolean);
   }
 

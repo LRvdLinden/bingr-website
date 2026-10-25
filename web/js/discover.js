@@ -230,10 +230,12 @@
       // build 147: alleen de nieuwste ~n×3 sorteren (drempel via een getallenlijst), niet alle 10k+ titels
       dated = topBy(dated, n * 3, function (e) { return e.t; });
       dated.sort(function (a, b) { return (b.t - a.t) || (a.li - b.li) || (b.i - a.i); });
-      var out = B.xs ? B.xs.dedupe(dated.slice(0, n * 3)) : dated;
+      // build 151: dezelfde titel op meer servers = één tegel (bron in de audio-/app-taal, dan de actieve server)
+      var dd = B.xs ? (B.xs.dedupeHome || B.xs.dedupe) : null;
+      var out = dd ? dd(dated.slice(0, n * 3)) : dated;
       if (out.length < n) {
         rest.sort(function (a, b) { return (a.li - b.li) || (b.i - a.i); });
-        out = B.xs ? B.xs.dedupe(out.concat(rest.slice(0, n * 3))) : out.concat(rest);
+        out = dd ? dd(dated.slice(0, n * 3).concat(rest.slice(0, n * 3))) : out.concat(rest);
       }
       return out.slice(0, n).map(function (e) { return { type: e.type, item: e.item }; });
     });
