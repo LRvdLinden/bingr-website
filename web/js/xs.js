@@ -807,6 +807,7 @@
   function cacheFresh() { return true; }
   function storeLib(src, lib) {
     lib.epg = lib.epg || {};
+    lib.wkv = 154; // build 154: titels met de opschoning van build 154 (migratie van gezien)
     var sv = B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays'); // build 147: in stukken
     // build 148: fasen van het bijwerken (diagnose): bewaren hier, indexen en toepassen in put()
     if (lib._upd) lib._upd.saved = lib._upd.time('save', sv);
@@ -1898,4 +1899,35 @@
   // eerste start: na de eerste volledige sync rustig beginnen
   B.on('profileData', function () { if (!X.migrated()) kick(5000); });
   B.on('library', function () { kick(4000); });
+
+  // MARK: build 154: gezien-id-sleutels krijgen eenmalig hun inhoudssleutels (per profiel en apparaat)
+  // Alleen uit catalogi die met de opschoning van build 154 gelezen zijn (lib.wkv), of de TMDB-id uit catalogmeta.
+  // Een catalogus van vóór build 154 kan een verkeerde titel hebben ("Hawaii" voor "NCIS: Hawaii"): niet raden.
+  // De vlag komt pas als alle servers zo'n catalogus hebben; tot dan loopt het opnieuw (het toevoegen is idempotent).
+  var WMIG = 'wk154.mig.', wmigTimer = 0;
+  function wkFind(id) {
+    var out = [];
+    (D.sources || []).forEach(function (src) {
+      var c = catNow(src.id), hit = c && c.raw && c.raw.wkv >= 154 ? c.idx.byId[id] : null;
+      if (hit && (hit.type === 'movie' || hit.type === 'series')) { out.push({ type: hit.type, item: hit.item }); return; }
+      var mt = CM.items[X.metaKey(src.id, id)];
+      // catalogmeta: alleen de TMDB-id (de titel daar kan nog van de oude opschoning zijn)
+      if (mt && !mt.guess && (mt.k === 'movie' || mt.k === 'series') && B.int(mt.tmdb)) out.push({ type: mt.k, item: { tmdb: B.int(mt.tmdb) } });
+    });
+    return out;
+  }
+  X._wkFind = wkFind;
+  function migrateWatched() {
+    var p = B.app && B.app.profile;
+    if (!p || !D.syncedOnce || !D.migrateWatchedKeys || (B.player && B.player.current)) return;
+    var flag = WMIG + lower(p.id);
+    if (B.store.get(flag, false)) return;
+    var all = (D.sources || []).every(function (s) { var c = catNow(s.id); return !!(c && c.raw && c.raw.wkv >= 154); });
+    try { D.migrateWatchedKeys(wkFind); } catch (e) { B.log('gezien migreren', e && e.message); return; }
+    if (all) B.store.set(flag, B.iso());
+  }
+  function wmigSoon() { clearTimeout(wmigTimer); wmigTimer = setTimeout(migrateWatched, 6000); }
+  B.on('xsCatalog', wmigSoon);
+  B.on('library', wmigSoon);
+  B.on('profileData', function () { if (!wmigTimer) wmigSoon(); });
 })();

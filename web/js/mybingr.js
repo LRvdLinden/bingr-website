@@ -40,7 +40,8 @@
   };
   /** Film (on)bekeken: lokaal per profiel en, als Trakt gekoppeld is, ook daar (zoals toggleWatchedMovie op iOS). */
   S.setMovieWatched = function (m, on) {
-    D.setWatched(m.id, on);
+    // build 154: id- en inhoudssleutels (gezien op alle servers); Trakt via de blijvende wachtrij
+    D.setMovieWatched(m, on);
     if (on) D.clearProgress(m.id);
     if (B.trakt.isLoggedIn()) B.trakt.setWatched(B.player.movieItem(m), on);
   };
@@ -133,9 +134,12 @@
     }
     return card;
   }
+  /** build 154: een gezien item (ook op een andere server of op Trakt) valt uit Verder kijken. */
+  function notDone(c) { return c && c.x && !(c.type === 'movie' ? S.movieWatched(c.x) : S.seriesWatched(c.x)); }
+  S.continueNotDone = notDone;
   S.continueCards = function (max) {
     // build 128: over alle servers
-    if (B.xs) return B.xs.continueEntries(max || 20).map(function (c) { return contCard(c); });
+    if (B.xs) return B.xs.continueEntries((max || 20) + 10).filter(notDone).slice(0, max || 20).map(function (c) { return contCard(c); });
     var lib = Lib.lib, out = [];
     var byTitle = Lib.memo('seriesByTitle', function () { var m = {}; lib.series.forEach(function (s) { if (!m[s.title]) m[s.title] = s; }); return m; });
     var seen = {}, seriesKeys = {};
@@ -149,7 +153,7 @@
         if (!seen[s.id] && out.length < (max || 20)) { seen[s.id] = true; out.push({ x: s, type: 'series', p: pe.e.fraction, keys: seriesKeys[s.id] }); }
       }
     });
-    return out.map(contCard);
+    return out.filter(notDone).map(contCard);
   };
 
   S.collectionChannels = function (c) {
@@ -293,7 +297,7 @@
   function done(type, x) {
     if (D.progress(x.id)) return true;
     if (type === 'movie') return S.movieWatched(x);
-    return S.seriesWatchedCount(x) > 0;
+    return (S.seriesWatched ? S.seriesWatched(x) : false) || S.seriesWatchedCount(x) > 0;
   }
   /** TMDB-aanbevelingen van de belangrijkste zaadjes (op de achtergrond, één keer per titel per sessie). */
   function askRecs(list) {

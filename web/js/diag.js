@@ -592,6 +592,9 @@
         network: { online: navigator.onLine !== false, type: netType() },
         storage: sto
       };
+      // build 154: Trakt-wachtrij en not_found (alleen aantallen)
+      var td = B.trakt && B.trakt.diag ? B.trakt.diag() : undefined;
+      if (td) state.trakt = td;
       if (backend) { state.network.backend = backend.check; if (backend.ms != null) state.network.backendMs = backend.ms; }
       if (provider) { state.network.provider = provider.check; if (provider.ms != null) state.network.providerMs = provider.ms; }
       // build 147 (schema 2): altijd de startdiagnose erbij (deze start en de vorige met zijn probleem)

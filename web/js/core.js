@@ -1213,27 +1213,44 @@
 
   // MARK: titels opschonen (= TitleCleaner.kt)
 
-  var tcPrefix = /^\s*(\|[^|]{1,12}\||\[[^\]]{1,12}\]|[A-Z]{2,4}\s*[-:|]\s+)/;
+  // build 154 (contract "Titelopschoning"): een voorvoegsel met ":" of "-" ("NL: ", "4K - ") gaat alleen weg als het een
+  // taal- of landcode, kwaliteitswoord of bekend IPTV-woord is (tagWord, de lijsten van build 150): "NCIS: Hawaii",
+  // "FBI: Most Wanted" en "BBC - Planet Earth" blijven heel. Een jaartal gaat alleen weg tussen haakjes/blokhaken of
+  // achteraan na "-"/"|", tussen 1900 en volgend jaar ("Blade Runner 2049" en "1917" blijven). Kwaliteitswoorden
+  // alleen achteraan ("Sub Zero" blijft); technische woorden (1080p, x265, …) en stukken tussen haakjes overal.
+  var tcPrefix = /^\s*(\|[^|]{1,12}\||\[[^\]]{1,12}\])/;
+  var tcPrefixWord = /^\s*([A-Za-z0-9]{2,6})\s*[\-:|]\s+/;
   var tcEpisode = /[Ss](\d{1,2})\s*[Ee](\d{1,3})/;
-  var tcYear = /[\(\[\s-](19\d{2}|20\d{2})[\)\]]?/g;
-  var tcJunk = /\b(4k|uhd|fhd|hd|sd|hevc|h\.?265|x265|x264|1080p|720p|2160p|multi|subs?|nl ?sub|vost\w*|dolby|atmos|hdr10?\+?|dv)\b|\[[^\]]*\]|\([^\)]*\)/gi;
+  var tcYearBr = /[\(\[]\s*((?:19|20)\d{2})\s*[\)\]]/g;
+  var tcYearSep = /\s*[\-–|]\s*((?:19|20)\d{2})\s*$/;
+  var tcJunk = /\b(hevc|h\.?26[45]|x26[45]|1080p|720p|2160p)\b|\[[^\]]*\]|\([^\)]*\)/gi;
+  var tcJunkEnd = /(^|[\s\-|]+)(4k|8k|uhd|fhd|hd|sd|multi|subs?|nl ?sub|vost\w*|dolby|atmos|hdr10?\+?|dv)\s*$/i;
+  function yearOk(y) { return y >= 1900 && y <= new Date().getFullYear() + 1; }
   B.parseTitle = function (raw) {
-    var s = String(raw || '');
-    for (var r = 0; r < 2; r++) s = s.replace(tcPrefix, '');
+    var s = String(raw || ''), m, r;
+    for (r = 0; r < 2; r++) {
+      var before = s;
+      s = s.replace(tcPrefix, '');
+      if ((m = tcPrefixWord.exec(s)) && tagWord(m[1]) && /[0-9A-Za-zÀ-￿]/.test(s.slice(m[0].length))) s = s.slice(m[0].length);
+      if (s === before) break;
+    }
     // build 150: zelfde opschoning als categorieën ("| MULTI / LINGO | Titel", "Titel (NL)")
     s = B.stripTags(s);
     var season = null, ep = null;
-    var m = tcEpisode.exec(s);
+    m = tcEpisode.exec(s);
     if (m) { season = parseInt(m[1], 10); ep = parseInt(m[2], 10); s = s.substring(0, m.index); }
     var y = null, last = null, mm;
-    tcYear.lastIndex = 0;
-    while ((mm = tcYear.exec(s)) !== null) { last = mm; if (mm[0].length === 0) tcYear.lastIndex++; }
-    if (last) { y = parseInt(last[1], 10); s = s.substring(0, last.index) + s.substring(last.index + last[0].length); }
+    tcYearBr.lastIndex = 0;
+    while ((mm = tcYearBr.exec(s)) !== null) { if (yearOk(parseInt(mm[1], 10))) last = mm; }
+    if (!last && (mm = tcYearSep.exec(s)) && yearOk(parseInt(mm[1], 10)) && /[0-9A-Za-zÀ-￿]/.test(s.slice(0, mm.index))) last = mm;
+    if (last) { y = parseInt(last[1], 10); s = s.substring(0, last.index) + ' ' + s.substring(last.index + last[0].length); }
     s = s.replace(tcJunk, ' ');
-    s = s.replace(/_/g, ' ').replace(/\./g, ' ').split(/[ \t ]+/).filter(function (x) { return x.length > 0; }).join(' ');
+    for (r = 0; r < 6 && (m = tcJunkEnd.exec(s)) && m.index > 0; r++) s = s.slice(0, m.index);
+    s = s.replace(/_/g, ' ').replace(/\./g, ' ').split(/[ \t ]+/).filter(function (x) { return x.length > 0; }).join(' ');
     s = s.replace(/^[ \-|:]+|[ \-|:]+$/g, '');
     return { title: s || String(raw || ''), year: y, season: season, episode: ep };
   };
+  B._tagWord = tagWord;
 
   /** Tekst zonder accenten, in kleine letters (zoeken en vergelijken). */
   // build 149: alleen ASCII (de meeste titels) = alleen toLowerCase, zonder normalize (dat liep teken voor teken)

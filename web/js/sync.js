@@ -449,7 +449,7 @@
     if (swBroken || typeof window.Worker !== 'function' || B.noSyncWorker) return null;
     if (sw) return sw;
     try {
-      sw = new window.Worker('js/sync-worker.js?v=151');
+      sw = new window.Worker('js/sync-worker.js?v=154');
       sw.onmessage = function (e) {
         var d = e.data || {}, w = swWait[d.id];
         if (!w) return;
@@ -1158,27 +1158,175 @@
     }
     return watchedCounts[seriesId] || 0;
   };
-  /** Aflevering (on)bekeken: de id van de aflevering én ep:<serie>|s-e (zoals setEpisodeWatched op iOS). */
-  D.setEpisodeWatched = function (ep, on) {
-    if (!P.st || !ep) return;
-    var now = Date.now();
-    [ep.id, D.episodeKey(ep.seriesID, ep.season, ep.number)].forEach(function (k) {
-      if (!k) return;
-      var cur = P.st.sets.watched[k];
-      if (!!(cur && cur.on) !== !!on) P.st.sets.watched[k] = { at: now, on: !!on };
+  var formCounts = null;
+  B.on('profileData', function () { formCounts = null; });
+  /** build 154: aantal gezien-afleveringen van een serie via de inhoudssleutels (w:e:<show>|s-e, ook van andere servers). */
+  D.contentEpisodeCount = function (series) {
+    if (!P.st || !series) return 0;
+    if (!formCounts) {
+      formCounts = Object.create(null);
+      var m = P.st.sets.watched;
+      Object.keys(m).forEach(function (k) {
+        if (!m[k].on || k.indexOf('w:e:') !== 0) return;
+        var i = k.lastIndexOf('|');
+        if (i < 5) return;
+        var f = k.slice(4, i);
+        formCounts[f] = (formCounts[f] || 0) + 1;
+      });
+    }
+    var best = 0;
+    WK.lookupKeys(WK.showForms(series).map(function (f) { return 'w:s:' + f; })).forEach(function (k) {
+      var n = formCounts[k.slice(4)] || 0;
+      if (n > best) best = n;
     });
-    changed(false);
+    return best;
   };
-  D.setEpisodesWatched = function (eps, on) {
-    if (!P.st) return;
+  // MARK: build 154: inhoudssleutels voor gezien over alle servers (watchkeys.js, contract docs/ACCOUNT.md, Build 154)
+  //
+  // Naast de id-sleutels (xv123, ep:<serie>|s-e) staan w:m:/w:e:/w:s:-sleutels in dezelfde set; ze gaan met de gewone
+  // profiel-sync mee (onbekende id's bewaren oudere apps gewoon). Lezen: eigen id of één inhoudssleutel (jaar ±1).
+  var WK = B.wk;
+  function hasW(k) { var m = P.st && P.st.sets.watched; return !!(m && m[k] && m[k].on); }
+  D.hasWatchedKey = hasW;
+  function uniq(a) { var s = {}; return a.filter(function (k) { if (!k || s[k]) return false; s[k] = true; return true; }); }
+  /** Tijd ná alles wat we van deze sleutels weten (zoals toggleSet). */
+  function stampFor(m, keys) {
     var now = Date.now();
-    eps.forEach(function (ep) {
-      [ep.id, D.episodeKey(ep.seriesID, ep.season, ep.number)].forEach(function (k) {
-        var cur = P.st.sets.watched[k];
-        if (!!(cur && cur.on) !== !!on) P.st.sets.watched[k] = { at: now, on: !!on };
+    keys.forEach(function (k) { if (m[k] && m[k].at >= now) now = m[k].at + 1; });
+    return now;
+  }
+  /** Sleutels aan of uit met één tijd; true als er iets veranderde. Uit: alle sleutels in removed (ook nieuwe). */
+  function writeW(keys, on) {
+    var m = P.st.sets.watched;
+    keys = uniq(keys);
+    var todo = keys.filter(function (k) { return on ? !(m[k] && m[k].on) : !(m[k] && !m[k].on); });
+    if (!todo.length) return false;
+    var now = stampFor(m, keys);
+    (on ? todo : keys).forEach(function (k) { m[k] = { at: now, on: !!on }; });
+    return true;
+  }
+  /** Id-sleutel met alle opgeslagen schrijfwijzen (server-id met andere hoofdletters). */
+  function idKeys(m, k) { return k ? variants(m, k).concat([k]) : []; }
+  D.movieWatched = function (mv) { return !!mv && (D.isWatched(mv.id) || !!WK.movieHit(hasW, mv)); };
+  D.episodeWatched = function (series, ep) {
+    if (!ep) return false;
+    if (D.isWatched(ep.id) || (ep.seriesID != null && D.isWatched(D.episodeKey(ep.seriesID, ep.season, ep.number)))) return true;
+    return !!(series && WK.episodeHit(hasW, series, ep.season, ep.number));
+  };
+  D.seriesWatched = function (series) { return !!series && !!WK.showHit(hasW, series); };
+  /** Film (on)gezien: id-sleutel plus inhoudssleutels; uitvinken haalt ook de sleutels met jaar ±1 weg. */
+  D.setMovieWatched = function (mv, on) {
+    if (!P.st || !mv) return false;
+    var m = P.st.sets.watched, own = WK.movieKeys(mv), ch;
+    if (on) ch = writeW([mv.id].concat(own), true);
+    else ch = writeW(idKeys(m, mv.id).filter(function (k) { return k === mv.id || (m[k] && m[k].on); }).concat(own, WK.matching(hasW, own)), false);
+    if (ch) changed(false);
+    return ch;
+  };
+  function epKeysOf(series, ep, on) {
+    var m = P.st.sets.watched, own = series ? WK.episodeKeys(series, ep.season, ep.number) : [];
+    var ids = [ep.id];
+    if (ep.seriesID != null && ep.season != null && ep.number != null) ids.push(D.episodeKey(ep.seriesID, ep.season, ep.number));
+    if (on) return ids.concat(own);
+    var all = [];
+    ids.forEach(function (k) { idKeys(m, k).forEach(function (x) { if (x === k || (m[x] && m[x].on)) all.push(x); }); });
+    return all.concat(own, WK.matching(hasW, own));
+  }
+  /**
+   * Serie gezien (w:s:): alle uitgezonden afleveringen gezien. aired = aantal van Trakt (aired_episodes), anders het
+   * aantal afleveringen op de server. Is er daarna een niet meer gezien, dan gaat w:s: naar removed. true = veranderd.
+   */
+  function updateSeries(series, eps, aired, watchedFn, addOnly) {
+    if (!series || !eps || !eps.length) return false;
+    var n = 0;
+    eps.forEach(function (e) { if (watchedFn(e)) n++; });
+    var total = aired > 0 ? aired : eps.length;
+    var keys = WK.showKeys(series);
+    if (!keys.length) return false;
+    if (n >= total) return writeW(keys, true);
+    if (addOnly) return false;
+    return keys.some(hasW) ? writeW(keys.concat(WK.matching(hasW, keys)), false) : false;
+  }
+  /**
+   * Afleveringen (on)gezien, met de serie voor de inhoudssleutels (zonder serie alleen de id-sleutels, zoals ≤ 153).
+   * opts: {all: alle afleveringen van de serie (voor w:s:), aired: aantal van Trakt, extra: (ep) → ook gezien (Trakt)}.
+   */
+  D.setEpisodesWatched = function (eps, on, series, opts) {
+    if (!P.st || !eps) return false;
+    opts = opts || {};
+    var ch = false;
+    eps.forEach(function (ep) { if (ep && writeW(epKeysOf(series, ep, on), on)) ch = true; });
+    var all = opts.all || (series && series.episodes) || null;
+    if (series && all && all.length && updateSeries(series, all, opts.aired || 0, function (e) { return D.episodeWatched(series, e) || !!(opts.extra && opts.extra(e)); })) ch = true;
+    if (ch) changed(false);
+    return ch;
+  };
+  D.setEpisodeWatched = function (ep, on, series, opts) { return D.setEpisodesWatched([ep], on, series, opts); };
+  /** w:s: zetten als alle uitgezonden afleveringen gezien zijn (de afleveringen zijn geladen); haalt hem nooit weg. */
+  D.refreshSeriesWatched = function (series, all, aired) {
+    if (!P.st || !series) return false;
+    var ch = updateSeries(series, all || series.episodes, aired || 0, function (e) { return D.episodeWatched(series, e); }, true);
+    if (ch) changed(false);
+    return ch;
+  };
+  /**
+   * Afgespeeld tot de gezien-grens (player.js): film of aflevering lokaal gezien. item = movieItem/episodeItem
+   * ({type, id, title, year, tmdb, imdbID, seriesID, season, episode}). true = nieuw gezien (alleen dan naar Trakt).
+   */
+  D.markPlayedWatched = function (item, ctx) {
+    if (!P.st || !item) return false;
+    if (item.type === 'episode') {
+      var show = { title: item.title, year: item.year, tmdb: item.tmdb, imdb: item.imdbID };
+      var ep = { id: item.id, seriesID: item.seriesID, season: item.season, number: item.episode };
+      var series = (ctx && ctx.series) || null;
+      return D.setEpisodesWatched([ep], true, series ? { title: series.rawTitle || series.title, year: series.year, tmdb: series.tmdb, imdb: series.imdbID } : show,
+        { all: ctx && ctx.episodes, aired: B.trakt && B.trakt.airedFor ? B.trakt.airedFor(series || show) : 0 });
+    }
+    return D.setMovieWatched({ id: item.id, title: item.title, year: item.year, tmdb: item.tmdb, imdb: item.imdbID }, true);
+  };
+  /**
+   * Eenmalige migratie (per profiel en apparaat): id-sleutels die in een catalogus (of catalogmeta) bij een item horen
+   * krijgen hun inhoudssleutels erbij, met dezelfde `at`. find(itemId) → [{type: 'movie'|'series', item}] over alle
+   * servers. Niets gevonden of tegenstrijdig (twee verschillende titels zonder gedeelde sleutel): blijft zoals het is.
+   * Geeft het aantal sleutels dat erbij kwam.
+   */
+  D.migrateWatchedKeys = function (find) {
+    if (!P.st) return 0;
+    var m = P.st.sets.watched, add = 0;
+    // tegenstrijdig = dezelfde soort sleutel (tmdb, imdb of titel) met een andere waarde
+    function kind(k) { return /^w:[mse]:(tmdb|imdb|t):/.exec(k)[1]; }
+    function agree(lists) {
+      var out = lists[0] || [];
+      for (var i = 1; i < lists.length; i++) {
+        var l = lists[i];
+        var bad = l.some(function (k) { return out.indexOf(k) < 0 && out.some(function (o) { return kind(o) === kind(k); }); });
+        if (bad) return null;
+        out = uniq(out.concat(l));
+      }
+      return out;
+    }
+    Object.keys(m).forEach(function (k) {
+      var it = m[k];
+      if (!it || !it.on || WK.isContentKey(k)) return;
+      var keys = null;
+      if (k.indexOf('ep:') === 0) {
+        var bar = k.lastIndexOf('|'), se = bar > 3 ? /^(\d+)-(\d+)$/.exec(k.slice(bar + 1)) : null;
+        if (!se) return;
+        var hits = (find(k.slice(3, bar)) || []).filter(function (h) { return h.type === 'series'; });
+        keys = agree(hits.map(function (h) { return WK.episodeKeys(h.item, se[1], se[2]); }).filter(function (l) { return l.length; }));
+      } else {
+        var mh = (find(k) || []).filter(function (h) { return h.type === 'movie'; });
+        keys = agree(mh.map(function (h) { return WK.movieKeys(h.item); }).filter(function (l) { return l.length; }));
+      }
+      (keys || []).forEach(function (nk) {
+        var cur = m[nk];
+        if (cur && (cur.on || cur.at >= it.at)) return;
+        m[nk] = { at: it.at, on: true };
+        add++;
       });
     });
-    changed(false);
+    if (add) changed(false);
+    return add;
   };
   D.removeHistory = function (e) {
     if (!P.st || !e) return;
@@ -1521,4 +1669,5 @@
   D._parseState = parseState; D._toJSON = toJSON; D._merge = mergeState; D._normalize = normalize;
   D._normalizeCollections = normalizeCollections; D._applyCollectionChanges = applyCollectionChanges; D._mergeActive = mergeActive;
   D._P = P;
+  D._st = function () { return P.st; };
 })();

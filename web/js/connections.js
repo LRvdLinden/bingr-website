@@ -54,7 +54,7 @@
     } else if (locAt > srvAt) upload();
   }
   B.on('state', function (all) { if (all && B.has(all, 'connections')) merge(all.connections); else if (all && local) merge(null); });
-  B.on('wipe', function () { local = null; B.store.del('connections'); B.store.del('trakt.cache'); B.idb.del('trakt.cache.v1'); Trakt.reset(); });
+  B.on('wipe', function () { local = null; B.store.del('connections'); B.store.del('trakt.cache'); B.idb.del('trakt.cache.v1'); B.idb.del('trakt.cache.v2'); B.store.del('trakt.notFound'); Trakt.reset(); });
   C.sync = function () { return A.getState(['connections']).then(function (all) { if (all) merge(all.connections || null); }); };
 
   // MARK: SHA-256 (PKCE voor Trakt; crypto.subtle bestaat niet altijd op de tv)
@@ -109,39 +109,47 @@
   var OAUTH_HOSTS = ['https://api.trakt.tv', 'https://auth.trakt.tv'];
   var REDIRECTS = ['https://github.com/LRvdLinden/iptv-ios-appletv', 'urn:ietf:wg:oauth:2.0:oob'];
   var Trakt = B.trakt = {};
-  // bekeken-lijst van Trakt kan groot worden: in IndexedDB (sleutel trakt.cache.v1). Oudere builds hadden hem in
-  // localStorage ('trakt.cache'); die wordt één keer overgezet en daar gewist (anders loopt de opslag vol).
-  var legacyT = B.store.get('trakt.cache', null);
-  var cacheT = legacyT || { movies: [], shows: {}, index: {}, tmdb: {}, activity: null, iv: 2 };
-  var cacheGen = 0;
-  if (legacyT) { B.idb.set('trakt.cache.v1', legacyT).then(function () { B.store.del('trakt.cache'); }); }
-  else {
-    B.idb.get('trakt.cache.v1').then(function (c) {
-      // alleen als er intussen niets nieuws is opgehaald of gewist
-      if (!c || typeof c !== 'object' || cacheGen) return;
-      cacheT = { movies: c.movies || [], shows: c.shows || {}, index: c.index || {}, tmdb: c.tmdb || {}, activity: c.activity || null, iv: c.iv || 0 };
-      if (!c.tmdb) cacheT.needTmdb = true;
-      migrateIndex(); loadCache();
-      // kaarten die al getekend zijn (vóór de cache er was) alsnog afvinken: Trakt.refresh meldt niets als er bij
-      // Trakt niets nieuws is
-      B.emit('trakt');
-    });
-  }
-  var watchedMovies = {}, watchedShows = {}, anyT = false;
+  var WK = B.wk;
+  /*
+   * Build 154 (contract docs/ACCOUNT.md, Build 154 "Trakt"): Trakt-gezien staat in het geheugen als dezelfde
+   * inhoudssleutels als "gezien" in het profiel (w:m:/w:e:/w:s:, uit tmdb, imdb en titel + jaar van het Trakt-antwoord);
+   * items zonder IMDb-id vallen niet meer weg. Niet in het account. Bewaard in IndexedDB (trakt.cache.v2); de oude
+   * IMDb-cache (trakt.cache.v1 / localStorage trakt.cache) wordt gewist.
+   *   {keys: [sleutel], aired: {show-vorm: aired_episodes}, counts: {show-vorm: aantal gezien}, ids: {zoek-sleutel: {tmdb, imdb}},
+   *    activity, v: 2}
+   */
+  function emptyCache() { return { keys: [], aired: {}, counts: {}, ids: {}, activity: null, v: 2 }; }
+  var cacheT = emptyCache(), cacheGen = 0, tset = Object.create(null), anyT = false;
+  B.store.del('trakt.cache');
+  B.idb.del('trakt.cache.v1');
+  B.idb.get('trakt.cache.v2').then(function (c) {
+    // alleen als er intussen niets nieuws is opgehaald of gewist
+    if (!c || typeof c !== 'object' || c.v !== 2 || cacheGen) return;
+    cacheT = { keys: c.keys || [], aired: c.aired || {}, counts: c.counts || {}, ids: c.ids || {}, activity: c.activity || null, v: 2 };
+    loadCache();
+    // kaarten die al getekend zijn (vóór de cache er was) alsnog afvinken
+    B.emit('trakt');
+  }, B.noop);
   function loadCache() {
-    watchedMovies = {}; watchedShows = {};
-    anyT = !!((cacheT.movies || []).length || Object.keys(cacheT.shows || {}).length || Object.keys(cacheT.index || {}).length);
-    (cacheT.movies || []).forEach(function (i) { watchedMovies[i] = true; });
-    Object.keys(cacheT.shows || {}).forEach(function (k) { var set = {}; (cacheT.shows[k] || []).forEach(function (e) { set[e] = true; }); watchedShows[k] = set; });
+    tset = Object.create(null);
+    (cacheT.keys || []).forEach(function (k) { tset[k] = 1; });
+    anyT = cacheT.keys.length > 0;
   }
-  loadCache();
   var cacheTimer = null;
   function saveCache() {
     cacheGen++;
     clearTimeout(cacheTimer);
-    cacheTimer = setTimeout(function () { B.idb.set('trakt.cache.v1', cacheT); }, 1500);
+    cacheTimer = setTimeout(function () { B.idb.set('trakt.cache.v2', cacheT); }, 1500);
   }
-  Trakt.reset = function () { cacheGen++; cacheT = { movies: [], shows: {}, index: {}, tmdb: {}, activity: null, iv: 2 }; loadCache(); };
+  function hasT(k) { return tset[k] === 1; }
+  function addKeys(keys) { keys.forEach(function (k) { if (!tset[k]) { tset[k] = 1; cacheT.keys.push(k); } }); anyT = true; }
+  function delKeys(keys) {
+    var gone = false;
+    keys.forEach(function (k) { if (tset[k]) { delete tset[k]; gone = true; } });
+    if (gone) cacheT.keys = cacheT.keys.filter(function (k) { return tset[k] === 1; });
+  }
+  Trakt.reset = function () { cacheGen++; cacheT = emptyCache(); loadCache(); Q.clear(); };
+  Trakt._cache = function () { return cacheT; };
 
   Trakt.clientID = function () { return A.serverKey('traktClientID') || ''; };
   Trakt.ready = function () { return !!Trakt.clientID(); };
@@ -152,6 +160,7 @@
   };
   // Trakt hoort bij Lifetime: met Gratis geen sync en geen scrobbles (de koppeling zelf blijft bewaard)
   Trakt.isLoggedIn = function () { return !!C.trakt() && Trakt.allowed() && (!B.plan || B.plan.has('trakt')); };
+
   Trakt.username = function () { var t = C.trakt(); return t ? t.username || '' : ''; };
   Trakt.scrobbleEnabled = function () { return B.bool(B.data.shared('traktScrobble', true)) !== false; };
   Trakt.lastScrobble = null;
@@ -247,35 +256,57 @@
     Trakt.reset(); saveCache();
     return changed(function (d) { d.trakt = null; });
   };
-  Trakt.onTokens = function () { if (Trakt.isLoggedIn()) Trakt.refresh(false); };
+  Trakt.onTokens = function () { if (Trakt.isLoggedIn()) { Trakt.refresh(false); Q.soon(500); } };
 
-  var refreshing = null;
-  /** Geldig access-token; ververst als het binnen 24 uur verloopt (eerst kijken of een ander apparaat dat al deed). */
-  function validToken() {
-    var t = C.trakt();
-    if (!t) return Promise.reject(new Error(L('Not signed in to Trakt.')));
-    if (at(t.expiresAt) - Date.now() > 24 * 3600000) return Promise.resolve(t.accessToken);
+  // MARK: token (build 154): verversen pas bij < 1 uur geldig of na een 401; één tegelijk; nooit trakt: null bij een fout
+
+  var REFRESH_MARGIN = 3600000;
+  var refreshing = null, lastFail = null;
+  Trakt.refreshCount = 0;
+  /** Verse tokens van een ander apparaat (connections opnieuw gelezen)? Dan die gebruiken. */
+  function newerThan(cur) {
+    var n = C.trakt();
+    return n && n.accessToken !== cur.accessToken && at(n.expiresAt) > Date.now() + 60000 ? n : null;
+  }
+  /**
+   * Token verversen (single-flight). force = na een 401 (ook als het token nog geldig lijkt). Mislukt het: eerst
+   * `connections` opnieuw lezen en een nieuwer token overnemen; anders het oude token houden. De koppeling blijft staan.
+   */
+  function refreshToken(force) {
     if (refreshing) return refreshing;
+    var before = C.trakt();
+    if (!before) return Promise.reject(new Error(L('Not signed in to Trakt.')));
     refreshing = C.sync().catch(B.noop).then(function () {
       var cur = C.trakt();
       if (!cur) throw new Error(L('Not signed in to Trakt.'));
-      if (at(cur.expiresAt) - Date.now() > 24 * 3600000) return cur.accessToken;
-      var i = 0, unauthorized = 0;
+      // een ander apparaat ververste al (nieuw token in het account)
+      if (cur.accessToken !== before.accessToken && at(cur.expiresAt) - Date.now() > REFRESH_MARGIN) return cur.accessToken;
+      if (!force && at(cur.expiresAt) - Date.now() > REFRESH_MARGIN) return cur.accessToken;
+      // net mislukt met dezelfde refresh-token: niet bij elk verzoek opnieuw (hooguit eens per 5 minuten)
+      if (lastFail && lastFail.rt === cur.refreshToken && Date.now() - lastFail.at < 300000) return cur.accessToken;
+      var i = 0;
       function next() {
-        if (i >= REDIRECTS.length) {
-          if (unauthorized === REDIRECTS.length && at(cur.expiresAt) < Date.now()) { changed(function (d) { d.trakt = null; }); throw new Error(L('Not signed in to Trakt.')); }
-          return cur.accessToken;
-        }
+        if (i >= REDIRECTS.length) return failed();
         var red = REDIRECTS[i++];
+        Trakt.refreshCount++;
         return oauthPost('/oauth/token', oauthBody({ refresh_token: cur.refreshToken, redirect_uri: red, grant_type: 'refresh_token' })).then(function (r) {
           var n = r.status === 200 ? parseTokens(r.json) : null;
           if (n) {
             n.username = cur.username || null;
-            return changed(function (d) { d.trakt = n; }).then(function () { return n.accessToken; });
+            return changed(function (d) { d.trakt = n; }).then(function () { Q.soon(1000); return n.accessToken; });
           }
-          if (r.status === 400 || r.status === 401) unauthorized++;
-          return next();
-        }, function () { return cur.accessToken; });
+          if (r.status === 400 || r.status === 401) return next();
+          return failed();
+        }, failed);
+      }
+      function failed() {
+        // nooit `trakt: null` (dat doet alleen een bewuste uitlog): opnieuw lezen, een nieuwer token overnemen
+        return C.sync().catch(B.noop).then(function () {
+          var n = newerThan(cur);
+          if (n) return n.accessToken;
+          Trakt.lastError = 'token_refresh_failed'; lastFail = { at: Date.now(), rt: cur.refreshToken };
+          return cur.accessToken;
+        });
       }
       return next();
     });
@@ -283,122 +314,194 @@
     p.then(function () { refreshing = null; }, function () { refreshing = null; });
     return p;
   }
-  function get(path, params, auth) {
+  Trakt._refreshToken = refreshToken;
+  /** Geldig access-token: het huidige als het nog meer dan 1 uur geldig is, anders eerst verversen. */
+  function validToken() {
+    var t = C.trakt();
+    if (!t) return Promise.reject(new Error(L('Not signed in to Trakt.')));
+    if (at(t.expiresAt) - Date.now() > REFRESH_MARGIN) return Promise.resolve(t.accessToken);
+    return refreshToken(false);
+  }
+  /** Verzoek met token; bij een 401 één keer verversen en opnieuw. Geeft het ruwe antwoord {status, json, headers}. */
+  function call(method, path, body, params) {
     var u = params && params.length ? B.query(BASE + path, params) : BASE + path;
-    var tp = auth === false ? Promise.resolve(null) : validToken();
-    return tp.then(function (token) {
-      return B.http(u, { headers: apiHeaders(token), timeout: 30000 }).then(function (r) {
+    function once(token) {
+      var o = { method: method, headers: apiHeaders(token), timeout: method === 'GET' ? 30000 : 20000 };
+      if (body != null) o.body = body;
+      return B.http(u, o);
+    }
+    return validToken().then(function (token) {
+      return once(token).then(function (r) {
+        if (r.status !== 401) return r;
+        return refreshToken(true).then(function (t2) { return t2 && t2 !== token ? once(t2) : r; });
+      });
+    });
+  }
+  function get(path, params, auth) {
+    if (auth === false) {
+      var u = params && params.length ? B.query(BASE + path, params) : BASE + path;
+      return B.http(u, { headers: apiHeaders(null), timeout: 30000 }).then(function (r) {
         if (r.status < 200 || r.status >= 300) throw new Error('Trakt ' + r.status);
         return r.json;
       });
+    }
+    return call('GET', path, null, params).then(function (r) {
+      if (r.status < 200 || r.status >= 300) throw new Error('Trakt ' + r.status);
+      return r.json;
     });
   }
-  function post(path, body) {
-    return validToken().then(function (token) {
-      return B.http(BASE + path, { method: 'POST', headers: apiHeaders(token), body: body, timeout: 20000 }).then(function (r) {
-        if ((r.status < 200 || r.status >= 300) && r.status !== 409) throw new Error('Trakt ' + r.status);
-        return r.json;
-      });
-    });
-  }
+  function post(path, body) { return call('POST', path, body); }
   Trakt._get = get;
+  Trakt._call = call;
 
-  // titel → IMDb-index (Trakt-titels en eerder opgezochte IPTV-titels)
-  // = TitleIndex.norm op iOS: zonder accenten en hoofdletters, alleen letters en cijfers ("Spider-Man" = "Spiderman")
-  var NOT_ALNUM = (function () { try { return new RegExp('[^\\p{L}\\p{N}]+', 'gu'); } catch (e) { return /[^a-z0-9\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]+/g; } })();
-  function norm(t) { return B.fold(t).replace(NOT_ALNUM, ''); }
-  function idxKey(title, year, show) { return (show ? 's' : 'm') + '|' + norm(title) + '|' + (year || ''); }
-  /** Index van vóór build 75 had spaties tussen de woorden; één keer omzetten naar de nieuwe sleutels. */
-  function migrateIndex() {
-    if ((cacheT.iv || 0) >= 2) return;
-    var old = cacheT.index || {}, ix = {};
-    Object.keys(old).forEach(function (k) {
-      var p = k.split('|');
-      if (p.length !== 3) return;
-      var nk = p[0] + '|' + norm(p[1]) + '|' + p[2];
-      if (!ix[nk]) ix[nk] = old[k];
-    });
-    cacheT.index = ix; cacheT.tmdb = cacheT.tmdb || {}; cacheT.iv = 2;
+  // MARK: koppelen (build 154): inhoudssleutels, ids naar Trakt, zoeken alleen met de juiste titel en het juiste jaar
+
+  function idsOf(x) {
+    var o = {}, t = WK.tmdbOf(x), i = WK.imdbOf(x);
+    if (t) o.tmdb = parseInt(t, 10);
+    if (i) o.imdb = i;
+    return o;
   }
-  if (legacyT) migrateIndex();
-  function indexAdd(title, year, imdb, show) {
-    if (!title || !imdb) return;
-    cacheT.index[idxKey(title, year, show)] = imdb;
-    cacheT.index[idxKey(title, null, show)] = cacheT.index[idxKey(title, null, show)] || imdb;
+  function hasIds(o) { return !!(o && (o.tmdb || o.imdb)); }
+  function searchKey(title, year, show) { return (show ? 's' : 'm') + '|' + WK.norm(title) + '|' + (year || 0); }
+  function rememberIds(title, year, show, ids) {
+    if (!title || !hasIds(ids)) return;
+    cacheT.ids[searchKey(title, year, show)] = ids;
   }
-  // schone titel per ruwe titel (scheelt opschonen bij elke kaart)
-  var cleanCache = {}, cleanCount = 0;
-  function cleaned(raw) {
-    var c = cleanCache[raw];
-    if (c) return c;
-    if (++cleanCount > 20000) { cleanCache = {}; cleanCount = 0; }
-    var p = B.parseTitle(raw);
-    return (cleanCache[raw] = { title: p.title, year: p.year });
-  }
-  function indexed(title, year, show) {
-    var ix = cacheT.index || {};
+  function knownIds(title, year, show) {
     if (!title) return null;
-    var c = cleaned(title);
-    return (year && ix[idxKey(title, year, show)]) || ix[idxKey(title, null, show)] ||
-      ((year || c.year) && ix[idxKey(c.title, year || c.year, show)]) || ix[idxKey(c.title, null, show)] || null;
+    var y = year || 0, ix = cacheT.ids || {}, l = y ? [y, y - 1, y + 1] : [0];
+    for (var i = 0; i < l.length; i++) { var h = ix[searchKey(title, l[i], show)]; if (hasIds(h)) return h; }
+    return null;
   }
-  /** TMDB-id (uit de TMDB-cache van leeftijden/trailers) → IMDb-id via Trakt, zoals MetadataService op iOS. */
-  function viaTmdb(x, show) {
-    var AR = B.ageRatings;
-    var r = AR && AR.cached ? AR.cached(x.rawTitle || x.title, x.year, show) : null;
-    return r && r.id != null ? (cacheT.tmdb || {})[(show ? 's' : 'm') + r.id] || null : null;
-  }
+  /** IMDb-id van een titel (ondertitels zoeken): eigen id, anders uit Trakt-gezien of een eerdere zoektreffer. */
   Trakt.imdbFor = function (x, show) {
     if (!x) return null;
     if (x.imdbID) return x.imdbID;
-    // niets bekeken bij Trakt (niet ingelogd / subprofiel)? dan ook niet elke titel opschonen, zoals op iOS
-    if (!anyT && !Object.keys(cacheT.index || {}).length) return null;
-    return indexed(x.rawTitle || x.title, x.year, show) || viaTmdb(x, show);
+    var h = knownIds(x.rawTitle || x.title, WK.yearOf(x), show);
+    return (h && h.imdb) || null;
   };
-  Trakt.isMovieWatched = function (m) { var i = Trakt.isLoggedIn() ? Trakt.imdbFor(m, false) : null; return !!(i && watchedMovies[i]); };
-  Trakt.isEpisodeWatched = function (series, season, ep) {
-    var i = Trakt.isLoggedIn() ? Trakt.imdbFor(series, true) : null;
-    return !!(i && watchedShows[i] && watchedShows[i][season + '-' + ep]);
+  /**
+   * Zoektreffer alleen als de titel (norm) en het jaar (±1) kloppen. Zonder jaar: alleen als er precies één treffer
+   * met die titel is. list = antwoord van /search/movie|show.
+   */
+  function pickHit(list, title, year, show) {
+    var n = WK.norm(title), y = year || 0, same = [];
+    (list || []).forEach(function (h) {
+      var m = h && (show ? h.show : h.movie);
+      if (!m || !m.ids || WK.norm(m.title) !== n) return;
+      same.push(m);
+    });
+    if (y) {
+      for (var i = 0; i < same.length; i++) { var my = B.int(same[i].year); if (my && Math.abs(my - y) <= 1) return same[i]; }
+      return null;
+    }
+    return same.length === 1 ? same[0] : null;
+  }
+  Trakt._pickHit = pickHit;
+  /** ids {tmdb, imdb} van een item: eigen ids, anders een eerdere treffer, anders zoeken bij Trakt (zonder login). */
+  function resolveIds(x, show) {
+    var own = idsOf(x);
+    if (hasIds(own)) return Promise.resolve(own);
+    var title = x.rawTitle || x.title, year = WK.yearOf(x) || 0;
+    var known = knownIds(title, year, show);
+    if (known) return Promise.resolve(known);
+    var q = WK.norm(title) ? B.parseTitle(title).title : '';
+    if (!q) return Promise.resolve(null);
+    var params = [['query', q], ['limit', '10']];
+    if (year) params.push(['years', (year - 1) + '-' + (year + 1)]);
+    return get('/search/' + (show ? 'show' : 'movie'), params, false).then(function (list) {
+      var m = pickHit(list, title, year, show);
+      if (!m) return null;
+      var ids = {};
+      if (m.ids.tmdb != null) ids.tmdb = m.ids.tmdb;
+      if (m.ids.imdb) ids.imdb = m.ids.imdb;
+      if (m.ids.trakt != null) ids.trakt = m.ids.trakt;
+      if (!hasIds(ids) && !ids.trakt) return null;
+      rememberIds(title, year, show, ids); saveCache();
+      return ids;
+    }, function () { return null; });
+  }
+  Trakt._resolveIds = resolveIds;
+
+  // MARK: gezien op Trakt (in het geheugen, als inhoudssleutels)
+
+  function showOf(s) { return s ? { title: s.rawTitle || s.title, year: s.year, tmdb: WK.tmdbOf(s), imdb: WK.imdbOf(s) } : null; }
+  Trakt.isMovieWatched = function (m) { return !!m && anyT && Trakt.isLoggedIn() && !!WK.movieHit(hasT, m); };
+  Trakt.isEpisodeWatched = function (series, season, ep) { return !!series && anyT && Trakt.isLoggedIn() && !!WK.episodeHit(hasT, series, season, ep); };
+  Trakt.isSeriesWatched = function (series) { return !!series && anyT && Trakt.isLoggedIn() && !!WK.showHit(hasT, series); };
+  function formsOf(series) { return WK.lookupKeys(WK.showForms(series).map(function (f) { return 'w:s:' + f; })).map(function (k) { return k.slice(4); }); }
+  Trakt.watchedCount = function (series) {
+    if (!series || !anyT || !Trakt.isLoggedIn()) return 0;
+    var best = 0;
+    formsOf(series).forEach(function (f) { var n = cacheT.counts[f] || 0; if (n > best) best = n; });
+    return best;
   };
+  /** Uitgezonden afleveringen volgens Trakt (aired_episodes), of 0 als onbekend. */
+  Trakt.airedFor = function (series) {
+    if (!series || !Trakt.isLoggedIn()) return 0;
+    var f = formsOf(series);
+    for (var i = 0; i < f.length; i++) if (cacheT.aired[f[i]] > 0) return cacheT.aired[f[i]];
+    return 0;
+  };
+  /** Antwoord van /sync/watched/movies en /sync/watched/shows?extended=full → cache (alle sleutels opnieuw). */
+  function buildCache(movies, shows) {
+    var c = emptyCache();
+    c.ids = cacheT.ids || {};
+    var seen = Object.create(null);
+    function add(k) { if (!seen[k]) { seen[k] = 1; c.keys.push(k); } }
+    if (!Array.isArray(movies)) movies = [];
+    if (!Array.isArray(shows)) shows = [];
+    movies.forEach(function (x) {
+      var mv = x && x.movie;
+      if (!mv || !mv.ids) return;
+      var m = { title: mv.title, year: mv.year, tmdb: mv.ids.tmdb, imdb: mv.ids.imdb };
+      WK.movieKeys(m).forEach(add);
+      var ids = idsOf(m);
+      if (hasIds(ids)) c.ids[searchKey(mv.title, mv.year, false)] = ids;
+    });
+    shows.forEach(function (x) {
+      var sh = x && x.show;
+      if (!sh || !sh.ids) return;
+      var s = { title: sh.title, year: sh.year, tmdb: sh.ids.tmdb, imdb: sh.ids.imdb };
+      var forms = WK.showForms(s), n = 0;
+      if (!forms.length) return;
+      var ids = idsOf(s);
+      if (hasIds(ids)) c.ids[searchKey(sh.title, sh.year, true)] = ids;
+      (x.seasons || []).forEach(function (se) {
+        (se.episodes || []).forEach(function (e) {
+          if (se.number == null || e.number == null) return;
+          if (se.number > 0) n++;
+          WK.episodeKeys(s, se.number, e.number).forEach(add);
+        });
+      });
+      var aired = B.int(sh.aired_episodes) || 0;
+      forms.forEach(function (f) { c.counts[f] = n; if (aired > 0) c.aired[f] = aired; });
+      if (aired > 0 && n >= aired) WK.showKeys(s).forEach(add);
+    });
+    return c;
+  }
+  Trakt._buildCache = buildCache;
 
   var syncing = false;
   Trakt.isSyncing = function () { return syncing; };
   /** Laatste geslaagde synchronisatie (ms) in deze browser. */
   Trakt.lastSync = function () { return B.store.get('trakt.lastSync', 0) || 0; };
   Trakt.lastError = null;
-  Trakt.watchedCount = function (series) {
-    var i = Trakt.isLoggedIn() ? Trakt.imdbFor(series, true) : null;
-    return i && watchedShows[i] ? Object.keys(watchedShows[i]).length : 0;
-  };
-  /** Bekeken films/afleveringen ophalen (alleen als /sync/last_activities iets nieuws meldt, of force). */
+  /** Gezien ophalen: altijd eerst /sync/last_activities; de lijsten alleen als daar iets nieuws staat (of force). */
   Trakt.refresh = function (force) {
     if (!Trakt.isLoggedIn() || syncing) return Promise.resolve();
     syncing = true;
     B.emit('traktStatus');
     return get('/sync/last_activities').then(function (act) {
       var all = act && act.all;
-      // cache van vóór build 75 heeft nog geen TMDB-ids: dan één keer alles ophalen
-      if (!force && all && all === cacheT.activity && cacheT.tmdb && (cacheT.movies.length || Object.keys(cacheT.shows).length) &&
-        (Object.keys(cacheT.tmdb).length || !cacheT.needTmdb)) return;
-      return Promise.all([get('/sync/watched/movies'), get('/sync/watched/shows')]).then(function (r) {
-        var movies = [], shows = {}, tmdbIx = {};
-        (r[0] || []).forEach(function (x) {
-          var mv = x && x.movie, i = mv && mv.ids && mv.ids.imdb;
-          if (!i) return;
-          movies.push(i); indexAdd(mv.title, mv.year, i, false);
-          if (mv.ids.tmdb != null) tmdbIx['m' + mv.ids.tmdb] = i;
-        });
-        (r[1] || []).forEach(function (x) {
-          var sh = x && x.show, i = sh && sh.ids && sh.ids.imdb;
-          if (!i) return;
-          indexAdd(sh.title, sh.year, i, true);
-          if (sh.ids.tmdb != null) tmdbIx['s' + sh.ids.tmdb] = i;
-          var eps = [];
-          (x.seasons || []).forEach(function (s) { (s.episodes || []).forEach(function (e) { if (s.number != null && e.number != null) eps.push(s.number + '-' + e.number); }); });
-          shows[i] = eps;
-        });
-        cacheT.movies = movies; cacheT.shows = shows; cacheT.tmdb = tmdbIx; cacheT.needTmdb = false; cacheT.activity = all || null;
-        saveCache(); loadCache();
+      if (!force && all && all === cacheT.activity && cacheT.keys.length) return;
+      return Promise.all([get('/sync/watched/movies'), get('/sync/watched/shows', [['extended', 'full']])]).then(function (r) {
+        var c = buildCache(r[0], r[1]);
+        c.activity = all || null;
+        // wat nog in de wachtrij staat, is bij Trakt nog niet verwerkt: in het geheugen laten zoals het lokaal is
+        cacheGen++; cacheT = c; loadCache(); Q.overlay();
+        saveCache();
         B.emit('trakt');
       });
     }).then(function () { Trakt.lastError = null; B.store.set('trakt.lastSync', Date.now()); },
@@ -406,111 +509,239 @@
       .then(function () { syncing = false; B.emit('traktStatus'); });
   };
 
-  /** IMDb-id van een item: eigen id, de index, anders zoeken bij Trakt (zonder login). */
-  function resolveImdb(item) {
-    if (item.imdbID) return Promise.resolve(item.imdbID);
-    var show = item.type === 'episode';
-    var hit = indexed(item.title, item.year || null, show);
-    if (hit) return Promise.resolve(hit);
-    var p = B.parseTitle(item.title);
-    var year = show ? p.year : (p.year || B.int(item.subtitle));
-    var q = [['query', p.title], ['extended', 'full'], ['limit', '5']];
-    if (year) q.push(['years', String(year)]);
-    function look(params) {
-      return get('/search/' + (show ? 'show' : 'movie'), params, false).then(function (list) {
-        var h = list && list[0];
-        var m = h && (h.movie || h.show);
-        return m && m.ids && m.ids.imdb ? { imdb: m.ids.imdb, title: m.title, year: m.year } : null;
-      }, function () { return null; });
-    }
-    return look(q).then(function (r) {
-      if (r || !year) return r;
-      return look([['query', p.title], ['extended', 'full'], ['limit', '5']]);
-    }).then(function (r) {
-      if (!r) return null;
-      indexAdd(item.title, null, r.imdb, show); indexAdd(r.title, r.year, r.imdb, show); saveCache();
-      return r.imdb;
-    });
+  // MARK: wachtrij (build 154): gezien en niet-gezien blijvend op het apparaat, met backoff en Retry-After
+
+  /*
+   * Item in de wachtrij: {id, op: 'add'|'remove', kind: 'movie'|'episodes', item: {title, year, tmdb, imdb}, eps:
+   * [{season, number}], at (watched_at, ms), tries, next (ms), hold (van de speler: wacht op de scrobble-stop), key}.
+   * localStorage `trakt.queue` (klein; geen tokens). Opnieuw proberen bij de start, terug op de voorgrond, na een
+   * verversing en elke 15 minuten. Wat Trakt als not_found teruggeeft, komt in de diagnose (Trakt.notFound) en valt eruit.
+   */
+  var QKEY = 'trakt.queue', MAX_Q = 500;
+  var Q = Trakt.queue = {};
+  var qList = (function () { var l = B.store.get(QKEY, null); return Array.isArray(l) ? l.filter(function (e) { return e && e.op && e.item; }) : []; })();
+  var qBusy = null, qTimer = 0, qSeq = Date.now();
+  var pendingStops = 0;
+  Trakt.notFound = B.store.get('trakt.notFound', []) || [];
+  function qSave() { if (qList.length > MAX_Q) qList = qList.slice(qList.length - MAX_Q); B.store.set(QKEY, qList); }
+  Q.list = function () { return qList.slice(); };
+  Q.clear = function () { qList = []; B.store.del(QKEY); };
+  Q.reload = function () { var l = B.store.get(QKEY, null); qList = Array.isArray(l) ? l : []; };
+  function itemKey(item) {
+    var y = WK.yearOf(item) || 0;
+    return (item.type === 'episode' ? 'e|' : 'm|') + (WK.tmdbOf(item) || WK.imdbOf(item) || WK.norm(item.title) + '|' + y) +
+      (item.type === 'episode' ? '|' + item.season + '-' + item.episode : '');
+  }
+  function entryKeys(e) {
+    if (e.kind === 'movie') return WK.movieKeys(e.item);
+    var out = [];
+    (e.eps || []).forEach(function (x) { out = out.concat(WK.episodeKeys(e.item, x.season, x.number)); });
+    return out;
+  }
+  /** Lokaal (in het geheugen) zoals de wachtrij het wil, ook na een nieuwe lijst van Trakt. */
+  Q.overlay = function () {
+    qList.forEach(function (e) { var k = entryKeys(e); if (e.op === 'add') addKeys(k); else delKeys(k); });
+  };
+  function enqueue(e) {
+    e.id = ++qSeq; e.tries = 0; e.next = 0;
+    // dezelfde actie voor hetzelfde item staat er al: die vervangen (geen dubbele plays)
+    qList = qList.filter(function (x) { return !(x.key === e.key && x.kind === e.kind && JSON.stringify(x.eps || null) === JSON.stringify(e.eps || null)); });
+    qList.push(e);
+    qSave();
+    var k = entryKeys(e);
+    if (e.op === 'add') addKeys(k); else delKeys(k);
+    saveCache();
+    B.emit('trakt');
+    Q.soon(e.hold ? 4000 : 1500);
+    return e;
   }
   /**
-   * Scrobble start/pause/stop (progress 0…1). Bij stop ≥ 80% telt het als gezien; mislukt de scrobble dan,
-   * dan via /sync/history. Live en terugkijken worden niet gescrobbled.
+   * Gezien (on) of niet-gezien via de wachtrij. item = movieItem/episodeItem van de speler ({type, title, year, tmdb,
+   * imdbID, season, episode}); hold = vanaf de speler (de scrobble-stop telt bij Trakt al als gezien vanaf 80%).
+   */
+  Trakt.queueWatched = function (item, on, when, hold) {
+    if (!Trakt.isLoggedIn() || !item || (item.type !== 'movie' && item.type !== 'episode')) return null;
+    if (on && !Trakt.scrobbleEnabled() && hold) return null;
+    var isEp = item.type === 'episode';
+    if (isEp && (item.season == null || item.episode == null)) return null;
+    var base = { title: item.title, year: item.year || B.int(item.subtitle) || null, tmdb: WK.tmdbOf(item), imdb: WK.imdbOf(item) };
+    return enqueue({ op: on ? 'add' : 'remove', kind: isEp ? 'episodes' : 'movie', item: base, eps: isEp ? [{ season: item.season, number: item.episode }] : null,
+      at: when || Date.now(), hold: !!hold, key: itemKey(item) });
+  };
+  Q.soon = function (ms) {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(function () { qTimer = 0; Q.flush(); }, ms == null ? 1500 : ms);
+  };
+  function retryAfter(r) {
+    var v = null;
+    try { v = r.headers && (r.headers.getResponseHeader ? r.headers.getResponseHeader('Retry-After') : (r.headers.get ? r.headers.get('Retry-After') : null)); } catch (e) { v = null; }
+    var n = B.num(v);
+    return n != null && n >= 0 ? n * 1000 : null;
+  }
+  function backoff(e, ms) {
+    e.tries = (e.tries || 0) + 1;
+    e.next = Date.now() + (ms != null ? ms : Math.min(3600000, 30000 * Math.pow(2, Math.min(e.tries - 1, 7))));
+  }
+  function noteNotFound(e) {
+    var t = e.item.title + (e.item.year ? ' (' + e.item.year + ')' : '') + (e.kind === 'episodes' ? ' ' + (e.eps || []).map(function (x) { return 'S' + x.season + 'E' + x.number; }).join(',') : '');
+    Trakt.notFound = [{ at: B.iso(), title: t, op: e.op }].concat(Trakt.notFound).slice(0, 20);
+    B.store.set('trakt.notFound', Trakt.notFound);
+    Trakt.lastScrobble = L('Not found on Trakt: %@', e.item.title);
+  }
+  /** Body voor /sync/history(/remove) met ids (tmdb/imdb, of trakt uit een zoektreffer) en watched_at. */
+  function historyBody(e, ids) {
+    var w = B.iso(e.at || Date.now());
+    if (e.kind === 'movie') {
+      var mv = { ids: ids };
+      if (e.op === 'add') mv.watched_at = w;
+      return { movies: [mv] };
+    }
+    var by = {};
+    (e.eps || []).forEach(function (x) {
+      var ep = { number: x.number };
+      if (e.op === 'add') ep.watched_at = w;
+      (by[x.season] = by[x.season] || []).push(ep);
+    });
+    return { shows: [{ ids: ids, seasons: Object.keys(by).map(function (n) { return { number: B.int(n), episodes: by[n] }; }) }] };
+  }
+  /** Wat Trakt niet kende (not_found): een niet-leeg lijstje = niet gelukt. */
+  function notFoundIn(j) {
+    var nf = j && j.not_found;
+    if (!nf || typeof nf !== 'object') return false;
+    return ['movies', 'shows', 'seasons', 'episodes', 'people'].some(function (k) { return Array.isArray(nf[k]) && nf[k].length > 0; });
+  }
+  function sendEntry(e) {
+    return resolveIds(e.item, e.kind !== 'movie').then(function (ids) {
+      if (!ids) { noteNotFound(e); return 'drop'; }
+      e.item.tmdb = e.item.tmdb || (ids.tmdb != null ? String(ids.tmdb) : null);
+      e.item.imdb = e.item.imdb || ids.imdb || null;
+      return post(e.op === 'add' ? '/sync/history' : '/sync/history/remove', historyBody(e, ids)).then(function (r) {
+        if (r.status === 429) { backoff(e, retryAfter(r) || 60000); return 'retry'; }
+        if (r.status === 401 || r.status === 403 || r.status >= 500 || r.status === 0) { backoff(e); return 'retry'; }
+        if (r.status < 200 || r.status >= 300) { noteNotFound(e); return 'drop'; }
+        if (notFoundIn(r.json)) { noteNotFound(e); return 'drop'; }
+        return 'ok';
+      });
+    }).catch(function () { backoff(e); return 'retry'; });
+  }
+  /** Wachtrij versturen (één tegelijk). Vasthouden zolang de speler open is of een scrobble-stop onderweg is. */
+  Q.flush = function () {
+    if (qBusy) return qBusy;
+    if (!Trakt.isLoggedIn() || !qList.length) return Promise.resolve(0);
+    var playing = !!(B.player && B.player.current) || pendingStops > 0;
+    var sent = 0, any = false;
+    qBusy = (function next() {
+      var now = Date.now();
+      var e = qList.filter(function (x) { return (x.next || 0) <= now && !(x.hold && playing); })[0];
+      if (!e) return Promise.resolve();
+      return sendEntry(e).then(function (res) {
+        if (res === 'ok' || res === 'drop') { qList = qList.filter(function (x) { return x.id !== e.id; }); if (res === 'ok') sent++; }
+        any = true;
+        qSave();
+        return next();
+      }, function () { backoff(e); qSave(); });
+    })().catch(B.noop).then(function () {
+      qBusy = null;
+      if (any) B.emit('traktStatus');
+      // eerstvolgende poging plannen (backoff), anders de 15-minutenronde
+      var wait = qList.map(function (x) { return (x.next || 0) - Date.now(); }).filter(function (d) { return d > 0; }).sort(function (a, b) { return a - b; })[0];
+      if (wait != null && wait < 15 * 60000) Q.soon(wait + 500);
+      if (sent) setTimeout(function () { Trakt.refresh(true); }, 3000);
+      return sent;
+    });
+    return qBusy;
+  };
+  /** Na een geslaagde scrobble-stop vanaf 80% telt Trakt het zelf: het vastgehouden "gezien" van de speler valt weg. */
+  function dropHeld(key) {
+    var n = qList.length;
+    qList = qList.filter(function (x) { return !(x.hold && x.op === 'add' && x.key === key); });
+    if (qList.length !== n) qSave();
+  }
+
+  /**
+   * Scrobble start/pause/stop (progress 0…1). Ids (tmdb/imdb) van het item, anders een zoektreffer met de juiste titel
+   * en het juiste jaar. Bij een stop vanaf 80% telt Trakt het als gezien; wat Bingr zelf als gezien markeert, gaat via
+   * de wachtrij (Trakt.queueWatched). Live en terugkijken worden niet gescrobbled.
    */
   Trakt.scrobble = function (action, item, progress) {
     if (!Trakt.isLoggedIn() || !Trakt.scrobbleEnabled() || !item || (item.type !== 'movie' && item.type !== 'episode')) return Promise.resolve('skipped');
-    return resolveImdb(item).then(function (imdb) {
-      if (!imdb) { Trakt.lastScrobble = L('Not found on Trakt: %@', item.title); return 'notfound'; }
-      var isEp = item.type === 'episode' && item.season != null && item.episode != null;
-      var body = { progress: B.clamp(progress * 100, 0, 100), app_version: '1.0.0' };
-      if (isEp) { body.show = { ids: { imdb: imdb } }; body.episode = { season: item.season, number: item.episode }; }
-      else body.movie = { ids: { imdb: imdb } };
-      var watched = action === 'stop' && progress >= 0.8;
-      return post('/scrobble/' + action, body).then(function () { return 'ok'; }, function () { return 'failed'; }).then(function (res) {
-        if (!watched) return res;
-        var hist = isEp ? { shows: [{ ids: { imdb: imdb }, seasons: [{ number: item.season, episodes: [{ number: item.episode }] }] }] }
-          : { movies: [{ ids: { imdb: imdb } }] };
-        var p = res === 'failed' ? post('/sync/history', hist).then(function () { return 'ok'; }, function () { return 'failed'; }) : Promise.resolve(res);
-        return p.then(function (r2) {
-          if (r2 === 'ok') {
-            if (isEp) { (watchedShows[imdb] = watchedShows[imdb] || {})[item.season + '-' + item.episode] = true; (cacheT.shows[imdb] = cacheT.shows[imdb] || []).push(item.season + '-' + item.episode); }
-            else { watchedMovies[imdb] = true; cacheT.movies.push(imdb); }
-            saveCache(); B.emit('trakt');
-            Trakt.lastScrobble = L('Marked as watched on Trakt: %@', item.title);
-          }
-          setTimeout(function () { Trakt.refresh(true); }, 3000);
-          return r2;
-        });
-      });
-    }).catch(function () { return 'failed'; });
+    var isEp = item.type === 'episode' && item.season != null && item.episode != null;
+    if (item.type === 'episode' && !isEp) return Promise.resolve('skipped');
+    var stop = action === 'stop';
+    if (stop) pendingStops++;
+    return resolveIds(item, isEp).then(function (ids) {
+      if (!ids) { Trakt.lastScrobble = L('Not found on Trakt: %@', item.title); return 'notfound'; }
+      var body = { progress: B.clamp(progress * 100, 0, 100), app_version: '1.0.3' };
+      if (isEp) { body.show = { ids: ids }; body.episode = { season: item.season, number: item.episode }; }
+      else body.movie = { ids: ids };
+      return post('/scrobble/' + action, body).then(function (r) {
+        if (r.status === 409) return 'ok'; // al gescrobbled (zelfde item, net nog)
+        if (r.status < 200 || r.status >= 300) return 'failed';
+        var counted = stop && progress >= 0.8 && r.json && r.json.action === 'scrobble';
+        if (counted || (stop && progress >= 0.8 && !r.json)) {
+          dropHeld(itemKey(item));
+          addKeys(isEp ? WK.episodeKeys({ title: item.title, year: item.year, tmdb: ids.tmdb, imdb: ids.imdb }, item.season, item.episode)
+            : WK.movieKeys({ title: item.title, year: item.year, tmdb: ids.tmdb, imdb: ids.imdb }));
+          saveCache(); B.emit('trakt');
+          Trakt.lastScrobble = L('Marked as watched on Trakt: %@', item.title);
+        }
+        return 'ok';
+      }, function () { return 'failed'; });
+    }).catch(function () { return 'failed'; }).then(function (res) {
+      if (stop) {
+        pendingStops = Math.max(0, pendingStops - 1);
+        // 3 seconden na een stop ophalen; vastgehouden "gezien" (als de stop niet meetelde) daarna versturen
+        setTimeout(function () { Trakt.refresh(false); }, 3000);
+        Q.soon(4000);
+      }
+      return res;
+    });
   };
 
-  /** Handmatig (on)bekeken bij Trakt (zoals TraktSync.setWatched op iOS): /sync/history of /sync/history/remove. */
-  function markLocal(imdb, isEp, season, episode, on) {
-    if (isEp) {
-      var k = season + '-' + episode;
-      var set = watchedShows[imdb] = watchedShows[imdb] || {};
-      if (on) set[k] = true; else delete set[k];
-      cacheT.shows[imdb] = Object.keys(set);
-    } else {
-      if (on) watchedMovies[imdb] = true; else delete watchedMovies[imdb];
-      cacheT.movies = Object.keys(watchedMovies);
-    }
-  }
+  /** Handmatig (on)gezien bij Trakt (zoals TraktSync.setWatched op iOS), via de wachtrij. */
   Trakt.setWatched = function (item, on) {
     if (!Trakt.isLoggedIn() || !item) return Promise.resolve(false);
-    return resolveImdb(item).then(function (imdb) {
-      if (!imdb) return false;
-      var isEp = item.type === 'episode' && item.season != null && item.episode != null;
-      var body = isEp ? { shows: [{ ids: { imdb: imdb }, seasons: [{ number: item.season, episodes: [{ number: item.episode }] }] }] }
-        : { movies: [{ ids: { imdb: imdb } }] };
-      markLocal(imdb, isEp, item.season, item.episode, on);
-      saveCache(); B.emit('trakt');
-      return post(on ? '/sync/history' : '/sync/history/remove', body).then(function () { return true; }, function () { return false; });
-    }).catch(function () { return false; });
+    return Promise.resolve(!!Trakt.queueWatched(item, on, Date.now(), false));
   };
-  /** Hele seizoen in één keer (episodes: [{season, number}]). */
+  /** Hele seizoen in één keer (episodes: [{season, number}]), via de wachtrij. */
   Trakt.setEpisodesWatched = function (series, episodes, on) {
     if (!Trakt.isLoggedIn() || !series || !episodes.length) return Promise.resolve(false);
-    var item = { type: 'episode', title: series.rawTitle || series.title, year: series.year, imdbID: series.imdbID || null };
-    return resolveImdb(item).then(function (imdb) {
-      if (!imdb) return false;
-      var by = {};
-      episodes.forEach(function (e) { (by[e.season] = by[e.season] || []).push({ number: e.number }); markLocal(imdb, true, e.season, e.number, on); });
-      saveCache(); B.emit('trakt');
-      var seasons = Object.keys(by).map(function (n) { return { number: B.int(n), episodes: by[n] }; });
-      return post(on ? '/sync/history' : '/sync/history/remove', { shows: [{ ids: { imdb: imdb }, seasons: seasons }] })
-        .then(function () { return true; }, function () { return false; });
-    }).catch(function () { return false; });
+    var s = showOf(series), eps = episodes.filter(function (e) { return e.season != null && e.number != null; }).map(function (e) { return { season: e.season, number: e.number }; });
+    if (!eps.length) return Promise.resolve(false);
+    enqueue({ op: on ? 'add' : 'remove', kind: 'episodes', item: s, eps: eps, at: Date.now(), hold: false,
+      key: 'e|' + (s.tmdb || s.imdb || WK.norm(s.title) + '|' + (WK.yearOf(s) || 0)) + '|' + eps.map(function (e) { return e.season + '-' + e.number; }).join(',') });
+    return Promise.resolve(true);
   };
   /** Mijn lijst van het hoofdprofiel volgt de Trakt-watchlist (zoals setWatchlist op iOS). */
   Trakt.setWatchlist = function (x, isShow, on) {
     if (!Trakt.isLoggedIn() || !x) return Promise.resolve(false);
-    var item = { type: isShow ? 'episode' : 'movie', title: x.rawTitle || x.title, year: x.year, imdbID: x.imdbID || null };
-    return resolveImdb(item).then(function (imdb) {
-      if (!imdb) return false;
-      var body = {}; body[isShow ? 'shows' : 'movies'] = [{ ids: { imdb: imdb } }];
-      return post(on ? '/sync/watchlist' : '/sync/watchlist/remove', body).then(function () { return true; }, function () { return false; });
+    return resolveIds(x, isShow).then(function (ids) {
+      if (!ids) return false;
+      var body = {}; body[isShow ? 'shows' : 'movies'] = [{ ids: ids }];
+      return post(on ? '/sync/watchlist' : '/sync/watchlist/remove', body).then(function (r) { return r.status >= 200 && r.status < 300; }, function () { return false; });
     }).catch(function () { return false; });
+  };
+
+  // MARK: ophalen en versturen: bij de start, terug op de voorgrond, elke 15 minuten (niet tijdens afspelen)
+
+  var ROUND = 15 * 60000;
+  function round() {
+    if (!Trakt.isLoggedIn()) return;
+    Q.flush();
+    if (!(B.player && B.player.current)) Trakt.refresh(false);
+  }
+  setInterval(function () { if (typeof document === 'undefined' || document.visibilityState !== 'hidden') round(); }, ROUND);
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') setTimeout(round, 1000); });
+  }
+  B.on('playerClosed', function () { Q.soon(5000); });
+  setTimeout(function () { if (Trakt.isLoggedIn()) Q.flush(); }, 8000);
+  /** Diagnose: wachtrij en hoe vaak Trakt iets niet kende (not_found); geen tokens en geen titels (die staan alleen lokaal). */
+  Trakt.diag = function () {
+    if (!C.trakt()) return undefined;
+    return { queue: qList.length, held: qList.filter(function (x) { return x.hold; }).length, notFound: Trakt.notFound.length,
+      lastNotFound: Trakt.notFound[0] ? Trakt.notFound[0].at : undefined, lastError: Trakt.lastError || undefined,
+      lastSync: Trakt.lastSync() ? B.iso(Trakt.lastSync()) : undefined, watchedKeys: cacheT.keys.length };
   };
   /** Persoonlijke aanbevelingen (voor "Voor jou"): [{title, year, imdb}]; leeg bij een fout. */
   var recCache = {};
@@ -520,7 +751,7 @@
     if (c && Date.now() - c.at < 3600000) return Promise.resolve(c.list);
     return get('/recommendations/' + (shows ? 'shows' : 'movies'), [['limit', '40'], ['ignore_collected', 'true']]).then(function (list) {
       var out = (list || []).map(function (m) { return m && m.title ? { title: m.title, year: m.year || null, imdb: (m.ids && m.ids.imdb) || null } : null; }).filter(Boolean);
-      out.forEach(function (m) { if (m.imdb) indexAdd(m.title, m.year, m.imdb, shows); });
+      out.forEach(function (m) { if (m.imdb) rememberIds(m.title, m.year, shows, { imdb: m.imdb }); });
       recCache[k] = { at: Date.now(), list: out };
       return out;
     }, function () { return []; });

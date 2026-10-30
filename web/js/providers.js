@@ -265,6 +265,8 @@
         };
       }, 0, true);
     }
+    /** build 154: TMDB-id uit get_vod_streams/get_series (tmdb of tmdb_id, getal of tekst), anders null. */
+    function tmdbField(o) { var t = B.int(o && o.tmdb != null && o.tmdb !== '' ? o.tmdb : o && o.tmdb_id); return t && t > 0 ? t : null; }
     function mapMovies(r, vc) {
       return B.chunkedMap(r.list, function (v) {
         var sid = B.str(v && v.stream_id); if (sid == null) return null;
@@ -278,6 +280,8 @@
         };
         var vcl = B.clang.parse(v.name);
         if (vcl) mv.cl = vcl;
+        var vtm = tmdbField(v);
+        if (vtm) mv.tmdb = vtm;
         return mv;
       }, 0, true);
     }
@@ -293,13 +297,16 @@
         };
         var scl = B.clang.parse(s.name);
         if (scl) se.cl = scl;
+        var stm = tmdbField(s);
+        if (stm) se.tmdb = stm;
         return se;
       }, 0, true);
     }
     // build 149: alleen de velden die hierboven gebruikt worden (de rest van het antwoord komt nooit in het geheugen)
     var F_LIVE = ['stream_id', 'name', 'stream_icon', 'category_id', 'epg_channel_id', 'num', 'tv_archive', 'tv_archive_duration'];
-    var F_VOD = ['stream_id', 'name', 'stream_icon', 'category_id', 'container_extension', 'rating', 'added', 'year'];
-    var F_SER = ['series_id', 'name', 'cover', 'category_id', 'plot', 'rating', 'last_modified', 'year', 'releaseDate', 'genre'];
+    // build 154: ook tmdb/tmdb_id (TMDB-id van de server, ook als tekst) voor de inhoudssleutels van gezien en Trakt
+    var F_VOD = ['stream_id', 'name', 'stream_icon', 'category_id', 'container_extension', 'rating', 'added', 'year', 'tmdb', 'tmdb_id'];
+    var F_SER = ['series_id', 'name', 'cover', 'category_id', 'plot', 'rating', 'last_modified', 'year', 'releaseDate', 'genre', 'tmdb', 'tmdb_id'];
     var hiddenFn = typeof opts.hidden === 'function' ? opts.hidden : null;
     function nOf(m) { var n = 0; for (var k in m) if (B.has(m, k)) n += m[k]; return n; }
     function status(r, n) { return r.failed ? { status: 'failed', count: 0, error: r.error } : { status: (n + nOf(r.skipped)) ? 'ok' : 'empty', count: n + nOf(r.skipped) }; }

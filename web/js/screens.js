@@ -336,15 +336,20 @@
     el.addEventListener('click', function (e) { e.preventDefault(); B.xs.open({ type: type, item: x }); });
   }
   /** Film bekeken (lokaal of op Trakt), zoals Playables.isWatched op iOS. */
-  S.movieWatched = function (m) { return D.isWatched(m.id) || B.trakt.isMovieWatched(m); };
+  // build 154: ook via de inhoudssleutels (gezien op een andere server) en Trakt-gezien als dezelfde sleutels
+  S.movieWatched = function (m) { return D.movieWatched(m) || B.trakt.isMovieWatched(m); };
+  /** build 154: serie gezien (w:s: in het profiel, of alle uitgezonden afleveringen op Trakt). */
+  S.seriesWatched = function (s) { return D.seriesWatched(s) || B.trakt.isSeriesWatched(s); };
+  /** build 154: aflevering gezien (eigen id, ep:<serie>|s-e, inhoudssleutels of Trakt). */
+  S.episodeWatched = function (series, ep) { return D.episodeWatched(series, ep) || (!!series && B.trakt.isEpisodeWatched(series, ep.season, ep.number)); };
   /**
    * Aantal bekeken afleveringen van een serie, zoals seriesRow op iOS: het hoogste van Trakt, de lokale sleutels
    * ep:<serie>|s-e en (als de afleveringen al geladen zijn) de afleveringen met een eigen bekeken-vinkje.
    */
   S.seriesWatchedCount = function (s) {
     var own = 0;
-    (s.episodes || []).forEach(function (e) { if (e && D.isWatched(e.id)) own++; });
-    return Math.max(B.trakt.watchedCount(s), D.watchedCount(s.id), own);
+    (s.episodes || []).forEach(function (e) { if (e && D.episodeWatched(s, e)) own++; });
+    return Math.max(B.trakt.watchedCount(s), D.watchedCount(s.id), D.contentEpisodeCount(s), own);
   };
   /** Vinkje, "N BEKEKEN" en voortgang op een poster; opnieuw te tekenen zonder de kaart te vervangen (S.refreshMarks). */
   function cardMarks(x, type, opts) {
@@ -352,8 +357,8 @@
     var pr = opts.progress;
     // voortgang van een film ook buiten Verder kijken (zoals PosterCard op iOS)
     if (pr == null && !isShow) { var pe = D.progress(x.id); pr = pe && pe.fraction > 0 ? pe.fraction : null; }
-    var watched = !isShow && !opts.continueKeys && S.movieWatched(x);
-    var wc = isShow ? S.seriesWatchedCount(x) : 0;
+    var watched = !opts.continueKeys && (isShow ? S.seriesWatched(x) : S.movieWatched(x));
+    var wc = isShow && !watched ? S.seriesWatchedCount(x) : 0;
     // label linksboven: Serie/Film (Voor jou) of, build 112, een eigen tekst (opts.badge, bv. de datum bij Binnenkort op Bingr)
     var top = opts.kindBadge ? (isShow ? L('SERIES') : L('MOVIE')) : (opts.badge || null);
     return { watched: watched, nodes: [
@@ -751,7 +756,7 @@
           if (!seen[s.id] && cards.length < 20) { seen[s.id] = true; cards.push({ x: s, type: 'series', p: pe.e.fraction, keys: seriesKeys[s.id] }); }
         }
       });
-      return U.row(L('Continue watching'), cards.map(function (c) { return posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); }));
+      return U.row(L('Continue watching'), cards.filter(function (c) { return !S.continueNotDone || S.continueNotDone(c); }).map(function (c) { return posterCard(c.x, c.type, { progress: c.p, continueKeys: c.keys }); }));
     }
     function myListRow() {
       var cards = myListItems().slice(0, 40).map(function (hit) { return posterCard(hit.item, hit.type); });
@@ -1519,9 +1524,10 @@
       });
     }
     function playEpisode(ep) { B.player.playVOD(B.player.episodeItem(ep, x), { episodes: episodes, series: x }); }
-    function epWatched(ep) { return D.isWatched(ep.id) || D.isWatched(D.episodeKey(ep.seriesID, ep.season, ep.number)) || B.trakt.isEpisodeWatched(x, ep.season, ep.number); }
+    function epWatched(ep) { return S.episodeWatched(x, ep); }
     function setEpWatched(list, on) {
-      D.setEpisodesWatched(list, on);
+      // build 154: id- en inhoudssleutels, w:s: als alle uitgezonden afleveringen gezien zijn; Trakt via de wachtrij
+      D.setEpisodesWatched(list, on, x, { all: episodes, aired: B.trakt.airedFor(x) });
       if (B.trakt.isLoggedIn()) B.trakt.setEpisodesWatched(x, list.map(function (e) { return { season: e.season, number: e.number }; }), on);
     }
     function pickCurrent() {
@@ -1743,6 +1749,8 @@
         var info = res.info || {};
         if (info.plot && !x.plot && !plot.textContent) plot.textContent = info.plot;
         if (!episodes.length) { U.clear(epsEl); epsEl.appendChild(h('p.muted', L('No episodes found'))); drawButtons(); return; }
+        // build 154: serie gezien (w:s:) bijwerken nu de afleveringen er zijn (alleen als het verandert)
+        if (!(B.player && B.player.current)) setTimeout(function () { if (alive) D.refreshSeriesWatched(x, episodes, B.trakt.airedFor(x)); }, 1500);
         currentEp = pickCurrent();
         season = currentEp ? currentEp.season : seasons()[0];
         drawSeasons();

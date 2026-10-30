@@ -481,7 +481,7 @@
     var closed = false, hideTimer = null, tickTimer = null, pingTimer = null;
     var watchedSeconds = 0, recorded = false, lastSave = 0, attempts = 0, triedBackup = false;
     var nextShown = false, nextDismissed = false, countdownTimer = null;
-    var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false;
+    var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false, traktMarked = false;
     var failPos = 0; // plek bij de laatste fout (films/afleveringen), voor "Opnieuw"
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
@@ -686,7 +686,7 @@
       renderInfo();
       showControls();
       clearExtSubs();
-      scrobbled = false; stopSent = false;
+      scrobbled = false; stopSent = false; traktMarked = false;
       streamStart().then(function (ok) { if (ok === false && gen === startGen) limited = true; }, B.noop);
       // limiet van de IPTV-provider (alleen Xtream) alvast ophalen; blokkeert niets
       B.providers.providerLimit.prime(isrc());
@@ -1446,8 +1446,9 @@
       var inCredits = marker && marker.creditsStart != null && marker.creditsStart > 60 && t >= marker.creditsStart;
       if (pos >= 0.85 || (d > 600 && left < 180 && pos > 0.7) || inCredits) {
         D.clearProgress(item.id);
-        D.setWatched(item.id, true);
-        if (item.type === 'episode' && item.seriesID && item.season != null && item.episode != null) D.setWatched(D.episodeKey(item.seriesID, item.season, item.episode), true);
+        // build 154: id- en inhoudssleutels; dezelfde grens gaat via de wachtrij naar Trakt (één keer per keer kijken)
+        D.markPlayedWatched(item, ctx);
+        if (!traktMarked) { traktMarked = true; B.trakt.queueWatched(item, true, Date.now(), true); }
       } else if (pos > 0.02) {
         D.setProgress(item.id, { fraction: pos, position: t, title: item.title, artwork: item.artwork || null, playlistID: isrc() ? isrc().id : null });
       }
@@ -1634,6 +1635,12 @@
     }
     function onPop() { if (!closed) close(true); }
     function onHide() { saveProgress(true); if (scrobbled && !stopSent) scrobble('stop'); A.streamStopBeacon(); D.flush(); }
+    // build 154: app/tab naar de achtergrond = scrobble-stop met de huidige positie; terug en het speelt nog = weer start
+    function onVis() {
+      if (closed || !engine || isLive() || isCatchup()) return;
+      if (document.visibilityState === 'hidden') { if (scrobbled && !stopSent) scrobble('stop'); }
+      else if (scrobbled && stopSent && engine.playing) { stopSent = false; scrobble('start'); }
+    }
     // terug uit de back-forward-cache: de stream was afgemeld (pagehide), meteen weer aanmelden (niet pas na een ping)
     function onShow(ev) { if (ev && ev.persisted && !closed && !limited) streamStart(); }
     function close(fromPop) {
@@ -1654,6 +1661,7 @@
       document.removeEventListener('webkitfullscreenchange', onFsChange);
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('pagehide', onHide);
+      document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pageshow', onShow);
       document.documentElement.classList.remove('playing');
       if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; } catch (e) { /* stil */ } }
@@ -1674,6 +1682,7 @@
     else history.pushState({ bingrPlayer: true }, '', location.href);
     window.addEventListener('popstate', onPop);
     window.addEventListener('pagehide', onHide);
+    document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pageshow', onShow);
     tickTimer = setInterval(tick, 1000);
     start(ctx.resume || 0);
@@ -1690,13 +1699,13 @@
     return {
       type: 'episode', id: ep.id, title: series ? series.title : ep.title, subtitle: 'S' + ep.season + ':E' + ep.number + ' · ' + ep.title,
       streamURL: ep.streamURL, artwork: (series && series.poster) || ep.still || null, seriesID: ep.seriesID, season: ep.season, episode: ep.number,
-      imdbID: (series && series.imdbID) || null, stremio: ep.stremio || null, year: series ? series.year : null,
+      imdbID: (series && series.imdbID) || null, tmdb: (series && series.tmdb) || null, stremio: ep.stremio || null, year: series ? series.year : null,
       _src: ep._src || (series && series._src) || null
     };
   }
   function movieItem(m) {
     return { type: 'movie', id: m.id, title: m.title, subtitle: m.year ? String(m.year) : '', streamURL: m.streamURL, stalkerCmd: m.stalkerCmd || null,
-      artwork: m.poster || null, imdbID: m.imdbID || null, stremio: m.stremio || null, year: m.year || null, _src: m._src || null };
+      artwork: m.poster || null, imdbID: m.imdbID || null, tmdb: m.tmdb || null, stremio: m.stremio || null, year: m.year || null, _src: m._src || null };
   }
   function catchupItem(ch, p) {
     return { type: 'catchup', id: ch.id + '-cu-' + Math.floor(p.start / 1000), title: p.title || ch.name, subtitle: ch.name, streamURL: null,

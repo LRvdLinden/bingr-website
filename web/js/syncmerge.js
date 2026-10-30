@@ -129,7 +129,29 @@
     }
     var o = { sets: {}, progress: prune(st.progress, MAX_PROGRESS), history: prune(st.history, MAX_HISTORY) };
     SET_FIELDS.forEach(function (f) { o.sets[f] = prune(st.sets[f] || {}, f === 'recentChannels' ? MAX_RECENT : 0); });
+    capSize(o);
     return o;
+  }
+  /**
+   * Build 154: profile.<id> hooguit 1 MB. Daarboven vallen eerst de titelsleutels van films (w:m:t:) weg die ook een
+   * tmdb- of imdb-sleutel hebben (zelfde `at`, samen geschreven), de oudste eerst. Schatting zonder JSON.stringify.
+   */
+  var MAX_BYTES = 1000000;
+  function estimate(o) {
+    var n = 200;
+    SET_FIELDS.forEach(function (f) { var m = o.sets[f] || {}; for (var k in m) n += k.length + 46; });
+    for (var p in o.progress) n += p.length + 260;
+    for (var h in o.history) n += h.length * 2 + 320;
+    return n;
+  }
+  function capSize(o) {
+    var n = estimate(o);
+    if (n <= MAX_BYTES) return;
+    var w = o.sets.watched || {}, ids = {};
+    Object.keys(w).forEach(function (k) { if (/^w:m:(tmdb|imdb):/.test(k)) ids[w[k].at] = true; });
+    var drop = Object.keys(w).filter(function (k) { return k.indexOf('w:m:t:') === 0 && ids[w[k].at]; })
+      .sort(function (a, b) { return w[a].at - w[b].at; });
+    for (var i = 0; i < drop.length && n > MAX_BYTES; i++) { n -= drop[i].length + 46; delete w[drop[i]]; }
   }
   function sortedKeys(m, pred) { return Object.keys(m).filter(pred).sort(); }
 

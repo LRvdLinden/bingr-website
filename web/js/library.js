@@ -842,6 +842,7 @@
       var ownEpg = B.media.isMediaServer(src.kind) ? (lib.epg || {}) : null;
       lib.epg = ownEpg || {};
       var tr = lib._upd || null;
+      lib.wkv = 154; // build 154: titels met de opschoning van build 154 (xs.js: migratie van gezien)
       var saved = B.idb.setBig('lib:' + src.id, { at: Date.now(), lib: lib }, 'lib', 'arrays');
       if (tr) saved = tr.time('save', saved);
       // alleen de zenders apart, voor de reservebron op andere servers

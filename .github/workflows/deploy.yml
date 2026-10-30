@@ -40,7 +40,9 @@ jobs:
         # build 151: sync toepassen en bewaren in stappen/Worker (groot profiel, zelfde uitkomst als ≤ 150); rij Zenders (format_test)
         # build 151: rijen op Home zonder dubbele titels over meer servers (homededupe_test)
         # build 151c: foutcodes van web-proxy en de server als leesbare melding (proxyerror_test)
+        # build 154: gezien over alle servers (gedeelde gevallen uit watched_keys_cases.json) en de Trakt-sync (watched_test)
         run: |
+          node tools/test/watched_test.js
           node tools/test/proxyerror_test.js
           node tools/test/pin_test.js
           node tools/test/format_test.js
