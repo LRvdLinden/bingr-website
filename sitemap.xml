@@ -28,18 +28,6 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-app/"/>
   </url>
   <url>
-    <loc>https://bingr.online/iptv-samsung-tv/</loc>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-samsung-tv/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-samsung-tv/?lang=en"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-samsung-tv/"/>
-  </url>
-  <url>
-    <loc>https://bingr.online/iptv-samsung-tv/?lang=en</loc>
-    <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/iptv-samsung-tv/"/>
-    <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/iptv-samsung-tv/?lang=en"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://bingr.online/iptv-samsung-tv/"/>
-  </url>
-  <url>
     <loc>https://bingr.online/m3u-xtream-toevoegen/</loc>
     <xhtml:link rel="alternate" hreflang="nl" href="https://bingr.online/m3u-xtream-toevoegen/"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://bingr.online/m3u-xtream-toevoegen/?lang=en"/>

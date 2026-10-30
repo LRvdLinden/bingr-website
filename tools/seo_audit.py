@@ -85,7 +85,7 @@ def main():
     save("lighthouse", lh)
 
     # 3. zoekwoorden (Nederland, Nederlands) en of bingr.online al gevonden wordt
-    seeds = ["iptv", "iptv speler", "iptv app", "iptv apple tv", "iptv samsung", "m3u", "xtream", "iptv player"]
+    seeds = ["iptv", "iptv speler", "iptv app", "iptv apple tv", "iptv android tv", "m3u", "xtream", "iptv player"]
     seen, items = set(), []
     for sd in seeds:
         r = res(call("dataforseo_labs/google/keyword_suggestions/live", [{"keyword": sd, "location_code": 2528, "language_code": "nl",

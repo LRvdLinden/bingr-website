@@ -295,6 +295,7 @@ jobs:
                    "RedirectMatch 302 ^/apk/?$ https://beheer.bingr.online/dl.php?app=android\n"
                    "RedirectMatch 302 ^/presskit/?$ https://beheer.bingr.online/dl.php?app=presskit\n"
                    "RedirectMatch 302 ^/windows/?$ https://beheer.bingr.online/dl.php?app=windows\n"
+                   "RedirectMatch 301 ^/iptv-samsung-tv(/.*)?$ https://bingr.online/\n"
                    "RedirectMatch 302 ^/status/feed\\.atom$ " + FN + "?action=feed&format=atom&lang=nl\n"
                    "RedirectMatch 302 ^/status/feed\\.en\\.atom$ " + FN + "?action=feed&format=atom&lang=en\n"
                    "RedirectMatch 302 ^/status/feed\\.rss$ " + FN + "?action=feed&format=rss&lang=nl\n"

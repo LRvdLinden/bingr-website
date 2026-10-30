@@ -108,18 +108,18 @@ $T = [
     'note' => 'Bingr levert zelf geen films of series: of deze titel bij jou te zien is, hangt af van je eigen IPTV-abonnement, afspeellijst of mediaserver.',
     'get' => 'Nog geen Bingr?', 'getSub' => 'Kijk meteen in je browser, doe mee met de bèta op iPhone, iPad, Apple TV en Mac, of download de testversie voor Android.',
     'tf' => 'Doe mee met de bèta via', 'apk' => 'Download de testversie', 'howto' => 'Zo installeer je Bingr',
-    'desc' => 'Bekijk %s in Bingr, de IPTV-speler voor je eigen abonnement op iPhone, iPad, Apple TV, Mac, Android, Samsung TV en in je browser.',
+    'desc' => 'Bekijk %s in Bingr, de IPTV-speler voor je eigen abonnement op iPhone, iPad, Apple TV, Mac, Android, Windows en in je browser.',
     'genTitle' => 'Bingr: IPTV-speler voor je eigen abonnement',
-    'genDesc' => 'Speel je eigen IPTV-abonnement af op iPhone, iPad, Apple TV, Mac, Android, Samsung TV en in je browser.',
+    'genDesc' => 'Speel je eigen IPTV-abonnement af op iPhone, iPad, Apple TV, Mac, Android, Windows en in je browser.',
     'badTitle' => 'Link onvolledig', 'badText' => 'Deze link mist gegevens. Open Bingr en zoek de titel zelf op.', 'poster' => 'Poster van %s'],
   'en' => ['movie' => 'Movie', 'tv' => 'Series', 'openApp' => 'Open in Bingr', 'openWeb' => 'Watch in your browser',
     'appHint' => "App didn't open?", 'appLink' => 'Use this link',
     'note' => "Bingr doesn't provide any movies or series itself: whether you can watch this title depends on your own IPTV subscription, playlist or media server.",
     'get' => "Don't have Bingr yet?", 'getSub' => 'Watch right away in your browser, join the beta on iPhone, iPad, Apple TV and Mac, or download the test version for Android.',
     'tf' => 'Join the beta on', 'apk' => 'Download the test version', 'howto' => 'How to install Bingr',
-    'desc' => 'Watch %s in Bingr, the IPTV player for your own subscription on iPhone, iPad, Apple TV, Mac, Android, Samsung TV and in your browser.',
+    'desc' => 'Watch %s in Bingr, the IPTV player for your own subscription on iPhone, iPad, Apple TV, Mac, Android, Windows and in your browser.',
     'genTitle' => 'Bingr: IPTV player for your own subscription',
-    'genDesc' => 'Play your own IPTV subscription on iPhone, iPad, Apple TV, Mac, Android, Samsung TV and in your browser.',
+    'genDesc' => 'Play your own IPTV subscription on iPhone, iPad, Apple TV, Mac, Android, Windows and in your browser.',
     'badTitle' => 'Incomplete link', 'badText' => 'This link is missing information. Open Bingr and search for the title yourself.', 'poster' => 'Poster of %s'],
 ];
 
@@ -302,7 +302,6 @@ header('Vary: Accept-Language');
         <a href="../status/">Status</a>
         <a href="/presskit">PressKit</a>
         <a href="../iptv-app/" data-s="foot.iptvapp">IPTV-app voor Apple</a>
-        <a href="../iptv-samsung-tv/" data-s="foot.samsung">IPTV op Samsung TV</a>
         <a href="../m3u-xtream-toevoegen/" data-s="foot.m3u">M3U of Xtream toevoegen</a>
         <a href="../vergelijking/" data-s="foot.compare">Bingr vs. Smarters en TiviMate</a>
         <a href="../privacy.html" data-s="foot.privacy">Privacy</a>
@@ -310,7 +309,7 @@ header('Vary: Accept-Language');
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
-    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd.</p>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC en Fire TV van Amazon.com, Inc.</p>
     <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
   </div>

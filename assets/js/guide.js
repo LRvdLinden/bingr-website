@@ -1,4 +1,4 @@
-// Uitlegpagina's van bingr.online (iptv-app/, iptv-samsung-tv/, m3u-xtream-toevoegen/, vergelijking/).
+// Uitlegpagina's van bingr.online (iptv-app/, m3u-xtream-toevoegen/, vergelijking/).
 // Na assets/js/site.js laden. De JSON-LD in de HTML is Nederlands; in het Engels bouwt dit script hem opnieuw op uit de
 // zichtbare Engelse tekst (FAQ uit .faq details, HowTo uit ol.g-steps, kruimelpad uit .crumbs; dezelfde regels waarmee
 // de Nederlandse JSON-LD uit de Nederlandse tekst is gemaakt), zodat de structured data gelijk is aan wat je ziet.

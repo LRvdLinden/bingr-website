@@ -66,7 +66,7 @@
 <h2>Wat Bingr op je apparaat opslaat</h2>
 <ul>
 <li>Je server- en afspeellijstgegevens, profielen, Mijn lijst, kijkvoortgang, kijkgeschiedenis en instellingen staan op je apparaat. Op Apple-apparaten ook in je eigen iCloud (sleutel-waardeopslag), zodat ze op al je Apple-apparaten beschikbaar zijn.</li>
-<li>Wachtwoorden, pincodes en inlogtokens staan op Apple-apparaten versleuteld in de sleutelhanger, op Android en Samsung TV in de privé-opslag van de app.</li>
+<li>Wachtwoorden, pincodes en inlogtokens staan op Apple-apparaten versleuteld in de sleutelhanger, op Android in de privé-opslag van de app.</li>
 <li>Profielfoto's die je kiest worden verkleind bewaard; op Apple-apparaten ook in je eigen iCloud.</li>
 </ul>
 <h2 id="cookies">Cookies en opslag op de website</h2>
@@ -119,7 +119,7 @@
 <li><b>Onze e-mailprovider</b><!-- TODO naam en vestigingsland van de SMTP-provider (BINGR_SMTP_HOST) -->: het versturen van e-mails over je account, je tickets en Bingr.</li>
 <li><b>Onze webhoster</b><!-- TODO naam en vestigingsland van de webhoster -->: de websites bingr.online en support.bingr.online. De webserver verwerkt technische gegevens zoals je IP-adres in serverlogs.</li>
 <li><b>Stripe</b> (Stripe Payments Europe, Ltd., Ierland): de betaling van Lifetime en de kwitantie (zie Betalen).</li>
-<li><b>GitHub</b>: de downloads voor Android en Samsung TV, en het overzicht van de nieuwste versie dat de homepage ophaalt. GitHub ziet daarbij je IP-adres.</li>
+<li><b>GitHub</b>: de downloads voor Android, en het overzicht van de nieuwste versie dat de homepage ophaalt. GitHub ziet daarbij je IP-adres.</li>
 <li><b>Google Fonts</b> (alleen met toestemming), <b>YouTube</b> (als je een trailer afspeelt), <b>TMDB</b> en <b>OMDb</b> (filmgegevens en afbeeldingen), en <b>Trakt</b> en <b>OpenSubtitles</b> (alleen als je inlogt): zie hierboven.</li>
 </ul>
 <!-- TODO controleren: waarborg per partij buiten de EU (EU-VS-gegevensprivacykader of standaardcontractbepalingen) -->
@@ -159,7 +159,7 @@
 <h2>What Bingr stores on your device</h2>
 <ul>
 <li>Your server and playlist details, profiles, My List, watch progress, watch history and settings are stored on your device. On Apple devices also in your own iCloud (key-value storage), so they're available on all your Apple devices.</li>
-<li>Passwords, PINs and sign-in tokens are stored encrypted in the keychain on Apple devices, and in the app's private storage on Android and Samsung TV.</li>
+<li>Passwords, PINs and sign-in tokens are stored encrypted in the keychain on Apple devices, and in the app's private storage on Android.</li>
 <li>Profile photos you choose are stored in reduced size; on Apple devices also in your own iCloud.</li>
 </ul>
 <h2 id="cookies-en">Cookies and storage on the website</h2>
@@ -212,7 +212,7 @@
 <li><b>Our email provider</b><!-- TODO name and country of the SMTP provider (BINGR_SMTP_HOST) -->: sending emails about your account, your tickets and Bingr.</li>
 <li><b>Our web host</b><!-- TODO name and country of the web host -->: the websites bingr.online and support.bingr.online. The web server processes technical data such as your IP address in server logs.</li>
 <li><b>Stripe</b> (Stripe Payments Europe, Ltd., Ireland): the payment for Lifetime and the receipt (see Payment).</li>
-<li><b>GitHub</b>: the downloads for Android and Samsung TV, and the latest-version overview that the homepage fetches. GitHub sees your IP address.</li>
+<li><b>GitHub</b>: the downloads for Android, and the latest-version overview that the homepage fetches. GitHub sees your IP address.</li>
 <li><b>Google Fonts</b> (only with consent), <b>YouTube</b> (when you play a trailer), <b>TMDB</b> and <b>OMDb</b> (movie data and images), and <b>Trakt</b> and <b>OpenSubtitles</b> (only if you sign in): see above.</li>
 </ul>
 <!-- TODO check: safeguard per party outside the EU (EU-US Data Privacy Framework or standard contractual clauses) -->
@@ -245,7 +245,6 @@
         <a href="status/">Status</a>
         <a href="/presskit">PressKit</a>
         <a href="iptv-app/" data-s="foot.iptvapp">IPTV-app voor Apple</a>
-        <a href="iptv-samsung-tv/" data-s="foot.samsung">IPTV op Samsung TV</a>
         <a href="m3u-xtream-toevoegen/" data-s="foot.m3u">M3U of Xtream toevoegen</a>
         <a href="vergelijking/" data-s="foot.compare">Bingr vs. Smarters en TiviMate</a>
         <a href="privacy.html" data-s="foot.privacy" aria-current="page">Privacy</a>
@@ -253,7 +252,7 @@
         <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
       </div>
     </div>
-    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC, Fire TV van Amazon.com, Inc. en Samsung en Tizen van Samsung Electronics Co., Ltd. Windows is een handelsmerk van Microsoft Corporation.</p>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC en Fire TV van Amazon.com, Inc. Windows is een handelsmerk van Microsoft Corporation.</p>
     <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
     <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build>1.0.1 (build 151)</span></p>
   </div>
