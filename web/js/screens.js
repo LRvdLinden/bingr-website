@@ -362,13 +362,13 @@
       wc > 0 ? h('div.card-badge.mark' + (top ? '.card-badge-below' : ''), L('%d WATCHED', wc)) : null,
       pr ? h('div.card-progress.mark', [h('div', { style: { width: Math.round(B.clamp(pr, 0, 1) * 100) + '%' } })]) : null] };
   }
-  function cardLabel(x, watched) { return x.title + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : ''); }
+  function cardLabel(x, watched) { return B.showName(x.title) + (x.year ? ' (' + x.year + ')' : '') + (watched ? ', ' + L('Watched') : ''); }
   function posterCard(x, type, opts) {
     opts = opts || {};
     var isShow = type === 'series';
     var m = cardMarks(x, type, opts);
-    var img = h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, isShow)].concat(m.nodes));
-    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': cardLabel(x, m.watched) }, [img, h('div.card-title', x.title)]);
+    var img = h('div.card-img', [U.img(x.poster, 'poster', B.showName(x.title)), langBadge(x, isShow)].concat(m.nodes));
+    var card = h('a.card', { href: S.titleLink(type, x), 'aria-label': cardLabel(x, m.watched) }, [img, h('div.card-title', B.showName(x.title))]);
     card._marks = function () {
       var n = cardMarks(x, type, opts);
       Array.prototype.slice.call(img.querySelectorAll('.mark')).forEach(function (e) { e.remove(); });
@@ -395,8 +395,8 @@
     });
   };
   function top10Card(x, type, i) {
-    var card = h('a.card.top10', { href: S.titleLink(type, x), 'aria-label': (i + 1) + '. ' + x.title }, [
-      h('div.top10-num', String(i + 1)), h('div.card-img', [U.img(x.poster, 'poster', x.title), langBadge(x, type === 'series')])]);
+    var card = h('a.card.top10', { href: S.titleLink(type, x), 'aria-label': (i + 1) + '. ' + B.showName(x.title) }, [
+      h('div.top10-num', String(i + 1)), h('div.card-img', [U.img(x.poster, 'poster', B.showName(x.title)), langBadge(x, type === 'series')])]);
     if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, {}); }, x.title);
     return card;
   }
@@ -405,7 +405,7 @@
     var nn = Lib.nowNext(ch);
     var b = h('button.ccard', { type: 'button', 'aria-label': B.chanName(ch.name) }, [
       h('div.ccard-logo', [U.img(ch.logo, 'logo', B.chanName(ch.name))]),
-      h('div.ccard-info', [h('div.ccard-name', B.chanName(ch.name)), h('div.ccard-now.muted', nn.now ? nn.now.title : (ch.group || '')),
+      h('div.ccard-info', [h('div.ccard-name', B.chanName(ch.name)), h('div.ccard-now.muted', nn.now ? B.showName(nn.now.title) : (ch.group || '')),
         nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
     ]);
     if (ch._key || ch._noKey) phClick(b, ch, 'channel');
@@ -500,7 +500,7 @@
       window.scrollTo(0, y);
       if (y) setTimeout(function () { window.scrollTo(0, y); }, 60);
       onScroll();
-      document.title = (page.title ? page.title + ' · ' : '') + 'Bingr';
+      document.title = (page.title ? B.showName(page.title) + ' · ' : '') + 'Bingr';
     }
     /** Huidige pagina opnieuw opbouwen (nieuwe bibliotheek, andere taal), op dezelfde plek. */
     function rerender() {
@@ -713,7 +713,7 @@
         h('div.hero-bg', [U.img(x.poster, 'hero-img')]), h('div.hero-shade'),
         h('div.hero-info', [
           h('div.hero-kind', hf.type === 'series' ? L('SERIES') : L('FILM')),
-          h('h1.hero-title', x.title), h('div.hero-meta', meta.join('  ·  ')),
+          h('h1.hero-title', B.showName(x.title)), h('div.hero-meta', meta.join('  ·  ')),
           x.plot ? h('p.hero-plot', x.plot) : null,
           h('div.hero-btns', [play, info])
         ]),
@@ -1280,7 +1280,7 @@
         var nn = Lib.nowNext(ch);
         var fav = D.inSet('favorites', favKey(ch));
         if (row._fav !== fav) { row._fav = fav; U.clear(nameEl); U.append(nameEl, [B.chanName(ch.name), fav ? U.icon('starFill', 'lv-fav') : null]); }
-        var t = nn.now ? B.fmtTime(nn.now.start) + '  ' + nn.now.title : (nn.next ? L('Next') + ': ' + nn.next.title : '');
+        var t = nn.now ? B.fmtTime(nn.now.start) + '  ' + B.showName(nn.now.title) : (nn.next ? L('Next') + ': ' + B.showName(nn.next.title) : '');
         if (nowEl.textContent !== t) nowEl.textContent = t;
         if (nn.now) {
           if (!prog) { prog = h('div.card-progress.inline', [h('div')]); txt.appendChild(prog); }
@@ -1331,7 +1331,7 @@
       ]);
       if (nn.now && Lib.canCatchup(ch, nn.now)) btns.appendChild(U.button(L('From the start'), function () { B.player.playCatchup(ch, nn.now, currentList); }, { icon: 'replay' }));
       box.appendChild(h('div.lv-g-head', [h('div.lv-g-logo', [U.img(ch.logo, 'logo', B.chanName(ch.name))]), h('div', [h('h2', B.chanName(ch.name)), h('div.muted', ch.group || '')])]));
-      if (nn.now) box.appendChild(h('div.lv-g-now', [h('div.lv-g-label', L('Now')), h('div.lv-g-title', nn.now.title),
+      if (nn.now) box.appendChild(h('div.lv-g-now', [h('div.lv-g-label', L('Now')), h('div.lv-g-title', B.showName(nn.now.title)),
         h('div.muted.small', B.fmtTime(nn.now.start) + ' – ' + B.fmtTime(nn.now.end)), h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]),
         nn.now.description ? h('p.lv-g-desc', nn.now.description) : null]));
       box.appendChild(btns);
@@ -1344,7 +1344,7 @@
       progs.forEach(function (p) {
         var live = p.start <= now && p.end > now, past = p.end <= now;
         var it = h('div.lv-g-it' + (live ? '.live' : '') + (past ? '.past' : ''), { role: 'listitem' }, [
-          h('span.lv-g-time', B.fmtTime(p.start)), h('div.lv-g-pt', [h('div', p.title), p.description && live ? h('div.muted.small.clamp2', p.description) : null])]);
+          h('span.lv-g-time', B.fmtTime(p.start)), h('div.lv-g-pt', [h('div', B.showName(p.title)), p.description && live ? h('div.muted.small.clamp2', p.description) : null])]);
         if ((past || live) && Lib.canCatchup(ch, p)) {
           var cb = U.button('', function () { B.player.playCatchup(ch, p, currentList); }, { icon: 'replay', cls: 'icon-only small', title: L('Watch from the start') });
           it.appendChild(cb);
@@ -1713,7 +1713,7 @@
         var p = D.progress(e.id);
         var watched = epWatched(e);
         var pc = p ? Math.round(p.fraction * 100) : (watched ? 100 : 0);
-        var title = String(e.title || '').replace(/^.*?S\d+\s*E\d+\s*[-:]?\s*/i, '') || L('Episode') + ' ' + e.number;
+        var title = B.showName(String(e.title || '').replace(/^.*?S\d+\s*E\d+\s*[-:]?\s*/i, '')) || L('Episode') + ' ' + e.number;
         var card = h('button.ep' + (currentEp === e ? '.current' : ''), { type: 'button', 'aria-label': L('Episode') + ' ' + e.number + ': ' + title }, [
           h('div.ep-num', String(e.number)),
           h('div.ep-still', [U.img(e.still || x.poster, 'still'), h('div.ep-play', [U.icon('play')]), watched ? h('div.ep-watched', [U.icon('check')]) : null,
@@ -1769,8 +1769,8 @@
         el.appendChild(h('div.state', [h('h2', L('Not found')), h('p.muted', L('This title is not in the library of this server.')), h('a.btn', { href: '#/home' }, L('Home'))]));
         return;
       }
-      pg.title = x.title;
-      document.title = x.title + ' · Bingr';
+      pg.title = B.showName(x.title);
+      document.title = pg.title + ' · Bingr';
       listKey = S.keyOf(x);
       meta = h('div.dt-meta'); langEl = h('div.dt-lang'); plot = h('p.dt-plot', x.plot || '');
       creditsSlot = h('div.dt-credits-slot'); extraSlot = h('div.dt-extra-slot');
@@ -1781,7 +1781,7 @@
       el.appendChild(h('div.dt-bg', [U.img(x.poster, 'hero-img')]));
       el.appendChild(h('div.dt-shade'));
       el.appendChild(h('div.dt-top', [back, h('div.dt-poster', [U.img(x.poster, 'poster', x.title)]),
-        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', x.title), meta, langEl, plot, creditsSlot, buttons])]));
+        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', B.showName(x.title)), meta, langEl, plot, creditsSlot, buttons])]));
       if (isShow) {
         seasonSel = h('select.dt-season', { 'aria-label': L('Season') });
         seasonSel.addEventListener('change', function () {

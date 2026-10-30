@@ -80,7 +80,7 @@
   function tile(ch, list) {
     var name = CR.cleanName(ch.name);
     var nn = Lib.nowNext ? Lib.nowNext(ch) : { now: null };
-    var now = nn && nn.now ? nn.now.title : '';
+    var now = nn && nn.now ? B.showName(nn.now.title) : '';
     var logo = h('div.zc-logo', [ch.logo ? U.img(ch.logo, 'zc-img', name) : h('span.zc-name', name)]);
     var b = h('button.zc-tile', { type: 'button', 'aria-label': now ? name + ', ' + now : name, title: name },
       [logo, h('div.zc-now', now || ' ')]);

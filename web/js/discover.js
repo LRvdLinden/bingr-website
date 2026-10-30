@@ -402,8 +402,8 @@
     function draw(t) {
       U.clear(el);
       var x = X.asItem(t);
-      pg.title = x.title;
-      document.title = x.title + ' · Bingr';
+      pg.title = B.showName(x.title);
+      document.title = pg.title + ' · Bingr';
       var meta = h('div.dt-meta', [x.year ? String(x.year) : '', isShow ? L('Series') : L('Movie')].filter(Boolean).join('  ·  '));
       var plot = h('p.dt-plot', x.plot || '');
       var creditsSlot = h('div.dt-credits-slot'), extraSlot = h('div.dt-extra-slot'), buttons = h('div.dt-btns');

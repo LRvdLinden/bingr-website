@@ -1193,6 +1193,9 @@
     return stripTags(s, 'title').name;
   };
   B._stripTags = stripTags;
+  /** build 153: elke getoonde naam van de server (titels, afleveringen, gids, speler, documenttitel): aanduidingen weg.
+   *  Alleen voor weergave; sleutels en id's blijven op de ruwe naam. */
+  B.showName = function (n) { return n == null ? '' : B.stripTags(String(n)); };
   var chanMemo = Object.create(null), chanMemoN = 0;
   /** build 153: getoonde zendernaam (Live TV, rij Zenders, gids, nu afspelen, favorieten, zoeken): "┃NL┃ NPO 1 HD" → "NPO 1".
    *  Alleen voor weergave; de zender zelf (naam, id, stream) blijft ruw, zodat afspelen en matchen niet veranderen. */

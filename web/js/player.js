@@ -564,14 +564,14 @@
     }
 
     function renderInfo() {
-      title.textContent = isLive() && item.channel ? ((item.channel.number ? item.channel.number + '  ' : '') + B.chanName(item.channel.name)) : item.title;
-      if (isCatchup()) title.textContent = '⟲ ' + item.title;
-      sub.textContent = item.subtitle || '';
+      title.textContent = isLive() && item.channel ? ((item.channel.number ? item.channel.number + '  ' : '') + B.chanName(item.channel.name)) : B.showName(item.title);
+      if (isCatchup()) title.textContent = '⟲ ' + B.showName(item.title);
+      sub.textContent = B.showName(item.subtitle || '');
       U.clear(epg);
       if ((isLive() || isCatchup()) && item.channel) {
         var nn = Lib.nowNext(item.channel);
-        if (isLive() && nn.now) epg.appendChild(h('div', [h('b', L('Now') + '  '), B.fmtTime(nn.now.start) + '–' + B.fmtTime(nn.now.end) + '  ' + nn.now.title]));
-        if (isLive() && nn.next) epg.appendChild(h('div.muted', [h('b', L('Next') + '  '), B.fmtTime(nn.next.start) + '  ' + nn.next.title]));
+        if (isLive() && nn.now) epg.appendChild(h('div', [h('b', L('Now') + '  '), B.fmtTime(nn.now.start) + '–' + B.fmtTime(nn.now.end) + '  ' + B.showName(nn.now.title)]));
+        if (isLive() && nn.next) epg.appendChild(h('div.muted', [h('b', L('Next') + '  '), B.fmtTime(nn.next.start) + '  ' + B.showName(nn.next.title)]));
       }
       U.clear(leftBtns); U.clear(rightBtns); U.clear(center);
       leftBtns.appendChild(playBtn);
@@ -610,7 +610,7 @@
         var aw = item.artwork ? String(item.artwork) : '';
         if (B.isInsecure(aw)) aw = B.proxyGetURL(aw) || '';
         var art = aw ? [{ src: aw, sizes: '512x512' }] : [];
-        navigator.mediaSession.metadata = new MediaMetadata({ title: isLive() && item.channel ? B.chanName(item.channel.name) : item.title, artist: item.subtitle || 'Bingr', album: 'Bingr', artwork: art });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: isLive() && item.channel ? B.chanName(item.channel.name) : B.showName(item.title), artist: B.showName(item.subtitle) || 'Bingr', album: 'Bingr', artwork: art });
         var ms = navigator.mediaSession;
         ms.setActionHandler('play', function () { if (engine) engine.play(); });
         ms.setActionHandler('pause', function () { if (engine) engine.pause(); });
@@ -1402,7 +1402,7 @@
       var playB = U.button(L('Next episode'), function () { playNext(); }, { primary: true, icon: 'play' });
       var dismiss = U.button('', function () { nextDismissed = true; clearInterval(countdownTimer); nextCard.style.display = 'none'; }, { icon: 'close', cls: 'pl-ib pl-next-x', title: L('Close') });
       nextCard.appendChild(h('div.pl-next-still', [U.img(nx.still || item.artwork, 'still')]));
-      nextCard.appendChild(h('div.pl-next-info', [h('div.muted.small', L('Next episode')), h('div.pl-next-title', 'S' + nx.season + ':E' + nx.number + ' ' + nx.title),
+      nextCard.appendChild(h('div.pl-next-info', [h('div.muted.small', L('Next episode')), h('div.pl-next-title', 'S' + nx.season + ':E' + nx.number + ' ' + B.showName(nx.title)),
         h('div.muted.small', [L('Starts in'), ' ', count, ' s']), h('div.pl-next-btns', [playB])]));
       nextCard.appendChild(dismiss);
       nextCard.style.display = 'flex';
@@ -1522,7 +1522,7 @@
       var nn = Lib.nowNext(ch);
       U.clear(zapBanner);
       zapBanner.appendChild(h('div.pl-zap-num', ch.number != null ? String(ch.number) : ''));
-      zapBanner.appendChild(h('div', [h('div.pl-zap-name', B.chanName(ch.name)), h('div.muted', nn.now ? nn.now.title : '')]));
+      zapBanner.appendChild(h('div', [h('div.pl-zap-name', B.chanName(ch.name)), h('div.muted', nn.now ? B.showName(nn.now.title) : '')]));
       zapBanner.style.display = 'flex';
       clearTimeout(zapTimer);
       zapTimer = setTimeout(function () {
@@ -1623,8 +1623,8 @@
       if (!item.channel) return;
       var nn = Lib.nowNext(item.channel);
       U.clear(epg);
-      if (nn.now) epg.appendChild(h('div', [h('b', L('Now') + '  '), B.fmtTime(nn.now.start) + '–' + B.fmtTime(nn.now.end) + '  ' + nn.now.title]));
-      if (nn.next) epg.appendChild(h('div.muted', [h('b', L('Next') + '  '), B.fmtTime(nn.next.start) + '  ' + nn.next.title]));
+      if (nn.now) epg.appendChild(h('div', [h('b', L('Now') + '  '), B.fmtTime(nn.now.start) + '–' + B.fmtTime(nn.now.end) + '  ' + B.showName(nn.now.title)]));
+      if (nn.next) epg.appendChild(h('div.muted', [h('b', L('Next') + '  '), B.fmtTime(nn.next.start) + '  ' + B.showName(nn.next.title)]));
     }
 
     function stopEngine(sendStop) {
@@ -1719,7 +1719,7 @@
     var p = D.progress(item.id);
     if (p && p.position > 30 && p.fraction < 0.95 && ctx.resume == null) {
       U.modal({
-        title: item.title, text: item.subtitle || '',
+        title: B.showName(item.title), text: B.showName(item.subtitle || ''),
         buttons: [
           { label: L('Resume') + ' (' + B.fmtDur(p.position) + ')', icon: 'play', primary: true, fn: function () { ctx.resume = p.position; B.player.open(item, ctx); } },
           { label: L('Watch from the beginning'), icon: 'replay', fn: function () { ctx.resume = 0; B.player.open(item, ctx); } }

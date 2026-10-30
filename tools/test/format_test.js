@@ -152,6 +152,10 @@ assert.strictEqual(Q.norm('┃NL┃ ┃4K┃ The Witcher', true), 'the witcher')
   ['｜DE｜ Sky Cinema', 'Sky Cinema'], ['NL | NPO 1 HD', 'NPO 1'], ['|NL| NPO 2 FHD', 'NPO 2'], ['|ABC 123|', 'ABC 123'], ['NPO 1', 'NPO 1'], ['', '']
 ].forEach(([a, b]) => assert.strictEqual(B.chanName(a), b, 'chanName ' + JSON.stringify(a)));
 assert.strictEqual(CR.cleanName('┃NL┃ NPO 1 HD'), 'NPO 1');
+// overige getoonde namen (detailpagina, afleveringen, speler, documenttitel, media-sessie, gids): B.showName
+[['┃NL┃ Breaking Bad', 'Breaking Bad'], ['┃NL┃ Journaal', 'Journaal'], ['Journaal ｜NL｜', 'Journaal'], ['|NL| |4K| Dune', 'Dune'], ['NL┃ Pilot', 'Pilot'],
+  ['Mission: Impossible', 'Mission: Impossible'], ['S1:E2 · Pilot', 'S1:E2 · Pilot'], ['2024', '2024'], [null, ''], ['', '']
+].forEach(([a, b]) => assert.strictEqual(B.showName(a), b, 'showName ' + JSON.stringify(a)));
 assert.strictEqual(B.xs ? B.xs.chanKey('┃NL┃ NPO 1') : B.fold(CR.cleanName('┃NL┃ NPO 1')).replace(/[^a-z0-9]/g, ''), B.xs ? B.xs.chanKey('NPO 1') : 'npo1');
 // gedeelde gevallen van bingr-android (tools/test/*_cases.json), als die er zijn
 {

@@ -848,10 +848,12 @@
         var sec = h('section.st-sec', [h('h2.st-head', dayTitle(k))]);
         byDay[k].sort(function (a, b) { return b.date - a.date; }).forEach(function (e) {
           var live = e.type === 'live';
+          // build 153: getoonde naam zonder aanduidingen (de geschiedenis zelf blijft ruw)
+          var shown = live ? B.chanName(e.title) : B.showName(e.title);
           var r = h('div.hist-row');
           var main = h('button.hist-main', { type: 'button' }, [
-            h('div.hist-art' + (live ? '.live' : ''), [U.img(e.artwork, live ? 'logo' : 'poster', e.title)]),
-            h('div.hist-txt', [h('div.hist-title', e.title), e.subtitle ? h('div.muted.small.hist-sub', e.subtitle) : null]),
+            h('div.hist-art' + (live ? '.live' : ''), [U.img(e.artwork, live ? 'logo' : 'poster', shown)]),
+            h('div.hist-txt', [h('div.hist-title', shown), e.subtitle ? h('div.muted.small.hist-sub', B.showName(e.subtitle)) : null]),
             h('div.hist-meta', [U.icon(live ? 'tv' : e.type === 'movie' ? 'film' : 'series', 'hist-ic'), h('span.muted.small', B.fmtTime(e.date))])
           ]);
           main.addEventListener('click', function () { open(e); });
