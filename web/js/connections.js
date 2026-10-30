@@ -763,7 +763,11 @@
   var OS = B.opensubtitles = {};
   OS.apiKey = function () { return A.serverKey('openSubtitlesAPIKey') || ''; };
   OS.ready = function () { return !!OS.apiKey(); };
-  OS.isLoggedIn = function () { return !!C.opensubtitles(); };
+  // build 157: OpenSubtitles hoort bij Lifetime. Met Gratis blijft de koppeling bewaard (connections.opensubtitles), maar wordt
+  // niet gebruikt: niet zoeken, niet downloaden, geen automatische ondertitels via OpenSubtitles (zoals Trakt.isLoggedIn).
+  OS.allowed = function () { return !B.plan || B.plan.has('opensubtitles'); };
+  OS.isLinked = function () { return !!C.opensubtitles(); };
+  OS.isLoggedIn = function () { return OS.isLinked() && OS.allowed(); };
   OS.username = function () { var o = C.opensubtitles(); return o ? o.username || '' : ''; };
   OS.languages = [['nl', 'Nederlands'], ['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['it', 'Italiano'],
     ['pt', 'Português'], ['tr', 'Türkçe'], ['ar', 'العربية'], ['pl', 'Polski'], ['zh', '简体中文']];

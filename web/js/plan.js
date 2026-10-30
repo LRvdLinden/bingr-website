@@ -2,7 +2,10 @@
  * Abonnement van het account (Gratis / Lifetime). De server bepaalt wat mag: device-auth `entitlements`
  * (ook als `entitlements` in de antwoorden van `config` en `heartbeat`) →
  *   {plan:'free'|'lifetime', limits:{streams, devices, servers:int|null},
- *    features:{stats, now_watching, trakt, multi_server, themes}, upgrade:{url, link, price, price_en}}
+ *    features:{stats, now_watching, trakt, multi_server, themes, continue_watching, kids_profiles, opensubtitles},
+ *    upgrade:{url, link, price, price_en}, plans:{free:{…}, lifetime:{…}}}
+ * Build 157: Gratis 2 apparaten (was 8); Verder kijken, kinderprofielen en OpenSubtitles horen bij Lifetime. Ontbreekt een
+ * van die drie sleutels in het antwoord (oudere server), dan staat hij uit (= Gratis), ook bij Lifetime (docs/ACCOUNT.md).
  * Per account bewaard (bingr.web.plan.<user-id>). Weet de browser nog niets en lukt het ophalen niet (netwerkfout,
  * oude backend), dan geldt Lifetime: niemand raakt iets kwijt door een storing. Zegt de server `feature_locked`,
  * dan gaat dat onderdeel wél op slot. Upgraden gebeurt op bingr.online/upgrade/ (nieuw tabblad).
@@ -15,9 +18,14 @@
   var P = B.plan = {};
 
   var UPGRADE_URL = 'https://bingr.online/upgrade/';
-  var FEATURES = ['stats', 'now_watching', 'trakt', 'multi_server', 'themes'];
-  // gelijktijdige kijkers: Bingr-telling op de server, los van de limiet van de IPTV-provider
-  P.FREE = { streams: 1, devices: 8, servers: 1 };
+  var OLD_FEATURES = ['stats', 'now_watching', 'trakt', 'multi_server', 'themes'];
+  // build 157: ontbreekt de sleutel, dan uit (niet: volgens het abonnement)
+  var NEW_FEATURES = ['continue_watching', 'kids_profiles', 'opensubtitles'];
+  var FEATURES = P.FEATURES = OLD_FEATURES.concat(NEW_FEATURES);
+  var CACHE_V = 157;
+  // gelijktijdige kijkers: Bingr-telling op de server, los van de limiet van de IPTV-provider.
+  // Alleen de terugval als `plans` in het antwoord ontbreekt (build 157: Gratis 2 apparaten, was 8).
+  P.FREE = { streams: 1, devices: 2, servers: 1 };
   P.LIFETIME = { streams: 3, devices: 15, servers: null };
 
   var cur = null;      // laatste antwoord van de server (genormaliseerd), of null
@@ -26,8 +34,18 @@
   function key(uid) { return uid ? 'plan.' + uid : null; }
   function posInt(v, def) { var n = B.int(v); return n != null && n > 0 ? n : def; }
 
-  /** Antwoord van de server → vaste vorm; null als het geen geldig abonnement is. */
-  P.normalize = function (raw) {
+  function planLimits(raw, base) {
+    if (!raw || typeof raw !== 'object') return B.copy(base);
+    return { streams: posInt(raw.streams, base.streams), devices: posInt(raw.devices, base.devices),
+      servers: B.has(raw, 'servers') ? (raw.servers == null ? null : posInt(raw.servers, base.servers)) : base.servers };
+  }
+
+  /**
+   * Antwoord van de server → vaste vorm; null als het geen geldig abonnement is.
+   * legacy = een cache van vóór build 157 (de nieuwe sleutels bestonden toen nog niet): die volgen dan het abonnement
+   * tot het volgende antwoord van de server, zodat Lifetime niet even op slot gaat.
+   */
+  P.normalize = function (raw, legacy) {
     if (!raw || typeof raw !== 'object') return null;
     if (raw.entitlements && typeof raw.entitlements === 'object' && !raw.plan) raw = raw.entitlements;
     var plan = String(raw.plan || '').toLowerCase();
@@ -37,7 +55,9 @@
     var servers = B.has(lim, 'servers') ? (lim.servers == null ? null : posInt(lim.servers, base.servers)) : base.servers;
     var f = raw.features || {};
     var features = {};
-    FEATURES.forEach(function (k) { features[k] = B.has(f, k) ? B.bool(f[k]) === true : plan === 'lifetime'; });
+    OLD_FEATURES.forEach(function (k) { features[k] = B.has(f, k) ? B.bool(f[k]) === true : plan === 'lifetime'; });
+    NEW_FEATURES.forEach(function (k) { features[k] = B.has(f, k) ? B.bool(f[k]) === true : (legacy ? plan === 'lifetime' : false); });
+    var pl = raw.plans && typeof raw.plans === 'object' ? raw.plans : {};
     var up = raw.upgrade || {};
     var url = typeof up.url === 'string' && /^https:\/\//i.test(up.url) ? up.url : UPGRADE_URL;
     return {
@@ -47,27 +67,32 @@
       upgrade: { url: url, link: up.link == null ? true : B.bool(up.link) === true,
         price: typeof up.price === 'string' && up.price ? up.price : '€ 4,99',
         price_en: typeof up.price_en === 'string' && up.price_en ? up.price_en : '€4.99' },
+      plans: { free: planLimits(pl.free, P.FREE), lifetime: planLimits(pl.lifetime, P.LIFETIME) },
+      v: CACHE_V,
       at: Date.now()
     };
   };
 
   function fallback() {
     return { plan: 'lifetime', assumed: true, limits: B.copy(P.LIFETIME),
-      features: { stats: true, now_watching: true, trakt: true, multi_server: true, themes: true },
-      upgrade: { url: UPGRADE_URL, link: true, price: '€ 4,99', price_en: '€4.99' } };
+      features: allFeatures(true),
+      upgrade: { url: UPGRADE_URL, link: true, price: '€ 4,99', price_en: '€4.99' },
+      plans: { free: B.copy(P.FREE), lifetime: B.copy(P.LIFETIME) } };
   }
+  function allFeatures(on) { var o = {}; FEATURES.forEach(function (k) { o[k] = on; }); return o; }
 
   /** Cache van het ingelogde account laden (bij inloggen, ander account). */
   P.load = function () {
     var uid = A.userId && A.userId();
     if (uid === curUser && cur) return;
     curUser = uid || null;
-    cur = uid ? P.normalize(B.store.get(key(uid), null)) : null;
-    if (cur) { var stored = B.store.get(key(uid), null); if (stored && stored.at) cur.at = stored.at; }
+    var stored = uid ? B.store.get(key(uid), null) : null;
+    cur = stored ? P.normalize(stored, !(stored.v >= CACHE_V)) : null;
+    if (cur && stored.at) cur.at = stored.at;
   };
   function same(a, b) {
     if (!a || !b) return a === b;
-    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade]) === JSON.stringify([b.plan, b.limits, b.features, b.upgrade]);
+    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade, a.plans]) === JSON.stringify([b.plan, b.limits, b.features, b.upgrade, b.plans]);
   }
   /** Nieuw antwoord van de server toepassen (entitlements, of het veld in config/heartbeat). true = geldig. */
   P.apply = function (raw) {
@@ -99,7 +124,7 @@
   };
   P.isFree = function () { return P.get().plan === 'free'; };
   P.isKnown = function () { return !P.get().assumed; };
-  /** Mag dit onderdeel? stats, now_watching, trakt, multi_server, themes. */
+  /** Mag dit onderdeel? stats, now_watching, trakt, multi_server, themes, continue_watching, kids_profiles, opensubtitles. */
   P.has = function (feature) { return P.get().features[feature] !== false; };
   P.limit = function (name) { return P.get().limits[name]; };
   /** Mag er nog een server bij? (bestaande servers blijven altijd bruikbaar) */
@@ -108,6 +133,22 @@
     var max = P.limit('servers');
     return max == null || count < max;
   };
+  /** Standaardlimieten van beide abonnementen voor de vergelijking (`plans` van de server, anders 1/2/1 en 3/15/onbeperkt). */
+  P.plans = function () { var p = P.get(); return p.plans || { free: P.FREE, lifetime: P.LIFETIME }; };
+
+  /**
+   * Build 157: kinderprofiel opslaan. Met Gratis kan er geen kinderprofiel bij komen (nieuw of een profiel ombouwen); een
+   * bestaand kinderprofiel blijft een kinderprofiel met dezelfde leeftijd (alleen te lezen, blijft gefilterd).
+   * existing = het opgeslagen profiel (of null), want = {kids, ageLimit} uit het formulier → {kids, ageLimit} om op te slaan.
+   */
+  P.kidsSave = function (existing, want) {
+    if (P.has('kids_profiles')) return { kids: !!want.kids, ageLimit: want.ageLimit != null ? want.ageLimit : null };
+    if (existing && existing.kids) return { kids: true, ageLimit: existing.ageLimit != null ? existing.ageLimit : null };
+    return { kids: false, ageLimit: want.ageLimit != null ? want.ageLimit : null };
+  };
+  /** Kinderprofiel-instellingen alleen te lezen? (Gratis, bestaand kinderprofiel) */
+  P.kidsReadOnly = function (existing) { return !P.has('kids_profiles') && !!(existing && existing.kids); };
+
   P.price = function () { var u = P.get().upgrade; return B.lang === 'nl' ? u.price : u.price_en; };
 
   /** 403 {error:'feature_locked', feature} van de server? */
@@ -120,9 +161,10 @@
   P.markLocked = function (feature) {
     var p = B.copy(P.get());
     if (p.features[feature] === false) return;
-    if (p.assumed) { p = B.assign(fallback(), { plan: 'free', limits: B.copy(P.FREE) }); FEATURES.forEach(function (k) { p.features[k] = false; }); }
+    if (p.assumed) { p = B.assign(fallback(), { plan: 'free', limits: B.copy(P.FREE) }); p.features = allFeatures(false); }
     p.features[feature] = false;
     delete p.assumed;
+    p.v = CACHE_V;
     cur = p; cur.at = Date.now();
     var uid = A.userId && A.userId();
     if (uid) B.store.set(key(uid), cur);
@@ -165,17 +207,20 @@
       }
       case 'themes': return L('Choose your own accent color for each profile. With Free, Bingr stays red.');
       // build 128: "tot 3": de limiet van Bingr; de IPTV-aanbieder kan minder toestaan
-      case 'streams': return L('With Lifetime you can watch on up to %d screens at the same time.', P.LIFETIME.streams);
-      case 'devices': return L('With Lifetime you can use Bingr on %d devices.', P.LIFETIME.devices);
+      case 'streams': return L('With Lifetime you can watch on up to %d screens at the same time.', P.plans().lifetime.streams);
+      case 'devices': return L('With Lifetime you can use Bingr on %d devices.', P.plans().lifetime.devices);
+      // build 157
+      case 'continue_watching': return L('Pick up where you left off, on all your devices. Your progress is kept, so it’s there right away after upgrading.');
+      case 'kids_profiles': return L('Make kids profiles that only see kids channels and titles within an age limit. Existing kids profiles stay filtered.');
+      case 'opensubtitles': return L('Search and download subtitles from OpenSubtitles. Subtitles in the stream itself stay free.');
       default: return null;
     }
   }
 
-  /** Vergelijking Gratis ↔ Lifetime. */
+  /** Vergelijking Gratis ↔ Lifetime: altijd de standaard van beide abonnementen (`plans`), nooit de eigen limieten. */
   P.compareTable = function (highlight) {
-    var u = U(), h = u.h, p = P.get();
-    var free = p.plan === 'free' ? p.limits : P.FREE;
-    var life = p.plan === 'lifetime' && !p.assumed ? p.limits : P.LIFETIME;
+    var u = U(), h = u.h, pl = P.plans();
+    var free = pl.free, life = pl.lifetime;
     function yes() { return h('span.plan-yes', [u.icon('check')]); }
     function no() { return h('span.plan-no', '–'); }
     function num(v) { return v == null ? L('Unlimited') : String(v); }
@@ -186,7 +231,13 @@
       ['stats', L('Statistics'), null, null],
       ['now_watching', L('Watching now'), null, null],
       ['trakt', 'Trakt', null, null],
-      ['themes', L('Accent colors'), null, null]
+      ['themes', L('Accent colors'), null, null],
+      // build 157
+      ['continue_watching', L('Continue watching'), null, null],
+      ['kids_profiles', L('Kids profiles'), null, null],
+      ['opensubtitles', L('OpenSubtitles subtitles'), null, null],
+      ['profiles', L('Profiles'), true, null],
+      ['mylist', L('My List'), true, null]
     ];
     var hl = highlight === 'multi_server' ? 'servers' : highlight;
     var tbl = h('div.plan-cmp', { role: 'table' }, [
@@ -196,7 +247,7 @@
     rows.forEach(function (r) {
       tbl.appendChild(h('div.plan-cmp-row' + (r[0] === hl ? '.hl' : ''), { role: 'row' }, [
         h('span.plan-cmp-l', { role: 'rowheader' }, r[1]),
-        h('span', { role: 'cell' }, r[2] != null ? [r[2]] : [no()]),
+        h('span', { role: 'cell' }, r[2] === true ? [yes()] : r[2] != null ? [r[2]] : [no()]),
         h('span.plan-cmp-life', { role: 'cell' }, r[3] != null ? [r[3]] : [yes()])
       ]));
     });
@@ -216,7 +267,8 @@
   // Tegelijk kijken: de limiet van Bingr is niet de enige; ook de IPTV-aanbieder bepaalt het aantal verbindingen
   var PROVIDER_NOTE = 'How many you can watch at once also depends on your IPTV provider.';
 
-  /** Upgradevenster; reason = het onderdeel waarom het opent (stats, now_watching, trakt, servers, themes, streams, devices). */
+  /** Upgradevenster; reason = het onderdeel waarom het opent (stats, now_watching, trakt, servers, themes, streams, devices,
+   *  continue_watching, kids_profiles, opensubtitles). */
   P.sheet = function (reason) {
     var u = U(), h = u.h, p = P.get();
     var dlg = null;
@@ -256,7 +308,17 @@
     ]);
   };
 
-  /** Waarde voor de rij Abonnement: "Gratis · 1 scherm tegelijk · 8 apparaten · 1 server". */
+  /** Slotrij in plaats van een rij met tegels (build 157: Verder kijken): titel met badge, uitleg en de knop. */
+  P.lockedRow = function (reason, title) {
+    var u = U(), h = u.h;
+    return h('section.row.plan-row', [
+      h('div.row-head', [h('h2.row-title', title), P.badge()]),
+      h('div.plan-upsell', [u.icon('lock', 'plan-row-ic'), h('span.plan-upsell-t', featureLine(reason) || L('Available with Lifetime')),
+        u.button(L('Upgrade to Lifetime'), function () { P.sheet(reason); }, { cls: 'small', icon: 'lifetime' })])
+    ]);
+  };
+
+  /** Waarde voor de rij Abonnement: "Gratis · 1 scherm tegelijk · 2 apparaten · 1 server". */
   P.summary = function () {
     var p = P.get(), l = p.limits;
     var srv = l.servers == null ? L('unlimited servers') : (l.servers === 1 ? L('1 server') : L('%d servers', l.servers));

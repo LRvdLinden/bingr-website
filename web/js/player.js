@@ -1341,6 +1341,8 @@
     function openSubtitles() {
       var OS = B.opensubtitles;
       if (!OS.ready()) { U.toast(L('Something went wrong. Please try again.')); return; }
+      // build 157: OpenSubtitles hoort bij Lifetime (ondertitels uit de stream blijven gratis)
+      if (!OS.allowed()) { B.plan.sheet('opensubtitles'); return; }
       if (!OS.isLoggedIn()) { U.toast(L('Sign in to OpenSubtitles first (My Bingr).'), 5000); return; }
       var lang = OS.defaultLanguage();
       var series = ctx.series || null;

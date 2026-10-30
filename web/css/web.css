@@ -1024,6 +1024,14 @@ button.st-row:hover, a.st-row:hover { background: #242424; }
 .plan-upsell-t { flex: 1; min-width: 180px; font-size: 14px; color: #ddd; }
 .pl-err .plan-upsell { max-width: 520px; }
 .wn-sheet .limit-list { margin-top: 12px; }
+/* build 157: slotrij Verder kijken, kinderprofiel op slot */
+.plan-row .row-head { align-items: center; gap: 10px; }
+.plan-row .plan-upsell { margin: 0 var(--gutter); }
+.page:not(.home) .plan-row .plan-upsell { margin: 0; }
+.plan-row-ic { width: 20px; height: 20px; color: var(--sec); flex: none; }
+.plan-lock-chk { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-size: 15px; text-align: left; }
+.plan-lock-chk .ic { width: 18px; height: 18px; color: var(--sec); }
+.chk.disabled { cursor: default; opacity: .75; }
 @media (max-width: 480px) {
   .plan-cmp-row { grid-template-columns: 1fr 62px 72px; }
   .plan-cmp { font-size: 13px; }

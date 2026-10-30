@@ -227,9 +227,9 @@
     var plan = String((info && info.plan) || P.get().plan).toLowerCase();
     if (plan !== 'free') return null;
     var limit = (info && info.limit) || P.limit(kind);
-    var text = kind === 'devices' ? L('Free: up to %d devices. Lifetime: %d.', limit, P.LIFETIME.devices)
-      : limit === 1 ? L('Free: 1 screen at a time. Lifetime: %d.', P.LIFETIME.streams)
-      : L('Free: up to %d screens at the same time. Lifetime: %d.', limit, P.LIFETIME.streams);
+    var text = kind === 'devices' ? L('Free: up to %d devices. Lifetime: %d.', limit, P.plans().lifetime.devices)
+      : limit === 1 ? L('Free: 1 screen at a time. Lifetime: %d.', P.plans().lifetime.streams)
+      : L('Free: up to %d screens at the same time. Lifetime: %d.', limit, P.plans().lifetime.streams);
     return h('div.plan-upsell', [P.badge(), h('span.plan-upsell-t', text),
       U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'lifetime' })]);
   };
@@ -741,6 +741,8 @@
       ]);
     }
     function continueRow() {
+      // build 157: Verder kijken hoort bij Lifetime; de voortgang wordt wel bewaard en gesynct (slotrij als er iets te hervatten is)
+      if (!B.plan.has('continue_watching')) return S.continueCards(1).length ? B.plan.lockedRow('continue_watching', L('Continue watching')) : null;
       // build 128: over alle servers (xs.js)
       if (B.xs) return U.row(L('Continue watching'), S.continueCards(20));
       var lib = Lib.lib, cards = [];
@@ -921,7 +923,10 @@
     // build 140: TMDB-aanbevelingen voor Voor jou binnen, of nieuwe titels gezien (Nieuw op Bingr)
     var offFy = B.on('forYou', function () { if (rows) refreshRows(['foryou']); });
     var offSeen = B.on('seen', function () { if (rows) refreshRows(['streaming']); });
-    pg.destroy = function () { fillJob++; offDiscover(); offFy(); offSeen(); stopHero(); };
+    // build 157: Verder kijken op slot of weer open
+    var contOn = B.plan.has('continue_watching');
+    var offPlan = B.on('plan', function () { if (rows && B.plan.has('continue_watching') !== contOn) { contOn = !contOn; refreshRows(['continue']); } });
+    pg.destroy = function () { fillJob++; offDiscover(); offFy(); offSeen(); offPlan(); stopHero(); };
 
     // MARK: uitgelicht (build 140): vaste roulerende selectie
     var heroEl = null, heroItems = [], heroIdx = 0, heroTimer = null, heroSig = '';
@@ -2082,7 +2087,9 @@
         });
         var OS = B.opensubtitles;
         sec = section('OpenSubtitles');
-        if (OS.ready() && OS.isLoggedIn()) {
+        // build 157: OpenSubtitles hoort bij Lifetime
+        if (OS.ready() && !OS.allowed()) row(sec, 'OpenSubtitles', B.plan.badge(), function () { B.plan.sheet('opensubtitles'); }, { icon: 'subs', sub: L('Search and download subtitles from OpenSubtitles. Subtitles in the stream itself stay free.') });
+        else if (OS.ready() && OS.isLoggedIn()) {
           var osl = OS.defaultLanguage();
           var oslabel = '';
           OS.languages.forEach(function (l) { if (l[0].slice(0, 2) === osl.slice(0, 2)) oslabel = l[1]; });

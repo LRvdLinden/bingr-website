@@ -694,7 +694,8 @@
       var lib = Lib.lib;
       var src = srcId();
       var cont = S.continueCards(20);
-      if (cont.length) rowsBox.appendChild(U.row(L('Continue watching'), cont));
+      // build 157: Verder kijken hoort bij Lifetime (voortgang blijft bewaard en gesynct)
+      if (cont.length) rowsBox.appendChild(B.plan.has('continue_watching') ? U.row(L('Continue watching'), cont) : B.plan.lockedRow('continue_watching', L('Continue watching')));
       var my = S.myListItems();
       var myRow = U.row(L('My List'), my.slice(0, 40).map(function (x) { return S.posterCard(x.item, x.type); }), null, '#/mylist');
       rowsBox.appendChild(myRow || h('section.mb-empty', [h('h2.row-title', L('My List')), h('p.muted.small', L("Add titles with + My List and they'll appear here."))]));
@@ -733,7 +734,7 @@
     pg.onData = function () { drawRows(); drawList(); };
     pg.onCollections = drawList;
     var offs = [B.on('traktStatus', drawList), B.on('connections', drawList), B.on('profiles', function () { if (el.parentNode) render(); }),
-      B.on('plan', drawList)];
+      B.on('plan', function () { drawRows(); drawList(); })];
     pg.destroy = function () { offs.forEach(function (f) { f(); }); };
     render();
     return pg;
@@ -1213,6 +1214,8 @@
       S.stRow(sec, L('Scrobble'), null, function () { D.setShared('traktScrobble', !on); setTimeout(rerender, 30); }, { toggle: on });
     }
     if (!OS.ready()) return sec;
+    // build 157: OpenSubtitles hoort bij Lifetime (een bestaande koppeling blijft bewaard)
+    if (!OS.allowed()) { S.stRow(sec, 'OpenSubtitles', B.plan.badge(), function () { B.plan.sheet('opensubtitles'); }, { icon: 'subs', sub: OS.isLinked() ? OS.username() : null }); return sec; }
     if (!main) { S.stRow(sec, 'OpenSubtitles', OS.isLoggedIn() ? OS.username() : L('Not linked'), null, { icon: 'subs' }); return sec; }
     if (OS.isLoggedIn()) {
       S.stRow(sec, 'OpenSubtitles', OS.username(), function () {
@@ -1344,21 +1347,29 @@
       if (st.photo) photoBox.appendChild(U.button(L('Remove photo'), function () { st.photo = null; drawPreview(); drawPhoto(); drawKids(); symbols.redraw(); }, { cls: 'small danger' }));
       photoBox.appendChild(file);
     }
-    var kidsChk = check(L('Kids profile'), st.kids, function (on) {
+    // build 157: kinderprofielen horen bij Lifetime. Gratis: geen nieuw kinderprofiel (slotje); een bestaand kinderprofiel
+    // blijft een kinderprofiel en blijft gefilterd, met de leeftijd alleen te lezen.
+    var kidsLocked = !B.plan.has('kids_profiles'), kidsRO = B.plan.kidsReadOnly(existing);
+    var kidsChk = kidsRO ? h('label.chk.disabled', [h('input', { type: 'checkbox', checked: true, disabled: true }), h('span', L('Kids profile')), B.plan.badge()])
+      : kidsLocked ? h('button.chk.plan-lock-chk', { type: 'button' }, [U.icon('lock'), h('span', L('Kids profile')), B.plan.badge()])
+      : check(L('Kids profile'), st.kids, function (on) {
       st.kids = on;
       if (on && (st.ageLimit == null || st.ageLimit > 12)) { st.ageLimit = 12; ageSel.value = '12'; }
       // kinderprofiel zonder eigen foto: meteen een vrolijk figuurtje
       if (on && !st.photo && !/^kid\d\d$/.test(st.symbol)) { st.symbol = D.illustrations[Math.floor(Math.random() * D.illustrations.length)]; drawKids(); symbols.redraw(); drawPreview(); }
       kidsHelp.style.display = on ? '' : 'none';
     });
+    if (kidsLocked && !kidsRO) kidsChk.addEventListener('click', function () { B.plan.sheet('kids_profiles'); });
     var ageSel = h('select.form-select', { 'aria-label': L('Age limit for this profile') }, [h('option', { value: '' }, L('None'))].concat([6, 9, 12, 16].map(function (a) {
       return h('option', { value: String(a) }, L('Up to %d years', a));
     })));
     ageSel.value = st.ageLimit != null ? String(st.ageLimit) : '';
     if (st.ageLimit != null && !ageSel.value) { ageSel.appendChild(h('option', { value: String(st.ageLimit) }, L('Up to %d years', st.ageLimit))); ageSel.value = String(st.ageLimit); }
     ageSel.addEventListener('change', function () { st.ageLimit = ageSel.value ? B.int(ageSel.value) : null; });
+    if (kidsRO) ageSel.disabled = true;
     var kidsHelp = h('p.muted.small', L('Kids profile: only kids channels, cartoons/family titles and titles with a known age rating within the limit, plus its own Top 10 for kids.'));
     kidsHelp.style.display = st.kids ? '' : 'none';
+    var kidsNote = kidsRO ? h('p.muted.small', L('With Free, the settings of an existing kids profile are read-only. It stays a kids profile and stays filtered.')) : null;
     var pinBox = h('div.pe-pin');
     function drawPin() {
       U.clear(pinBox);
@@ -1382,7 +1393,7 @@
       if (has) pinBox.appendChild(h('p.muted.small', L('Also update Bingr on your other devices, otherwise the PIN won’t work there.')));
     }
     var adminRows = isMainProfile ? [] : [
-      h('div.form-row', [kidsChk, kidsHelp]),
+      h('div.form-row', [kidsChk, kidsHelp, kidsNote]),
       h('div.form-row', [fieldLabel(L('Age limit for this profile')), ageSel])
     ];
     var body = h('div.form-dlg.pe-form', [
@@ -1403,7 +1414,7 @@
       if (kid) delete avatar.emoji; else avatar.emoji = D.symbolEmoji[st.symbol] || null;
       if (avatar.emoji == null) delete avatar.emoji;
       var p = { id: id, name: st.name.trim(), avatar: avatar };
-      if (!isMainProfile) { p.kids = !!st.kids; p.ageLimit = st.ageLimit != null ? st.ageLimit : null; }
+      if (!isMainProfile) { var kv = B.plan.kidsSave(existing, st); p.kids = kv.kids; p.ageLimit = kv.ageLimit; }
       var photoStep = function () {
         if (st.photo instanceof Blob) return D.setProfilePhoto(id, st.photo);
         if (!st.photo && existing && existing.photo && existing.photo.path) return D.setProfilePhoto(id, null);
