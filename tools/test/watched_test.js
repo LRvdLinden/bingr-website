@@ -29,7 +29,14 @@ CASES.lookup.forEach((c, i) => {
   const set = new Set(c.stored);
   assert.strictEqual(!!WK.movieHit((k) => set.has(k), c), c.watched, 'lookup ' + i + ' ' + JSON.stringify(c));
 });
-console.log('gedeelde gevallen: ' + ['norm', 'clean', 'movieKeys', 'episodeKeys', 'showKeys', 'lookup'].map((k) => CASES[k].length + ' ' + k).join(', '));
+// nieuwste gebeurtenis over alle kandidaatsleutels wint (watched vóór removed bij gelijke tijd, zoals parseSetField)
+CASES.latest.forEach((c, i) => {
+  const m = {};
+  Object.keys(c.watched || {}).forEach((k) => { m[k] = { at: c.watched[k], on: true }; });
+  Object.keys(c.removed || {}).forEach((k) => { if (!m[k] || c.removed[k] > m[k].at) m[k] = { at: c.removed[k], on: false }; });
+  assert.strictEqual(WK.latest((k) => m[k] || null, [], WK.movieKeys(c)), c.result, 'latest ' + i);
+});
+console.log('gedeelde gevallen: ' + ['norm', 'clean', 'movieKeys', 'episodeKeys', 'showKeys', 'lookup', 'latest'].map((k) => CASES[k].length + ' ' + k).join(', '));
 
 // MARK: account (sync.js): schrijven, lezen, uitvinken, serie gezien, migratie, grootte
 B.L = (k) => k;
@@ -50,11 +57,14 @@ assert.ok(D.movieWatched({ id: 'xv999', title: 'Dune', year: 2022 }), 'andere se
 assert.ok(D.movieWatched({ id: 'xv998', title: 'Duin', year: 1990, tmdb: '438631' }), 'andere server, tmdb');
 assert.ok(!D.movieWatched({ id: 'xv997', title: 'Dune', year: 2024 }), 'ander jaar');
 // uitvinken (vanaf de andere server): de id-sleutel en alle inhoudssleutels in removed, met dezelfde tijd
-// uitvinken op een server zonder ids: zijn eigen (titel)sleutels, ook de gevonden met jaar ±1; de tmdb/imdb-sleutels van
-// het andere item blijven (contract: de sleutels van het item zelf)
+// uitvinken op een server zonder ids: zijn eigen (titel)sleutels, ook de gevonden met jaar ±1 (in removed); de tmdb-sleutel
+// van de andere kopie blijft staan, maar de nieuwste gebeurtenis over alle sleutels is nu de verwijdering
 D.setMovieWatched({ id: 'xv999', title: 'Dune', year: 2022 }, false);
 assert.ok(!D.movieWatched({ id: 'xv999', title: 'Dune', year: 2022 }), 'uitgevinkt waar het uitgevinkt werd');
-assert.ok(!D.hasWatchedKey('w:m:t:dune|2021') && D.hasWatchedKey('w:m:tmdb:438631'), 'titelsleutel ±1 weg, tmdb blijft');
+assert.ok(!D.hasWatchedKey('w:m:t:dune|2021') && D.hasWatchedKey('w:m:tmdb:438631'), 'titelsleutel ±1 weg, tmdb blijft staan');
+assert.ok(!D.movieWatched(dune), 'nieuwste gebeurtenis (verwijdering titelsleutel) wint: ook uit op de server met tmdb');
+D.setMovieWatched(dune, true);
+assert.ok(D.movieWatched(dune) && D.movieWatched({ id: 'xv999', title: 'Dune', year: 2022 }), 'opnieuw gezien: nieuwste is weer een toevoeging');
 D.setMovieWatched(dune, true);
 D.setMovieWatched(dune, false);
 let json = SM.toJSON({}, B.data._st());

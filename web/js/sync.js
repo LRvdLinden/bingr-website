@@ -1196,10 +1196,11 @@
     return now;
   }
   /** Sleutels aan of uit met één tijd; true als er iets veranderde. Uit: alle sleutels in removed (ook nieuwe). */
-  function writeW(keys, on) {
+  function writeW(keys, on, force) {
     var m = P.st.sets.watched;
     keys = uniq(keys);
-    var todo = keys.filter(function (k) { return on ? !(m[k] && m[k].on) : !(m[k] && !m[k].on); });
+    // force: alles opnieuw met een nieuwe tijd (de nieuwste gebeurtenis moet de toevoeging zijn)
+    var todo = force ? keys : keys.filter(function (k) { return on ? !(m[k] && m[k].on) : !(m[k] && !m[k].on); });
     if (!todo.length) return false;
     var now = stampFor(m, keys);
     (on ? todo : keys).forEach(function (k) { m[k] = { at: now, on: !!on }; });
@@ -1207,18 +1208,33 @@
   }
   /** Id-sleutel met alle opgeslagen schrijfwijzen (server-id met andere hoofdletters). */
   function idKeys(m, k) { return k ? variants(m, k).concat([k]) : []; }
-  D.movieWatched = function (mv) { return !!mv && (D.isWatched(mv.id) || !!WK.movieHit(hasW, mv)); };
+  // contract (aangevuld): over alle kandidaatsleutels van het item (id-sleutels in alle schrijfwijzen en inhoudssleutels,
+  // titel met jaar ±1) wint de nieuwste gebeurtenis; een toevoeging = gezien, een verwijdering = niet gezien
+  function getW(k) { var m = P.st && P.st.sets.watched; return m && m[k] ? m[k] : null; }
+  function idCands(ids) {
+    var m = P.st && P.st.sets.watched, out = [];
+    ids.forEach(function (k) {
+      if (k == null || k === '') return;
+      k = String(k);
+      // alleen "<server>|<item>" heeft andere schrijfwijzen; anders niet de hele set doorlopen (snel voor elke poster)
+      var bar = k.indexOf('|'), p = bar > 0 ? k.slice(0, bar) : null;
+      out = out.concat(p != null && (knownSource(p) != null || UUIDISH.test(p)) ? idKeys(m, k) : [k]);
+    });
+    return out;
+  }
+  D.movieWatched = function (mv) { return !!mv && !!P.st && WK.latest(getW, idCands([mv.id]), WK.movieKeys(mv)); };
   D.episodeWatched = function (series, ep) {
-    if (!ep) return false;
-    if (D.isWatched(ep.id) || (ep.seriesID != null && D.isWatched(D.episodeKey(ep.seriesID, ep.season, ep.number)))) return true;
-    return !!(series && WK.episodeHit(hasW, series, ep.season, ep.number));
+    if (!ep || !P.st) return false;
+    var ids = [ep.id];
+    if (ep.seriesID != null && ep.season != null && ep.number != null) ids.push(D.episodeKey(ep.seriesID, ep.season, ep.number));
+    return WK.latest(getW, idCands(ids), series ? WK.episodeKeys(series, ep.season, ep.number) : []);
   };
-  D.seriesWatched = function (series) { return !!series && !!WK.showHit(hasW, series); };
+  D.seriesWatched = function (series) { return !!series && !!P.st && WK.latest(getW, [], WK.showKeys(series)); };
   /** Film (on)gezien: id-sleutel plus inhoudssleutels; uitvinken haalt ook de sleutels met jaar ±1 weg. */
   D.setMovieWatched = function (mv, on) {
     if (!P.st || !mv) return false;
     var m = P.st.sets.watched, own = WK.movieKeys(mv), ch;
-    if (on) ch = writeW([mv.id].concat(own), true);
+    if (on) ch = !D.movieWatched(mv) && writeW([mv.id].concat(own), true, true);
     else ch = writeW(idKeys(m, mv.id).filter(function (k) { return k === mv.id || (m[k] && m[k].on); }).concat(own, WK.matching(hasW, own)), false);
     if (ch) changed(false);
     return ch;
@@ -1243,7 +1259,7 @@
     var total = aired > 0 ? aired : eps.length;
     var keys = WK.showKeys(series);
     if (!keys.length) return false;
-    if (n >= total) return writeW(keys, true);
+    if (n >= total) return !WK.latest(getW, [], keys) && writeW(keys, true, true);
     if (addOnly) return false;
     return keys.some(hasW) ? writeW(keys.concat(WK.matching(hasW, keys)), false) : false;
   }
@@ -1255,7 +1271,11 @@
     if (!P.st || !eps) return false;
     opts = opts || {};
     var ch = false;
-    eps.forEach(function (ep) { if (ep && writeW(epKeysOf(series, ep, on), on)) ch = true; });
+    eps.forEach(function (ep) {
+      if (!ep) return;
+      if (on && D.episodeWatched(series, ep)) return;
+      if (writeW(epKeysOf(series, ep, on), on, on)) ch = true;
+    });
     var all = opts.all || (series && series.episodes) || null;
     if (series && all && all.length && updateSeries(series, all, opts.aired || 0, function (e) { return D.episodeWatched(series, e) || !!(opts.extra && opts.extra(e)); })) ch = true;
     if (ch) changed(false);

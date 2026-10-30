@@ -14,7 +14,8 @@
   var WK = B.wk = {};
 
   var NOT_LN = (function () { try { return new RegExp('[^\\p{L}\\p{N}]+', 'gu'); } catch (e) { return /[^a-z0-9À-￿]+/g; } })();
-  var MARKS = (function () { try { return new RegExp('\\p{M}+', 'gu'); } catch (e) { return /[̀-ͯ]+/g; } })();
+  // contract (aangevuld): NFKD, alle tekens van categorie Mn weg (ook dakuten: が → か), Unicode-lowercase, alleen L* en N*
+  var MARKS = (function () { try { return new RegExp('\\p{Mn}+', 'gu'); } catch (e) { return /[\u0300-\u036f\u3099\u309a]+/g; } })();
   var memo = Object.create(null), memoN = 0;
 
   /** Opgeschoonde titel + jaar uit de titel (weergave-opschoning van build 150/153/154). */
@@ -22,8 +23,8 @@
     var p = B.parseTitle(String(t == null ? '' : t));
     return { title: p.title, year: p.year };
   }
-  /** Titel-normalisatie (alle platforms gelijk): opgeschoond, NFKD zonder diakritische tekens, kleine letters, & → and,
-   *  + → plus, alleen letters en cijfers (elk schrift). */
+  /** Titel-normalisatie (alle platforms gelijk): opgeschoond, NFKD, Mn weg, Unicode-lowercase, & → and, + → plus,
+   *  alleen letters en cijfers (L*, N*; elk schrift). */
   WK.norm = function (t) {
     var k = String(t == null ? '' : t), hit = memo[k];
     if (hit != null) return hit;
@@ -105,4 +106,21 @@
   WK.showHit = function (has, show) { return first(has, WK.showKeys(show)); };
   /** Alle sleutels in de set die bij deze sleutels horen (eigen sleutels plus jaar ±1): voor uitvinken. */
   WK.matching = function (has, keys) { return widen(keys).filter(has); };
+  /**
+   * Contract (aangevuld): over alle kandidaatsleutels van een item (id-sleutels en inhoudssleutels, titel met jaar ±1)
+   * wint de nieuwste gebeurtenis. get(k) → {at, on} of null. true = de nieuwste is een toevoeging; false = een
+   * verwijdering of niets. Gelijke tijd: de toevoeging (zoals het lezen: watched vóór removed).
+   */
+  WK.latest = function (get, idKeys, contentKeys) {
+    var best = null;
+    function see(k) {
+      var e = get(k);
+      if (!e) return;
+      var at = e.at || 0;
+      if (!best || at > best.at || (at === best.at && e.on && !best.on)) best = { at: at, on: !!e.on };
+    }
+    (idKeys || []).forEach(see);
+    widen(contentKeys || []).forEach(see);
+    return !!(best && best.on);
+  };
 })(typeof window !== 'undefined' ? window : self);
