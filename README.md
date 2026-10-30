@@ -18,7 +18,7 @@ Op [bingr.online/web](https://bingr.online/web/) kijk je Bingr zonder iets te in
 - **Servers zonder CORS**: veel IPTV-servers staan geen browsers toe; Bingr haalt de lijst en streams dan op via een beveiligde doorgeefdienst, alleen voor de servers in je eigen account. Alleen https-servers en -streams werken in de browser.
 - **Sneltoetsen**: spatie (afspelen/pauze), ← → (10 seconden), ↑ ↓ (volume of andere zender), F (volledig scherm), M (geluid), Esc (sluiten) en / (zoeken).
 - **Pushmeldingen**: in Instellingen → App zet je *Pushmeldingen* aan (de browser vraagt pas dan om toestemming). Je krijgt berichten van Bingr en herinneringen uit de Bingr-app, ook met het tabblad dicht. Standaard Web Push (VAPID) via de service worker `web/sw.js` (scope `/web/`, alleen push, geen cache), contract in `docs/PUSH.md` van iptv-ios-appletv. Op iPhone en iPad alleen als Bingr als web-app op het beginscherm staat.
-- De browser telt als apparaat en als scherm (limieten van het abonnement: Gratis 8 apparaten / 1 scherm, Lifetime 15 / 3).
+- De browser telt als apparaat en als scherm (limieten van het abonnement: Gratis 2 apparaten / 1 scherm, Lifetime 15 / 3; build 157).
 
 ## /koppelen: je tv koppelen
 

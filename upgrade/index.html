@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title data-en="Bingr Lifetime: more screens and devices">Bingr Lifetime: meer schermen en apparaten</title>
-<meta name="description" content="Bingr Lifetime: eenmalig € 4,99 voor tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, Trakt en thema&#x27;s." data-en="Bingr Lifetime: a one-time €4.99 for up to 3 screens at once, 15 devices, unlimited servers, statistics, Watching now, Trakt and themes.">
+<meta name="description" content="Bingr Lifetime: eenmalig € 4,99 voor tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, Verder kijken, kinderprofielen, OpenSubtitles, statistieken, Trakt en thema&#x27;s." data-en="Bingr Lifetime: a one-time €4.99 for up to 3 screens at once, 15 devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles, statistics, Trakt and themes.">
 <!-- NL/EN: ?lang=nl en ?lang=en zijn de taalversies, zonder ?lang= de browsertaal; canonical via assets/js/site.js -->
 <link rel="alternate" hreflang="nl" href="https://bingr.online/upgrade/">
 <link rel="alternate" hreflang="en" href="https://bingr.online/upgrade/?lang=en">
@@ -14,7 +14,7 @@
 <meta property="og:locale" content="nl_NL">
 <meta property="og:locale:alternate" content="en_GB">
 <meta property="og:title" content="Upgrade naar Lifetime · Bingr">
-<meta property="og:description" content="Bingr Lifetime: eenmalig € 4,99 voor tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, Trakt en thema&#x27;s." data-en="Bingr Lifetime: a one-time €4.99 for up to 3 screens at once, 15 devices, unlimited servers, statistics, Watching now, Trakt and themes.">
+<meta property="og:description" content="Bingr Lifetime: eenmalig € 4,99 voor tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, Verder kijken, kinderprofielen, OpenSubtitles, statistieken, Trakt en thema&#x27;s." data-en="Bingr Lifetime: a one-time €4.99 for up to 3 screens at once, 15 devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles, statistics, Trakt and themes.">
 <meta property="og:url" content="https://bingr.online/upgrade/">
 <meta property="og:image" content="https://bingr.online/assets/img/nl/tv_home.jpg">
 <meta property="og:image:width" content="1400">
@@ -147,7 +147,7 @@
 <script src="../assets/js/account.js?v=141"></script>
 <script src="../assets/js/auth-forms.js?v=5"></script>
 <script src="../assets/js/userbtn.js?v=146" data-base="../"></script>
-<script src="../assets/js/plans.js?v=5"></script>
+<script src="../assets/js/plans.js?v=6"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
 // `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
@@ -157,7 +157,7 @@
 // ?from=app&platform=… (vanuit de apps) mag; het toont alleen een korte regel.
 const { sb, $, t, pwToggles, busy, cfg, lang, params } = Bingr;
 const tr = t({
-  nl: { docTitle: "Upgrade naar Lifetime · Bingr", title: "Upgrade naar Lifetime", lead: "Eén keer € 4,99, voor altijd: meer schermen tegelijk, meer apparaten, onbeperkt servers, statistieken, Nu aan het kijken, Trakt en thema's.",
+  nl: { docTitle: "Upgrade naar Lifetime · Bingr", title: "Upgrade naar Lifetime", lead: "Eén keer € 4,99, voor altijd: meer schermen tegelijk, meer apparaten, onbeperkt servers, Verder kijken, kinderprofielen, ondertitels via OpenSubtitles, statistieken, Nu aan het kijken, Trakt en thema's.",
         fromApp: "Na het upgraden zie je Lifetime binnen een paar minuten in de app.",
         signInTitle: "Log in om te upgraden", intro: "Lifetime hoort bij je Bingr-account en geldt op al je apparaten.", signIn: "Inloggen", email: "E-mailadres", password: "Wachtwoord", show: "Tonen", hide: "Verbergen",
         forgot: "Wachtwoord vergeten?", newTo: "Nog geen account?", signUpNow: "Maak gratis een account.", waiting: "Even geduld…",
@@ -181,7 +181,7 @@ const tr = t({
         banned: "Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk: "Vragen?",
         badCreds: "Onjuist e-mailadres of wachtwoord.", notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.", generic: "Er ging iets mis. Probeer het opnieuw.", badEmail: "Vul een geldig e-mailadres in.",
         resetSent2: "Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
-  en: { docTitle: "Upgrade to Lifetime · Bingr", title: "Upgrade to Lifetime", lead: "Pay €4.99 once, keep it forever: more screens at once, more devices, unlimited servers, statistics, Watching now, Trakt and themes.",
+  en: { docTitle: "Upgrade to Lifetime · Bingr", title: "Upgrade to Lifetime", lead: "Pay €4.99 once, keep it forever: more screens at once, more devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles subtitles, statistics, Watching now, Trakt and themes.",
         fromApp: "After upgrading, Lifetime shows up in the app within a few minutes.",
         signInTitle: "Sign in to upgrade", intro: "Lifetime belongs to your Bingr account and works on all your devices.", signIn: "Sign In", email: "Email", password: "Password", show: "Show", hide: "Hide",
         forgot: "Forgot password?", newTo: "No account yet?", signUpNow: "Create a free account.", waiting: "One moment…",
