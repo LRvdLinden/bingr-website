@@ -570,8 +570,8 @@
     }
     function itemTitle(it) {
       var hit = Lib.lib.byId && Lib.lib.byId[it.id];
-      if (!hit && B.xs) { var t = B.xs.tileFor((it.sid || (Lib.source && Lib.source.id) || '') + '|' + it.id, it.type); if (t) return t.item.title || t.item.name; }
-      return hit ? (hit.item.title || hit.item.name) : it.id;
+      if (!hit && B.xs) { var t = B.xs.tileFor((it.sid || (Lib.source && Lib.source.id) || '') + '|' + it.id, it.type); if (t) return t.item.title || B.chanName(t.item.name); }
+      return hit ? (hit.item.title || B.chanName(hit.item.name)) : it.id;
     }
     function drawKind() {
       U.clear(kindBox);

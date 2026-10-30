@@ -403,14 +403,14 @@
   function pct(p) { return Math.round(B.clamp((Date.now() - p.start) / (p.end - p.start), 0, 1) * 100) + '%'; }
   function channelCard(ch, list, opts) {
     var nn = Lib.nowNext(ch);
-    var b = h('button.ccard', { type: 'button', 'aria-label': ch.name }, [
-      h('div.ccard-logo', [U.img(ch.logo, 'logo', ch.name)]),
-      h('div.ccard-info', [h('div.ccard-name', ch.name), h('div.ccard-now.muted', nn.now ? nn.now.title : (ch.group || '')),
+    var b = h('button.ccard', { type: 'button', 'aria-label': B.chanName(ch.name) }, [
+      h('div.ccard-logo', [U.img(ch.logo, 'logo', B.chanName(ch.name))]),
+      h('div.ccard-info', [h('div.ccard-name', B.chanName(ch.name)), h('div.ccard-now.muted', nn.now ? nn.now.title : (ch.group || '')),
         nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
     ]);
     if (ch._key || ch._noKey) phClick(b, ch, 'channel');
     else b.addEventListener('click', function () { B.player.playChannel(ch, (list || [ch]).filter(function (c) { return !c._key && !c._noKey; })); });
-    if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, ch.name);
+    if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, B.chanName(ch.name));
     return b;
   }
   S.channelCard = channelCard;
@@ -1279,7 +1279,7 @@
       row._upd = function () {
         var nn = Lib.nowNext(ch);
         var fav = D.inSet('favorites', favKey(ch));
-        if (row._fav !== fav) { row._fav = fav; U.clear(nameEl); U.append(nameEl, [ch.name, fav ? U.icon('starFill', 'lv-fav') : null]); }
+        if (row._fav !== fav) { row._fav = fav; U.clear(nameEl); U.append(nameEl, [B.chanName(ch.name), fav ? U.icon('starFill', 'lv-fav') : null]); }
         var t = nn.now ? B.fmtTime(nn.now.start) + '  ' + nn.now.title : (nn.next ? L('Next') + ': ' + nn.next.title : '');
         if (nowEl.textContent !== t) nowEl.textContent = t;
         if (nn.now) {
@@ -1289,9 +1289,9 @@
         row.classList.toggle('sel', selected === ch);
       };
       row._upd();
-      var main = h('button.lv-main', { type: 'button', 'aria-label': L('Watch %@', ch.name) }, [
+      var main = h('button.lv-main', { type: 'button', 'aria-label': L('Watch %@', B.chanName(ch.name)) }, [
         h('span.lv-num', ch.number != null ? String(ch.number) : ''),
-        h('div.lv-logo', [U.img(ch.logo, 'logo', ch.name)]),
+        h('div.lv-logo', [U.img(ch.logo, 'logo', B.chanName(ch.name))]),
         txt
       ]);
       if (ch._key || ch._noKey) phClick(main, ch, 'channel');
@@ -1299,7 +1299,7 @@
       U.onMenu(main, function () {
         var coll = group && group.indexOf('collection:') === 0 ? D.collectionById(B.app.profile.id, group.slice(11)) : null;
         return S.cardMenu(ch, 'channel', { collection: coll });
-      }, ch.name);
+      }, B.chanName(ch.name));
       var gb = U.button('', function () { select(ch, true); }, { icon: 'guide', cls: 'icon-only lv-gbtn', title: L('TV guide') });
       row.appendChild(main); row.appendChild(gb);
       row._ch = ch;
@@ -1312,7 +1312,7 @@
       if (open && U.isPhone()) {
         var body = h('div.lv-guide.sheet');
         fillGuide(body, ch);
-        U.modal({ title: ch.name, body: body, cls: 'sheet-dlg' });
+        U.modal({ title: B.chanName(ch.name), body: body, cls: 'sheet-dlg' });
       }
     }
     function fillGuide(box, ch) {
@@ -1327,10 +1327,10 @@
           D.toggleSet('favorites', favKey(ch)); refreshList(); return D.inSet('favorites', favKey(ch));
         }, { labels: [L('Add to favorites'), L('Favorite')] }),
         // build 129: met de server van de zender (sid), ook als die niet de actieve is
-        U.button('', function () { S.addToCollection(S.collItem(ch, 'channel'), ch.name); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
+        U.button('', function () { S.addToCollection(S.collItem(ch, 'channel'), B.chanName(ch.name)); }, { icon: 'stackAdd', cls: 'icon-only', title: L('Add to collection…') })
       ]);
       if (nn.now && Lib.canCatchup(ch, nn.now)) btns.appendChild(U.button(L('From the start'), function () { B.player.playCatchup(ch, nn.now, currentList); }, { icon: 'replay' }));
-      box.appendChild(h('div.lv-g-head', [h('div.lv-g-logo', [U.img(ch.logo, 'logo', ch.name)]), h('div', [h('h2', ch.name), h('div.muted', ch.group || '')])]));
+      box.appendChild(h('div.lv-g-head', [h('div.lv-g-logo', [U.img(ch.logo, 'logo', B.chanName(ch.name))]), h('div', [h('h2', B.chanName(ch.name)), h('div.muted', ch.group || '')])]));
       if (nn.now) box.appendChild(h('div.lv-g-now', [h('div.lv-g-label', L('Now')), h('div.lv-g-title', nn.now.title),
         h('div.muted.small', B.fmtTime(nn.now.start) + ' – ' + B.fmtTime(nn.now.end)), h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]),
         nn.now.description ? h('p.lv-g-desc', nn.now.description) : null]));

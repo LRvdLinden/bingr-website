@@ -17,12 +17,8 @@
   var MAX = 15, TOP_GROUPS = 6;
 
   /** Zendernaam zonder land-/taalvoorvoegsel en kwaliteitsaanduiding ("NL | NPO 1 HD" → "NPO 1"). */
-  CR.cleanName = function (n) {
-    var s = String(n == null ? '' : n);
-    var c = B.clang && B.clang.strip ? B.clang.strip(s) : s;
-    c = B.stripTags ? B.stripTags(c) : c;
-    return (c && c.trim()) || s.trim();
-  };
+  // build 153: één opschoning voor alle zendernamen (B.chanName in core.js)
+  CR.cleanName = function (n) { return B.chanName(n); };
   function kidsOK(ch, kids) {
     if (!kids) return true;
     var PC = B.parental;

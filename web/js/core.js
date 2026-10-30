@@ -1035,7 +1035,15 @@
   var T_CHIP = { NLD: 'NL', DUT: 'NL', VL: 'NL', ENG: 'EN', UK: 'EN', GB: 'EN', US: 'EN', USA: 'EN', GBR: 'EN', GER: 'DE', DEU: 'DE', FRA: 'FR', FRE: 'FR',
     SPA: 'ES', ESP: 'ES', LAT: 'ES', LATAM: 'ES', ITA: 'IT', POR: 'PT', BR: 'PT', POL: 'PL', TUR: 'TR', ARA: 'AR', RUS: 'RU', SWE: 'SV', SE: 'SV', DK: 'DA',
     JP: 'JA', KR: 'KO', CN: 'ZH', GR: 'EL', BEL: 'BE', EXYU: 'EX-YU' };
-  var T_SEPS = '|¦│:\\-–—/•·★»«';
+  // build 153: alle pipe-achtige tekens (┃ ｜ ‖ ∣ 丨 ┆ ╎ ︱ ⏐ ▏ ǀ …) worden eerst één "|" (één lijst, B.pipes)
+  var T_PIPES = '|¦│┃｜‖∣丨┆┇┊┋╎╏︱︳⏐⎮▏▕ǀ׀⼁❘❙❚║╽╿⎸⎹';
+  var T_PIPE_RE = new RegExp('[' + T_PIPES + ']', 'g'), T_PIPE_ANY = new RegExp('[' + T_PIPES + ']');
+  function pipes(s) { return T_PIPE_ANY.test(s) ? s.replace(T_PIPE_RE, '|') : s; }
+  B.pipes = pipes;
+  // build 153: een stuk tussen twee pipes voorin of achterin ("|NL|", "| MULTI / LINGO |", "|4K|") weg, wat er ook tussen
+  // staat (≤ 25 tekens), herhaald en ook zonder spaties
+  var T_BLOCK_FRONT = /^\s*\|([^|]{0,25})\|\s*/, T_BLOCK_BACK = /\s*\|([^|]{0,25})\|\s*$/;
+  var T_SEPS = '|:\\-–—/•·★»«';
   var T_LEAD = new RegExp('^[\\s,' + T_SEPS + ']+'), T_TRAIL = new RegExp('[\\s,' + T_SEPS + ']+$');
   var T_BR_FRONT = /^[\[({]\s*([^\[\](){}]*?)\s*[\])}]/, T_BR_BACK = /[\[({]\s*([^\[\](){}]*?)\s*[\])}]\s*$/;
   var T_SEG_FRONT = new RegExp('^([^' + T_SEPS + '\\[\\](){}]+?)(\\s*)([' + T_SEPS + ']+)(\\s*)');
@@ -1064,6 +1072,9 @@
     }
     return out;
   }
+  function isMedia(t) { return t && t.k === 'media'; }
+  /** build 153: blijft er alleen een mediawoord over ("FILMS")? Dan niets meer weghalen. */
+  function onlyMedia(str) { var w = tagWords(String(str).replace(T_LEAD, '').replace(T_TRAIL, ''), false); return !!(w && w.length && w.some(isMedia)); }
   function hasName(s) { return /[0-9A-Za-zÀ-￿]/.test(s); }
   function isUpperWord(w) { return /^[A-Z0-9][A-Z0-9\-]*$/.test(w); }
   /**
@@ -1072,8 +1083,13 @@
    * Geeft {name, tags: [{k, c}]}.
    */
   function stripTags(raw, mode) {
-    var s = String(raw == null ? '' : raw).replace(/\s+/g, ' ').replace(/\bEX-YU\b/gi, 'EXYU').trim(), tags = [], cat = mode !== 'title', m, t, rest, guard;
+    var s = pipes(String(raw == null ? '' : raw)).replace(/\s+/g, ' ').replace(/\bEX-YU\b/gi, 'EXYU').trim(), tags = [], cat = mode !== 'title', m, t, rest, guard;
     var orig = s;
+    // build 153: eerst de stukken tussen twee pipes voorin en achterin; blijft er niets over, dan de oude opschoning
+    var blk = s, btags = [];
+    for (guard = 0; guard < 12 && (m = T_BLOCK_FRONT.exec(blk)); guard++) { blk = blk.slice(m[0].length); btags = btags.concat(tagWords(m[1], false) || []); }
+    for (guard = 0; guard < 12 && (m = T_BLOCK_BACK.exec(blk)); guard++) { blk = blk.slice(0, m.index); btags = btags.concat(tagWords(m[1], false) || []); }
+    if (blk !== s && hasName(blk.replace(T_LEAD, '').replace(T_TRAIL, ''))) { s = blk.trim(); tags = btags.filter(function (x) { return x.k !== 'media'; }); }
     for (guard = 0; guard < 12; guard++) {
       rest = s.replace(T_LEAD, '');
       if (rest !== s) { if (!hasName(rest)) break; s = rest; }
@@ -1087,14 +1103,18 @@
         rest = s.slice(m[0].length);
         t = tagWords(m[1], !cat);
         // "AL-JAZEERA", "UK-Drama": een streepje zonder spaties telt alleen tussen twee aanduidingen ("MULTI-LINGO")
-        if (t && !m[2] && !m[4] && T_TIGHT.test(m[3])) { var nx = rest.split(/[\s\-–\/|¦│:•·★»«]/)[0]; if (!nx || !tagWord(nx)) t = null; }
+        if (t && !m[2] && !m[4] && T_TIGHT.test(m[3])) { var nx = rest.split(/[\s\-–\/|:•·★»«]/)[0]; if (!nx || !tagWord(nx)) t = null; }
+        // build 153: "Film | 2024", "FILMS | NL": een mediawoord voorin alleen weg als er daarna een echte naam staat
+        if (t && t.some(isMedia) && (!/[A-Za-zÀ-￿]/.test(rest) || tagWords(rest.replace(T_TRAIL, ''), false))) t = null;
         if (t && hasName(rest)) { tags = tags.concat(t); s = rest; continue; }
       }
       if (cat) {
         var sp = s.indexOf(' ');
         if (sp > 0) {
           var w0 = s.slice(0, sp);
-          if (isUpperWord(w0) && (T_BARE[w0] || T_MEDIA[w0] || T_QUAL[w0]) && hasName(s.slice(sp + 1))) { tags.push(tagWord(w0)); s = s.slice(sp + 1); continue; }
+          var r0 = s.slice(sp + 1);
+          if (T_MEDIA[w0] && (!/[A-Za-zÀ-￿]/.test(r0) || tagWords(r0.replace(T_LEAD, '').replace(T_TRAIL, ''), false))) break;
+          if (isUpperWord(w0) && (T_BARE[w0] || T_MEDIA[w0] || T_QUAL[w0]) && hasName(r0)) { tags.push(tagWord(w0)); s = s.slice(sp + 1); continue; }
         }
       }
       break;
@@ -1111,13 +1131,16 @@
       if ((m = T_SEG_BACK.exec(s))) {
         rest = s.slice(0, m.index);
         t = tagWords(m[4], true);
-        if (t && !m[1] && !m[3] && T_TIGHT.test(m[2])) { var pw = rest.split(/[\s\-–\/|¦│:•·★»«]/).pop(); if (!pw || !tagWord(pw)) t = null; }
+        if (t && !m[1] && !m[3] && T_TIGHT.test(m[2])) { var pw = rest.split(/[\s\-–\/|:•·★»«]/).pop(); if (!pw || !tagWord(pw)) t = null; }
+        // build 153: "FILMS | NL" blijft (er blijft dan alleen een mediawoord over)
+        if (t && onlyMedia(rest)) t = null;
         if (t && hasName(rest)) { tags = tags.concat(t); s = rest.trim(); continue; }
       }
       var ls = s.lastIndexOf(' ');
       if (ls > 0) {
         var wl = s.slice(ls + 1), before = s.slice(0, ls), uw = wl.toUpperCase();
         var ok = T_QUAL_ANY[uw] || (cat && ((isUpperWord(wl) && (T_BARE[wl] || T_QUAL[wl])) || B.has(T_NAMES, B.fold(wl))));
+        if (ok && onlyMedia(before)) ok = false;
         if (ok && hasName(before)) { tags.push(tagWord(wl) || { k: 'qual' }); s = before; continue; }
       }
       break;
@@ -1166,10 +1189,24 @@
   /** Titels en zoeken: aanduidingen met scheidingsteken of tussen haakjes weg (geen hoofdletters veranderen). */
   B.stripTags = function (raw) {
     var s = String(raw == null ? '' : raw);
-    if (!T_ANY.test(s) && !/\b(?:4k|8k|uhd|fhd|hd|hevc|hdr10?|1080p|720p|2160p)\s*$/i.test(s)) return s;
+    if (!T_ANY.test(s) && !T_PIPE_ANY.test(s) && !/\b(?:4k|8k|uhd|fhd|hd|hevc|hdr10?|1080p|720p|2160p)\s*$/i.test(s)) return s;
     return stripTags(s, 'title').name;
   };
   B._stripTags = stripTags;
+  var chanMemo = Object.create(null), chanMemoN = 0;
+  /** build 153: getoonde zendernaam (Live TV, rij Zenders, gids, nu afspelen, favorieten, zoeken): "┃NL┃ NPO 1 HD" → "NPO 1".
+   *  Alleen voor weergave; de zender zelf (naam, id, stream) blijft ruw, zodat afspelen en matchen niet veranderen. */
+  B.chanName = function (n) {
+    var s = String(n == null ? '' : n);
+    var hit = chanMemo[s];
+    if (hit != null) return hit;
+    var c = B.clang && B.clang.strip ? B.clang.strip(pipes(s)) : s;
+    c = B.stripTags(c);
+    hit = (c && c.trim()) || s.trim();
+    if (++chanMemoN > 20000) { chanMemo = Object.create(null); chanMemoN = 0; }
+    chanMemo[s] = hit;
+    return hit;
+  };
 
   // MARK: titels opschonen (= TitleCleaner.kt)
 

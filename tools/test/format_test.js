@@ -131,6 +131,46 @@ assert.ok(DC.logoFor('NL | NPO', idx2), 'NPO → NPO Start');
 // zoeken: zelfde opschoning
 assert.strictEqual(Q.norm('| MULTI / LINGO | Breaking Bad', true), 'breaking bad');
 assert.strictEqual(Q.norm('Dune (NL) 4K', true), 'dune');
+// build 153: alle pipe-achtige tekens (┃ ｜ ‖ …) = "|"; een stuk tussen twee pipes voorin/achterin weg, wat er ook tussen staat
+[['┃NL┃ NPO 1', 'NPO 1'], ['┃NL┃NPO 1', 'NPO 1'], ['|NL| Netflix', 'Netflix'], ['| MULTI / LINGO | NETFLIX', 'Netflix'],
+  ['┃NL┃ ┃HD┃ RTL 4', 'RTL 4'], ['NL┃ Videoland', 'Videoland'], ['NL ┃ NPO 1', 'NPO 1'], ['RTL 4 ┃NL┃', 'RTL 4'], ['｜DE｜ Sky Cinema', 'Sky Cinema'],
+  ['|ABC 123|', 'ABC 123'], ['Kids | NL', 'Kids'], ['Film | 2024', 'Film | 2024'], ['FILMS | NL', 'Films | NL'], ['|4K| Netflix', 'Netflix'],
+  ['|NL| |HD| Ziggo Sport', 'Ziggo Sport'], ['|NL|', 'NL'], ['‖ NL ‖ Actie', 'Actie'], ['∣EN∣ Drama', 'Drama'], ['丨NL丨 Kids', 'Kids'],
+  ['╎NL╎ Films', 'Films'], ['︱NL︱ Films', 'Films'], ['⏐NL⏐ Films', 'Films'], ['ǀNLǀ Films', 'Films'], ['|XYZ RANDOM| Netflix', 'Netflix'],
+  ['Netflix |NL|', 'Netflix'], ['NL ¦ Netflix', 'Netflix'], ['NL │ Netflix', 'Netflix']
+].forEach(([a, b]) => assert.strictEqual(CC(a), b, 'catName (153) ' + JSON.stringify(a)));
+assert.deepStrictEqual(B.catClean('┃NL┃ NETFLIX').tags, ['NL'], 'chip uit het stuk tussen pipes');
+assert.deepStrictEqual(B.catClean('┃NL┃ ┃MULTI┃ NETFLIX').tags, ['NL', 'Multi']);
+assert.ok(CC('|ABC 123|') && CC('┃NL┃') === 'NL', 'nooit leeg');
+// titels en zoeken
+[['┃NL┃ Breaking Bad', 'Breaking Bad'], ['｜DE｜ Dark', 'Dark'], ['The Office ┃US┃', 'The Office'], ['Film | 2024', 'Film | 2024'], ['US Marshals', 'US Marshals']
+].forEach(([a, b]) => assert.strictEqual(B.stripTags(a), b, 'stripTags (153) ' + a));
+assert.strictEqual(realParseTitle('┃NL┃ Breaking Bad (2008)').title, 'Breaking Bad');
+assert.strictEqual(Q.norm('┃NL┃ ┃4K┃ The Witcher', true), 'the witcher');
+// zendernamen (Live TV, rij Zenders, gids, nu afspelen, favorieten): B.chanName; de zender zelf blijft ruw
+[['┃NL┃ NPO 1', 'NPO 1'], ['┃NL┃NPO 1', 'NPO 1'], ['┃NL┃ ┃HD┃ RTL 4', 'RTL 4'], ['NL┃ Videoland', 'Videoland'], ['RTL 4 ┃NL┃', 'RTL 4'],
+  ['｜DE｜ Sky Cinema', 'Sky Cinema'], ['NL | NPO 1 HD', 'NPO 1'], ['|NL| NPO 2 FHD', 'NPO 2'], ['|ABC 123|', 'ABC 123'], ['NPO 1', 'NPO 1'], ['', '']
+].forEach(([a, b]) => assert.strictEqual(B.chanName(a), b, 'chanName ' + JSON.stringify(a)));
+assert.strictEqual(CR.cleanName('┃NL┃ NPO 1 HD'), 'NPO 1');
+assert.strictEqual(B.xs ? B.xs.chanKey('┃NL┃ NPO 1') : B.fold(CR.cleanName('┃NL┃ NPO 1')).replace(/[^a-z0-9]/g, ''), B.xs ? B.xs.chanKey('NPO 1') : 'npo1');
+// gedeelde gevallen van bingr-android (tools/test/*_cases.json), als die er zijn
+{
+  const dir = path.join(__dirname, '../../../bingr-android/tools/test');
+  const known = new Set(['NL SUB | Netflix', 'Netflix NL SUBS']); // build 150: verschil met Android (labels), buiten build 153
+  let n = 0;
+  if (fs.existsSync(dir)) fs.readdirSync(dir).filter((f) => /^build15[03]_cases\.json$/.test(f)).forEach((f) => {
+    const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+    (j.clean || []).forEach(([a, nm, tags]) => {
+      if (known.has(a)) return;
+      const r = B.catClean(a); n++;
+      assert.strictEqual(r.name, nm, f + ' ' + JSON.stringify(a));
+      if (tags) assert.deepStrictEqual(r.tags, tags, f + ' labels ' + JSON.stringify(a));
+    });
+    (j.search || []).forEach(([a, b]) => { n++; assert.strictEqual(Q.norm(a, true), b, f + ' zoeken ' + JSON.stringify(a)); });
+    (j.pipes || []).forEach(([a, b]) => { n++; assert.strictEqual(B.pipes(a), b, f + ' pipe ' + JSON.stringify(a)); });
+  });
+  console.log('gedeelde gevallen: ' + n);
+}
 // samenvoegen + ontdubbelen (library.js): "| NL | NETFLIX" + "| MULTI / LINGO | NETFLIX" = één categorie "Netflix"
 {
   const saved = { data: B.data, lib: B.lib, pt: B.parseTitle };

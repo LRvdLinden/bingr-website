@@ -564,7 +564,7 @@
     }
 
     function renderInfo() {
-      title.textContent = isLive() && item.channel ? ((item.channel.number ? item.channel.number + '  ' : '') + item.channel.name) : item.title;
+      title.textContent = isLive() && item.channel ? ((item.channel.number ? item.channel.number + '  ' : '') + B.chanName(item.channel.name)) : item.title;
       if (isCatchup()) title.textContent = '⟲ ' + item.title;
       sub.textContent = item.subtitle || '';
       U.clear(epg);
@@ -610,7 +610,7 @@
         var aw = item.artwork ? String(item.artwork) : '';
         if (B.isInsecure(aw)) aw = B.proxyGetURL(aw) || '';
         var art = aw ? [{ src: aw, sizes: '512x512' }] : [];
-        navigator.mediaSession.metadata = new MediaMetadata({ title: isLive() && item.channel ? item.channel.name : item.title, artist: item.subtitle || 'Bingr', album: 'Bingr', artwork: art });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: isLive() && item.channel ? B.chanName(item.channel.name) : item.title, artist: item.subtitle || 'Bingr', album: 'Bingr', artwork: art });
         var ms = navigator.mediaSession;
         ms.setActionHandler('play', function () { if (engine) engine.play(); });
         ms.setActionHandler('pause', function () { if (engine) engine.pause(); });
@@ -1464,7 +1464,7 @@
     // MARK: tegelijk kijken
 
     function streamTitle() {
-      if (isLive() && item.channel) { var nn = Lib.nowNext(item.channel); return item.channel.name + (nn.now ? ' · ' + nn.now.title : ''); }
+      if (isLive() && item.channel) { var nn = Lib.nowNext(item.channel); return B.chanName(item.channel.name) + (nn.now ? ' · ' + nn.now.title : ''); }
       if (isCatchup()) return item.subtitle + ' · ' + item.title;
       return item.subtitle ? item.title + ' · ' + item.subtitle : item.title;
     }
@@ -1522,7 +1522,7 @@
       var nn = Lib.nowNext(ch);
       U.clear(zapBanner);
       zapBanner.appendChild(h('div.pl-zap-num', ch.number != null ? String(ch.number) : ''));
-      zapBanner.appendChild(h('div', [h('div.pl-zap-name', ch.name), h('div.muted', nn.now ? nn.now.title : '')]));
+      zapBanner.appendChild(h('div', [h('div.pl-zap-name', B.chanName(ch.name)), h('div.muted', nn.now ? nn.now.title : '')]));
       zapBanner.style.display = 'flex';
       clearTimeout(zapTimer);
       zapTimer = setTimeout(function () {
