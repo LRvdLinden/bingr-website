@@ -784,6 +784,8 @@
         // build 111: Binnenkort op Bingr / Nieuw op Bingr (TMDB), met bronvermelding onder de rij
         'upcoming': function () { return B.discover ? B.discover.row('upcoming') : null; },
         'streaming': function () { return B.discover ? B.discover.row('streaming') : null; },
+        // build 152: Nu in de bioscoop (TMDB now_playing, js/nowplaying.js)
+        'nowplaying': function () { return B.nowPlaying ? B.nowPlaying.row() : null; },
         'movies': function () { return U.row(L('Movies'), lib.movies.slice(0, 30).map(function (m) { return posterCard(m, 'movie'); }), null, '#/movies'); },
         'series': function () { return U.row(L('Series'), lib.series.slice(0, 30).map(function (s) { return posterCard(s, 'series'); }), null, '#/series'); },
         // rij met genretegels (build 86); 'categories' hieronder = rijen per categorie van de server
@@ -904,6 +906,10 @@
       B.discover.resolveMissing();
       B.discover.loadAll().then(function (changed) {
         if (changed && my === discJob && el.isConnected !== false) refreshRows(['upcoming', 'streaming']);
+      }, B.noop);
+      // build 152: Nu in de bioscoop
+      if (B.nowPlaying) B.nowPlaying.loadAll().then(function (changed) {
+        if (changed && my === discJob && el.isConnected !== false) refreshRows(['nowplaying']);
       }, B.noop);
     }
     var offDiscover = B.on('discover', function () { if (rows) refreshRows(['mylist', 'upcoming', 'streaming']); });
