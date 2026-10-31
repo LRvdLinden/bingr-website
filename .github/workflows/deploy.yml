@@ -42,8 +42,10 @@ jobs:
         # build 151c: foutcodes van web-proxy en de server als leesbare melding (proxyerror_test)
         # build 154: gezien over alle servers (gedeelde gevallen uit watched_keys_cases.json) en de Trakt-sync (watched_test)
         # build 157: abonnement (Verder kijken, kinderprofielen, OpenSubtitles bij Lifetime; oude server zonder vlag = Gratis)
+        # build 158: opslag binnen de grenzen (model per profiel in IndexedDB met migratie, volle localStorage/IndexedDB, tombstones)
         run: |
           node tools/test/plan_test.js
+          node tools/test/storage_test.js
           node tools/test/watched_test.js
           node tools/test/proxyerror_test.js
           node tools/test/pin_test.js

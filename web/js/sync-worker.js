@@ -10,7 +10,7 @@ self.B = self.B || {};
 // core.js verwacht een paar browserdingen; in de Worker alleen stubs (core.js gebruikt hier alleen de hulpfuncties)
 if (!self.document) self.document = { readyState: 'complete', hidden: false, visibilityState: 'visible', documentElement: { getAttribute: function () { return null; } }, addEventListener: function () {}, createElement: function () { return {}; } };
 if (!self.localStorage) self.localStorage = { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {}, key: function () { return null; }, length: 0 };
-importScripts('core.js?v=154', 'syncmerge.js?v=154');
+importScripts('core.js?v=158', 'syncmerge.js?v=154');
 self.onmessage = function (e) {
   var d = e.data || {}, id = d.id;
   try {

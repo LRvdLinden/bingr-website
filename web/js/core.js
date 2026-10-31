@@ -356,48 +356,191 @@
   };
 
   // MARK: opslag (localStorage, vaste sleutels met versie; blijft staan bij een app-update)
+  /*
+   * Build 158: localStorage heeft ~5 MB per origin (ook in WebView2/Windows). Het model per profiel (`pstate.<id>`,
+   * st + base) is met de inhoudssleutels van build 154 per profiel 1-2 MB; met een paar profielen raakte localStorage vol,
+   * en dan mislukten ook kleine maar belangrijke schrijfacties (apparaat-id, sessie van supabase-js, Trakt-token).
+   * Daarom: grote sleutels (BIG) staan in IndexedDB (store `cache`, sleutel `ls:<sleutel>`, als tekst) met een kopie in het
+   * geheugen, zodat B.store.get synchroon blijft. B.store.init() (bij het starten, vóór het eerste profiel) leest ze in en
+   * verhuist oude kopieën uit localStorage. Zonder IndexedDB blijft alles in localStorage zoals vóór 158.
+   * Vol (QuotaExceededError): eerst caches die opnieuw op te halen zijn weg en nog één keer proberen; anders in het geheugen.
+   */
 
   var PREFIX = 'bingr.web.';
   var memory = {};
+  var BIG = /^pstate\./, IDB_LS = 'ls:';
+  var EXPENDABLE = /^(discover\.|nowplaying\.|splashPosters$|diag\.updates$)/;
+  var bigMem = {}, bigOn = false, bigSeq = {}, beforeInit = {}, initP = null, bigChan = null, clearGen = 0;
+  function isBig(k) { return BIG.test(k); }
+  function lsRemove(k) { try { window.localStorage.removeItem(PREFIX + k); } catch (e) { /* stil */ } }
+  function isQuota(e) {
+    return !!e && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22 || e.code === 1014);
+  }
+  /** Caches die opnieuw op te halen zijn uit localStorage halen (niet: account, apparaat, tokens, profielen). */
+  function evictExpendable() {
+    var n = 0;
+    try {
+      var ks = [];
+      for (var i = 0; i < window.localStorage.length; i++) {
+        var key = window.localStorage.key(i);
+        if (key && key.indexOf(PREFIX) === 0 && EXPENDABLE.test(key.slice(PREFIX.length))) ks.push(key);
+      }
+      ks.forEach(function (key) { window.localStorage.removeItem(key); n++; });
+    } catch (e) { /* stil */ }
+    return n;
+  }
+  function lsSet(k, raw) {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try { window.localStorage.setItem(PREFIX + k, raw); delete memory[k]; return true; } catch (e) {
+        if (attempt === 0 && isQuota(e) && !EXPENDABLE.test(k) && evictExpendable() > 0) continue;
+        // vol of geblokkeerd: de waarde blijft in het geheugen voor deze sessie
+        memory[k] = raw;
+        B.log('opslag vol', k, raw.length, e && e.name);
+        return false;
+      }
+    }
+    return false;
+  }
+  /** Promise<boolean>: in IndexedDB gezet (true) of niet (vol, afgebroken, geen database). */
+  function idbWrite(key, val, del) {
+    return db().then(function (d) {
+      if (!d) return false;
+      return new Promise(function (resolve) {
+        try {
+          var t = d.transaction('cache', 'readwrite'), os = t.objectStore('cache');
+          if (del) os.delete(key); else os.put(val, key);
+          t.oncomplete = function () { resolve(true); };
+          t.onerror = function () { resolve(false); };
+          t.onabort = function () { B.log('idb vol of afgebroken', key, t.error && t.error.name); resolve(false); };
+        } catch (e) { resolve(false); }
+      });
+    });
+  }
+  function bigWrite(k, raw) {
+    var my = bigSeq[k] = (bigSeq[k] || 0) + 1;
+    return idbWrite(IDB_LS + k, raw).then(function (ok) {
+      if (bigSeq[k] !== my) return ok;   // intussen nieuwer geschreven: die beslist
+      if (ok) { lsRemove(k); delete memory[k]; if (bigChan) try { bigChan.postMessage({ k: k }); } catch (e) { /* stil */ } return true; }
+      // IndexedDB vol of kapot: terugval op localStorage; de (oudere) kopie in IndexedDB weg, zodat die nooit wint
+      lsSet(k, raw);
+      idbWrite(IDB_LS + k, null, true);
+      return false;
+    });
+  }
   B.store = {
     get: function (k, def) {
       var raw = null;
       // niet opgeslagen (opslag vol of geblokkeerd): de waarde van deze sessie gaat voor
       if (B.has(memory, k)) raw = memory[k];
+      else if (B.has(bigMem, k)) raw = bigMem[k];
       else { try { raw = window.localStorage.getItem(PREFIX + k); } catch (e) { raw = null; } }
       if (raw == null) return def === undefined ? null : def;
       try { return JSON.parse(raw); } catch (e) { return def === undefined ? null : def; }
     },
+    /** De bewaarde tekst zonder JSON.parse (bv. alleen een vlag bekijken), of null. */
+    raw: function (k) {
+      if (B.has(memory, k)) return memory[k];
+      if (B.has(bigMem, k)) return bigMem[k];
+      try { return window.localStorage.getItem(PREFIX + k); } catch (e) { return null; }
+    },
     set: function (k, v) {
-      var raw = JSON.stringify(v);
-      try { window.localStorage.setItem(PREFIX + k, raw); delete memory[k]; return true; } catch (e) {
-        memory[k] = raw;
-        // vol (QuotaExceededError): de waarde blijft in het geheugen voor deze sessie; grote caches horen in IndexedDB
-        B.log('opslag vol', k, raw.length);
-        return false;
-      }
+      var raw;
+      try { raw = JSON.stringify(v); } catch (e) { B.log('opslag', k, e); return false; }
+      return B.store.setRaw(k, raw);
     },
     /** build 151: een al klare JSON-tekst bewaren (uit een Worker; geen JSON.stringify op de hoofdthread). */
     setRaw: function (k, raw) {
-      try { window.localStorage.setItem(PREFIX + k, raw); delete memory[k]; return true; } catch (e) {
-        memory[k] = raw;
-        B.log('opslag vol', k, raw.length);
-        return false;
-      }
+      if (raw === undefined) { B.store.del(k); return true; }
+      if (isBig(k) && bigOn) { bigMem[k] = raw; delete memory[k]; bigWrite(k, raw); return true; }
+      if (isBig(k)) beforeInit[k] = true;
+      return lsSet(k, raw);
     },
     del: function (k) {
       delete memory[k];
-      try { window.localStorage.removeItem(PREFIX + k); } catch (e) { /* stil */ }
+      if (isBig(k)) {
+        delete bigMem[k]; bigSeq[k] = (bigSeq[k] || 0) + 1; delete beforeInit[k];
+        if (bigOn) idbWrite(IDB_LS + k, null, true).then(function () { if (bigChan) try { bigChan.postMessage({ k: k, del: true }); } catch (e) { /* stil */ } });
+      }
+      lsRemove(k);
     },
     keys: function (prefix) {
-      var out = [];
+      var out = [], seen = {};
+      function add(k) { if (!seen[k] && k.indexOf(prefix) === 0) { seen[k] = true; out.push(k); } }
       try {
         for (var i = 0; i < window.localStorage.length; i++) {
           var k = window.localStorage.key(i);
-          if (k && k.indexOf(PREFIX + prefix) === 0) out.push(k.slice(PREFIX.length));
+          if (k && k.indexOf(PREFIX) === 0) add(k.slice(PREFIX.length));
         }
       } catch (e) { /* stil */ }
+      Object.keys(bigMem).forEach(add);
+      Object.keys(memory).forEach(add);
       return out;
+    },
+    /** Of grote sleutels in IndexedDB staan (diagnose/tests). */
+    bigInIDB: function () { return bigOn; },
+    /**
+     * Build 158: grote sleutels uit IndexedDB inlezen en oude kopieën uit localStorage verhuizen. Eén keer; altijd een
+     * Promise die slaagt. Vóór het eerste B.store.get van een grote sleutel afwachten (app.js, met een time-out).
+     */
+    init: function () {
+      if (initP) return initP;
+      var gen = clearGen;
+      initP = db().then(function (d) {
+        if (!d) return;
+        return new Promise(function (resolve) {
+          var rows = [];
+          try {
+            var t = d.transaction('cache', 'readonly');
+            var req = t.objectStore('cache').openCursor(window.IDBKeyRange.bound(IDB_LS, IDB_LS + '￿'));
+            req.onsuccess = function () {
+              var c = req.result;
+              if (c) { if (typeof c.value === 'string') rows.push([String(c.key).slice(IDB_LS.length), c.value]); c.continue(); }
+            };
+            t.oncomplete = function () { resolve(rows); };
+            t.onerror = t.onabort = function () { resolve(null); };
+          } catch (e) { resolve(null); }
+        }).then(function (rows) {
+          if (!rows) return;
+          // intussen alles gewist (ander account, B.idb.clear): niets van vóór het wissen terugzetten
+          if (gen !== clearGen) rows = [];
+          rows.forEach(function (r) { if (!B.has(bigMem, r[0]) && !beforeInit[r[0]]) bigMem[r[0]] = r[1]; });
+          bigOn = true;
+          // migratie: grote sleutels uit localStorage (≤ 157, of deze sessie vóór init geschreven)
+          var legacy = [];
+          try {
+            for (var i = 0; i < window.localStorage.length; i++) {
+              var key = window.localStorage.key(i);
+              if (key && key.indexOf(PREFIX) === 0 && isBig(key.slice(PREFIX.length))) legacy.push(key.slice(PREFIX.length));
+            }
+          } catch (e) { /* stil */ }
+          Object.keys(memory).forEach(function (k) { if (isBig(k) && legacy.indexOf(k) < 0) legacy.push(k); });
+          return Promise.all(legacy.map(function (k) {
+            var raw = B.has(memory, k) ? memory[k] : null;
+            if (raw == null) { try { raw = window.localStorage.getItem(PREFIX + k); } catch (e) { raw = null; } }
+            if (raw == null) return null;
+            // staat al in IndexedDB en niet in deze sessie geschreven: IndexedDB is de nieuwste (terugval wist die kopie)
+            if (B.has(bigMem, k) && !beforeInit[k]) { lsRemove(k); return null; }
+            bigMem[k] = raw;
+            return bigWrite(k, raw);
+          }));
+        }).then(function () {
+          beforeInit = {};
+          if (bigOn && typeof window.BroadcastChannel === 'function') {
+            try {
+              // andere tabbladen: hun nieuwe tekst ophalen (localStorage was gedeeld; het geheugen niet)
+              bigChan = new window.BroadcastChannel('bingr-web-store');
+              bigChan.onmessage = function (e) {
+                var m = e.data || {}, k = m.k;
+                if (!k || !isBig(k)) return;
+                var my = bigSeq[k] = (bigSeq[k] || 0) + 1;
+                if (m.del) { delete bigMem[k]; return; }
+                B.idb.get(IDB_LS + k).then(function (v) { if (bigSeq[k] === my && typeof v === 'string') bigMem[k] = v; });
+              };
+            } catch (e) { bigChan = null; }
+          }
+        });
+      }).then(B.noop || function () {}, function (e) { B.log('opslag init', e); });
+      return initP;
     }
   };
 
@@ -423,7 +566,13 @@
       try {
         var req = window.indexedDB.open('bingr-web', 1);
         req.onupgradeneeded = function () { req.result.createObjectStore('cache'); };
-        req.onsuccess = function () { resolve(req.result); };
+        req.onsuccess = function () {
+          var d = req.result;
+          // build 158: gewist of door een ander tabblad bijgewerkt: verbinding los, de volgende aanvraag opent opnieuw
+          d.onversionchange = function () { try { d.close(); } catch (e) { /* stil */ } dbp = null; };
+          d.onclose = function () { dbp = null; };
+          resolve(d);
+        };
         req.onerror = function () { resolve(null); };
       } catch (e) { resolve(null); }
     });
@@ -578,6 +727,10 @@
     },
     clear: function () {
       memDB = {};
+      // build 158: ook de grote sleutels van B.store (ls:…) staan in deze store
+      clearGen++;
+      Object.keys(bigMem).forEach(function (k) { bigSeq[k] = (bigSeq[k] || 0) + 1; });
+      bigMem = {};
       return db().then(function (d) {
         if (!d) return;
         return new Promise(function (resolve) {

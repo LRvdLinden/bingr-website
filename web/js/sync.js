@@ -449,7 +449,7 @@
     if (swBroken || typeof window.Worker !== 'function' || B.noSyncWorker) return null;
     if (sw) return sw;
     try {
-      sw = new window.Worker('js/sync-worker.js?v=154');
+      sw = new window.Worker('js/sync-worker.js?v=158');
       sw.onmessage = function (e) {
         var d = e.data || {}, w = swWait[d.id];
         if (!w) return;
@@ -636,19 +636,31 @@
     }).catch(function (e) { B.log('sync ander profiel', e); return false; }).then(function (r) { delete otherBusy[lid]; return r; });
   }
   D._uploadOther = uploadOther;
+  /**
+   * build 158: `dirty` van een bewaard profiel zonder het hele model (1-2 MB) op de hoofdthread te parsen. persistP/
+   * persistRaw zetten `"dirty":…` altijd achteraan; anders (onbekende vorm) toch parsen.
+   */
+  function savedDirty(k) {
+    var raw = B.store.raw ? B.store.raw(k) : null;
+    if (raw == null) { var o = B.store.get(k, null); return !!(o && o.dirty); }
+    var tail = raw.slice(-24).replace(/\s+/g, '');
+    if (/"dirty":true\}$/.test(tail)) return true;
+    if (/"dirty":false\}$/.test(tail)) return false;
+    var s = B.store.get(k, null);
+    return !!(s && s.dirty);
+  }
+  D._savedDirty = savedDirty;
   function uploadDirtyOthers() {
     B.store.keys('pstate.').forEach(function (k) {
       var id = k.slice(7);
       if (P.id && lower(P.id) === lower(id)) return;
-      var s = B.store.get(k, null);
-      if (s && s.dirty) uploadOther(id);
+      if (savedDirty(k)) uploadOther(id);
     });
   }
   /** build 140: heeft dit (niet-actieve) profiel lokale wijzigingen die nog naar de server moeten? (xs.js: niet overschrijven) */
   D.hasLocalChanges = function (id) {
     if (P.id && lower(P.id) === lower(id)) return !!P.dirty;
-    var s = B.store.get(pkey(id), null);
-    return !!(s && s.dirty) || !!otherBusy[lower(id)];
+    return savedDirty(pkey(id)) || !!otherBusy[lower(id)];
   };
 
   function mergeActive(all) { return mergeProfile(all, P, true); }

@@ -107,6 +107,8 @@
   // MARK: flow
 
   function start() {
+    // build 158: grote opslag (model per profiel) uit IndexedDB inlezen en uit localStorage verhuizen, vóór het eerste profiel
+    var storeReady = B.store.init ? withTimeout(B.store.init(), 4000) : Promise.resolve();
     B.migrate();
     // pushmeldingen: service worker (alleen push) en een zender uit een herinnering (#/live?channel=…)
     if (B.push) B.push.init();
@@ -125,7 +127,7 @@
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', function () { D.flush(); });
     document.addEventListener('keydown', globalKeys);
-    Promise.all([withTimeout(loadBuild(), 2500), A.init().then(function (x) { if (B.diag) B.diag.mark('account', !!x); return x; }), introReady]).then(function (r) {
+    Promise.all([withTimeout(loadBuild(), 2500), A.init().then(function (x) { if (B.diag) B.diag.mark('account', !!x); return x; }), introReady, storeReady]).then(function (r) {
       if (B.diag) B.diag.mark('intro_done');
       if (r[1]) {
         afterLogin(false);
