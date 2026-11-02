@@ -1921,6 +1921,22 @@
     sec.appendChild(r);
     return r;
   };
+  /** Build 161: sectie "Ontdekken" met één klikbare kaart naar https://lrvdlinden.app (een echte link, nieuw tabblad). */
+  S.DEV_APPS_URL = 'https://lrvdlinden.app';
+  S.devAppsCard = function (list) {
+    var sec = S.stSection(list, L('Discover'));
+    sec.classList.add('st-devapps');
+    var ic = h('span.devapps-ic', [U.icon('grid')]);
+    var a = h('a.devapps-card', { href: S.DEV_APPS_URL, target: '_blank', rel: 'noopener noreferrer' }, [
+      ic,
+      h('span.devapps-text', [h('span.devapps-title', L('More apps from the developer')), h('span.devapps-sub', L('Apps for iPhone, iPad, Apple TV and Homey'))]),
+      h('span.devapps-go', [h('span.devapps-view', L('View (more apps)')), h('span.devapps-host', 'lrvdlinden.app')])
+    ]);
+    a.setAttribute('aria-label', L('More apps from the developer') + ', ' + L('Apps for iPhone, iPad, Apple TV and Homey') + ', lrvdlinden.app');
+    sec.appendChild(a);
+    return a;
+  };
+
   S.stSection = function (list, t, foot) {
     var s = h('section.st-sec', [t ? h('h2.st-head', t) : h('h2.st-head.hidden')]);
     list.appendChild(s);
@@ -2039,6 +2055,9 @@
           });
         });
         aRow.insertBefore(sw, aRow.querySelector('.st-chev'));
+        // build 161: onderaan de kaart "Meer apps van de ontwikkelaar" (opent lrvdlinden.app in een nieuw tabblad;
+        // de Windows-app opent externe links zelf in de systeembrowser)
+        S.devAppsCard(list);
       },
       playback: function () {
         var sec = section(L('Player'), L('The browser plays HLS, MP4/WebM and live MPEG-TS itself; buffer and deinterlacing are handled by the browser.'));
