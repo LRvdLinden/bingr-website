@@ -125,6 +125,16 @@
     return net && net.cellular ? 'tap' : 'auto';
   };
 
+  /**
+   * Build 165: Live TV opent altijd in de tv-gids (ook na een herstart of als je eerder de lijst had); de lijst alleen
+   * met ?view=list, dat de knop Zenders/Tv-gids zet en dat alleen binnen Live TV meegaat (geen bewaarde voorkeur).
+   */
+  G.liveView = function (query) { return query && query.view === 'list' ? 'list' : 'guide'; };
+  /** Link naar Live TV in een weergave ('guide' of 'list'), voor een categorie (leeg of '*' = alle zenders). */
+  G.liveLink = function (group, view) {
+    return '#/live' + (group ? '/' + encodeURIComponent(group) : '') + (view === 'list' ? '?view=list' : '');
+  };
+
   /** Netwerk van de browser (Network Information API; onbekend = geen mobiel netwerk). */
   G.network = function (nav) {
     var c = nav && (nav.connection || nav.mozConnection || nav.webkitConnection);

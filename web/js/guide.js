@@ -363,10 +363,12 @@
       gl.forEach(function (g) { var o = h('option', { value: g.key }, g.label); if (g.key === group) o.selected = true; sl.appendChild(o); });
       sl.addEventListener('change', function () { group = sl.value; B.store.set('liveGroup', group); render(); });
       var searchBtn = U.button('', openSearch, { icon: 'search', cls: 'icon-only gd-ib', title: L('Search the TV guide') });
-      var listBtn = U.button(L('Channels'), function () { R.go(R.link(['live', group]).slice(1)); }, { icon: 'list', cls: 'gd-listbtn' });
+      // build 165: de knop wisselt naar de lijst (alleen zolang je in Live TV bent; Live TV opent altijd in de gids)
+      var toList = function () { R.go(G.liveLink(group, 'list').slice(1)); };
+      var listBtn = U.button(L('Channels'), toList, { icon: 'list', cls: 'gd-listbtn' });
       if (phone) {
         var dayBtn = U.button('', chooseDay, { icon: 'guide', cls: 'icon-only gd-ib', title: L('Choose a day') });
-        el.appendChild(h('div.gd-top', [h('h1', L('TV guide')), h('div.gd-top-r', [sl, searchBtn, dayBtn])]));
+        el.appendChild(h('div.gd-top', [h('h1', L('TV guide')), h('div.gd-top-r', [sl, searchBtn, dayBtn, U.button('', toList, { icon: 'list', cls: 'icon-only gd-ib', title: L('Channels') })])]));
         buildPhone();
       } else {
         pillsEl = h('div.gd-days', { role: 'tablist', 'aria-label': L('Choose a day') });

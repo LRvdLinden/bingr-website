@@ -1242,6 +1242,9 @@
   // MARK: Live TV (categorieën, zenders met nu/straks, tv-gids per zender)
 
   S.pages.live = function (r) {
+    // build 165: Live TV opent altijd in de tv-gids; de lijst alleen via de knop (?view=list, zolang je in Live TV bent)
+    var GL = B.guideLogic;
+    if (S.pages.guide && GL && GL.liveView(r.query) === 'guide') return S.pages.guide(r);
     var el = h('div.page.live');
     var pg = { el: el, title: L('Live TV') };
     var src = Lib.source ? Lib.source.id : '';
@@ -1425,16 +1428,17 @@
       var gl = h('nav.lv-groups', { 'aria-label': L('Categories') });
       var sel = h('select.lv-select', { 'aria-label': L('Categories') });
       groups.forEach(function (g) {
-        var a = h('a.lv-group' + (g.key === group ? '.active' : ''), { href: R.link(['live', g.key]) }, [h('span', g.label), h('span.muted.small', String(channelsFor(g.key).length))]);
+        var a = h('a.lv-group' + (g.key === group ? '.active' : ''), { href: GL ? GL.liveLink(g.key, 'list') : R.link(['live', g.key]) }, [h('span', g.label), h('span.muted.small', String(channelsFor(g.key).length))]);
         gl.appendChild(a);
         var o = h('option', { value: g.key }, g.label);
         if (g.key === group) o.selected = true;
         sel.appendChild(o);
       });
-      sel.addEventListener('change', function () { R.go(R.link(['live', sel.value]).slice(1)); });
+      sel.addEventListener('change', function () { R.go((GL ? GL.liveLink(sel.value, 'list') : R.link(['live', sel.value])).slice(1)); });
       head.appendChild(sel);
       // build 164: de nieuwe tv-gids (zenderkolommen met live voorbeeld) voor dezelfde categorie
-      if (S.pages.guide) head.appendChild(U.button(L('TV guide'), function () { R.go(R.link(['guide', group]).slice(1)); }, { icon: 'guide', cls: 'lv-guidebtn' }));
+      // build 165: dezelfde knop wisselt terug naar de gids (#/live/<categorie>, de standaardweergave van Live TV)
+      if (S.pages.guide) head.appendChild(U.button(L('TV guide'), function () { R.go((GL ? GL.liveLink(group, 'guide') : R.link(['guide', group])).slice(1)); }, { icon: 'guide', cls: 'lv-guidebtn' }));
       listEl = h('div.lv-list', { role: 'list' });
       guideEl = h('aside.lv-guide');
       el.appendChild(h('div.lv-cols', [gl, listEl, guideEl]));

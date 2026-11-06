@@ -74,4 +74,16 @@ eq(G.network({ connection: { type: 'wifi' } }), { cellular: false });
 eq(G.network({ connection: { saveData: true } }), { cellular: true }, 'databesparing zonder type = als mobiel');
 eq(G.network({}), { cellular: false }, 'onbekend = geen mobiel netwerk');
 
+// build 165: Live TV opent altijd in de tv-gids; de lijst alleen via de knop (?view=list), nooit als bewaarde voorkeur
+eq(G.liveView({}), 'guide', 'Live TV zonder weergave = gids');
+eq(G.liveView(null), 'guide', 'geen query = gids');
+eq(G.liveView({ view: 'list' }), 'list', 'knop Zenders = lijst');
+eq(G.liveView({ view: 'grid' }), 'guide', 'onbekende weergave = gids');
+eq(G.liveView({ channel: 'x' }), 'guide', 'link uit een herinnering = gids');
+eq(G.liveLink('*', 'list'), '#/live/*?view=list');
+eq(G.liveLink('Sport & Film', 'list'), '#/live/Sport%20%26%20Film?view=list', 'categorie gecodeerd');
+eq(G.liveLink('Sport', 'guide'), '#/live/Sport', 'terug naar de gids zonder weergave');
+eq(G.liveLink(null, 'guide'), '#/live');
+eq(G.liveLink('collection:ab', 'list'), '#/live/collection%3Aab?view=list');
+
 console.log('guide_test: ' + n + ' controles geslaagd');
