@@ -46,6 +46,35 @@
     return out;
   };
 
+  G.DAY_SAMPLE = 50;              // build 166: zoveel zenders kijken we hooguit na voor de dagbalk
+
+  /**
+   * Build 166: steekproef voor de dagbalk: eerst `first` (bijv. de gekozen zender), dan de eerste zenders van de lijst,
+   * zonder dubbele en hooguit `max` (standaard DAY_SAMPLE).
+   */
+  G.daySample = function (channels, first, max) {
+    var m = max == null ? G.DAY_SAMPLE : max, out = [];
+    if (first && m > 0) out.push(first);
+    for (var i = 0; i < (channels || []).length && out.length < m; i++) if (channels[i] !== first) out.push(channels[i]);
+    return out;
+  };
+
+  /**
+   * Build 166: alleen dagen waarvoor er gids-info is. `hasGuide(ch, day)` = er staat minstens één programma op die dag.
+   * Vandaag altijd; morgen en later alleen met programma's; gisteren en eerder alleen als een zender op die dag
+   * programma's heeft én zo ver terugkijken heeft (`catchupDays`).
+   */
+  G.availableDays = function (days, channels, hasGuide) {
+    var chs = channels || [];
+    return (days || []).filter(function (d) {
+      if (d.offset === 0) return true;
+      return chs.some(function (c) {
+        if (d.offset < 0 && !((+(c && c.catchupDays) || 0) >= -d.offset)) return false;
+        return !!hasGuide(c, d);
+      });
+    });
+  };
+
   /** Sleutel voor het label van een dag: 'yesterday' | 'today' | 'tomorrow' | null (dan de weekdag en datum). */
   G.dayKey = function (offset) { return offset === -1 ? 'yesterday' : offset === 0 ? 'today' : offset === 1 ? 'tomorrow' : null; };
 

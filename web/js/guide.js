@@ -357,7 +357,9 @@
       sel = null;
       if (want) for (var i = 0; i < channels.length; i++) if (chKey(channels[i]) === want) { sel = channels[i]; break; }
       if (!sel) sel = channels[0];
-      days = G.days(Date.now(), G.backDays(channels.slice(0, 400)));
+      // build 166: alleen dagen met gids-info (steekproef: de gekozen zender en de eerste 50); vandaag altijd
+      var sample = G.daySample(channels, sel);
+      days = G.availableDays(G.days(Date.now(), G.backDays(sample)), sample, function (c, d) { return Lib.programsBetween(c, d.start, d.end).length > 0; });
       if (!days.some(function (d) { return d.offset === dayOff; })) dayOff = 0;
       var sl = h('select.lv-select.gd-group', { 'aria-label': L('Categories') });
       gl.forEach(function (g) { var o = h('option', { value: g.key }, g.label); if (g.key === group) o.selected = true; sl.appendChild(o); });

@@ -86,4 +86,28 @@ eq(G.liveLink('Sport', 'guide'), '#/live/Sport', 'terug naar de gids zonder weer
 eq(G.liveLink(null, 'guide'), '#/live');
 eq(G.liveLink('collection:ab', 'list'), '#/live/collection%3Aab?view=list');
 
+// build 166: dagbalk alleen met dagen waarvoor er gids-info is
+{
+  const all = G.days(now, 7);   // -7 … 7
+  const ch = (days, catchupDays) => ({ days: new Set(days), catchupDays: catchupDays || 0 });
+  const av = (chs) => G.availableDays(all, chs, (c, d) => c.days.has(d.offset)).map((d) => d.offset);
+  eq(av([ch([0, 1])]), [0, 1], 'vandaag en morgen');
+  eq(av([ch([])]), [0], 'zonder gids alleen vandaag');
+  eq(av([]), [0], 'zonder zenders alleen vandaag');
+  eq(av([ch([2, 3])]), [0, 2, 3], 'vandaag staat er altijd');
+  eq(av([ch([0, 1, 4])]), [0, 1, 4], 'gat in de week');
+  eq(av([ch([0, 1]), ch([2])]), [0, 1, 2], 'dagen van meerdere zenders samen');
+  eq(av([ch([-1, 0, 1])]), [0, 1], 'gisteren zonder terugkijken weg');
+  eq(av([ch([-1, 0, 1], 1)]), [-1, 0, 1], 'gisteren met terugkijken');
+  eq(av([ch([0], 7)]), [0], 'terugkijken zonder gids-info weg');
+  eq(av([ch([-3, -2, -1, 0], 2)]), [-2, -1, 0], 'niet verder terug dan de terugkijkdagen');
+  eq(av([ch([-1, 0]), ch([0], 3)]), [0], 'gids en terugkijken van dezelfde zender');
+  const list = Array.from({ length: 120 }, (_, i) => ({ i }));
+  eq(G.daySample(list).length, 50, 'steekproef max. 50');
+  eq(G.daySample(list, list[90])[0], list[90], 'gekozen zender eerst');
+  eq(G.daySample(list, list[90]).filter((c) => c === list[90]).length, 1, 'geen dubbele');
+  eq(G.daySample(list.slice(0, 3), list[1]).map((c) => c.i), [1, 0, 2], 'kleine lijst');
+  eq(G.daySample([], null), [], 'lege lijst');
+}
+
 console.log('guide_test: ' + n + ' controles geslaagd');
