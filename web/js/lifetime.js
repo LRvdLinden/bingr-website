@@ -14,6 +14,8 @@
   var L = function () { return B.L.apply(null, arguments); };
   var LT = B.lifetime = {};
   var TZ = 'Europe/Amsterdam';
+  // AANVULLING 2: vaste overgangsdatum; terugval als de server geen cutover_at meestuurt (de server gaat altijd voor)
+  var CUTOVER_DEFAULT = LT.CUTOVER_DEFAULT = '2026-12-01T00:00:00+01:00';
   var SUPPORT_URL = 'https://support.bingr.online';
   var ACCOUNT_URL = '../account/';
 
@@ -33,7 +35,7 @@
     var out = { enabled: !!(lo && lo.enabled), announced: !!(lo && lo.announced === true), phase: 'off', activate: !!(p && p.access === 'activate'), announce: false,
       cutover: null, code: null, codeValidUntil: null, discountPct: null };
     if (!out.enabled) return out;
-    var cut = date(lo.cutover_at);
+    var cut = date(lo.cutover_at || CUTOVER_DEFAULT);
     out.cutover = cut;
     out.phase = cut && now.getTime() >= cut.getTime() ? 'after' : 'before';
     var free = p.plan === 'free';
@@ -182,7 +184,7 @@
     if (!lo || B.bool(lo.enabled) !== true) return false;
     if (lo.after_cutover === true) return true;
     if (lo.after_cutover === false) return false;
-    var cut = date(lo.cutover_at);
+    var cut = date(lo.cutover_at || CUTOVER_DEFAULT);
     return !!cut && (date(now) || new Date()).getTime() >= cut.getTime();
   };
   /** Publieke billing `config` (zonder inloggen). Lukt het niet, dan null: het welkomstscherm blijft zoals het was. */

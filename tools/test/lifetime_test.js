@@ -144,6 +144,13 @@ ok(LT.publicAfter({ lifetime_only: { enabled: true, after_cutover: true } }), 'a
 ok(!LT.publicAfter({ lifetime_only: { enabled: true, after_cutover: false, cutover_at: CUT } }, AFTER), 'server zegt nog niet: niet');
 ok(LT.publicAfter({ lifetime_only: { enabled: true, cutover_at: CUT } }, AFTER) && !LT.publicAfter({ lifetime_only: { enabled: true, cutover_at: CUT } }, BEFORE), 'zonder after_cutover de klok');
 
+// AANVULLING 2: zonder cutover_at van de server de vaste datum 1 december 2026
+eq(S.parse({ lifetime_only: { enabled: true } }).cutover_at, '2026-12-01T00:00:00+01:00', 'site: terugval cutover_at');
+eq(S.freeName(S.parse({ lifetime_only: { enabled: true, announced: true } }), 'nl', BEFORE), 'Gratis (tot 1 december 2026)', 'site: Gratis (tot 1 december 2026)');
+eq(LT.info(P.normalize(ent('free', { lifetime_only: { enabled: true, announced: true } })), BEFORE).cutover.toISOString(), '2026-11-30T23:00:00.000Z', 'webspeler: terugval cutover_at');
+eq(LT.freeLabel(P.normalize(ent('free', { lifetime_only: { enabled: true, announced: true } })), BEFORE), 'Free (until 1 December 2026)', 'webspeler: Free (until 1 December 2026)');
+ok(LT.publicAfter({ lifetime_only: { enabled: true } }, AFTER) && !LT.publicAfter({ lifetime_only: { enabled: true } }, BEFORE), 'welkomstscherm: terugval op 1 december 2026');
+
 // MARK: site, assets/js/plans.js
 
 load(path.join(ROOT, 'assets/js/plans.js'));

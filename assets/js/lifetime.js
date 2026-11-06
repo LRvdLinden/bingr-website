@@ -18,6 +18,8 @@ window.BingrLifetime = (function () {
   // ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   var TZ = "Europe/Amsterdam";
+  // AANVULLING 2: vaste overgangsdatum. Terugval als de server geen cutover_at meestuurt (de server gaat altijd voor).
+  var CUTOVER_DEFAULT = "2026-12-01T00:00:00+01:00";
   var T = {
     nl: {
       banner: "Bingr wordt Lifetime op %s.", bannerP: "Daarna werkt Bingr alleen nog met Lifetime: één keer betalen, voor altijd. Bestaande gratis accounts kregen een persoonlijke kortingscode per e-mail. Je gegevens blijven bewaard.",
@@ -82,7 +84,7 @@ window.BingrLifetime = (function () {
     // de publieke billing `config` (zonder inloggen) kent geen `announced`: dan announce_at, anders aangekondigd
     var ann = typeof lo.announced === "boolean" ? lo.announced : date(lo.announce_at) ? Date.now() >= date(lo.announce_at).getTime() : true;
     return {
-      enabled: true, announced: ann, cutover_at: str(lo.cutover_at),
+      enabled: true, announced: ann, cutover_at: str(lo.cutover_at) || CUTOVER_DEFAULT,
       after_cutover: typeof lo.after_cutover === "boolean" ? lo.after_cutover : null,
       code: cleanCode(lo.code) || null, code_valid_until: str(lo.code_valid_until),
       discount_pct: pct != null && pct > 0 && pct < 100 ? pct : null,
@@ -167,7 +169,7 @@ window.BingrLifetime = (function () {
     });
   }
 
-  return { TERMS_DATE: TERMS_DATE, parse: parse, phase: phase, fmtDate: fmtDate, euro: euro, discounted: discounted, codeValid: codeValid,
+  return { TERMS_DATE: TERMS_DATE, CUTOVER_DEFAULT: CUTOVER_DEFAULT, parse: parse, phase: phase, fmtDate: fmtDate, euro: euro, discounted: discounted, codeValid: codeValid,
     cleanCode: cleanCode, freeName: freeName, banner: banner, homeTexts: homeTexts, fetchConfig: fetchConfig, termsDate: termsDate,
     fillTermsDate: fillTermsDate, text: tr };
 })();
