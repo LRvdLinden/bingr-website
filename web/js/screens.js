@@ -632,6 +632,7 @@
   }
 
   /** Laden, fout of geen server: een melding in plaats van de pagina. */
+  S.stateBox = function () { return stateBox(); };
   function stateBox() {
     var lib = Lib.lib;
     var empty = !lib.channels.length && !lib.movies.length && !lib.series.length;
@@ -1241,6 +1242,9 @@
   // MARK: Live TV (categorieën, zenders met nu/straks, tv-gids per zender)
 
   S.pages.live = function (r) {
+    // build 165: Live TV opent altijd in de tv-gids; de lijst alleen via de knop (?view=list, zolang je in Live TV bent)
+    var GL = B.guideLogic;
+    if (S.pages.guide && GL && GL.liveView(r.query) === 'guide') return S.pages.guide(r);
     var el = h('div.page.live');
     var pg = { el: el, title: L('Live TV') };
     var src = Lib.source ? Lib.source.id : '';
@@ -1424,14 +1428,17 @@
       var gl = h('nav.lv-groups', { 'aria-label': L('Categories') });
       var sel = h('select.lv-select', { 'aria-label': L('Categories') });
       groups.forEach(function (g) {
-        var a = h('a.lv-group' + (g.key === group ? '.active' : ''), { href: R.link(['live', g.key]) }, [h('span', g.label), h('span.muted.small', String(channelsFor(g.key).length))]);
+        var a = h('a.lv-group' + (g.key === group ? '.active' : ''), { href: GL ? GL.liveLink(g.key, 'list') : R.link(['live', g.key]) }, [h('span', g.label), h('span.muted.small', String(channelsFor(g.key).length))]);
         gl.appendChild(a);
         var o = h('option', { value: g.key }, g.label);
         if (g.key === group) o.selected = true;
         sel.appendChild(o);
       });
-      sel.addEventListener('change', function () { R.go(R.link(['live', sel.value]).slice(1)); });
+      sel.addEventListener('change', function () { R.go((GL ? GL.liveLink(sel.value, 'list') : R.link(['live', sel.value])).slice(1)); });
       head.appendChild(sel);
+      // build 164: de nieuwe tv-gids (zenderkolommen met live voorbeeld) voor dezelfde categorie
+      // build 165: dezelfde knop wisselt terug naar de gids (#/live/<categorie>, de standaardweergave van Live TV)
+      if (S.pages.guide) head.appendChild(U.button(L('TV guide'), function () { R.go((GL ? GL.liveLink(group, 'guide') : R.link(['guide', group])).slice(1)); }, { icon: 'guide', cls: 'lv-guidebtn' }));
       listEl = h('div.lv-list', { role: 'list' });
       guideEl = h('aside.lv-guide');
       el.appendChild(h('div.lv-cols', [gl, listEl, guideEl]));
@@ -2065,6 +2072,15 @@
         var trOn = S.autoplayTrailers();
         row(sec, L('Play trailers automatically'), null, function () { S.setAutoplayTrailers(!trOn); render(); },
           { toggle: trOn, icon: 'trailer', sub: trOn ? L('Muted, on movie and series pages. Not with data saver or Reduce Motion on.') : null });
+        // build 164: live voorbeeld in de tv-gids (per browser): Altijd, Alleen wifi (standaard) of Nooit
+        if (B.guideSetting) {
+          var gpv = B.guideSetting.get();
+          row(sec, L('Live preview in the guide'), B.guideSetting.label(gpv), function () {
+            U.choose(L('Live preview in the guide'), ['always', 'wifi', 'never'].map(function (v) { return { value: v, label: B.guideSetting.label(v) }; }), gpv, function (v) {
+              B.guideSetting.set(v); if (v === 'never' && B.guidePreview) B.guidePreview.stop(true); render();
+            });
+          }, { icon: 'guide', sub: L('Plays the chosen channel live and muted in the TV guide. It counts as a screen for your account and as a connection for your provider.') });
+        }
         row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
         sec = section(L('Keyboard shortcuts'));
         [['Space / K', L('Play / pause')], ['← →', L('10 seconds back / forward')], ['↑ ↓', L('Volume, or another channel during live TV')],

@@ -40,6 +40,9 @@ jobs:
         # build 151: sync toepassen en bewaren in stappen/Worker (groot profiel, zelfde uitkomst als ≤ 150); rij Zenders (format_test)
         # build 151: rijen op Home zonder dubbele titels over meer servers (homededupe_test)
         # build 151c: foutcodes van web-proxy en de server als leesbare melding (proxyerror_test)
+        # build 164: tv-gids (dagbalk, NU-index, stilstaand beeld, instelling live voorbeeld; guide_test)
+        # build 165: Live TV opent altijd in de gids, lijst alleen via de knop (liveView/liveLink; guide_test)
+        # build 166: dagbalk alleen met dagen waarvoor er gids-info is (availableDays/daySample; guide_test)
         # build 154: gezien over alle servers (gedeelde gevallen uit watched_keys_cases.json) en de Trakt-sync (watched_test)
         # build 157: abonnement (Verder kijken, kinderprofielen, OpenSubtitles bij Lifetime; oude server zonder vlag = Gratis)
         # build 158: opslag binnen de grenzen (model per profiel in IndexedDB met migratie, volle localStorage/IndexedDB, tombstones)
@@ -51,6 +54,7 @@ jobs:
           node tools/test/pin_test.js
           node tools/test/format_test.js
           node tools/test/homededupe_test.js
+          node tools/test/guide_test.js
           node --expose-gc tools/test/longtask_test.js
           node --expose-gc tools/test/bigserver_test.js
           node --expose-gc tools/test/sync_test.js

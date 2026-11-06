@@ -29,6 +29,8 @@ window.BingrConsole = (function () {
   // ---- kijkgeschiedenis
   async function loadHistory() {
     const j = await call("watch_log", { days: 7 });
+    // build 164: het live voorbeeld in de tv-gids (kind "preview") is geen kijken
+    j.entries = (j.entries || []).filter((e) => e.kind !== "preview");
     if (!j.entries.length) { $("history").innerHTML = `<p class="muted">${tr("noHistory")}</p>`; return; }
     const groups = {};
     for (const e of j.entries) { const k = new Date(e.started_at).toDateString(); (groups[k] = groups[k] || []).push(e); }

@@ -486,8 +486,13 @@
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
     var seeking = null;
+    // build 164: het live voorbeeld van de tv-gids geeft zijn lopende stream mee ({engine, video, url}): dezelfde
+    // <video> en dezelfde hls.js/mpegts.js, zonder opnieuw te laden (alleen live, alleen bij de eerste start)
+    var adopt = ctx.adopt && item.type === 'live' && ctx.adopt.engine && ctx.adopt.video ? ctx.adopt : null;
+    ctx.adopt = null;
 
-    var video = h('video.pl-video', { playsinline: true, 'webkit-playsinline': true, preload: 'auto' });
+    var video = adopt ? adopt.video : h('video.pl-video', { playsinline: true, 'webkit-playsinline': true, preload: 'auto' });
+    if (adopt) { video.className = 'pl-video'; video.muted = false; video.removeAttribute('aria-hidden'); }
     video.setAttribute('x-webkit-airplay', 'allow');
     // build 102: `video` is de <video> die nu speelt (tijdens casten castVideo); localVideo blijft de eigen speler
     var localVideo = video;
@@ -691,7 +696,7 @@
       // limiet van de IPTV-provider (alleen Xtream) alvast ophalen; blokkeert niets
       B.providers.providerLimit.prime(isrc());
       if (B.xs) B.xs.notePlayed(item, ctx);
-      var resolve = isCatchup() ? (item.streamURL ? Promise.resolve(item.streamURL) : Lib.catchupURL(item.channel, item.program).then(function (u) { item.streamURL = u; return u; }))
+      var resolve = adopt ? Promise.resolve(adopt.url) : isCatchup() ? (item.streamURL ? Promise.resolve(item.streamURL) : Lib.catchupURL(item.channel, item.program).then(function (u) { item.streamURL = u; return u; }))
         : (B.media.webStream(isrc(), item) ? Promise.resolve(B.media.webStream(isrc(), item)) : Lib.resolveURL(item, isLive()));
       resolve.then(function (url) {
         if (closed || gen !== startGen || limited) return;
@@ -717,12 +722,19 @@
         tracks: function () { if (engine !== my) return; if (!audioChosen) applyTrackPrefs(); if (subsStartedAt && Date.now() - subsStartedAt > 1500) autoSubtitles(); },
         needsTap: function () { if (engine === my) { spinner.style.display = 'none'; tapPlay.style.display = ''; showControls(); } }
       };
-      engine = new Engine(events, video);
+      // build 164: stream van het live voorbeeld overnemen (zelfde URL en hij speelt al): geen nieuwe poging
+      var took = adopt && adopt.url === url && adopt.engine.started && !adopt.engine.stopped ? adopt.engine : null;
+      if (adopt && !took) { try { adopt.engine.stop(); } catch (e) { /* stil */ } }
+      adopt = null;
+      if (took) { took.ev = events; engine = took; }
+      else engine = new Engine(events, video);
       var my = engine;
-      return vodHls(url).then(function (cands) {
+      var opening = took ? Promise.resolve() : vodHls(url).then(function (cands) {
         if (closed || engine !== my) return Promise.reject(new Error('stopped'));
         return my.open(url, { live: isLive(), start: resumeAt || 0, forceTry: forceTry, hls: cands, onReady: function () { if (engine === my) applyTrackPrefs(); } });
-      }).then(function () {
+      });
+      return opening.then(function () {
+        if (took) { my.play(); events.state(); }
         if (closed || limited || engine !== my || (gen != null && gen !== startGen)) { if (engine === my && (closed || limited)) my.stop(); return; }
         attempts = 0;
         spinner.style.display = 'none';
@@ -1607,6 +1619,8 @@
       updateTime();
       if (engine.playing) {
         watchedSeconds += 1;
+        // build 164: stilstaand beeld voor de tv-gids (na 10 s en daarna elke 5 min)
+        if (isLive() && item.channel && B.guideStills && watchedSeconds % 300 === 10) B.guideStills.grab(video, item.channel);
         recordHistory();
         saveProgress(false);
       }
@@ -1651,6 +1665,7 @@
       clearInterval(tickTimer); clearInterval(pingTimer); clearInterval(countdownTimer); clearInterval(extTimer);
       clearTimeout(hideTimer); clearTimeout(zapTimer);
       if (scrobbled && !stopSent) scrobble('stop');
+      if (isLive() && item.channel && B.guideStills && engine && engine.started && engine.v === localVideo) B.guideStills.grab(video, item.channel);
       stopEngine(true);
       // build 102: casten opruimen (zoeken naar tv's stoppen, castVideo leeg)
       clearTimeout(cast.watchdog);
@@ -1687,6 +1702,8 @@
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pageshow', onShow);
     tickTimer = setInterval(tick, 1000);
+    // build 164: vanuit het live voorbeeld (knop Volledig scherm): meteen volledig scherm, nog binnen de klik
+    if (ctx.fullscreen) { ctx.fullscreen = false; toggleFullscreen(); }
     start(ctx.resume || 0);
     setTimeout(function () { try { playBtn.focus({ preventScroll: true }); } catch (e) { /* stil */ } }, 50);
     return screen;
@@ -1714,6 +1731,8 @@
       artwork: ch.logo || null, channel: ch, program: p, _src: ch._src || null };
   }
   B.player.channelItem = channelItem;
+  // build 164: het live voorbeeld in de tv-gids gebruikt dezelfde engine (zelfde formaten, proxy en terugval)
+  B.player.Engine = Engine;
   B.player.episodeItem = episodeItem;
   B.player.movieItem = movieItem;
   B.player.catchupItem = catchupItem;
