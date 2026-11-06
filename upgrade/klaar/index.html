@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-en="Payment successful · Bingr">Betaling gelukt · Bingr</title>
+<!-- build 167 (AANVULLING 1): na een gastaankoop (/upgrade/?guest=1). De link bevat een geheim claim-token: niet indexeren,
+     geen referrer, en het token nooit loggen of naar derden sturen. Staat ook als Disallow in robots.txt. -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="../../favicon.png">
+<link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+<link rel="stylesheet" href="../../assets/css/site.css?v=96">
+<style>
+.k-head{text-align:center;margin-bottom:8px}
+.k-head .ttl::after{margin:18px auto 0}
+.k-head .lead{color:#d4d4d4;font-size:clamp(16px,1.8vw,19px);max-width:60ch;margin:18px auto 0}
+.k-card{max-width:560px;margin:26px auto 0}
+.k-card .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.k-card .row .btn{flex:1;min-width:200px}
+.k-card .or{color:var(--sec);text-align:center;margin:20px 0 6px;font-size:14px}
+.k-ok{text-align:center;max-width:560px;margin:26px auto 0}
+.k-ok .big{font-size:24px;font-weight:900;color:#fff}
+.k-ok p{color:var(--sec);margin-top:8px}
+.k-ok .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+.note{max-width:560px;margin:16px auto 0;padding:14px 18px;border-radius:14px;border:1px solid var(--line);background:#ffffff0d;color:#e5e5e5;font-size:15px}
+</style>
+<script src="../../assets/js/consent.js" data-base="../../"></script>
+</head>
+<body class="sub-page">
+<nav id="nav" aria-label="Hoofdmenu">
+  <div class="wrap">
+    <a href="../../" class="logo" aria-label="Bingr">BINGR</a>
+    <div class="links">
+      <a href="../../#features" data-s="nav.features">Functies</a>
+      <a href="../../#start" data-s="nav.start">Wat heb je nodig</a>
+      <a href="../../#download" data-s="nav.platforms">Apparaten</a>
+      <a href="../../#faq">FAQ</a>
+      <a href="https://support.bingr.online">Support</a>
+    </div>
+    <div class="right">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-lang="nl">NL</button><button type="button" data-lang="en">EN</button></div>
+      <span data-userbtn style="display:inline-flex"></span>
+    </div>
+  </div>
+</nav>
+<main><div class="wrap mid">
+  <header class="k-head">
+    <h1 class="ttl" id="title" data-t="title"></h1>
+    <p class="lead" id="lead" data-t="lead"></p>
+  </header>
+  <div id="notice" class="note hidden" role="status" aria-live="polite"></div>
+
+  <section id="auth" class="hidden"><div class="panel k-card">
+    <div class="row"><a class="btn red" id="signupBtn" href="../../koppelen/?mode=signup&amp;next=klaar" data-t="signUp"></a></div>
+    <p class="muted small" data-t="sameEmail" style="margin-top:10px"></p>
+    <p class="or" data-t="orSignIn"></p>
+    <form id="authForm" class="fields" novalidate>
+      <label><span class="sr" data-t="email"></span><input id="email" type="email" autocomplete="email" data-ph="email"></label>
+      <label class="pw"><span class="sr" data-t="password"></span><input id="password" type="password" autocomplete="current-password" data-ph="password"><button type="button"></button></label>
+      <div id="authErr" class="err" aria-live="polite"></div>
+      <button id="authBtn" class="btn ghost full" type="submit" data-t="signIn"></button>
+    </form>
+    <div class="alinks"><a id="forgot" href="#" role="button" data-t="forgot"></a></div>
+  </div></section>
+
+  <section id="done" class="hidden"><div class="k-ok">
+    <div class="big" data-t="doneTitle"></div><p data-t="doneText"></p>
+    <div class="row"><a class="btn red sm" href="../../web/" data-t="watch"></a><a class="btn ghost sm" href="../../account/" data-t="toAccount"></a></div>
+  </div></section>
+
+  <section id="loading"><p class="muted" style="text-align:center;margin-top:30px" data-t="waiting"></p></section>
+</div></main>
+<footer>
+  <div class="wrap">
+    <div class="top">
+      <div><a href="../../" class="logo">BINGR</a><div style="margin-top:12px" data-s="foot.tag">IPTV zoals het hoort.</div></div>
+      <div class="flinks">
+        <a href="../../#faq">FAQ</a>
+        <a href="https://support.bingr.online">Support</a>
+        <a href="../../koppelen/" data-s="foot.pair">Tv koppelen</a>
+        <a href="../../account/" data-s="foot.account">Mijn Bingr</a>
+        <a href="../../web/" data-s="foot.web">Webspeler</a>
+        <a href="../../changelog/">Changelog</a>
+        <a href="../../status/">Status</a>
+        <a href="/presskit">PressKit</a>
+        <a href="../../iptv-app/" data-s="foot.iptvapp">IPTV-app voor Apple</a>
+        <a href="../../m3u-xtream-toevoegen/" data-s="foot.m3u">M3U of Xtream toevoegen</a>
+        <a href="../../vergelijking/" data-s="foot.compare">Bingr vs. Smarters en TiviMate</a>
+        <a href="../../privacy.html" data-s="foot.privacy">Privacy</a>
+        <a href="../../voorwaarden/" data-s="foot.terms">Voorwaarden</a>
+        <a href="#" data-consent-link onclick="BingrConsent.open();return false" data-s="foot.cookies">Cookie-instellingen</a>
+      </div>
+    </div>
+    <p class="disc" data-s="foot.disc">Bingr is een mediaspeler en levert, verkoopt of host geen zenders, films of series. Je bent zelf verantwoordelijk voor de content die je afspeelt en het recht om die te bekijken. Apple, iPhone, iPad, Apple TV, Mac en AirPlay zijn handelsmerken van Apple Inc. Android, Google TV en Android TV zijn handelsmerken van Google LLC en Fire TV van Amazon.com, Inc. Windows is een handelsmerk van Microsoft Corporation.</p>
+    <p class="disc tmdb" data-s="foot.tmdb">Film- en seriegegevens en afbeeldingen: <a href="https://www.themoviedb.org" rel="noopener">TMDB</a>. Dit product gebruikt de TMDB API maar is niet goedgekeurd of gecertificeerd door TMDB.</p>
+    <p class="copy">© <span id="yr">2026</span> Bingr, <span data-s="foot.version">versie</span> <span data-build></span></p>
+  </div>
+</footer>
+<script src="../../assets/js/site.js?v=111" data-base="../../"></script>
+<script src="../../assets/vendor/supabase.js?v=2.45.4"></script>
+<script src="../../assets/config.js"></script>
+<script src="../../assets/js/account.js?v=141"></script>
+<script src="../../assets/js/auth-forms.js?v=5"></script>
+<script src="../../assets/js/userbtn.js?v=146" data-base="../../"></script>
+<script>
+// Build 167 (AANVULLING 1, docs/ACCOUNT.md in iptv-ios-appletv): na een gastaankoop komt Stripe hier terug met
+// ?claim=<token>&session_id=cs_…. Het token bewaren we alleen in deze browser (bingr.claim, 30 dagen), zodat het ook werkt
+// na account maken en bevestigen (koppelen/?next=klaar komt hier terug). Ingelogd: meteen billing `claim`.
+// Niet ingelogd: "Betaling gelukt, maak nu je account" of log in. Koppelt de server de aankoop al via het e-mailadres,
+// dan is claim niet meer nodig en zien we gewoon Lifetime.
+const { sb, $, t, pwToggles, busy, cfg, lang, params } = Bingr;
+const tr = t({
+  nl: { docTitle: "Betaling gelukt · Bingr", title: "Betaling gelukt", lead: "Maak nu je Bingr-account, of log in als je er al een hebt. Daarna staat Lifetime meteen aan, op al je apparaten.",
+        signUp: "Maak je account", sameEmail: "Gebruik het e-mailadres waarmee je hebt betaald; dan vinden we je aankoop ook als deze pagina later dicht is.",
+        orSignIn: "Heb je al een account? Log in", signIn: "Inloggen", email: "E-mailadres", password: "Wachtwoord", show: "Tonen", hide: "Verbergen", forgot: "Wachtwoord vergeten?",
+        waiting: "Even geduld…", claiming: "We zetten Lifetime op je account…",
+        doneTitle: "Je hebt nu Lifetime 🎉", doneText: "Lifetime staat op je account. Open de app opnieuw of vernieuw de pagina. Je kwitantie komt per e-mail.", watch: "Kijk in je browser", toAccount: "Naar Mijn Bingr",
+        noToken: "We konden deze aankoop niet aan je account koppelen. Gebruik je hetzelfde e-mailadres als bij het betalen, dan gebeurt het vanzelf. Lukt het niet, neem dan contact op met <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
+        otherAccount: "Deze aankoop staat al op een ander Bingr-account. Log in met het account waarmee je hebt betaald, of neem contact op met <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
+        pendingPay: "Je betaling is nog onderweg. Zodra hij binnen is, kun je hier verder; je krijgt ook een e-mail.",
+        banned: "Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.",
+        badCreds: "Onjuist e-mailadres of wachtwoord.", notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.", generic: "Er ging iets mis. Probeer het opnieuw.", badEmail: "Vul een geldig e-mailadres in.",
+        resetSent2: "Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
+  en: { docTitle: "Payment successful · Bingr", title: "Payment successful", lead: "Now create your Bingr account, or sign in if you already have one. Lifetime is then on right away, on all your devices.",
+        signUp: "Create your account", sameEmail: "Use the email address you paid with; then we can find your purchase even if this page is closed later.",
+        orSignIn: "Already have an account? Sign in", signIn: "Sign In", email: "Email", password: "Password", show: "Show", hide: "Hide", forgot: "Forgot password?",
+        waiting: "One moment…", claiming: "Adding Lifetime to your account…",
+        doneTitle: "You now have Lifetime 🎉", doneText: "Lifetime is on your account. Reopen the app or refresh the page. Your receipt is on its way by email.", watch: "Watch in your browser", toAccount: "Go to My Bingr",
+        noToken: "We couldn't link this purchase to your account. If you use the same email address you paid with, it happens automatically. If that doesn't work, contact <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
+        otherAccount: "This purchase is already on another Bingr account. Sign in with the account you paid with, or contact <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
+        pendingPay: "Your payment is still on its way. As soon as it arrives you can continue here; you'll also get an email.",
+        banned: "Your account has been blocked. You received an email with the reason and until when.",
+        badCreds: "Incorrect email or password.", notConfirmed: "Confirm your email address first. Check your inbox.", generic: "Something went wrong. Please try again.", badEmail: "Enter a valid email address.",
+        resetSent2: "If an account exists, you'll receive an email to reset your password." },
+});
+pwToggles(tr);
+document.title = tr("docTitle");
+const KEY = "bingr.claim", MAX_AGE = 30 * 86400000;
+const okToken = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{20,200}$/.test(v);
+// token uit de link: bewaren in deze browser en meteen uit de adresbalk (en dus uit de geschiedenis)
+(function () {
+  const tok = params.get("claim"), sid = params.get("session_id");
+  if (okToken(tok)) { try { localStorage.setItem(KEY, JSON.stringify({ t: tok, s: /^cs_[A-Za-z0-9_]+$/.test(sid || "") ? sid : null, at: Date.now() })); } catch (e) {} }
+  if (params.has("claim") || params.has("session_id")) { try { history.replaceState(null, "", location.pathname + (params.get("lang") ? "?lang=" + params.get("lang") : "")); } catch (e) {} }
+})();
+function stored() {
+  try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); if (v && okToken(v.t) && Date.now() - v.at < MAX_AGE) return v; localStorage.removeItem(KEY); } catch (e) {}
+  return null;
+}
+function forget() { try { localStorage.removeItem(KEY); } catch (e) {} }
+function show(id) { ["auth", "done", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
+function notice(html) { const n = $("notice"); n.classList.toggle("hidden", !html); n.innerHTML = html || ""; }
+async function billing(action, body, authed) {
+  const h = { "Content-Type": "application/json", apikey: cfg.anonKey };
+  if (authed) { const { data } = await sb.auth.getSession(); if (data.session) h.Authorization = "Bearer " + data.session.access_token; }
+  const r = await fetch(cfg.url + "/functions/v1/billing/" + action, { method: "POST", headers: h, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (j.banned === true || j.error === "user_banned") { await Bingr.hardSignOut(); throw new Error("banned"); }
+  return { status: r.status, ok: r.ok, j };
+}
+async function isLifetime() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) return false;
+  const r = await fetch(cfg.url + "/functions/v1/device-auth", { method: "POST",
+    headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token },
+    body: JSON.stringify({ action: "entitlements", platform: "web" }) });
+  const j = await r.json().catch(() => ({}));
+  return r.ok && j.plan === "lifetime";
+}
+async function claim() {
+  show("loading"); $("loading").querySelector("p").textContent = tr("claiming"); notice(null);
+  const c = stored();
+  try {
+    if (c) {
+      const { ok, status, j } = await billing("claim", { claim_token: c.t }, true);
+      if (ok) { forget(); show("done"); return; }
+      if (status === 409 && j.error === "owned_by_other_account") { notice(tr("otherAccount")); show("auth"); return; }
+      if (status === 409 && j.error === "already_lifetime") { forget(); show("done"); return; }
+      if (status === 202 || j.error === "not_paid") { notice(tr("pendingPay")); show("auth"); return; }
+    }
+    // geen (geldig) token meer, of al gekoppeld via het e-mailadres: kijk of het account Lifetime heeft
+    if (await isLifetime()) { forget(); show("done"); return; }
+    notice(tr("noToken")); show("auth");
+  } catch (e) {
+    if (e.message === "banned") { notice(tr("banned")); show("auth"); return; }
+    notice(tr("noToken")); show("auth");
+  }
+}
+async function load() {
+  const { data } = await sb.auth.getSession();
+  if (data.session) { claim(); return; }
+  show("auth");
+  // e-mailadres van de betaling (als de server het via status teruggeeft) vooraf invullen, ook bij account maken
+  const c = stored();
+  if (c && c.s) {
+    try {
+      const { ok, j } = await billing("status", { session_id: c.s, claim_token: c.t }, false);
+      if (ok && j && typeof j.email === "string" && BingrAuth.isEmail(j.email)) {
+        if (!$("email").value) $("email").value = j.email;
+        $("signupBtn").href = "../../koppelen/?mode=signup&next=klaar&email=" + encodeURIComponent(j.email);
+      }
+      if (ok && j && j.paid === false) notice(tr("pendingPay"));
+    } catch (e) {}
+  }
+}
+$("authForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const ok = await BingrAuth.signIn({ email: $("email").value, password: $("password").value, btn: $("authBtn"), label: tr("signIn"), errEl: $("authErr"), tr,
+    onBanned: () => { $("authErr").textContent = tr("banned"); } });
+  if (ok) claim();
+};
+$("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent2", trigger: $("forgot"), focusEl: $("email") });
+load();
+</script>
+</body>
+</html>

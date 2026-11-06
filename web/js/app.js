@@ -155,6 +155,8 @@
   function afterLogin(fresh) {
     D.checkAccountSwitch();
     B.plan.load();
+    // build 167: alleen Lifetime (scherm Activeer Lifetime of de aankondiging, uit de entitlements)
+    if (B.lifetime) B.lifetime.check();
     show(splash());
     var reg = (fresh || !A.isRegistered() || A.platformChanged()) ? A.registerDevice() : Promise.resolve('ok');
     reg.then(function (r) {

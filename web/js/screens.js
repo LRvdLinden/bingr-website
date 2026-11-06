@@ -48,6 +48,8 @@
     var flow = null;
     var holder = h('div.login-holder');
     var el = loginShell(holder);
+    // build 167: na de overgang naar alleen Lifetime eerst Koop Lifetime (gastaankoop), dan inloggen of een account maken
+    if (B.lifetime) B.lifetime.loginOffer(el, holder);
     function finish() {
       if (flow) { flow.cancel(); flow = null; }
       U.toast(L('Signed in as %@', A.email() || ''));

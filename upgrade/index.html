@@ -30,7 +30,7 @@
 <link rel="icon" href="../favicon.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/site.css?v=96">
-<link rel="stylesheet" href="../assets/css/plans.css?v=2">
+<link rel="stylesheet" href="../assets/css/plans.css?v=167">
 <style>
 /* upgrade: kop, huidig abonnement en de betaalkaart; de tabel staat in assets/css/plans.css */
 .up-head{text-align:center;margin-bottom:8px}
@@ -72,6 +72,13 @@
 .note.good{border-color:#2fbf7166;background:#2fbf711a}
 .have .rcpt{margin-top:6px;font-size:14px}
 .have .rcpt a{color:#fff;font-weight:600}
+/* build 167: kortingscode en de doorgestreepte prijs */
+.pay .code{display:flex;flex-direction:column;gap:6px;margin-top:14px;max-width:340px}
+.pay .code span{font-size:14px;font-weight:600;color:#e5e5e5}
+.pay .code input{font-size:16px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pay .code small{font-size:13px;color:var(--sec)}
+.pay .price s{color:var(--sec);font-weight:600;margin-right:8px}
+.current .until{color:var(--sec);font-size:14.5px;margin-top:4px}
 @media (max-width:640px){.pay{grid-template-columns:1fr}.pay .btn{width:100%}.current .v{font-size:22px}}
 </style>
 <script src="../assets/js/consent.js" data-base="../"></script>
@@ -153,7 +160,8 @@
 <script src="../assets/js/account.js?v=141"></script>
 <script src="../assets/js/auth-forms.js?v=5"></script>
 <script src="../assets/js/userbtn.js?v=146" data-base="../"></script>
-<script src="../assets/js/plans.js?v=6"></script>
+<script src="../assets/js/plans.js?v=167"></script>
+<script src="../assets/js/lifetime.js?v=167"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
 // `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
@@ -186,7 +194,16 @@ const tr = t({
         loadFailed: "Je abonnement kon niet worden geladen. Ververs de pagina om het opnieuw te proberen.",
         banned: "Je account is geblokkeerd. Je hebt een e-mail gekregen met de reden en tot wanneer.", bannedAsk: "Vragen?",
         badCreds: "Onjuist e-mailadres of wachtwoord.", notConfirmed: "Bevestig eerst je e-mailadres. Kijk in je inbox.", generic: "Er ging iets mis. Probeer het opnieuw.", badEmail: "Vul een geldig e-mailadres in.",
-        resetSent2: "Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen." },
+        resetSent2: "Bestaat er een account met dit adres, dan ontvang je een e-mail om je wachtwoord opnieuw in te stellen.",
+        // build 167: alleen Lifetime
+        codeLabel: "Kortingscode", codePh: "BINGR-XXXX-XXXX", codeHint: "%p% korting, geldig tot %s.", codeHintNoDate: "%p% korting.",
+        codeInvalid: "Deze kortingscode is niet (meer) geldig voor dit account. Controleer de code of reken af zonder code.",
+        priceCode: "<s>%o</s><b>%n</b> eenmalig met je kortingscode · prijs incl. btw", payBtnCode: "Koop Lifetime – %n",
+        freeUntil: "Gratis (tot %s)", notActive: "Nog niet geactiveerd", notActiveText: "Bingr is nu alleen Lifetime. Je gegevens zijn bewaard: koop Lifetime om verder te kijken.",
+        untilText: "Bingr wordt Lifetime op %s. Daarna werkt Bingr alleen nog met Lifetime; je gegevens blijven bewaard.",
+        guestTitle: "Koop Lifetime, maak daarna je account", guestText: "Je betaalt eerst. Daarna maak je je Bingr-account (of log je in) en staat Lifetime meteen aan, op al je apparaten.",
+        haveAccount: "Heb je al een account?", signInNow: "Log in.", guestLink: "Koop eerst Lifetime, daarna maak je je account.",
+        guestPayTitle: "Lifetime, zonder account te kopen", guestPayText: "Je vult je e-mailadres in bij het afrekenen. Gebruik daarna hetzelfde adres voor je Bingr-account; dan koppelen we de aankoop vanzelf. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>" },
   en: { docTitle: "Upgrade to Lifetime · Bingr", title: "Upgrade to Lifetime", lead: "Pay €4.99 once, keep it forever: more screens at once, more devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles subtitles, statistics, Watching now, Trakt and themes.",
         fromApp: "After upgrading, Lifetime shows up in the app within a few minutes.",
         signInTitle: "Sign in to upgrade", intro: "Lifetime belongs to your Bingr account and works on all your devices.", signIn: "Sign In", email: "Email", password: "Password", show: "Show", hide: "Hide",
@@ -210,7 +227,16 @@ const tr = t({
         loadFailed: "Your plan couldn't be loaded. Refresh the page to try again.",
         banned: "Your account has been blocked. You received an email with the reason and until when.", bannedAsk: "Questions?",
         badCreds: "Incorrect email or password.", notConfirmed: "Confirm your email address first. Check your inbox.", generic: "Something went wrong. Please try again.", badEmail: "Enter a valid email address.",
-        resetSent2: "If an account exists, you'll receive an email to reset your password." },
+        resetSent2: "If an account exists, you'll receive an email to reset your password.",
+        // build 167: Lifetime only
+        codeLabel: "Discount code", codePh: "BINGR-XXXX-XXXX", codeHint: "%p% off, valid until %s.", codeHintNoDate: "%p% off.",
+        codeInvalid: "This discount code isn't valid (anymore) for this account. Check the code or check out without a code.",
+        priceCode: "<s>%o</s><b>%n</b> one-time with your discount code · price incl. VAT", payBtnCode: "Buy Lifetime – %n",
+        freeUntil: "Free (until %s)", notActive: "Not activated yet", notActiveText: "Bingr is now Lifetime only. Your data has been kept: buy Lifetime to keep watching.",
+        untilText: "Bingr is going Lifetime on %s. After that, Bingr only works with Lifetime; your data stays safe.",
+        guestTitle: "Buy Lifetime, then create your account", guestText: "You pay first. Then you create your Bingr account (or sign in) and Lifetime is on right away, on all your devices.",
+        haveAccount: "Already have an account?", signInNow: "Sign in.", guestLink: "Buy Lifetime first, then create your account.",
+        guestPayTitle: "Lifetime, buy without an account", guestPayText: "You enter your email address at checkout. Use the same address for your Bingr account afterwards and we'll link the purchase automatically. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>" },
 });
 pwToggles(tr);
 const esc = BingrAuth.esc;
@@ -219,7 +245,32 @@ const ICON_LIFE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="tru
 const ICON_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';
 if (params.get("from") === "app") $("fromApp").classList.remove("hidden");
 function show(id) { ["auth", "acc", "loading"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
-function table(current) { $("plansTable").innerHTML = BingrPlans.table(lang, { base: "../", current, ctas: false }); }
+// build 167: alleen Lifetime (assets/js/lifetime.js). LTO = lifetime_only uit billing `config`, ENT = uit entitlements
+// (ingelogd; daar staat de eigen code in). Allebei null (of enabled false) = de pagina zoals voorheen.
+const LTJ = window.BingrLifetime;
+let LTO = null, ENT = null, priceCents = 499, lastTable;
+const urlCode = LTJ ? LTJ.cleanCode(params.get("code")) : "";
+function lt() {
+  if (!LTO && !ENT) return null;
+  const o = Object.assign({}, LTO || {});
+  if (ENT) Object.keys(ENT).forEach((k) => { if (ENT[k] != null) o[k] = ENT[k]; });
+  return o;
+}
+function table(current) {
+  lastTable = current;
+  const lo = LTJ && lt(), opts = { base: "../", current, ctas: false };
+  if (lo) { opts.freeName = LTJ.freeName(lo, lang); opts.lifetimeOnly = LTJ.phase(lo) === "after"; }
+  $("plansTable").innerHTML = BingrPlans.table(lang, opts);
+}
+// billing `config` één keer (met de sessie, dan staat de eigen code erbij); na inloggen opnieuw
+function billingConfig() { return (billingConfig.p = billingConfig.p || billing("config").catch(() => ({ ok: false, j: {} }))); }
+function applyConfig(r) {
+  if (r && r.ok && r.j) {
+    if (typeof r.j.price_cents === "number" && r.j.price_cents > 0) priceCents = r.j.price_cents;
+    LTO = LTJ ? LTJ.parse(r.j) : null;
+  }
+  return r;
+}
 async function call(action, extra) {
   const { data } = await sb.auth.getSession();
   if (!data.session) throw new Error("signed_out");
@@ -256,16 +307,18 @@ function notice(key, good) {
 function render(e, opts) {
   const life = e.plan === "lifetime", fresh = !!(opts && opts.fresh);
   $("current").classList.toggle("life", life);
+  ENT = LTJ ? LTJ.parse(e) : null;
+  const lo = lt(), ph = lo ? LTJ.phase(lo) : "off", activate = !life && e.access === "activate";
+  const freeName = ph === "before" ? tr("freeUntil").replace("%s", esc(LTJ.fmtDate(lo.cutover_at, lang))) : tr("free");
+  const extra = activate ? `<div class="until">${tr("notActiveText")}</div>`
+    : !life && ph === "before" ? `<div class="until">${esc(tr("untilText").replace("%s", LTJ.fmtDate(lo.cutover_at, lang)))}</div>` : "";
   $("current").innerHTML = `<div class="badge">${life ? ICON_LIFE : ICON_FREE}</div><div class="t"><div class="k">${tr("yourPlan")}</div>
-    <div class="v">${life ? tr("lifetime") : tr("free")}</div><div class="lim">${esc(limitsText(e))}</div></div>`;
+    <div class="v">${life ? tr("lifetime") : activate ? tr("notActive") : freeName}</div><div class="lim">${esc(limitsText(e))}</div>${extra}</div>`;
   $("action").innerHTML = life
     ? `<div class="have"><div class="ok-big">${ICON_OK}<span>${tr(fresh ? "haveNew" : "have")}</span></div><p>${tr(fresh ? "haveNewText" : "haveText")}</p><p id="giftNote"></p><p class="rcpt" id="rcpt"></p>
         <div class="row"><a class="btn red sm" href="../web/">${tr("watch")}</a><a class="btn ghost sm" href="../account/">${tr("toAccount")}</a></div></div>`
     // build 133: verplicht vinkje vóór afrekenen (directe levering, afstand van het herroepingsrecht; EU-regels digitale inhoud)
-    : `<div class="panel pay"><div><h2>${tr("payTitle")}</h2><p class="price">${tr("price")}</p><p>${tr("payText")}</p>
-        <label class="waiver"><input type="checkbox" id="waiver"><span>${tr("waiver")}</span></label>
-        <p class="legal">${tr("legal")}</p><p class="seller">${tr("seller")}</p></div>
-        <div class="side"><button class="btn" type="button" id="payBtn" disabled aria-disabled="true">${tr("payBtn")}</button><div id="payErr" class="err" aria-live="polite"></div></div></div>`;
+    : payCard(false);
   table(life ? "lifetime" : "free");
   if (life) {
     // Lifetime cadeau (bestaand account bij de invoering) of gekocht: eigen rij in account_plans, alleen te lezen door jezelf
@@ -286,28 +339,81 @@ async function purchaseLine(el) {
     el.innerHTML = esc(tr("bought").replace("%s", fmtDay(p.paid_at || p.created_at))) + (link ? ` <a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${tr("receipt")}</a>` : "");
   } catch (e) {}
 }
-function paySoon() { const b = $("payBtn"); if (!b) return; b.disabled = true; b.setAttribute("aria-disabled", "true"); b.textContent = tr("paySoon"); }
-function wirePay() {
+// build 167: veld Kortingscode (alleen als alleen-Lifetime aanstaat), vooraf ingevuld uit ?code= of de eigen code van de
+// server; met een code de oude prijs doorgestreept en de nieuwe ernaast. De server controleert de code bij checkout.
+function codeValue() { const i = $("code"); return i && LTJ ? LTJ.cleanCode(i.value) : ""; }
+function discountActive() {
+  const lo = lt(), c = codeValue();
+  if (!lo || !c || lo.discount_pct == null) return false;
+  return lo.code ? c === lo.code && LTJ.codeValid(lo) : true;
+}
+function drawPrice() {
+  const p = document.querySelector(".pay .price"), b = $("payBtn");
+  if (!p) return;
+  const lo = lt(), d = discountActive() ? LTJ.discounted(priceCents, lo) : null;
+  p.innerHTML = d != null ? tr("priceCode").replace("%o", LTJ.euro(priceCents, lang)).replace("%n", LTJ.euro(d, lang)) : tr("price");
+  if (b && !b.dataset.soon && !b.dataset.busy) b.textContent = d != null ? tr("payBtnCode").replace("%n", LTJ.euro(d, lang)) : tr("payBtn");
+}
+function drawCode() {
+  const box = $("codeBox"), lo = lt();
+  if (!box) return;
+  if (!lo || (LTJ.phase(lo) === "off" && !lo.code && !urlCode)) { box.innerHTML = ""; drawPrice(); return; }
+  const had = $("code") ? $("code").value : null;
+  const val = had != null ? had : (urlCode || (LTJ.codeValid(lo) ? lo.code : "") || "");
+  const until = lo.code && lo.code_valid_until ? LTJ.fmtDate(lo.code_valid_until, lang) : "";
+  const hint = lo.discount_pct != null ? (until ? tr("codeHint").replace("%s", esc(until)) : tr("codeHintNoDate")).replace("%p", lo.discount_pct) : "";
+  box.innerHTML = `<label class="code"><span>${tr("codeLabel")}</span><input id="code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40" placeholder="${tr("codePh")}" value="${esc(val)}">${hint ? `<small id="codeHint">${hint}</small>` : ""}</label>`;
+  $("code").oninput = () => { $("payErr").textContent = ""; drawPrice(); };
+  drawPrice();
+}
+function paySoon() { const b = $("payBtn"); if (!b) return; b.disabled = true; b.setAttribute("aria-disabled", "true"); b.dataset.soon = "1"; b.textContent = tr("paySoon"); }
+function payCard(guest) {
+  return `<div class="panel pay"><div><h2>${tr(guest ? "guestPayTitle" : "payTitle")}</h2><p class="price">${tr("price")}</p><p>${tr(guest ? "guestPayText" : "payText")}</p>
+        ${guest ? "" : `<div id="codeBox"></div>`}
+        <label class="waiver"><input type="checkbox" id="waiver"><span>${tr("waiver")}</span></label>
+        <p class="legal">${tr("legal")}</p><p class="seller">${tr("seller")}</p></div>
+        <div class="side"><button class="btn" type="button" id="payBtn" disabled aria-disabled="true">${tr("payBtn")}</button><div id="payErr" class="err" aria-live="polite"></div></div></div>`;
+}
+// build 167 (AANVULLING 1): /upgrade/?guest=1 = kopen zonder account (billing checkout met guest:true). Stripe vraagt het
+// e-mailadres; daarna /upgrade/klaar/?claim=…&session_id=…, waar je je account maakt of inlogt en de aankoop koppelt.
+const GUEST = params.get("guest") === "1";
+function renderGuest() {
+  $("current").classList.remove("life");
+  $("current").innerHTML = `<div class="badge">${ICON_LIFE}</div><div class="t"><div class="v">${tr("guestTitle")}</div><div class="until">${tr("guestText")}</div>
+    <div class="until"><span>${tr("haveAccount")}</span> <a href="#" id="guestLogin">${tr("signInNow")}</a></div></div>`;
+  $("action").innerHTML = payCard(true);
+  $("guestLogin").onclick = (ev) => { ev.preventDefault(); show("auth"); $("email").focus(); };
+  table(null);
+  wirePay(true);
+}
+function wirePay(guest) {
   const b = $("payBtn");
-  billing("config").then(({ ok, j }) => {
+  if (!guest) drawCode();
+  billingConfig().then(applyConfig).then(({ ok, j }) => {
+    if (!guest) drawCode(); table(lastTable);
     if (!ok || !j.enabled) return paySoon();
     b.disabled = false; b.removeAttribute("aria-disabled");
   }).catch(paySoon);
   $("waiver").onchange = () => { if ($("waiver").checked) $("payErr").textContent = ""; };
   b.onclick = async () => {
     if (!$("waiver").checked) { $("payErr").textContent = tr("needWaiver"); $("waiver").focus(); return; }
-    busy(b, true, tr("payBusy")); $("payErr").textContent = "";
+    busy(b, true, tr("payBusy")); $("payErr").textContent = ""; b.dataset.busy = "1";
     try {
-      const { status, j } = await billing("checkout", { lang, waiver: true });
+      // build 167: met de kortingscode uit het veld (zonder code kiest de server zelf de eigen geldige code van het account)
+      const body = { lang, waiver: true }, code = guest ? "" : codeValue();
+      if (code) body.code = code;
+      if (guest) body.guest = true;
+      const { status, j } = await billing("checkout", body);
       if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
       if (status === 409 && j.error === "already_lifetime") { load(); return; }
       if (status === 503 && j.error === "billing_unavailable") { paySoon(); return; }
-      $("payErr").textContent = tr(status === 429 ? "rateLimited" : "payFailed");
+      $("payErr").textContent = tr(status === 400 && j.error === "code_invalid" ? "codeInvalid" : status === 429 ? "rateLimited" : "payFailed");
     } catch (e) {
-      if (e.message === "banned" || e.message === "signed_out") { load(); return; }
+      if (!guest && (e.message === "banned" || e.message === "signed_out")) { load(); return; }
       $("payErr").textContent = tr("payFailed");
     }
-    busy(b, false, tr("payBtn"));
+    delete b.dataset.busy;
+    busy(b, false, tr("payBtn")); drawPrice();
   };
 }
 // na Stripe (?status=success&session_id=…): betaling controleren (en Lifetime zetten), even blijven proberen bij een
@@ -332,7 +438,21 @@ async function checkPayment() {
 async function load() {
   const { data } = await sb.auth.getSession();
   if (back === "cancel") { notice("cancelled"); cleanUrl(); }
-  if (!data.session) { show("auth"); table(null); return; }
+  if (!data.session) {
+    if (GUEST) {
+      // alleen als alleen-Lifetime aanstaat (anders kent de server geen gastaankoop): eerst de config
+      show("loading");
+      await billingConfig().then(applyConfig);
+      if (LTO) { renderGuest(); show("acc"); return; }
+    }
+    show("auth"); table(null);
+    billingConfig().then(applyConfig).then(() => {
+      table(lastTable);
+      // na de overgang: "Nog geen account?" wordt kopen zonder account (eerst betalen, dan het account)
+      if (LTO && LTJ.phase(LTO) === "after") { const a = document.querySelector('#auth a[data-t="signUpNow"]'); if (a) { a.href = "?guest=1"; a.textContent = tr("guestLink"); } }
+    });
+    return;
+  }
   show("loading");
   try {
     let fresh = false;
@@ -357,7 +477,7 @@ $("authForm").onsubmit = async (e) => {
   // inloggen met nette foutmeldingen en de knop altijd weer aan: assets/js/auth-forms.js
   // geblokkeerd account (user_banned): reden en einddatum staan in de mail; contact via een nieuw ticket (zonder inloggen)
   const ok = await BingrAuth.signIn({ email: $("email").value, password: $("password").value, btn: $("authBtn"), label: tr("signIn"), errEl: $("authErr"), tr, onBanned: bannedMsg });
-  if (ok) load();
+  if (ok) { billingConfig.p = null; load(); }
 };
 $("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent2", trigger: $("forgot"), focusEl: $("email") });
 load();

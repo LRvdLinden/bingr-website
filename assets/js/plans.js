@@ -1,7 +1,9 @@
 // Bingr-abonnementen op bingr.online: vergelijkingstabel Gratis / Lifetime (homepage en /upgrade/) en teksten voor
 // Mijn Bingr. De getallen zijn die van de server (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen" en
 // "Build 157": Gratis 2 apparaten; Verder kijken, kinderprofielen en OpenSubtitles bij Lifetime).
-// BingrPlans.table(lang, {current?: "free"|"lifetime", ctas?: true, base?: ""}) -> HTML
+// BingrPlans.table(lang, {current?: "free"|"lifetime", ctas?: true, base?: "", freeName?: "", lifetimeOnly?: false}) -> HTML
+// Build 167: freeName = andere naam voor Gratis ("Gratis (tot 7 december 2026)"); lifetimeOnly = alleen de kolom Lifetime
+// (na de overgang naar alleen Lifetime, assets/js/lifetime.js). Zonder die opties is de tabel precies zoals eerder.
 // BingrPlans.text(lang) -> teksten (naam, prijs, …)
 // Onder de tabel staat altijd de voetnoot dat ook de IPTV-aanbieder bepaalt hoeveel streams er tegelijk kunnen.
 window.BingrPlans = (function () {
@@ -75,22 +77,23 @@ window.BingrPlans = (function () {
   function cell(v, t) { return v === true ? yes(t) : v === false ? no(t) : '<b class="pl-num">' + v + "</b>"; }
   function table(lang, opts) {
     opts = opts || {};
-    var t = L(lang), base = opts.base || "", cur = opts.current;
+    var t = L(lang), base = opts.base || "", cur = opts.current, only = opts.lifetimeOnly === true;
     var head = function (k) {
+      if (only && k === "free") return "";
       var life = k === "lifetime";
       var tag = cur === k ? '<span class="pl-tag yours">' + t.yours + "</span>" : life ? '<span class="pl-tag">' + t.best + "</span>" : "";
       return '<th scope="col" class="pl-plan' + (life ? " life" : "") + (cur === k ? " cur" : "") + '">' + tag +
-        '<span class="pl-name">' + t[k] + '</span><span class="pl-price">' + (life ? t.lifePrice : t.freePrice) + "</span>" +
+        '<span class="pl-name">' + (k === "free" && opts.freeName ? opts.freeName : t[k]) + '</span><span class="pl-price">' + (life ? t.lifePrice : t.freePrice) + "</span>" +
         '<span class="pl-note">' + (life ? t.lifeNote : t.freeNote) + "</span></th>";
     };
     var body = rows(t).map(function (r, i) {
       return '<tr class="' + (i === SPLIT ? "pl-split" : "") + '"><th scope="row"><span class="pl-l">' + r[0] + "</span>" + (r[1] ? '<span class="pl-h">' + r[1] + "</span>" : "") +
-        '</th><td>' + cell(r[2], t) + '</td><td class="life">' + cell(r[3], t) + "</td></tr>";
+        '</th>' + (only ? "" : "<td>" + cell(r[2], t) + "</td>") + '<td class="life">' + cell(r[3], t) + "</td></tr>";
     }).join("");
     var foot = opts.ctas === false ? "" : '<tfoot><tr><td></td>' +
-      '<td><a class="btn ghost sm pl-cta" href="' + base + 'koppelen/?mode=signup">' + t.signup + "</a></td>" +
+      (only ? "" : '<td><a class="btn ghost sm pl-cta" href="' + base + 'koppelen/?mode=signup">' + t.signup + "</a></td>") +
       '<td class="life"><a class="btn red sm pl-cta" href="' + base + 'upgrade/">' + t.upgrade + "</a></td></tr></tfoot>";
-    return '<div class="pl-wrap"><table class="pl-table"><caption class="sr">' + t.caption + "</caption><thead><tr>" +
+    return '<div class="pl-wrap' + (only ? " pl-only" : "") + '"><table class="pl-table"><caption class="sr">' + t.caption + "</caption><thead><tr>" +
       '<td class="pl-corner"></td>' + head("free") + head("lifetime") + "</tr></thead><tbody>" + body + "</tbody>" + foot + '</table><p class="pl-fn">' + t.streamsNote + "</p></div>";
   }
   return { table: table, text: L };

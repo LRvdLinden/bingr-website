@@ -1492,11 +1492,16 @@
       return A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r) {
         if (closed) return true;
         if (r.limit) { showLimit(r); return false; }
+        // build 167: 403 activation_required: niet afspelen, speler dicht en het scherm Activeer Lifetime
+        if (r.activation) { limited = true; close(); if (B.lifetime) B.lifetime.required(); return false; }
         clearInterval(pingTimer);
         pingTimer = setInterval(function () {
           if (closed) { clearInterval(pingTimer); return; }
           A.streamPing(streamTitle()).then(function (alive) {
-            if (alive === false && !closed) A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r2) { if (r2.limit && !closed) { stopEngine(false); showLimit(r2); } });
+            if (alive === false && !closed) A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r2) {
+              if (r2.limit && !closed) { stopEngine(false); showLimit(r2); }
+              else if (r2.activation && !closed) { close(); if (B.lifetime) B.lifetime.required(); }
+            });
           });
         }, 30000);
         return true;

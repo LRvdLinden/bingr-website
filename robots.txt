@@ -7,5 +7,6 @@ Disallow: /unsubscribe/
 Disallow: /bevestigen/
 Disallow: /reset/
 Disallow: /trailer/
+Disallow: /upgrade/klaar/
 
 Sitemap: https://bingr.online/sitemap.xml

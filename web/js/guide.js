@@ -128,7 +128,7 @@
     var title = B.chanName(ch.name);
     A.streamStart(prof.id, prof.name, title, 'preview', ch.id).then(function (r) {
       if (gen !== pv.gen) return;
-      if (!r || !r.ok) { fail(gen); return; }
+      if (!r || !r.ok) { fail(gen); if (r && r.activation && B.lifetime) B.lifetime.required(); return; }
       pv.leased = true;
       pv.ping = setInterval(function () {
         if (gen !== pv.gen) return;

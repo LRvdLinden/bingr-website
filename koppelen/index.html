@@ -268,9 +268,12 @@ setMode(params.get("mode") === "signup" ? "signup" : "signin");
 
 // terugkeeradres na het bevestigen: met koppelcode terug naar koppelen, anders Mijn Bingr (of ?next=upgrade de betaalpagina)
 let pendingEmail = "", pendingBack = "";
+// build 167: ?next=klaar (na een gastaankoop op /upgrade/) daarna naar /upgrade/klaar/, waar de aankoop aan het account komt
+const NEXT = { upgrade: "/upgrade/", klaar: "/upgrade/klaar/" }[params.get("next")] || null;
+if (NEXT && params.get("email") && BingrAuth.isEmail(params.get("email")) && !$("email").value) $("email").value = params.get("email");
 function backUrl() {
   const code = $("code").value.replace("-", "").trim();
-  const after = params.get("next") === "upgrade" ? "/upgrade/" : "/account/";
+  const after = NEXT || "/account/";
   return code ? location.origin + location.pathname + "?code=" + encodeURIComponent(code) : location.origin + after;
 }
 function show(id) { ["auth", "link", "done", "confirm"].forEach((s) => $(s).classList.toggle("hidden", s !== id)); }
@@ -299,7 +302,7 @@ $("authForm").onsubmit = async (e) => {
       // zonder koppelcode (account maken vanaf de homepage of Mijn Bingr) daarna naar Mijn Bingr, anders terug naar koppelen
       const code = $("code").value.replace("-", "").trim();
       // build 133: ?next=upgrade (vanaf bingr.online/upgrade/) daarna terug naar de betaalpagina
-      const after = params.get("next") === "upgrade" ? "/upgrade/" : "/account/";
+      const after = NEXT || "/account/";
       const back = backUrl();
       const { data, error } = await sb.auth.signUp({ email, password, options: { data: Object.assign({ lang, first_name, last_name }, hp.data()), emailRedirectTo: back } });
       if (error) { hp.clear(); throw error; }
@@ -307,7 +310,7 @@ $("authForm").onsubmit = async (e) => {
       if (!data.session) { pendingEmail = email; pendingBack = back; $("resendMsg").textContent = ""; show("confirm"); return; }
       if (!code) { location.href = after; return; }
     }
-    if (params.get("next") === "upgrade" && !$("code").value.replace("-", "").trim()) { location.href = "/upgrade/"; return; }
+    if (NEXT && !$("code").value.replace("-", "").trim()) { location.href = NEXT; return; }
     await refresh();
   } catch (err) {
     $("authErr").textContent = errText(err);

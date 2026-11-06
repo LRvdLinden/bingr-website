@@ -9,6 +9,8 @@
  * Per account bewaard (bingr.web.plan.<user-id>). Weet de browser nog niets en lukt het ophalen niet (netwerkfout,
  * oude backend), dan geldt Lifetime: niemand raakt iets kwijt door een storing. Zegt de server `feature_locked`,
  * dan gaat dat onderdeel wél op slot. Upgraden gebeurt op bingr.online/upgrade/ (nieuw tabblad).
+ * Build 167 (alleen Lifetime): ook `access` ('full' | 'activate'; ontbreekt = 'full') en `lifetime_only` (alleen als de
+ * server het meestuurt); wat daarmee gebeurt staat in lifetime.js.
  */
 (function () {
   'use strict';
@@ -32,6 +34,16 @@
   var curUser = null;
 
   function key(uid) { return uid ? 'plan.' + uid : null; }
+  /** build 167: lifetime_only van de server (alleen als enabled true is), anders null. */
+  function lifetimeOnly(lo) {
+    if (!lo || typeof lo !== 'object' || B.bool(lo.enabled) !== true) return null;
+    var str = function (v) { return typeof v === 'string' && v ? v : null; };
+    var code = str(lo.code);
+    if (code && !/^[A-Za-z0-9-]{4,40}$/.test(code)) code = null;
+    var pct = B.int(lo.discount_pct);
+    return { enabled: true, announced: B.bool(lo.announced) === true, cutover_at: str(lo.cutover_at), code: code,
+      code_valid_until: str(lo.code_valid_until), discount_pct: pct != null && pct > 0 && pct < 100 ? pct : null, trial_until: str(lo.trial_until) };
+  }
   function posInt(v, def) { var n = B.int(v); return n != null && n > 0 ? n : def; }
 
   function planLimits(raw, base) {
@@ -68,6 +80,8 @@
         price: typeof up.price === 'string' && up.price ? up.price : '€ 4,99',
         price_en: typeof up.price_en === 'string' && up.price_en ? up.price_en : '€4.99' },
       plans: { free: planLimits(pl.free, P.FREE), lifetime: planLimits(pl.lifetime, P.LIFETIME) },
+      access: raw.access === 'activate' ? 'activate' : 'full',
+      lifetime_only: lifetimeOnly(raw.lifetime_only),
       v: CACHE_V,
       at: Date.now()
     };
@@ -77,7 +91,7 @@
     return { plan: 'lifetime', assumed: true, limits: B.copy(P.LIFETIME),
       features: allFeatures(true),
       upgrade: { url: UPGRADE_URL, link: true, price: '€ 4,99', price_en: '€4.99' },
-      plans: { free: B.copy(P.FREE), lifetime: B.copy(P.LIFETIME) } };
+      plans: { free: B.copy(P.FREE), lifetime: B.copy(P.LIFETIME) }, access: 'full', lifetime_only: null };
   }
   function allFeatures(on) { var o = {}; FEATURES.forEach(function (k) { o[k] = on; }); return o; }
 
@@ -92,7 +106,8 @@
   };
   function same(a, b) {
     if (!a || !b) return a === b;
-    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade, a.plans]) === JSON.stringify([b.plan, b.limits, b.features, b.upgrade, b.plans]);
+    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade, a.plans, a.access || 'full', a.lifetime_only || null]) ===
+      JSON.stringify([b.plan, b.limits, b.features, b.upgrade, b.plans, b.access || 'full', b.lifetime_only || null]);
   }
   /** Nieuw antwoord van de server toepassen (entitlements, of het veld in config/heartbeat). true = geldig. */
   P.apply = function (raw) {
@@ -171,6 +186,27 @@
     B.emit('plan', cur);
     P.fetch();
   };
+  /** build 167: de server zei 403 activation_required (stream_start): onthouden tot het volgende antwoord, en ophalen. */
+  P.markActivation = function () {
+    var p = B.copy(P.get());
+    if (p.access !== 'activate') {
+      if (p.assumed) { p = B.assign(fallback(), { plan: 'free', limits: B.copy(P.FREE) }); p.features = allFeatures(false); }
+      p.access = 'activate';
+      delete p.assumed;
+      p.v = CACHE_V;
+      cur = p; cur.at = Date.now();
+      var uid = A.userId && A.userId();
+      if (uid) B.store.set(key(uid), cur);
+      B.emit('plan', cur);
+    }
+    P.fetch();
+  };
+  /** 403 {error:'activation_required'} van de server? */
+  P.isActivationResponse = function (r) {
+    if (!r || r.status !== 403) return false;
+    var j = r.json || {};
+    return r.errorCode === 'activation_required' || j.error === 'activation_required' || j.error_code === 'activation_required';
+  };
   /** Limiet uit een fout (te veel streams/apparaten): {limit, plan} → het abonnement bijwerken als de server het noemt. */
   P.noteLimitError = function (info) {
     if (!info || !info.plan) return;
@@ -242,7 +278,7 @@
     var hl = highlight === 'multi_server' ? 'servers' : highlight;
     var tbl = h('div.plan-cmp', { role: 'table' }, [
       h('div.plan-cmp-row.plan-cmp-head', { role: 'row' }, [h('span', { role: 'columnheader' }, ''),
-        h('span', { role: 'columnheader' }, L('Free')), h('span.plan-cmp-life', { role: 'columnheader' }, 'Lifetime')])
+        h('span', { role: 'columnheader' }, B.lifetime ? B.lifetime.freeLabel() : L('Free')), h('span.plan-cmp-life', { role: 'columnheader' }, 'Lifetime')])
     ]);
     rows.forEach(function (r) {
       tbl.appendChild(h('div.plan-cmp-row' + (r[0] === hl ? '.hl' : ''), { role: 'row' }, [
@@ -259,7 +295,8 @@
     var u = U(), up = P.get().upgrade;
     if (!up.link) return u.h('p.muted.small.plan-note', L('You upgrade on bingr.online, signed in with this account.'));
     return u.button(L('Upgrade on bingr.online'), function () {
-      try { window.open(up.url, '_blank', 'noopener'); } catch (e) { /* stil */ }
+      // build 167: met de eigen kortingscode (?code=) als de server die meestuurt
+      try { window.open(B.lifetime ? B.lifetime.upgradeUrl() : up.url, '_blank', 'noopener'); } catch (e) { /* stil */ }
       if (onOpen) onOpen();
     }, { primary: true, icon: 'link', cls: 'plan-cta' });
   };
@@ -288,6 +325,9 @@
     ])]));
     var line = featureLine(reason);
     if (line) body.appendChild(h('p.plan-why', line));
+    // build 167: aankondiging "Bingr wordt Lifetime op …" met de eigen kortingscode
+    var ltNote = B.lifetime && B.lifetime.sheetNote();
+    if (ltNote) body.appendChild(ltNote);
     body.appendChild(P.compareTable(reason));
     body.appendChild(h('p.muted.small.plan-note', L('Pay once, no subscription. Applies to your whole account, on all your devices.')));
     body.appendChild(h('p.muted.small.plan-note', L(PROVIDER_NOTE)));

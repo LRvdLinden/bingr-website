@@ -577,6 +577,8 @@
       if (!r) return { failed: true };
       var j = r.json || {};
       if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 3, streams: parseStreams(j.streams), plan: j.plan || null };
+      // build 167: alleen Lifetime; dit account moet eerst Lifetime activeren (scherm Activeer Lifetime)
+      if (B.plan && B.plan.isActivationResponse(r)) return { activation: true, plan: j.plan || null };
       return r.ok ? { ok: true } : { failed: true };
     });
   };
