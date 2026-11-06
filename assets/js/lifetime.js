@@ -14,7 +14,7 @@ window.BingrLifetime = (function () {
   // DATUM-D: de dag waarop Léon alles live zet (de nieuwe versie van de voorwaarden en de privacyverklaring).
   // Vul hier de datum in als "JJJJ-MM-DD" (bijv. "2026-11-20"). Zolang er "DATUM-D" staat, toont de pagina dat letterlijk.
   // Wordt gebruikt op /voorwaarden/ en /privacy.html ([data-terms-date]).
-  var TERMS_DATE = "DATUM-D";
+  var TERMS_DATE = "2026-11-07";
   // ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
   var TZ = "Europe/Amsterdam";
