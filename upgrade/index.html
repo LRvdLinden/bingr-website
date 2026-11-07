@@ -161,7 +161,7 @@
 <script src="../assets/js/auth-forms.js?v=5"></script>
 <script src="../assets/js/userbtn.js?v=146" data-base="../"></script>
 <script src="../assets/js/plans.js?v=167"></script>
-<script src="../assets/js/lifetime.js?v=167"></script>
+<script src="../assets/js/lifetime.js?v=168"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
 // `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
@@ -263,7 +263,8 @@ function table(current) {
   $("plansTable").innerHTML = BingrPlans.table(lang, opts);
 }
 // billing `config` één keer (met de sessie, dan staat de eigen code erbij); na inloggen opnieuw
-function billingConfig() { return (billingConfig.p = billingConfig.p || billing("config").catch(() => ({ ok: false, j: {} }))); }
+// build 168: platform web (de server gebruikt dan new_paid_from van web en Android, niet die van de Apple-apps)
+function billingConfig() { return (billingConfig.p = billingConfig.p || billing("config", { platform: "web" }).catch(() => ({ ok: false, j: {} }))); }
 function applyConfig(r) {
   if (r && r.ok && r.j) {
     if (typeof r.j.price_cents === "number" && r.j.price_cents > 0) priceCents = r.j.price_cents;
@@ -439,14 +440,13 @@ async function load() {
   const { data } = await sb.auth.getSession();
   if (back === "cancel") { notice("cancelled"); cleanUrl(); }
   if (!data.session) {
-    if (GUEST) {
-      // alleen als alleen-Lifetime aanstaat (anders kent de server geen gastaankoop): eerst de config
-      show("loading");
-      await billingConfig().then(applyConfig);
-      if (LTO) { renderGuest(); show("acc"); return; }
-    }
+    // build 168: na de overgang of als nieuwe accounts eerst moeten kopen (fase 'after') is de gastaankoop de standaard,
+    // behalve met ?code= (een bestaand gratis account uit de mail: eerst inloggen, dan geldt de korting)
+    show("loading");
+    await billingConfig().then(applyConfig);
+    if (LTO && (GUEST || (LTJ.phase(LTO) === "after" && !urlCode))) { renderGuest(); show("acc"); return; }
     show("auth"); table(null);
-    billingConfig().then(applyConfig).then(() => {
+    billingConfig().then(() => {
       table(lastTable);
       // na de overgang: "Nog geen account?" wordt kopen zonder account (eerst betalen, dan het account)
       if (LTO && LTJ.phase(LTO) === "after") { const a = document.querySelector('#auth a[data-t="signUpNow"]'); if (a) { a.href = "?guest=1"; a.textContent = tr("guestLink"); } }

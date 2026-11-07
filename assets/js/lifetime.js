@@ -7,6 +7,11 @@
 //  - device-auth `entitlements` (ingelogd) → access ('full' | 'activate') en lifetime_only (zelfde vorm).
 // Fases: 'off' (niets anders), 'before' (aangekondigd, vóór cutover_at: banner en "Gratis (tot …)"),
 // 'after' (vanaf cutover_at: alleen Lifetime).
+// Build 168 (nieuwe accounts eerst kopen): de server zet voor web/Android (new_paid_from, niet die van Apple) in billing
+// `config` after_cutover true en new_paid true, voor bezoekers en voor ingelogde accounts van na die datum. Dan is de fase
+// 'after' (geen Gratis-kolom, geen "Maak gratis een account", gastaankoop standaard), maar vóór cutover_at met eigen
+// teksten: bestaande gratis accounts blijven gratis tot cutover_at. Ingelogde bestaande accounts krijgen geen new_paid en
+// zien dus nog "Gratis (tot …)" en hun code.
 window.BingrLifetime = (function () {
   "use strict";
 
@@ -24,10 +29,12 @@ window.BingrLifetime = (function () {
     nl: {
       banner: "Bingr wordt Lifetime op %s.", bannerP: "Daarna werkt Bingr alleen nog met Lifetime: één keer betalen, voor altijd. Bestaande gratis accounts kregen een persoonlijke kortingscode per e-mail. Je gegevens blijven bewaard.",
       bannerBtn: "Meer over Lifetime", freeUntil: "Gratis (tot %s)",
+      npBanner: "Nieuwe accounts: Bingr is nu alleen Lifetime.", npBannerP: "Eén keer betalen, voor altijd. Heb je al een gratis account? Dat blijft gratis tot %s, en je kreeg een persoonlijke kortingscode per e-mail. Je gegevens blijven bewaard.",
     },
     en: {
       banner: "Bingr is going Lifetime on %s.", bannerP: "After that, Bingr only works with Lifetime: pay once, keep it forever. Existing free accounts received a personal discount code by email. Your data stays safe.",
       bannerBtn: "More about Lifetime", freeUntil: "Free (until %s)",
+      npBanner: "New accounts: Bingr is now Lifetime only.", npBannerP: "Pay once, keep it forever. Already have a free account? It stays free until %s, and you received a personal discount code by email. Your data stays safe.",
     },
   };
   // Homepage na cutover_at: teksten die "gratis account" beloven (data-i18n-sleutels van index.html)
@@ -55,6 +62,18 @@ window.BingrLifetime = (function () {
       "a7": "Bingr works with <a href=\"#prijzen\">Lifetime</a>: you pay €4.99 once for up to 3 screens at the same time, 15 devices, unlimited servers, statistics, Watching now, the Trakt integration, themes, Continue watching, kids profiles and OpenSubtitles subtitles. There is no free plan anymore. You arrange and pay for your IPTV subscription with your own provider: Bingr does not sell channel packages. How many you can watch at once also depends on your IPTV provider.",
       "a4": "No. You sign in everywhere with your Bingr account, so your profiles, servers, My List, progress and settings are on all your devices, including Android and Windows. With Lifetime your account works on 15 devices and up to 3 screens at the same time. How many you can watch at once also depends on your IPTV provider.",
       "a12": "Yes. At <a href=\"web/\">bingr.online/web</a> you watch without installing anything, in Chrome, Safari, Edge or Firefox. You sign in with your Bingr account and see the same profiles, servers and My List as in the apps. Only servers and streams over https work in the browser. <a href=\"https://support.bingr.online/hulp/browser/\">What works in the browser?</a>",
+    },
+  };
+  // build 168: nieuwe accounts eerst kopen, vóór cutover_at. Zoals HOME_AFTER, maar zonder "geen gratis abonnement meer"
+  // (bestaande gratis accounts blijven tot cutover_at gratis); %s = de overgangsdatum
+  var HOME_NEWPAID = {
+    nl: {
+      "plans.sub": "Eén keer € 4,99, voor altijd. Geen abonnement, geen reclame, voor je hele account op al je apparaten. Nieuwe accounts starten met Lifetime.",
+      "a7": "Bingr werkt met <a href=\"#prijzen\">Lifetime</a>: je betaalt eenmalig € 4,99 voor tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, statistieken, Nu aan het kijken, de Trakt-koppeling, thema's, Verder kijken, kinderprofielen en ondertitels via OpenSubtitles. Nieuwe accounts starten met Lifetime; bestaande gratis accounts blijven gratis tot %s. Je IPTV-abonnement regel en betaal je zelf bij je eigen aanbieder: Bingr verkoopt geen zenderpakketten. Hoeveel je tegelijk kunt kijken, hangt ook af van je IPTV-aanbieder.",
+    },
+    en: {
+      "plans.sub": "Pay €4.99 once, keep it forever. No subscription, no ads, for your whole account on all your devices. New accounts start with Lifetime.",
+      "a7": "Bingr works with <a href=\"#prijzen\">Lifetime</a>: you pay €4.99 once for up to 3 screens at the same time, 15 devices, unlimited servers, statistics, Watching now, the Trakt integration, themes, Continue watching, kids profiles and OpenSubtitles subtitles. New accounts start with Lifetime; existing free accounts stay free until %s. You arrange and pay for your IPTV subscription with your own provider: Bingr does not sell channel packages. How many you can watch at once also depends on your IPTV provider.",
     },
   };
   // vóór de overgang: alleen de plans-ondertitel (de rest blijft; nieuwe accounts zijn tot de overgang nog gratis)
@@ -86,6 +105,8 @@ window.BingrLifetime = (function () {
     return {
       enabled: true, announced: ann, cutover_at: str(lo.cutover_at) || CUTOVER_DEFAULT,
       after_cutover: typeof lo.after_cutover === "boolean" ? lo.after_cutover : null,
+      // build 168: nieuwe accounts eerst kopen (billing `config` voor bezoekers en nieuwe accounts, entitlements bij een nieuw account)
+      new_paid: lo.new_paid === true, new_paid_from: str(lo.new_paid_from),
       code: cleanCode(lo.code) || null, code_valid_until: str(lo.code_valid_until),
       discount_pct: pct != null && pct > 0 && pct < 100 ? pct : null,
       discounted_price_cents: int(lo.discounted_price_cents != null ? lo.discounted_price_cents : raw.discounted_price_cents),
@@ -99,6 +120,13 @@ window.BingrLifetime = (function () {
     // after_cutover van de server gaat voor (klok van de bezoeker kan afwijken); zonder `now` ook de eigen klok
     if (lo.after_cutover === true || (cut && t >= cut.getTime() && (lo.after_cutover !== false || now))) return "after";
     return lo.announced && cut ? "before" : "off";
+  }
+
+  /** Build 168: 'after' omdat nieuwe accounts eerst moeten kopen, terwijl cutover_at nog niet voorbij is. */
+  function newPaid(lo, now) {
+    if (!lo || !lo.enabled || lo.new_paid !== true) return false;
+    var cut = date(lo.cutover_at);
+    return !cut || (date(now) || new Date()).getTime() < cut.getTime();
   }
 
   function locale(lang) { return lang === "en" ? "en-GB" : "nl-NL"; }
@@ -133,8 +161,12 @@ window.BingrLifetime = (function () {
 
   /** Banner voor de homepage (alleen vóór cutover_at, aangekondigd); anders "". */
   function banner(lo, lang, opts) {
-    if (phase(lo, opts && opts.now) !== "before") return "";
     var t = tr(lang), href = (opts && opts.href) || "#prijzen";
+    if (newPaid(lo, opts && opts.now)) {
+      return '<div class="lt-banner" role="status"><div class="lt-banner-t"><b>' + esc(t.npBanner) + "</b> " +
+        esc(t.npBannerP.replace("%s", fmtDate(lo.cutover_at, lang))) + '</div><a class="btn red sm" href="' + esc(href) + '">' + esc(t.bannerBtn) + "</a></div>";
+    }
+    if (phase(lo, opts && opts.now) !== "before") return "";
     return '<div class="lt-banner" role="status"><div class="lt-banner-t"><b>' + esc(t.banner.replace("%s", fmtDate(lo.cutover_at, lang))) + "</b> " +
       esc(t.bannerP) + '</div><a class="btn red sm" href="' + esc(href) + '">' + esc(t.bannerBtn) + "</a></div>";
   }
@@ -142,6 +174,12 @@ window.BingrLifetime = (function () {
   /** Teksten van de homepage voor deze fase ({data-i18n-sleutel: html}); leeg bij 'off'. */
   function homeTexts(lo, lang, now) {
     var ph = phase(lo, now), k = lang === "en" ? "en" : "nl";
+    if (ph === "after" && newPaid(lo, now)) {
+      var o = {}, d = fmtDate(lo.cutover_at, lang);
+      Object.keys(HOME_AFTER[k]).forEach(function (x) { o[x] = HOME_AFTER[k][x]; });
+      Object.keys(HOME_NEWPAID[k]).forEach(function (x) { o[x] = HOME_NEWPAID[k][x].replace("%s", d); });
+      return o;
+    }
     return ph === "after" ? HOME_AFTER[k] : ph === "before" ? HOME_BEFORE[k] : {};
   }
 
@@ -153,7 +191,8 @@ window.BingrLifetime = (function () {
     return sess.then(function (s) {
       var h = { "Content-Type": "application/json", apikey: cfg.anonKey };
       if (s && s.access_token) h.Authorization = "Bearer " + s.access_token;
-      return fetch(cfg.url + "/functions/v1/billing/config", { method: "POST", headers: h, body: "{}" });
+      // build 168: platform web (de server kiest dan new_paid_from, niet die van de Apple-apps)
+      return fetch(cfg.url + "/functions/v1/billing/config", { method: "POST", headers: h, body: JSON.stringify({ platform: "web" }) });
     }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
 
@@ -170,6 +209,6 @@ window.BingrLifetime = (function () {
   }
 
   return { TERMS_DATE: TERMS_DATE, CUTOVER_DEFAULT: CUTOVER_DEFAULT, parse: parse, phase: phase, fmtDate: fmtDate, euro: euro, discounted: discounted, codeValid: codeValid,
-    cleanCode: cleanCode, freeName: freeName, banner: banner, homeTexts: homeTexts, fetchConfig: fetchConfig, termsDate: termsDate,
+    cleanCode: cleanCode, newPaid: newPaid, freeName: freeName, banner: banner, homeTexts: homeTexts, fetchConfig: fetchConfig, termsDate: termsDate,
     fillTermsDate: fillTermsDate, text: tr };
 })();

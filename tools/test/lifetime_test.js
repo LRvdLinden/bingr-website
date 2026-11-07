@@ -166,4 +166,40 @@ ok(t.indexOf('>Gratis<') < 0 && t.indexOf('koppelen/?mode=signup') < 0, 'alleen 
 ok(t.indexOf('pl-only') >= 0 && t.indexOf('upgrade/') >= 0, 'alleen Lifetime: knop upgraden blijft');
 eq((t.split('<tbody>')[1].split('</tbody>')[0].match(/<td>/g) || []).length, 0, 'geen cellen voor Gratis');
 
+// MARK: build 168, nieuwe accounts eerst kopen (new_paid_from van web en Android)
+{
+  const NOW = new Date('2026-11-10T12:00:00Z');
+  const CUT1 = '2026-12-01T00:00:00+01:00';
+  // bezoeker (niet ingelogd): server zegt after_cutover true en new_paid
+  const vis = S.parse({ lifetime_only: { enabled: true, cutover_at: CUT1, after_cutover: true, trial_days: 0, announced: true, new_paid: true, new_paid_from: '2026-11-08T12:00:00+01:00' } });
+  eq([S.phase(vis, NOW), S.newPaid(vis, NOW), vis.new_paid_from], ['after', true, '2026-11-08T12:00:00+01:00'], '168: bezoeker = after (eerst kopen), nog vóór cutover_at');
+  eq(S.freeName(vis, 'nl', NOW), null, '168: geen "Gratis (tot …)" voor een bezoeker');
+  const tb = globalThis.BingrPlans.table('nl', { base: '', freeName: S.freeName(vis, 'nl', NOW), lifetimeOnly: S.phase(vis, NOW) === 'after' });
+  ok(tb.indexOf('>Gratis<') < 0 && tb.indexOf('koppelen/?mode=signup') < 0, '168: bezoeker ziet geen Gratis-kolom en geen "Maak gratis een account"');
+  const ht = S.homeTexts(vis, 'nl', NOW);
+  eq(ht['hero.signup'], 'Maak een account', '168: hero zonder "gratis"');
+  ok(ht.a7.indexOf('1 december 2026') >= 0 && ht.a7.indexOf('niet meer') < 0, '168: FAQ zegt dat bestaande gratis accounts tot 1 december gratis blijven');
+  ok(S.homeTexts(vis, 'en', NOW).a7.indexOf('1 December 2026') >= 0, '168: ook in het Engels');
+  const bn = S.banner(vis, 'nl', { now: NOW });
+  ok(bn.indexOf('Nieuwe accounts') >= 0 && bn.indexOf('1 december 2026') >= 0, '168: banner voor nieuwe accounts');
+  // ingelogd bestaand gratis account: de server stuurt geen new_paid en after_cutover false = zoals build 167
+  const old = S.parse({ lifetime_only: { enabled: true, cutover_at: CUT1, after_cutover: false, trial_days: 0, announced: true, code: 'BINGR-7K2Q-9FXM', code_valid_until: CUT1, discount_pct: 30, discounted_price_cents: 349 } });
+  eq([S.phase(old, NOW), S.newPaid(old, NOW)], ['before', false], '168: bestaand account blijft before');
+  eq(S.freeName(old, 'nl', NOW), 'Gratis (tot 1 december 2026)', '168: bestaand account ziet Gratis (tot 1 december 2026)');
+  ok(S.codeValid(old, NOW) && old.code === 'BINGR-7K2Q-9FXM', '168: en de eigen code');
+  ok(S.banner(old, 'nl', { now: NOW }).indexOf('Bingr wordt Lifetime op 1 december 2026') >= 0, '168: gewone aankondiging');
+  // na cutover_at: new_paid maakt niets meer uit (gewone after-teksten)
+  const late = new Date('2026-12-02T12:00:00Z');
+  ok(!S.newPaid(vis, late) && S.homeTexts(vis, 'nl', late).a7.indexOf('niet meer') >= 0, '168: na cutover_at de gewone teksten');
+  // zonder new_paid in het antwoord: precies zoals build 167
+  eq(S.parse({ lifetime_only: { enabled: true, cutover_at: CUT1, after_cutover: false } }).new_paid, false, '168: ontbreekt = false');
+  // webspeler: welkomstscherm wisselt op after_cutover van de server (ook met new_paid)
+  ok(LT.publicAfter({ lifetime_only: { enabled: true, cutover_at: CUT1, after_cutover: true, new_paid: true } }, NOW), '168: webspeler Koop Lifetime');
+  // de site en de webspeler sturen platform web mee naar billing config
+  const site = fs.readFileSync(path.join(ROOT, 'assets/js/lifetime.js'), 'utf8'), web = fs.readFileSync(path.join(WEB, 'lifetime.js'), 'utf8');
+  const up = fs.readFileSync(path.join(ROOT, 'upgrade/index.html'), 'utf8');
+  ok(/platform: "web"/.test(site) && /platform: 'web'/.test(web) && /billing\("config", \{ platform: "web" \}\)/.test(up), '168: platform web naar billing config');
+  ok(/LTJ\.phase\(LTO\) === "after" && !urlCode/.test(up), '168: /upgrade/ gastaankoop standaard, behalve met ?code=');
+}
+
 console.log('lifetime_test: ' + n + ' controles geslaagd');

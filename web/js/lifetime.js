@@ -191,7 +191,8 @@
   LT.publicConfig = function () {
     var c = B.config || {};
     if (!c.supabaseUrl || typeof fetch !== 'function') return Promise.resolve(null);
-    return fetch(c.supabaseUrl + '/functions/v1/billing/config', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: c.supabaseKey }, body: '{}' })
+    // build 168: platform web, zodat de server new_paid_from (web en Android) gebruikt en niet die van de Apple-apps
+    return fetch(c.supabaseUrl + '/functions/v1/billing/config', { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: c.supabaseKey }, body: JSON.stringify({ platform: 'web' }) })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   };
   /**
