@@ -1,5 +1,65 @@
 [
  {
+  "build": 169,
+  "version": "1.0.6",
+  "date": "2026-11-13",
+  "items": [
+   {
+    "type": "improved",
+    "platforms": [
+     "tvos"
+    ],
+    "nl": "Doorspoelen via de tijdbalk: ga met ↑ naar de balk, swipe of klik ←/→ naar een andere plek en bevestig met Select of Play/Pauze; Terug annuleert",
+    "en": "Scrub via the timeline: press ↑ to reach the bar, swipe or click ←/→ to pick a new spot and confirm with Select or Play/Pause; Back cancels"
+   },
+   {
+    "type": "improved",
+    "platforms": [
+     "tvos"
+    ],
+    "nl": "Met verborgen bediening opent een swipe over het touchoppervlak meteen de tijdbalk",
+    "en": "With the controls hidden, a swipe on the touch surface opens the timeline right away"
+   },
+   {
+    "type": "improved",
+    "platforms": [
+     "androidtv"
+    ],
+    "nl": "Doorspoelen via de tijdbalk: ga met ↑ naar de balk, kies met ←/→ een plek (vasthouden gaat sneller), bevestig met OK of annuleer met Terug",
+    "en": "Scrub via the timeline: press ↑ to reach the bar, pick a spot with ←/→ (hold to go faster), confirm with OK or cancel with Back"
+   },
+   {
+    "type": "improved",
+    "platforms": [
+     "ios",
+     "ipados",
+     "macos",
+     "android"
+    ],
+    "nl": "Bij het slepen over de tijdbalk staan de tijd en het verschil met nu boven de balk",
+    "en": "While dragging the timeline, the time and the difference from now appear above the bar"
+   },
+   {
+    "type": "fixed",
+    "platforms": [
+     "ios",
+     "ipados",
+     "macos"
+    ],
+    "nl": "De bediening verdwijnt niet meer terwijl je over de tijdbalk sleept",
+    "en": "The controls no longer disappear while you drag the timeline"
+   },
+   {
+    "type": "new",
+    "platforms": [
+     "web"
+    ],
+    "nl": "De homepage beweegt: covers die schuin omhoog lopen in de kop, blokken die inschuiven bij het scrollen, vinkjes die verschijnen in de prijstabel en een animatie van verder kijken op een ander scherm",
+    "en": "The homepage now moves: covers scrolling diagonally upward in the header, sections that slide in as you scroll, checkmarks that pop in on the pricing table and an animation of resuming on another screen"
+   }
+  ]
+ },
+ {
   "build": 168,
   "version": "1.0.5",
   "date": "2026-11-07",
