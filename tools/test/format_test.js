@@ -207,6 +207,18 @@ assert.strictEqual(B.xs ? B.xs.chanKey('┃NL┃ NPO 1') : B.fold(CR.cleanName('
   B.data = saved.data; B.parseTitle = saved.pt;
 }
 // verborgen categorieën: compacte rijen [id, naam, afbeelding, categorie]
+// build 169: tijdbalk (verschil van de voorbeeldpositie en Home/End)
+assert.strictEqual(B.fmtDelta(400, 130), '+4:30');
+assert.strictEqual(B.fmtDelta(60, 130), '\u22121:10');
+assert.strictEqual(B.fmtDelta(130.4, 130), '0:00');
+assert.strictEqual(B.fmtDelta(3800, 0), '+1:03:20');
+assert.strictEqual(B.fmtDelta(NaN, 1), '0:00');
+assert.strictEqual(B.scrubKey('Home', 3600), 0);
+assert.strictEqual(B.scrubKey('End', 3600), 3598);
+assert.strictEqual(B.scrubKey('End', 1), 0);
+assert.strictEqual(B.scrubKey('End', 0), null);
+assert.strictEqual(B.scrubKey('End', NaN), null);
+assert.strictEqual(B.scrubKey('ArrowLeft', 3600), null);
 Q.hiddenHits([{ sid: 'S1', raw: { hiddenMovies: [[1, 'NL | Amélie 2', 'p.jpg', 'Films 3'], [2, 'Iets anders', null, 'Films 3']] } }], 'amelie', 10).then((h) => {
   assert.deepStrictEqual(h, [{ type: 'movie', title: 'Amélie 2', poster: 'p.jpg', group: 'Films 3', sid: 'S1' }]);
   console.log('format_test: alles goed');

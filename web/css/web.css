@@ -479,7 +479,8 @@ html.playing #bingr-cookie-btn { display: none; }
 .pl-knob { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--accent); transform: scale(0); transition: transform .15s; }
 .pl-bar:hover .pl-knob, .pl-bar.drag .pl-knob, .pl-bar:focus-visible .pl-knob { transform: scale(1); }
 .pl-hover { position: absolute; bottom: 24px; transform: translateX(-50%); background: #000c; padding: 3px 8px; border-radius: 4px; font-size: 13px; opacity: 0; pointer-events: none; font-variant-numeric: tabular-nums; }
-.pl-bar:not(.live):hover .pl-hover { opacity: 1; }
+@media (hover: hover) { .pl-bar:not(.live):hover .pl-hover { opacity: 1; } }
+.pl-bar.drag:not(.live) .pl-hover { opacity: 1; }
 .pl-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; gap: 8px; }
 .pl-btns { display: flex; align-items: center; gap: 4px; }
 .btn.pl-ib { background: none; padding: 0; width: 48px; min-height: 48px; border-radius: 50%; }
