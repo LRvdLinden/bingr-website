@@ -162,10 +162,8 @@ window.BingrLifetime = (function () {
   /** Banner voor de homepage (alleen vóór cutover_at, aangekondigd); anders "". */
   function banner(lo, lang, opts) {
     var t = tr(lang), href = (opts && opts.href) || "#prijzen";
-    if (newPaid(lo, opts && opts.now)) {
-      return '<div class="lt-banner" role="status"><div class="lt-banner-t"><b>' + esc(t.npBanner) + "</b> " +
-        esc(t.npBannerP.replace("%s", fmtDate(lo.cutover_at, lang))) + '</div><a class="btn red sm" href="' + esc(href) + '">' + esc(t.bannerBtn) + "</a></div>";
-    }
+    // build 169: geen banner meer voor nieuwe accounts (Léon); de prijstabel zegt het al
+    if (newPaid(lo, opts && opts.now)) return "";
     if (phase(lo, opts && opts.now) !== "before") return "";
     return '<div class="lt-banner" role="status"><div class="lt-banner-t"><b>' + esc(t.banner.replace("%s", fmtDate(lo.cutover_at, lang))) + "</b> " +
       esc(t.bannerP) + '</div><a class="btn red sm" href="' + esc(href) + '">' + esc(t.bannerBtn) + "</a></div>";

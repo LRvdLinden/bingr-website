@@ -181,7 +181,7 @@ eq((t.split('<tbody>')[1].split('</tbody>')[0].match(/<td>/g) || []).length, 0, 
   ok(ht.a7.indexOf('1 december 2026') >= 0 && ht.a7.indexOf('niet meer') < 0, '168: FAQ zegt dat bestaande gratis accounts tot 1 december gratis blijven');
   ok(S.homeTexts(vis, 'en', NOW).a7.indexOf('1 December 2026') >= 0, '168: ook in het Engels');
   const bn = S.banner(vis, 'nl', { now: NOW });
-  ok(bn.indexOf('Nieuwe accounts') >= 0 && bn.indexOf('1 december 2026') >= 0, '168: banner voor nieuwe accounts');
+  eq(bn, '', '169: geen banner voor nieuwe accounts');
   // ingelogd bestaand gratis account: de server stuurt geen new_paid en after_cutover false = zoals build 167
   const old = S.parse({ lifetime_only: { enabled: true, cutover_at: CUT1, after_cutover: false, trial_days: 0, announced: true, code: 'BINGR-7K2Q-9FXM', code_valid_until: CUT1, discount_pct: 30, discounted_price_cents: 349 } });
   eq([S.phase(old, NOW), S.newPaid(old, NOW)], ['before', false], '168: bestaand account blijft before');
