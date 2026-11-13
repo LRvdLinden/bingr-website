@@ -222,18 +222,22 @@
 /* homepage: alleen wat hier hoort; gedeelde stijl staat in assets/css/site.css */
 /* hero */
 .hero{position:relative;min-height:min(100svh,980px);display:flex;align-items:center;padding:130px 0 70px;overflow:hidden;isolation:isolate}
-.wall{position:absolute;inset:-30% -25%;z-index:-2;display:grid;grid-template-columns:repeat(6,1fr);gap:18px;transform:rotate(-11deg);align-content:center;animation:drift 90s linear infinite alternate}
-.wall .col{display:flex;flex-direction:column;gap:18px}
-.wall .col:nth-child(even){margin-top:-140px}
-.wall picture{display:block}
-.wall img{width:100%;border-radius:10px;box-shadow:0 0 0 1px #ffffff14}
-.wall .ph{width:58%;margin:0 auto;border-radius:18px}
-@keyframes drift{to{transform:rotate(-11deg) translate3d(-4%,-3%,0)}}
+/* A1: schuine wand van covers (verzonnen titels, assets/img/covers; kolommen maakt assets/js/home-anim.js) die eindeloos omhoog loopt */
+.wall{position:absolute;top:-34%;bottom:-34%;left:-14%;right:-14%;z-index:-2;display:flex;align-items:flex-start;gap:18px;transform:rotate(-12deg);transform-origin:center;animation:wallIn 1.4s ease-out both}
+.wall .col{flex:none;width:clamp(150px,12.5vw,200px);display:flex;flex-direction:column;gap:18px;padding-bottom:18px;animation:up var(--t,70s) linear infinite;will-change:transform}
+.wall .col:nth-child(even){margin-top:-150px}
+.wall .col:nth-child(3n){margin-top:-60px}
+.wall img{display:block;width:100%;height:auto;aspect-ratio:2/3;border-radius:10px;background:#141414;box-shadow:0 14px 30px #0000008c,0 0 0 1px #ffffff14}
+.hero.off .wall .col{animation-play-state:paused}
+@keyframes up{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+@keyframes wallIn{from{opacity:0}to{opacity:1}}
+/* overloop voor de gecentreerde hero: midden donker (vignet), randen lichter; boven en onder naar zwart */
 .hero::before{content:"";position:absolute;inset:0;z-index:-1;background:
-  radial-gradient(ellipse 75% 60% at 50% 48%,#000000d9 0%,#000000b3 45%,#00000080 75%),
-  linear-gradient(180deg,#000000e6 0%,#00000066 22%,#00000066 70%,#000 100%)}
+  radial-gradient(ellipse 60% 64% at 50% 52%,#000000f0 0%,#000000d9 48%,#00000080 80%,#00000033 100%),
+  linear-gradient(180deg,#000000d9 0%,#0000 22%,#0000 75%,#000 100%)}
 .hero .wrap{text-align:center;width:100%}
 .hero h1{font-size:clamp(40px,6.6vw,80px);font-weight:900;line-height:1.02;letter-spacing:-.035em;max-width:15ch;margin:0 auto;text-wrap:balance}
+.hero h1 .w{display:inline-block}
 .hero h1::after{content:"";display:block;width:min(260px,40%);height:8px;border-radius:8px;background:var(--red);margin:22px auto 0;box-shadow:0 0 28px #e50914aa}
 .hero .lead{font-size:clamp(17px,2vw,21px);color:#e2e2e2;max-width:62ch;margin:24px auto 0;text-wrap:pretty}
 .hero .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:30px}
@@ -275,6 +279,26 @@
 .reason p{color:#c8c8c8;font-size:15.5px;margin-top:10px}
 .reason .ic{position:absolute;right:20px;bottom:18px;width:52px;height:52px;color:var(--red)}
 .reason .ic img{width:52px;height:52px}
+
+/* G: verder kijken op een ander scherm (kaart r4); speelt als de kaart in beeld komt (.rv.in) */
+.sync{display:flex;align-items:center;gap:8px;margin-top:22px;max-width:340px}
+.dev{flex:none;background:#111;border:4px solid #2a2a2a;overflow:hidden;position:relative}
+.dev.ph{width:56px;aspect-ratio:9/18;border-radius:14px}
+.dev.tv{width:min(196px,56%);aspect-ratio:16/9;border-radius:8px}
+.dev .shot{position:absolute;inset:0;background:radial-gradient(circle at 70% 40%,#e50914 0 18%,#0000 19%),linear-gradient(180deg,#2b3240,#121620)}
+.dev .pb{position:absolute;left:6px;right:6px;bottom:6px;height:4px;background:#ffffff40;border-radius:2px;overflow:hidden}
+.dev .pb i{display:block;height:100%;width:62%;background:var(--red)}
+.dev .lbl{position:absolute;left:5px;top:5px;max-width:calc(100% - 10px);font-size:10px;font-weight:800;line-height:1.25;color:#fff;background:#0000008c;padding:1px 6px;border-radius:4px;transform-origin:left top}
+.dev.ph .lbl{font-size:8.5px;padding:1px 4px}
+.sync .link{flex:1;min-width:28px;height:24px;overflow:visible}
+.sync .link path{stroke:var(--red);stroke-width:3;fill:none;stroke-dasharray:6 8;vector-effect:non-scaling-stroke}
+.reason.in .sync .link path{animation:draw 1.2s ease-out .8s both,flow 1.2s linear 2s infinite}
+.reason.in .dev.tv .pb i{animation:fillTo 1s ease-out 1.9s both}
+.reason.in .dev.tv .lbl{animation:pop .45s cubic-bezier(.3,1.6,.5,1) 2.2s both}
+@keyframes draw{from{stroke-dashoffset:120;opacity:0}to{stroke-dashoffset:0;opacity:1}}
+@keyframes flow{from{stroke-dashoffset:0}to{stroke-dashoffset:-28}}
+@keyframes fillTo{from{width:0}}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
 
 /* steps (a real sequence) */
 .steps{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px;counter-reset:s}
@@ -333,23 +357,47 @@
 @media (max-width:980px){.more-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:640px){.more-grid{grid-template-columns:1fr}}
 
-/* one orchestrated moment: hero copy rises in on load */
-@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-.hero .wrap>*{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
-.hero .wrap>:nth-child(2){animation-delay:.08s}.hero .wrap>:nth-child(3){animation-delay:.16s}
-.hero .wrap>:nth-child(4){animation-delay:.24s}.hero .wrap>:nth-child(5){animation-delay:.32s}.hero .wrap>:nth-child(6){animation-delay:.4s}
+/* A1: de kop komt woord voor woord omhoog (home-anim.js zet de woorden in .w met --d), daarna de lead en de knoppen */
+@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes barIn{from{transform:scaleX(0)}to{transform:none}}
+.hero .wrap>*{animation:rise .8s cubic-bezier(.2,.8,.2,1) both}
+.hero h1.split{animation:none}
+.hero h1.split .w{animation:rise .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--d,0) * 90ms)}
+.hero h1.split.w-done .w{animation:none}
+.hero h1::after{animation:barIn .9s cubic-bezier(.2,.8,.2,1) .55s both}
+.hero .wrap>:nth-child(2){animation-delay:.5s}.hero .wrap>:nth-child(3){animation-delay:.62s}
+.hero .wrap>:nth-child(4){animation-delay:.72s}.hero .wrap>:nth-child(5){animation-delay:.82s}.hero .wrap>:nth-child(6){animation-delay:.94s}
+
+/* B: blokken schuiven in bij het scrollen. Alleen met JS (.js op html, in de head) is de begintoestand onzichtbaar;
+   home-anim.js zet .anim-ok en .in. Laadt dat script niet, dan staat alles na 3 s toch aan (show). */
+@keyframes show{to{opacity:1;transform:none}}
+.js .rv:not(.in){opacity:0;transform:translateY(26px)}
+.js:not(.anim-ok) .rv:not(.in){animation:show 0s 3s forwards}
+.js .rv.in{animation:rise .8s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--r,0) * 120ms)}
+
+/* E: rijen van de prijstabel schuiven in en de vinkjes springen tevoorschijn (home-anim.js: .pl-wait / .pl-play / .pl-done) */
+@keyframes slideIn{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+#plansTable.pl-wait tbody tr>*{opacity:0}
+#plansTable.pl-play tbody tr>*{animation:slideIn .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--r,0) * 70ms + 150ms)}
+#plansTable.pl-play tbody .pl-ic{animation:pop .45s cubic-bezier(.3,1.6,.5,1) both;animation-delay:calc(var(--r,0) * 70ms + 350ms)}
+
 @media (prefers-reduced-motion:reduce){
-  .wall,.hero .wrap>*{animation:none}
+  .wall,.wall .col,.hero .wrap>*,.hero h1 .w,.hero h1::after,.sync *{animation:none!important}
+  .js .rv,.js .rv:not(.in),.js .rv.in{opacity:1!important;transform:none!important;animation:none!important}
+  #plansTable tbody tr>*,#plansTable .pl-ic{opacity:1!important;transform:none!important;animation:none!important}
 }
 
 @media (max-width:980px){
   .reasons{grid-template-columns:1fr 1fr}
   .steps{grid-template-columns:1fr}
-  .wall{grid-template-columns:repeat(4,1fr);inset:-30% -60%}
-  .wall .col:nth-child(n+5){display:none}
 }
 @media (max-width:640px){
   .hero{padding:104px 0 56px;min-height:0}
+  .hero::before{background:linear-gradient(180deg,#000000eb 0%,#000000cc 32%,#000000d6 70%,#000 100%)}
+  .wall{top:-12%;bottom:-12%;left:-30%;right:-30%;gap:12px}
+  .wall .col{width:118px;gap:12px;padding-bottom:12px}
+  .wall .col:nth-child(even){margin-top:-90px}
+  .wall .col:nth-child(3n){margin-top:-40px}
   .hero .cta .btn{width:100%}
   .plats{gap:8px}
   .plats li{flex:1 1 calc(50% - 4px);padding:8px 10px 8px 8px}
@@ -362,6 +410,7 @@
 }
 </style>
 <script src="assets/js/consent.js" data-base=""></script>
+<script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
 
@@ -384,14 +433,7 @@
 
 <main id="main">
 <header class="hero">
-  <div class="wall" aria-hidden="true">
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_home.webp"><img src="assets/img/nl/tv_home.jpg" alt="" fetchpriority="high" width="1400" height="788" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img class="ph" src="assets/img/nl/ios_top10.jpg" alt="" width="600" height="1300" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img src="assets/img/nl/tv_guide.jpg" alt="" width="1400" height="788" decoding="async"></picture></div>
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/ios_home.webp"><img class="ph" src="assets/img/nl/ios_home.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img src="assets/img/nl/tv_detail.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img src="assets/img/nl/tv_multiview.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_live.webp"><img src="assets/img/nl/tv_live.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_home.webp"><img src="assets/img/nl/tv_home.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_detail.webp"><img class="ph" src="assets/img/nl/ios_detail.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture></div>
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_trakt.webp"><img src="assets/img/nl/tv_trakt.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_categories.webp"><img class="ph" src="assets/img/nl/ios_categories.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_picker.webp"><img src="assets/img/nl/tv_picker.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/ios_live.webp"><img class="ph" src="assets/img/nl/ios_live.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img src="assets/img/nl/tv_guide.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img src="assets/img/nl/tv_detail.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture></div>
-    <div class="col"><picture><source type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img src="assets/img/nl/tv_multiview.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/tv_live.webp"><img src="assets/img/nl/tv_live.jpg" alt="" width="1400" height="788" loading="lazy" decoding="async"></picture><picture><source type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img class="ph" src="assets/img/nl/ios_top10.jpg" alt="" width="600" height="1300" loading="lazy" decoding="async"></picture></div>
-  </div>
+  <div class="wall" aria-hidden="true"></div>
   <div class="wrap">
     <h1 data-i18n="hero.title">Je eigen IPTV, op elk scherm in huis.</h1>
     <p class="lead" data-i18n="hero.lead">Bingr is de IPTV-speler voor je eigen abonnement of server: live tv met tv-gids, films en series in één overzichtelijke app, met profielen voor iedereen in huis.</p>
@@ -423,15 +465,15 @@
     <h2 class="h2" id="screens-t" data-i18n="shots.title">Zo ziet Bingr eruit</h2>
     <p class="sub" data-i18n="shots.sub">Jouw zenders en je eigen bibliotheek, netjes in rijen met posters, een Top 10 en Verder kijken.</p>
     <div class="shots" tabindex="0" aria-label="Screenshots">
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_home.webp"><img data-loc src="assets/img/nl/tv_home.jpg" width="1400" height="788" loading="lazy" alt="Startscherm van Bingr op Apple TV" data-i18n-alt="alt.tvhome" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
-      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img data-loc src="assets/img/nl/ios_top10.jpg" width="600" height="1300" loading="lazy" alt="Top 10 van vandaag op iPhone" data-i18n-alt="alt.iostop" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.top10">Top 10 vandaag</span></figcaption></figure>
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img data-loc src="assets/img/nl/tv_guide.jpg" width="1400" height="788" loading="lazy" alt="Tv-gids met nu-lijn" data-i18n-alt="alt.guide" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.guide">Tv-gids</span></figcaption></figure>
-      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_live.webp"><img data-loc src="assets/img/nl/ios_live.jpg" width="600" height="1300" loading="lazy" alt="Live tv met zenderlijst op iPhone" data-i18n-alt="alt.ioslive" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.live">Live tv</span></figcaption></figure>
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img data-loc src="assets/img/nl/tv_multiview.jpg" width="1400" height="788" loading="lazy" alt="Vier streams tegelijk in Multiview" data-i18n-alt="alt.multi" decoding="async"></picture><figcaption><b>Apple TV</b> <span>Multiview</span></figcaption></figure>
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img data-loc src="assets/img/nl/tv_detail.jpg" width="1400" height="788" loading="lazy" alt="Detailpagina van een film met scores en cast" data-i18n-alt="alt.detail" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.detail">Detailpagina</span></figcaption></figure>
-      <figure class="p"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_home.webp"><img data-loc src="assets/img/nl/ios_home.jpg" width="600" height="1300" loading="lazy" alt="Startscherm van Bingr op iPhone" data-i18n-alt="alt.ioshome" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/mac_home.webp"><img data-loc src="assets/img/nl/mac_home.jpg" width="1440" height="900" loading="lazy" alt="Bingr op de Mac" data-i18n-alt="alt.mac" decoding="async"></picture><figcaption><b>Mac</b> <span data-i18n="cap.mac">Een echte Mac-app</span></figcaption></figure>
-      <figure><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_picker.webp"><img data-loc src="assets/img/nl/tv_picker.jpg" width="1400" height="788" loading="lazy" alt="Profielkeuze met figuurtjes" data-i18n-alt="alt.picker" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.picker">Wie kijkt er?</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_home.webp"><img data-loc src="assets/img/nl/tv_home.jpg" width="1400" height="788" loading="lazy" alt="Startscherm van Bingr op Apple TV" data-i18n-alt="alt.tvhome" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
+      <figure class="p rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_top10.webp"><img data-loc src="assets/img/nl/ios_top10.jpg" width="600" height="1300" loading="lazy" alt="Top 10 van vandaag op iPhone" data-i18n-alt="alt.iostop" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.top10">Top 10 vandaag</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_guide.webp"><img data-loc src="assets/img/nl/tv_guide.jpg" width="1400" height="788" loading="lazy" alt="Tv-gids met nu-lijn" data-i18n-alt="alt.guide" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.guide">Tv-gids</span></figcaption></figure>
+      <figure class="p rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_live.webp"><img data-loc src="assets/img/nl/ios_live.jpg" width="600" height="1300" loading="lazy" alt="Live tv met zenderlijst op iPhone" data-i18n-alt="alt.ioslive" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.live">Live tv</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_multiview.webp"><img data-loc src="assets/img/nl/tv_multiview.jpg" width="1400" height="788" loading="lazy" alt="Vier streams tegelijk in Multiview" data-i18n-alt="alt.multi" decoding="async"></picture><figcaption><b>Apple TV</b> <span>Multiview</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_detail.webp"><img data-loc src="assets/img/nl/tv_detail.jpg" width="1400" height="788" loading="lazy" alt="Detailpagina van een film met scores en cast" data-i18n-alt="alt.detail" decoding="async"></picture><figcaption><b>Apple TV</b> <span data-i18n="cap.detail">Detailpagina</span></figcaption></figure>
+      <figure class="p rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/ios_home.webp"><img data-loc src="assets/img/nl/ios_home.jpg" width="600" height="1300" loading="lazy" alt="Startscherm van Bingr op iPhone" data-i18n-alt="alt.ioshome" decoding="async"></picture><figcaption><b>iPhone</b> <span data-i18n="cap.home">Startscherm</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/mac_home.webp"><img data-loc src="assets/img/nl/mac_home.jpg" width="1440" height="900" loading="lazy" alt="Bingr op de Mac" data-i18n-alt="alt.mac" decoding="async"></picture><figcaption><b>Mac</b> <span data-i18n="cap.mac">Een echte Mac-app</span></figcaption></figure>
+      <figure class="rv"><picture><source data-loc type="image/webp" srcset="assets/img/nl/tv_picker.webp"><img data-loc src="assets/img/nl/tv_picker.jpg" width="1400" height="788" loading="lazy" alt="Profielkeuze met figuurtjes" data-i18n-alt="alt.picker" decoding="async"></picture><figcaption><b data-i18n="cap.tv">Tv</b> <span data-i18n="cap.picker">Wie kijkt er?</span></figcaption></figure>
     </div>
   </div>
 </section>
@@ -440,32 +482,37 @@
   <div class="wrap">
     <h2 class="h2" id="feat-t" data-i18n="feat.title">Waarom Bingr</h2>
     <div class="reasons">
-      <div class="reason">
+      <div class="reason rv">
         <h3 data-i18n="r1.t">Kijk op elk scherm</h3>
         <p data-i18n="r1.p">Eén account voor je telefoon, tablet, Mac, Windows-pc, tv en browser. Begin op de bank, kijk verder in bed.</p>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="30" height="20" rx="2"/><path d="M13 34h12M19 28v6"/><rect x="32" y="18" width="12" height="22" rx="3"/></svg>
       </div>
-      <div class="reason">
+      <div class="reason rv">
         <h3 data-i18n="r2.t">Profielen, ook voor de kinderen</h3>
         <p data-i18n="r2.p">Iedereen een eigen Mijn lijst, Verder kijken en kijkgeschiedenis. Een kinderprofiel met leeftijdsgrens en pincode per profiel.</p>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17" cy="17" r="7"/><path d="M4 40c0-7 6-12 13-12s13 5 13 12"/><circle cx="35" cy="21" r="5"/><path d="M33 31c6 0 11 4 11 9"/></svg>
       </div>
-      <div class="reason">
+      <div class="reason rv">
         <h3 data-i18n="r3.t">Live tv met tv-gids en terugkijken</h3>
         <p data-i18n="r3.p">Een overzichtelijke gids met herinneringen, zappen met je afstandsbediening, en terugkijken of live terugspoelen als je server dat ondersteunt.</p>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="38" height="32" rx="3"/><path d="M5 18h38M17 8v32"/></svg>
       </div>
-      <div class="reason">
+      <div class="reason rv">
         <h3 data-i18n="r4.t">Verder kijken waar je was</h3>
         <p data-i18n="r4.p">Je profielen, Mijn lijst, voortgang en instellingen gaan mee met je account. Op een nieuw apparaat staat na inloggen alles klaar.</p>
+        <div class="sync" aria-hidden="true">
+          <div class="dev ph"><div class="shot"></div><span class="lbl">iPhone</span><div class="pb"><i></i></div></div>
+          <svg class="link" viewBox="0 0 180 24" preserveAspectRatio="none"><path d="M2 12 C 60 -6, 120 30, 178 12"/></svg>
+          <div class="dev tv"><div class="shot"></div><span class="lbl">Apple TV · <span data-i18n="r4.resume">verder op 42:10</span></span><div class="pb"><i></i></div></div>
+        </div>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M40 24a16 16 0 1 1-4.7-11.3"/><path d="M40 8v8h-8"/><path d="M20 17v14l11-7z"/></svg>
       </div>
-      <div class="reason">
+      <div class="reason rv">
         <h3 data-i18n="r5.t">Werkt met Trakt</h3>
         <p data-i18n="r5.p">Wat je kijkt gaat vanzelf naar Trakt, en wat je elders keek krijgt hier een vinkje. Ook je watchlist en aanbevelingen.</p>
         <span class="ic"><img src="assets/img/trakt.svg" alt="" width="52" height="52"></span>
       </div>
-      <div class="reason">
+      <div class="reason rv">
         <h3>Multiview</h3>
         <p data-i18n="r6.p">Tot vier streams tegelijk: voetbal, nieuws en de Formule 1 naast elkaar. Jij kiest welk beeld geluid geeft.</p>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="7" width="17" height="15" rx="2"/><rect x="26" y="7" width="17" height="15" rx="2"/><rect x="5" y="26" width="17" height="15" rx="2"/><rect x="26" y="26" width="17" height="15" rx="2"/></svg>
@@ -479,9 +526,9 @@
     <h2 class="h2" id="start-t" data-i18n="start.title">Wat heb je nodig?</h2>
     <p class="sub" data-i18n="start.sub">Bingr is alleen de speler. De zenders, films en series komen van je eigen aanbieder of server.</p>
     <ol class="steps">
-      <li><h3 data-i18n="s1.t">Een eigen IPTV-server</h3><p data-i18n="s1.p">Een IPTV-abonnement met Xtream Codes-gegevens, een M3U-afspeellijst of een MAC-portal. Of je eigen Plex, Jellyfin, Emby, Stremio of een map op je NAS.</p></li>
-      <li><h3 data-i18n="s2.t">Een gratis Bingr-account</h3><p data-i18n="s2.p">Met je e-mailadres en een wachtwoord. Daarmee log je op al je apparaten in. <a href="koppelen/?mode=signup">Maak een account</a></p></li>
-      <li><h3 data-i18n="s3.t">De app op je apparaat</h3><p data-i18n="s3.p">Kijk meteen in je browser en voeg je server toe. Bingr staat in de App Store voor iPhone en iPad, voor Android en Windows is er een testversie; Google Play en de Amazon Appstore volgen binnenkort. <a href="https://support.bingr.online/hulp/afspeellijst/#server">Zo voeg je je server toe</a></p></li>
+      <li class="rv"><h3 data-i18n="s1.t">Een eigen IPTV-server</h3><p data-i18n="s1.p">Een IPTV-abonnement met Xtream Codes-gegevens, een M3U-afspeellijst of een MAC-portal. Of je eigen Plex, Jellyfin, Emby, Stremio of een map op je NAS.</p></li>
+      <li class="rv"><h3 data-i18n="s2.t">Een gratis Bingr-account</h3><p data-i18n="s2.p">Met je e-mailadres en een wachtwoord. Daarmee log je op al je apparaten in. <a href="koppelen/?mode=signup">Maak een account</a></p></li>
+      <li class="rv"><h3 data-i18n="s3.t">De app op je apparaat</h3><p data-i18n="s3.p">Kijk meteen in je browser en voeg je server toe. Bingr staat in de App Store voor iPhone en iPad, voor Android en Windows is er een testversie; Google Play en de Amazon Appstore volgen binnenkort. <a href="https://support.bingr.online/hulp/afspeellijst/#server">Zo voeg je je server toe</a></p></li>
     </ol>
   </div>
 </section>
@@ -628,7 +675,7 @@ const EN = {
  "r1.t":"Watch on every screen","r1.p":"One account for your phone, tablet, Mac, Windows PC, TV and browser. Start on the couch, finish in bed.",
  "r2.t":"Profiles, kids included","r2.p":"Everyone gets their own My List, Continue watching and history. A kids profile with an age limit, and a PIN per profile.",
  "r3.t":"Live TV with a guide and catch-up","r3.p":"A clear guide with reminders, zapping with your remote, and catch-up or live rewind when your server supports it.",
- "r4.t":"Pick up where you left off","r4.p":"Your profiles, My List, progress and settings travel with your account. On a new device everything is ready after you sign in.",
+ "r4.t":"Pick up where you left off","r4.resume":"resume at 42:10","r4.p":"Your profiles, My List, progress and settings travel with your account. On a new device everything is ready after you sign in.",
  "r5.t":"Works with Trakt","r5.p":"What you watch is sent to Trakt automatically, and what you watched elsewhere gets a checkmark here. Plus your watchlist and recommendations.",
  "r6.p":"Up to four streams at once: football, news and Formula 1 side by side. You choose which one plays sound.",
  "start.title":"What do you need?","start.sub":"Bingr is only the player. The channels, movies and series come from your own provider or server.",
@@ -716,6 +763,7 @@ const nav = document.getElementById('nav');
 const onScroll = () => nav.classList.toggle('scrolled', scrollY > 20);
 addEventListener('scroll', onScroll, { passive: true }); onScroll();
 </script>
+<script src="assets/js/home-anim.js?v=169"></script>
 <script src="assets/js/site.js?v=111" data-nav-only></script>
 <script src="assets/js/releases.js?v=1" defer></script>
 <script src="assets/js/userbtn.js?v=146" data-base=""></script>
