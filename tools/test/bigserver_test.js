@@ -67,6 +67,7 @@ const hide = (w, n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [w
 const HIDDEN = Object.assign(hide('Films', 80), hide('Series', 40), hide('Zenders', 32));
 B.data = { customization: () => ({}), ageLimit: () => null, strict: () => false, shared: (k, d) => d, lockedGroups: () => [], hiddenCategoryNames: () => HIDDEN, secret: () => '', sources: [{ id: 'SRC-2', kind: 'Xtream Codes' }] };
 B.media = { isMediaServer: () => false };
+load('build178.js');   // build 178: terugkijken (providers en library gebruiken B.b178)
 load('providers.js');
 load('library.js');
 if (fs.existsSync(path.join(WEB, 'search.js'))) load('search.js');

@@ -182,7 +182,7 @@ assert.strictEqual(B.xs ? B.xs.chanKey('┃NL┃ NPO 1') : B.fold(CR.cleanName('
   B.data = { customization: () => ({}), ageLimit: () => null, strict: () => false, shared: (k, d) => d, lockedGroups: () => [], hiddenCategoryNames: () => ({}), secret: () => '', sources: [] };
   B.media = { isMediaServer: () => false };
   B.on = () => () => {};
-  load('language.js'); load('providers.js'); delete B.lib; load('library.js');
+  load('language.js'); load('build178.js'); load('providers.js'); delete B.lib; load('library.js');
   const L2 = B.lib;
   const mv = (id, t, g, extra) => Object.assign({ id: 'm' + id, title: t, group: g, poster: 'p' + id }, extra || {});
   const raw = { channels: [], series: [], movies: [

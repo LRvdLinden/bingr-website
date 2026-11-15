@@ -342,7 +342,23 @@
 
     function day() { for (var i = 0; i < days.length; i++) if (days[i].offset === dayOff) return days[i]; return days[0]; }
     // build 177: op volgorde en zonder dubbelen (B.b177.clean, gelijk aan Apple en Android)
-    function progsOf(ch) { var d = day(); return B.b177.clean(Lib.programsBetween(ch, d.start, d.end)); }
+    // build 178: plus de programma's van vroeger uit het archief van de server (get_simple_data_table, met has_archive)
+    var arch = {}, archBusy = {};
+    function progsOf(ch) {
+      var d = day(), base = Lib.programsBetween(ch, d.start, d.end), a = arch[chKey(ch)];
+      if (a && a.length) base = B.b178.merge(base, a.filter(function (p) { return p.end > d.start && p.start < d.end; }));
+      return B.b177.clean(base);
+    }
+    /** Build 178: het archief van deze zender ophalen (eenmalig per bezoek) en de regels daarna opnieuw tekenen */
+    function loadArchive(ch, box, scroll) {
+      var k = chKey(ch), d = day();
+      if (!(ch.catchupDays > 0) || !d || d.offset > 0 || arch[k] || archBusy[k]) return;
+      archBusy[k] = true;
+      Lib.archiveEPG(ch).then(function (list) {
+        arch[k] = list || [];
+        if (list && list.length && box && box.isConnected) fillRows(box, ch, scroll);
+      });
+    }
     function selKey() { return 'guideChannel.' + lower(B.app.profile.id); }
 
     function render() {
@@ -366,7 +382,15 @@
       if (!sel) sel = channels[0];
       // build 166: alleen dagen met gids-info (steekproef: de gekozen zender en de eerste 50); vandaag altijd
       var sample = G.daySample(channels, sel);
-      days = G.availableDays(G.days(Date.now(), G.backDays(sample)), sample, function (c, d) { return Lib.programsBetween(c, d.start, d.end).length > 0; });
+      // build 178: terug tot de terugkijktermijn van de zenders (hooguit 14 dagen, ook zonder gids: die komt uit het
+      // archief), vooruit de dagen met gids (hooguit 7)
+      var nowMs = Date.now(), maxCu = 0, fut = [];
+      channels.forEach(function (c) { if (c && c.catchupDays > maxCu) maxCu = c.catchupDays; });
+      for (var fo = 1; fo <= B.b178.MAX_AHEAD; fo++) {
+        var fs = G.dayStart(nowMs, fo), fe = G.dayStart(nowMs, fo + 1);
+        if (sample.some(function (c) { return Lib.programsBetween(c, fs, fe).length > 0; })) fut.push(fo);
+      }
+      days = B.b178.dayOffsets(maxCu, fut).map(function (o) { return { offset: o, start: G.dayStart(nowMs, o), end: G.dayStart(nowMs, o + 1) }; });
       if (!days.some(function (d) { return d.offset === dayOff; })) dayOff = 0;
       var sl = h('select.lv-select.gd-group', { 'aria-label': L('Categories') });
       gl.forEach(function (g) { var o = h('option', { value: g.key }, g.label); if (g.key === group) o.selected = true; sl.appendChild(o); });
@@ -548,7 +572,7 @@
       var y = box.scrollTop;
       U.clear(box);
       var progs = progsOf(ch), now = Date.now();
-      if (!progs.length) { box.appendChild(h('div.gd-empty.muted.small', L('No TV guide for this channel'))); return; }
+      if (!progs.length) { box.appendChild(h('div.gd-empty.muted.small', L('No TV guide for this channel'))); loadArchive(ch, box, scroll); return; }
       var cur = null;
       progs.forEach(function (p) {
         var st = G.state(p, now);
@@ -560,12 +584,17 @@
         ]);
         if (st === 'now') row.setAttribute('aria-current', 'true');
         row.setAttribute('aria-label', B.fmtTime(p.start) + ' ' + B.showName(p.title || '') + (st === 'past' && Lib.canCatchup(ch, p) ? ', ' + L('Watch from the start') : '') + (st === 'next' && RM.has(ch, p) ? ', ' + L('Reminder set') : ''));
-        row.addEventListener('click', function () { S.programSheet(ch, p, channels); });
+        // build 178: terug te kijken = meteen afspelen vanaf het begin (zoals NLZIET), anders het programmablad
+        row.addEventListener('click', function () {
+          if (G.state(p, Date.now()) === 'past' && Lib.canCatchup(ch, p)) { PV.stop(false); B.player.playCatchup(ch, p, channels); return; }
+          S.programSheet(ch, p, channels);
+        });
         if (st === 'now' || (!cur && st === 'next')) cur = cur || row;
         box.appendChild(row);
       });
       if (scroll && dayOff === 0 && cur) setTimeout(function () { box.scrollTop = Math.max(0, cur.offsetTop - box.offsetTop - (phone ? 54 : 44)); }, 0);
       else if (!scroll) box.scrollTop = y;
+      loadArchive(ch, box, scroll);   // build 178
     }
 
     // MARK: smal (telefoon)

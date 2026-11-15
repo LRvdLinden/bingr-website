@@ -50,6 +50,7 @@ const hide = (w, n) => Object.fromEntries(Array.from({ length: n }, (_, i) => [w
 let HIDDEN = {};
 B.data = { customization: () => ({}), ageLimit: () => null, strict: () => false, shared: (k, d) => d, lockedGroups: () => [], hiddenCategoryNames: () => HIDDEN, secret: () => '', sources: [{ id: 'SRC-1', kind: 'Xtream Codes' }] };
 B.media = { isMediaServer: () => false };
+load('build178.js');   // build 178: terugkijken (providers en library gebruiken B.b178)
 load('providers.js');
 load('library.js');
 load('pin.js');
