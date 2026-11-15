@@ -400,6 +400,9 @@
     };
     if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, opts); }, x.title);
     phClick(card, x, type);
+    // build 176: voor de voorvertoning en het slotje (vergrendeld met pincode)
+    card._x = x; card._type = type;
+    if (B.b176ui) B.b176ui.decorateCard(card, img, x, type);
     // build 171 (#20): geblokkeerd voor dit profiel = niet tonen (ook in Verder kijken, Mijn lijst en rijen van andere servers)
     if (B.b171ui && B.b171ui.hides(x, type)) card.hidden = true;
     return card;
@@ -443,6 +446,7 @@
     if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, B.chanName(ch.name));
     // build 171 (#15): verborgen zender (ook favorieten en recent van andere servers)
     if (B.b171ui && B.b171ui.hides(ch, 'channel')) b.hidden = true;
+    if (B.b176ui) B.b176ui.decorateCard(b, b.querySelector('.ccard-logo'), ch, 'channel');
     return b;
   }
   S.channelCard = channelCard;
@@ -459,7 +463,7 @@
   // build 172: Sport naast Films en Series; in de onderbalk van de telefoon (max. 5) in plaats van Categorieën (bereikbaar
   // via Home en Live TV); boven op de computer allebei
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
-    ['sport', 'Sport', 'sport'], ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid', 'top']];
+    ['sport', 'Sport', 'sport'], ['new', 'New & Popular', 'sparkle', 'top'], ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid', 'top']];
   // build 140: pagina's waarmee je een kinderprofiel verlaat (instellingen, account, Mijn Bingr): eerst de ouderpoort
   var KIDS_GATED = { settings: 1, support: 1, mybingr: 1, profiles: 1, homelayout: 1, catprefs: 1, stats: 1 };
 
@@ -991,6 +995,8 @@
       if (anim) fresh.classList.add('hero-in');
       if (heroEl && heroEl.parentNode) heroEl.parentNode.replaceChild(fresh, heroEl);
       heroEl = fresh;
+      // build 176: voorvertoning (trailer zonder geluid) in de hero na 2 s
+      if (B.b176ui) B.b176ui.heroPreview(fresh, heroItems[heroIdx]);
     }
     function restartHero() {
       stopHero();
@@ -1173,10 +1179,15 @@
       if (st) { el.appendChild(st); return; }
       var items = myListItems();
       if (!items.length) {
+        var mom0 = B.b176ui ? B.b176ui.momentsRow(null) : null;
+        if (mom0) el.appendChild(mom0);
         el.appendChild(h('div.state', [U.icon('bookmark', 'state-ic'), h('h2', L('Your list is empty')), h('p.muted', L('Add movies and series with the My List button.'))]));
         return;
       }
       grid = U.grid(items, function (hit) { return posterCard(hit.item, hit.type); }, 'posters');
+      // build 176: Momenten (alle, nieuwste eerst)
+      var mom = B.b176ui ? B.b176ui.momentsRow(null) : null;
+      if (mom) el.appendChild(mom);
       el.appendChild(grid);
     }
     pg.refresh = render;
@@ -1239,7 +1250,13 @@
     function show(res, hid, my) {
       if (my !== searchSeq) return;
       U.clear(results);
-      if (!res.channels.length && !res.movies.length && !res.series.length && !hid.length) { results.appendChild(h('div.state', [h('p.muted', L('No results for "%@"', q))])); return; }
+      // build 176: programma's uit de tv-gids (titel en beschrijving) in een eigen sectie, op de achtergrond
+      var guideBox = B.b176ui ? B.b176ui.searchGuide(q, function () { return my === searchSeq; }) : null;
+      if (!res.channels.length && !res.movies.length && !res.series.length && !hid.length) {
+        results.appendChild(h('div.state.search-none', [h('p.muted', L('No results for "%@"', q))]));
+        if (guideBox) results.appendChild(guideBox);
+        return;
+      }
       if (res.movies.length) { results.appendChild(h('h2.row-title.grid-title', L('Movies'))); results.appendChild(U.grid(res.movies, function (m) { return posterCard(m, 'movie'); }, 'posters')); }
       if (res.series.length) { results.appendChild(h('h2.row-title.grid-title', L('Series'))); results.appendChild(U.grid(res.series, function (s) { return posterCard(s, 'series'); }, 'posters')); }
       // Live TV (zenders) altijd als laatste, na films en series
@@ -1249,6 +1266,7 @@
         results.appendChild(h('h2.row-title.grid-title', L('In hidden categories')));
         results.appendChild(U.grid(hid, hiddenCard, 'posters'));
       }
+      if (guideBox) results.appendChild(guideBox);
     }
     function hiddenCard(x) {
       var gShown = B.catName(x.group);
@@ -1268,7 +1286,7 @@
       });
       return card;
     }
-    var deb = B.debounce(run, 220);
+    var deb = B.debounce(run, 250);
     input.addEventListener('input', deb);
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { deb.cancel(); run(); input.blur(); } });
     var shownVersion = -1;
@@ -1636,6 +1654,8 @@
       try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) { /* stil */ }
       var c = navigator.connection;
       if (c && (c.saveData || /(^|-)2g$/.test(String(c.effectiveType || '')))) return false;
+      // build 176: data besparen op een mobiel netwerk, vergrendelde titel
+      if (B.b176ui && (!B.b176ui.autoVideoOK() || B.b176ui.isLocked(x, type))) return false;
       return !document.hidden && !B.player.current && alive;
     }
     function stopHero() {
@@ -1947,6 +1967,8 @@
       drawButtons();
       setTimeout(function () { if (alive && refreshVersions()) drawButtons(); }, 60);
       B.ageRatings.originalLanguage(x, isShow).then(function () { if (!alive) return; drawLang(); metaText(); if (refreshVersions()) drawButtons(); });
+      // build 176: Momenten van deze titel (films: de film; series: de afleveringen)
+      if (B.b176ui) el.appendChild(B.b176ui.titleMoments(x, type, function () { return other || Lib.source; }, function () { return episodes; }));
       el.appendChild(extraSlot);
       if (isShow) loadEpisodes();
       else { loadTrailer(); autoTrailer(); }
@@ -2145,6 +2167,8 @@
       if (fn) cleanup = fn(prof, main) || null;
       // build 171: Kijk je nog? (Afspelen), verborgen zenders en geblokkeerde titels (Profielen), crashrapporten (Over)
       if (B.b171ui) B.b171ui.settings(tab, section, row, render, prof, main);
+      // build 176: automatisch volgende aflevering, data besparen, voorvertoning (Afspelen), vergrendeld (Profielen), Hulp
+      if (B.b176ui) cleanup = B.b176ui.settings(tab, section, row, render, prof, main, list) || cleanup;
       // build 172: Sport (Algemeen): standaardmelding bij een wedstrijd, Mijn teams en competities
       if (tab === 'general' && B.sport && B.sport.settings) B.sport.settings(section, row, render);
     }

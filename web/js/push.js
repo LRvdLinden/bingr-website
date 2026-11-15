@@ -228,6 +228,8 @@
     P.registration().catch(B.noop);
     navigator.serviceWorker.addEventListener('message', function (e) {
       var m = e.data || {};
+      // build 176: titel-link (herinnering op de releasedatum) → de route #/titel (titlelink.js) in dit tabblad
+      if (m.type === 'bingr-push-open' && m.title) { location.hash = '#/titel?' + String(m.title); return; }
       if (m.type === 'bingr-push-open') setPending(m.reminder);
       else if (m.type === 'bingr-push-resubscribe') { B.store.del('pushReg'); P.sync(); }
     });

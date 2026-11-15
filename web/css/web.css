@@ -1573,3 +1573,47 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .dt-act.on .ic { color: var(--accent); }
 .dt-act:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .page.detail { overflow-x: clip; }
+
+/* build 176: vergrendelen (slotje), voorvertoning, In de tv-gids, momenten, Nieuw en populair, kleine animaties */
+.b176-lock { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #000000b3; color: #fff; z-index: 2; }
+.b176-lock .ic { width: 15px; height: 15px; }
+.ccard-logo { position: relative; }
+.ccard-logo .b176-lock { width: 20px; height: 20px; right: 2px; top: 2px; }
+.ccard-logo .b176-lock .ic { width: 12px; height: 12px; }
+.b176-pv { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity .6s ease; background: #000; z-index: 1; }
+.b176-pv.on { opacity: 1; }
+.b176-pv-frame { position: absolute; left: 50%; top: 50%; border: 0; transform: translate(-50%, -50%); }
+.b176-pv.card .b176-pv-frame { height: 100%; width: calc(100% * 2.67); }
+.b176-pv.hero .b176-pv-frame { width: max(100%, calc(100vh * 16 / 9)); height: max(100%, calc(100vw * 9 / 16)); }
+.hero-bg.b176-pv-on .imgbox { visibility: hidden; }
+.hero-card .b176-pv { z-index: 0; }
+.hero-card .hero-card-shade, .hero-card .hero-card-info { position: relative; z-index: 1; }
+.b176-guide-hits { margin-top: 8px; }
+.b176-gh-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 8px; }
+.b176-gh { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 10px 12px; border: 0; border-radius: 8px; background: var(--card, #1b1b1b); color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.b176-gh:hover, .b176-gh:focus-visible { background: #2a2a2a; }
+.b176-gh.live { box-shadow: inset 3px 0 0 var(--accent, #E50914); }
+.b176-gh-logo { flex: 0 0 56px; height: 36px; display: flex; align-items: center; justify-content: center; }
+.b176-gh-logo .imgbox { width: 56px; height: 36px; }
+.b176-gh-logo img { width: 100%; height: 100%; object-fit: contain; }
+.b176-gh-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.b176-gh-t > div:first-child { font-weight: 600; }
+.b176-gh-lock { width: 16px; height: 16px; flex: 0 0 16px; opacity: .8; }
+.b176-desc { margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, transparent); color: #fff; border-radius: 3px; padding: 0 1px; }
+.b176-moment { flex: 0 0 auto; width: 220px; max-width: 70vw; padding: 0; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.b176-moment-img { position: relative; aspect-ratio: 16/9; border-radius: 6px; overflow: hidden; background: var(--card, #1b1b1b); }
+.b176-moment-img .imgbox, .b176-moment-img img { width: 100%; height: 100%; object-fit: cover; }
+.b176-moment-t { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: #000000b3; color: #fff; font-size: .78rem; font-weight: 700; }
+.b176-moment-t .ic { width: 13px; height: 13px; }
+.b176-moment:hover .b176-moment-img, .b176-moment:focus-visible .b176-moment-img { box-shadow: 0 0 0 2px #ffffffd9; }
+.b176-new-card { position: relative; min-width: 0; }
+.b176-new-card .b176-bell { position: absolute; right: 6px; top: 6px; z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: #000000b3; border: 1px solid #ffffff40; }
+.b176-new-card .b176-bell.on, .b176-bell.on .ic { color: var(--accent, #E50914); }
+.b176-now { background: #1DB954 !important; }
+@keyframes b176-ring { 0% { transform: rotate(0); } 15% { transform: rotate(16deg); } 30% { transform: rotate(-14deg); } 45% { transform: rotate(10deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } 100% { transform: rotate(0); } }
+@keyframes b176-pop { 0% { transform: scale(1); } 40% { transform: scale(1.3); } 70% { transform: scale(.92); } 100% { transform: scale(1); } }
+.ic.b176-anim { animation: b176-pop .45s cubic-bezier(.3, 1.5, .5, 1); }
+.ic-bell.b176-anim { animation: b176-ring .7s ease-in-out; transform-origin: 50% 10%; }
+@media (prefers-reduced-motion: reduce) { .ic.b176-anim, .ic-bell.b176-anim { animation: none; } .b176-pv { transition: none; } }
+@media (max-width: 600px) { .b176-moment { width: 180px; } }

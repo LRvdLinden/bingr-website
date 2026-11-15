@@ -300,6 +300,8 @@
           });
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, function () { self.ev.tracks(); });
           hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function () { self.ev.tracks(); });
+          // build 176: data besparen op een mobiel netwerk (variant ≤ SD en ≤ 1,5 Mbit/s)
+          if (B.b176ui && B.b176ui.tuneHls) B.b176ui.tuneHls(hls, Hls);
           hls.subtitleDisplay = false;
           hls.loadSource(step.url);
           hls.attachMedia(v);
@@ -710,6 +712,10 @@
       }
       if (isCatchup() && item.channel && item.program && P173.canGoLive(item.program.end, Date.now())) {
         rightBtns.appendChild(U.button(L('Back to live'), function () { goLive(); }, { icon: 'tv', cls: 'pl-tb pl-golive', title: L('Back to live') }));
+      }
+      // build 176: Moment bewaren (films en afleveringen, sleutel = die van Verder kijken)
+      if ((item.type === 'movie' || item.type === 'episode') && B.b176ui && D.saveBookmark) {
+        rightBtns.appendChild(iconBtn('bookmark', L('Save moment') + ' (B)', function () { saveMoment(); }, 'pl-bmbtn'));
       }
       // build 173 (#5): Afleveringen in de speler
       if (item.type === 'episode' && (ctx.episodes || []).length > 1) rightBtns.appendChild(iconBtn('list', L('Episodes') + ' (E)', function () { togglePanel('episodes'); }, 'pl-epsbtn'));
@@ -1664,7 +1670,13 @@
       setTimeout(function () { var o = box.querySelector('.on'); if (o && o.scrollIntoView) o.scrollIntoView({ block: 'center' }); }, 0);
     }
     /** Naar een andere zender zonder de speler te verlaten (ook vanuit terugkijken). */
+    // build 176: vergrendelde zender = eerst de pincode van het hoofdprofiel; Annuleren = blijven op de huidige zender
     function tuneTo(c) {
+      if (!c) return;
+      if (B.b176ui && B.b176ui.gateChannel) { B.b176ui.gateChannel(c, function () { tuneToNow(c); }, function () { clearTimeout(zapTimer); zapIndex = null; }); return; }
+      tuneToNow(c);
+    }
+    function tuneToNow(c) {
       if (!c) return;
       var list = ctx.channels || [];
       for (var k = 0; k < list.length; k++) if (list[k] === c || list[k].id === c.id) { ctx.index = k; break; }
@@ -1827,13 +1839,18 @@
       var left = 10;
       U.clear(nextCard);
       var count = h('span.pl-count', String(left));
+      // build 176: automatisch volgende aflevering per profiel (uit = de knop blijft, maar telt niet af); Kijk je nog? gaat voor
+      var X176 = B.b176, prof = B.app && B.app.profile;
+      var auto = !X176 || X176.autoplayStarts(D.autoplayNext ? D.autoplayNext() : null, !!(prof && prof.kids),
+        !!(still && stillOn() && still.shouldAsk(Date.now(), stillHours(), true)));
       var playB = U.button(L('Next episode'), function () { playNext(); }, { primary: true, icon: 'play' });
       var dismiss = U.button('', function () { nextDismissed = true; clearInterval(countdownTimer); nextCard.style.display = 'none'; }, { icon: 'close', cls: 'pl-ib pl-next-x', title: L('Close') });
       nextCard.appendChild(h('div.pl-next-still', [U.img(nx.still || item.artwork, 'still')]));
       nextCard.appendChild(h('div.pl-next-info', [h('div.muted.small', L('Next episode')), h('div.pl-next-title', 'S' + nx.season + ':E' + nx.number + ' ' + B.showName(nx.title)),
-        h('div.muted.small', [L('Starts in'), ' ', count, ' s']), h('div.pl-next-btns', [playB])]));
+        auto ? h('div.muted.small', [L('Starts in'), ' ', count, ' s']) : null, h('div.pl-next-btns', [playB])]));
       nextCard.appendChild(dismiss);
       nextCard.style.display = 'flex';
+      if (!auto) return;
       countdownTimer = setInterval(function () {
         if (engine && !engine.playing && !engine.v.ended) return;
         left--;
@@ -1841,6 +1858,14 @@
         // build 173: slaaptimer "Na deze aflevering": niet vanzelf door naar de volgende
         if (left <= 0) { clearInterval(countdownTimer); if (sleepCheck(true)) return; playNext(); }
       }, 1000);
+    }
+    function saveMoment() {
+      if (!engine || !D.saveBookmark || isLive() || isCatchup()) return;
+      var src = isrc();
+      D.saveBookmark({ playlistID: src ? src.id : '', key: item.id, t: engine.time(),
+        title: item.type === 'episode' ? B.showName(item.title) + ' · ' + String(item.subtitle || '').split(' · ')[0] : B.showName(item.title), artwork: item.artwork || null, seriesID: item.type === 'episode' ? item.seriesID : null });
+      U.toast(L('Moment saved') + ' · ' + B.b176.clock(engine.time()));
+      if (B.b176ui && B.b176ui.pop) B.b176ui.pop(root.querySelector('.pl-bmbtn'));
     }
     function playNext() {
       var nx = nextEpisode();
@@ -2064,6 +2089,7 @@
       }
       if (k === 'f' || k === 'F') { e.preventDefault(); toggleFullscreen(); return; }
       if (k === 'm' || k === 'M') { e.preventDefault(); video.muted = !video.muted; drawVolume(); flash(video.muted ? L('Muted') : Math.round(video.volume * 100) + '%'); return; }
+      if ((k === 'b' || k === 'B') && (item.type === 'movie' || item.type === 'episode') && D.saveBookmark) { e.preventDefault(); saveMoment(); return; }
       if (k === 'n' || k === 'N') { if (item.type === 'episode' && nextEpisode()) { e.preventDefault(); playNext(); } return; }
       if (k === 'p' || k === 'P') { e.preventDefault(); togglePip(); return; }
       if (k === 'Escape' || k === 'Backspace') {

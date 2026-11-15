@@ -16,7 +16,9 @@
   // build 171: hiddenChannels (#15), pinnedCategories (#17) en blockedTitles (#20), per profiel, zoals myList
   var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories', 'hiddenChannels', 'pinnedCategories', 'blockedTitles',
     // build 172 (Sport): favoriete teams en competities, gedempte wedstrijden (docs/ACCOUNT.md "Build 172: Sport")
-    'favoriteTeams', 'favoriteCompetitions', 'sportMuted'];
+    'favoriteTeams', 'favoriteCompetitions', 'sportMuted',
+    // build 176: vergrendelen met pincode (gelijk aan syncmerge.js)
+    'lockedChannels', 'lockedTitles'];
   var REMOVED_DAYS = 90, MAX_RECENT = 20, MAX_PROGRESS = 300, MAX_HISTORY = 500;
   var lower = function (s) { return String(s || '').toLowerCase(); };
 
@@ -473,7 +475,7 @@
     if (swBroken || typeof window.Worker !== 'function' || B.noSyncWorker) return null;
     if (sw) return sw;
     try {
-      sw = new window.Worker('js/sync-worker.js?v=172s');
+      sw = new window.Worker('js/sync-worker.js?v=176');
       sw.onmessage = function (e) {
         var d = e.data || {}, w = swWait[d.id];
         if (!w) return;
@@ -524,6 +526,7 @@
     P.id = id;
     P.st = (saved && saved.st) || { sets: { myList: {}, favorites: {}, watched: {}, recentChannels: {} }, progress: {}, history: {} };
     SET_FIELDS.forEach(function (f) { P.st.sets[f] = P.st.sets[f] || {}; });
+    P.st.bookmarks = P.st.bookmarks || {};
     P.base = (saved && saved.base) || null;
     // build 146: lokaal nooit een pincode als tekst (oude kopie van ≤ 145): weg; de hash komt bij de volgende sync
     if (P.base && typeof P.base.pin === 'string') { delete P.base.pin; if (!B.has(P.base, 'pinHash')) delete P.base.pinUpdatedAt; }
@@ -756,7 +759,9 @@
     { fields: ['prefs'], at: function (d) { var v = d && d.prefs; return v && typeof v === 'object' ? time(v.updatedAt) || time(d.prefsUpdatedAt) || 0 : 0; } },
     { fields: ['homeLayout'], at: function (d) { var v = d && d.homeLayout; return v && typeof v === 'object' ? time(v.updatedAt) || 0 : 0; } },
     // build 146: pinHash, pin en pinUpdatedAt samen
-    { fields: ['pinHash', 'pin', 'pinUpdatedAt'], at: function (d) { return d && (B.has(d, 'pin') || B.has(d, 'pinHash')) ? time(d.pinUpdatedAt) || 0 : 0; } }
+    { fields: ['pinHash', 'pin', 'pinUpdatedAt'], at: function (d) { return d && (B.has(d, 'pin') || B.has(d, 'pinHash')) ? time(d.pinUpdatedAt) || 0 : 0; } },
+    // build 176: automatisch volgende aflevering {value, at} (nieuwste at wint)
+    { fields: ['autoplayNext'], at: function (d) { var v = d && d.autoplayNext; return v && typeof v === 'object' ? time(v.at) || 0 : 0; } }
   ];
   /** Lokale wijziging: na ~3 s naar de server (voortgang tijdens afspelen hooguit eens per 30 s). */
   function changed(progressOnly) {
@@ -1089,6 +1094,52 @@
     P.base.prefs = pr;
     changed(false);
   };
+  // MARK: build 176: automatisch volgende aflevering en momenten (docs/ACCOUNT.md "Build 176")
+
+  /** autoplayNext van het actieve profiel: true/false, of null = niet ingesteld (dan aan, in een kinderprofiel uit). */
+  D.autoplayNext = function () {
+    var v = P.base && P.base.autoplayNext;
+    return v && typeof v === 'object' && (v.value === true || v.value === false) ? v.value : null;
+  };
+  D.setAutoplayNext = function (on) {
+    if (!P.id) return;
+    P.base = P.base ? B.copy(P.base) : {};
+    var prev = P.base.autoplayNext && time(P.base.autoplayNext.at) || 0;
+    P.base.autoplayNext = { value: !!on, at: B.iso(Math.max(Date.now(), prev + 1)) };
+    changed(false);
+  };
+  /** Aanwezige momenten van het actieve profiel: [{id, playlistID, key, title, t, at (ms)}], nieuwste eerst. */
+  D.bookmarks = function () {
+    var m = P.st && P.st.bookmarks;
+    if (!m) return [];
+    return Object.keys(m).filter(function (k) { return m[k].on && m[k].v; })
+      .sort(function (x, y) { return (m[y].at - m[x].at) || (x < y ? -1 : x > y ? 1 : 0); })
+      .map(function (k) { return B.assign({ id: k, at: m[k].at }, m[k].v); });
+  };
+  /** Moment bewaren: o = {playlistID, key, title, t, artwork?}; geeft het id. */
+  D.saveBookmark = function (o) {
+    if (!P.st) return null;
+    var m = P.st.bookmarks = P.st.bookmarks || {};
+    var t = Math.max(0, Math.floor(+o.t || 0));
+    var id = String(o.playlistID || '').toLowerCase() + '|' + String(o.key) + '@' + t, now = Date.now();
+    if (m[id] && m[id].at >= now) now = m[id].at + 1;
+    var v = { playlistID: String(o.playlistID || ''), key: String(o.key), title: String(o.title || ''), t: t };
+    if (o.artwork) v.artwork = o.artwork;
+    if (o.seriesID != null) v.seriesID = String(o.seriesID);
+    m[id] = { at: now, on: true, v: v };
+    P.st = normalize(P.st);
+    changed(false);
+    return id;
+  };
+  D.removeBookmark = function (id) {
+    var m = P.st && P.st.bookmarks;
+    if (!m || !m[id] || !m[id].on) return;
+    var now = Date.now();
+    if (m[id].at >= now) now = m[id].at + 1;
+    m[id] = { at: now, on: false };
+    changed(false);
+  };
+
   D.addHistory = function (e) {
     if (!P.st) return;
     var id = historyId(e);
