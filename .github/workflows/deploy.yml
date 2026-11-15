@@ -46,9 +46,11 @@ jobs:
         # build 154: gezien over alle servers (gedeelde gevallen uit watched_keys_cases.json) en de Trakt-sync (watched_test)
         # build 157: abonnement (Verder kijken, kinderprofielen, OpenSubtitles bij Lifetime; oude server zonder vlag = Gratis)
         # build 167: alleen Lifetime (access/lifetime_only, Activeer Lifetime, ?code=, Gratis (tot …), alleen de kolom Lifetime; lifetime_test)
+        # build 171: Kijk je nog?, verbergen/blokkeren per profiel, regio's van categorieën, limietschermen, crashrapporten (b171_test)
         # build 158: opslag binnen de grenzen (model per profiel in IndexedDB met migratie, volle localStorage/IndexedDB, tombstones)
         run: |
           node tools/test/plan_test.js
+          node tools/test/b171_test.js
           node tools/test/lifetime_test.js
           node tools/test/storage_test.js
           node tools/test/watched_test.js

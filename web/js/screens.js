@@ -236,20 +236,36 @@
       U.button(L('Upgrade to Lifetime'), function () { P.sheet(kind); }, { cls: 'small', icon: 'lifetime' })]);
   };
   S.deviceLimit = function (info, onRetry, onCancel) {
+    // build 171 (#31): langst niet gebruikte apparaten bovenaan, "laatst actief …", wat er speelt, en het voorstel om het
+    // langst niet gebruikte af te melden. Na het afmelden gaat het inloggen meteen verder (onRetry).
+    var X = B.b171, now = Date.now();
+    var devs = X ? X.sortDevices(info.devices.map(function (d) { return B.assign({ lastUsed: d.lastSeen || d.lastSeenAt || null }, d); })) : info.devices;
+    var sug = X ? (info.suggest ? devs.filter(function (d) { return d.id === info.suggest; })[0] : X.suggestion(devs, now)) : null;
+    function remove(d, btn) {
+      btn.disabled = true;
+      A.removeDevice(d.id).then(onRetry, function (e) { btn.disabled = false; U.toast(e.message); });
+    }
     var list = h('div.dev-list');
-    info.devices.forEach(function (d) {
-      var rm = U.button(L('Remove'), function () {
-        rm.disabled = true;
-        A.removeDevice(d.id).then(onRetry, function (e) { rm.disabled = false; U.toast(e.message); });
-      }, { cls: 'small' });
+    devs.forEach(function (d) {
+      var rm = U.button(L('Remove'), function () { remove(d, rm); }, { cls: 'small' });
+      var sub = [A.platformLabel(d.platform)];
+      if (X) sub.push(L('Active %@', X.relTime(d.lastUsed, now, L)));
+      if (d.current) sub.push(L('This device'));
       list.appendChild(h('div.dev', [h('div.dev-ic', [S.platformIcon(d.platform)]),
-        h('div.dev-info', [h('div.dev-name', d.name), h('div.muted.small', A.platformLabel(d.platform))]), rm]));
+        h('div.dev-info', [h('div.dev-name', d.name), h('div.muted.small', sub.join(' · ')),
+          d.watching ? h('div.muted.small', [L('Watching now'), ': ', [d.profileName, d.title].filter(Boolean).join(' · ')]) : null]), rm]));
     });
+    var hint = null;
+    if (sug) {
+      var sb = U.button(L('Sign out %@', sug.name), function () { remove(sug, sb); }, { primary: true, cls: 'small' });
+      hint = h('div.dev-suggest', [h('p', L('Sign out: not used since %@', sug.lastUsed ? U.fmtDate(sug.lastUsed) : L('unknown'))), sb]);
+    }
     var card = h('div.login-card.limit', [
       h('h1', L('Too many devices')),
       h('p.muted', L('Your account can be used on up to %d devices. Remove a device to sign in on this one.', info.limit)),
-      S.limitUpsell('devices', info),
+      hint,
       list,
+      S.limitUpsell('devices', info),
       h('div.dlg-buttons', [U.button(L('Cancel'), onCancel)])
     ]);
     return { el: loginShell(card) };
@@ -384,6 +400,8 @@
     };
     if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, opts); }, x.title);
     phClick(card, x, type);
+    // build 171 (#20): geblokkeerd voor dit profiel = niet tonen (ook in Verder kijken, Mijn lijst en rijen van andere servers)
+    if (B.b171ui && B.b171ui.hides(x, type)) card.hidden = true;
     return card;
   }
   /** Bekeken-vinkjes en voortgang op alle zichtbare posters bijwerken (na Trakt-sync of (on)bekeken markeren). */
@@ -405,6 +423,7 @@
     var card = h('a.card.top10', { href: S.titleLink(type, x), 'aria-label': (i + 1) + '. ' + B.showName(x.title) }, [
       h('div.top10-num', String(i + 1)), h('div.card-img', [U.img(x.poster, 'poster', B.showName(x.title)), langBadge(x, type === 'series')])]);
     if (S.cardMenu) U.onMenu(card, function () { return S.cardMenu(x, type, {}); }, x.title);
+    if (B.b171ui && B.b171ui.hides(x, type)) card.hidden = true;
     return card;
   }
   function pct(p) { return Math.round(B.clamp((Date.now() - p.start) / (p.end - p.start), 0, 1) * 100) + '%'; }
@@ -418,6 +437,8 @@
     if (ch._key || ch._noKey) phClick(b, ch, 'channel');
     else b.addEventListener('click', function () { B.player.playChannel(ch, (list || [ch]).filter(function (c) { return !c._key && !c._noKey; })); });
     if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, B.chanName(ch.name));
+    // build 171 (#15): verborgen zender (ook favorieten en recent van andere servers)
+    if (B.b171ui && B.b171ui.hides(ch, 'channel')) b.hidden = true;
     return b;
   }
   S.channelCard = channelCard;
@@ -2013,6 +2034,8 @@
       var main = D.isMain(prof);
       var fn = TABS[tab];
       if (fn) cleanup = fn(prof, main) || null;
+      // build 171: Kijk je nog? (Afspelen), verborgen zenders en geblokkeerde titels (Profielen), crashrapporten (Over)
+      if (B.b171ui) B.b171ui.settings(tab, section, row, render, prof, main);
     }
     var TABS = {
       general: function (prof, main) {

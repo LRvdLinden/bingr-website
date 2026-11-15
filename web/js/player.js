@@ -520,11 +520,72 @@
     var errorBox = h('div.pl-error', { role: 'alert' }); errorBox.style.display = 'none';
     var tapPlay = U.button(L('Play'), function () { tapPlay.style.display = 'none'; if (engine) engine.play(); }, { primary: true, icon: 'play', cls: 'pl-tapplay' });
     tapPlay.style.display = 'none';
-    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, castVideo, castUI, subtitle, tap, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, errorBox]);
+    // build 171 (#1): "Kijk je nog?" en het scherm Gepauzeerd (ook na "gestopt vanaf een ander apparaat")
+    var stillBox = h('div.pl-still', { role: 'alertdialog', 'aria-modal': 'true' }); stillBox.style.display = 'none';
+    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, castVideo, castUI, subtitle, tap, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, errorBox, stillBox]);
     var screen = { el: root, item: function () { return item; } };
 
     function isLive() { return item.type === 'live'; }
     function isCatchup() { return item.type === 'catchup'; }
+
+    // MARK: build 171: "Kijk je nog?"
+    // Na 3 afleveringen achter elkaar (automatisch of met Volgende aflevering) zonder bediening, of na 2/3/4 uur zonder
+    // bediening (instelling per apparaat). Geen antwoord in 60 s: pauzeren en stream_stop (plek in de limiet en de
+    // verbinding bij de aanbieder komen vrij), daarna "Gepauzeerd"; Afspelen gaat verder op dezelfde plek (live: weer live).
+    var X171 = B.b171, still = X171 ? new X171.StillWatching(Date.now()) : null;
+    var stillAskedAt = 0, stillTimer = null, pausedOut = false, pausedAt = 0;
+    function stillOn() { return B.data.local('stillWatching', true) !== false; }
+    function stillHours() { return X171.hours(B.data.local('stillWatchingHours', X171.DEFAULT_HOURS)); }
+    // bediening: later verwerkt, zodat een klik op Volgende aflevering eerst als aflevering telt (stil venster)
+    function interacted() { if (still && !stillAskedAt) setTimeout(function () { still.interaction(Date.now()); }, 0); }
+    ['keydown', 'pointerdown', 'wheel', 'touchstart'].forEach(function (ev) { root.addEventListener(ev, interacted, { capture: true, passive: true }); });
+    function stillCheck() {
+      if (!still || stillAskedAt || pausedOut || closed || limited || !engine || !engine.playing) return;
+      if (still.shouldAsk(Date.now(), stillHours(), stillOn())) askStill();
+    }
+    function askStill() {
+      stillAskedAt = Date.now();
+      U.clear(stillBox);
+      var left = h('span.pl-still-n', String(X171.ANSWER_SECONDS));
+      var go = U.button(L('Continue watching'), function () { answerStill(); }, { primary: true, icon: 'play' });
+      stillBox.appendChild(h('div.pl-still-card', [h('h2', L('Are you still watching?')), h('div.dlg-buttons', [go,
+        U.button(L('Stop'), function () { hideStill(); close(); })]), h('p.muted.small', [L('Pausing in'), ' ', left, ' s'])]));
+      stillBox.style.display = 'flex';
+      root.classList.add('still');
+      setTimeout(function () { try { go.focus({ preventScroll: true }); } catch (e) { /* stil */ } }, 30);
+      clearInterval(stillTimer);
+      stillTimer = setInterval(function () {
+        if (closed) { clearInterval(stillTimer); return; }
+        left.textContent = String(X171.secondsLeft(stillAskedAt, Date.now()));
+        if (X171.timedOut(stillAskedAt, Date.now())) { clearInterval(stillTimer); pauseOut(null); }
+      }, 1000);
+    }
+    function hideStill() { clearInterval(stillTimer); stillAskedAt = 0; stillBox.style.display = 'none'; root.classList.remove('still'); }
+    function answerStill() { hideStill(); if (still) still.answered(Date.now()); }
+    /** Pauzeren en afmelden; by = naam van het apparaat dat stopte (gestopt op afstand) of null ("Kijk je nog?"). */
+    function pauseOut(by) {
+      hideStill();
+      pausedOut = true;
+      pausedAt = engine && !isLive() ? engine.time() : 0;
+      clearInterval(countdownTimer);
+      if (scrobbled && !stopSent) scrobble('stop');
+      stopEngine(true);
+      U.clear(stillBox);
+      var play = U.button(L('Play'), function () { resumeOut(); }, { primary: true, icon: 'play' });
+      var text = by == null ? L('Paused: press Play to continue') : (by ? L('Stopped from %@', by) : L('Stopped from another device'));
+      stillBox.appendChild(h('div.pl-still-card', [h('h2', text), h('div.dlg-buttons', [play, U.button(L('Close'), function () { close(); })])]));
+      stillBox.style.display = 'flex';
+      root.classList.add('still');
+      setTimeout(function () { try { play.focus({ preventScroll: true }); } catch (e) { /* stil */ } }, 30);
+    }
+    function resumeOut() {
+      stillBox.style.display = 'none';
+      root.classList.remove('still');
+      pausedOut = false;
+      if (still) still.answered(Date.now());
+      attempts = 0;
+      start(isLive() ? 0 : pausedAt);
+    }
 
     // MARK: bediening tonen/verbergen
 
@@ -547,7 +608,7 @@
     var playBtn = iconBtn('pause', L('Play / pause') + ' (K)', function () { togglePlay(); }, 'pl-playbtn');
     var muteBtn = iconBtn('volume', L('Mute') + ' (M)', function () { video.muted = !video.muted; drawVolume(); });
     var vol = h('input.pl-vol', { type: 'range', min: '0', max: '1', step: '0.05', value: '1', 'aria-label': L('Volume') });
-    vol.addEventListener('input', function () { video.volume = parseFloat(vol.value); video.muted = video.volume === 0; drawVolume(); });
+    vol.addEventListener('input', function () { interacted(); video.volume = parseFloat(vol.value); video.muted = video.volume === 0; drawVolume(); });
     var pipBtn = iconBtn('pip', L('Picture in Picture'), function () { togglePip(); });
     var fsBtn = iconBtn('full', L('Full screen') + ' (F)', function () { toggleFullscreen(); });
     var castBtn = iconBtn(isSafariEngine() ? 'airplay' : 'cast', isSafariEngine() ? L('AirPlay') : L('Cast'), function () { castClick(); }, 'pl-castbtn');
@@ -1442,6 +1503,8 @@
       var nx = nextEpisode();
       clearInterval(countdownTimer);
       if (!nx) { close(); return; }
+      // build 171: automatisch of met Volgende aflevering gestart (telt voor "Kijk je nog?")
+      if (still) still.autoEpisode(Date.now());
       saveProgress(true);
       if (scrobbled) scrobble('stop');
       stopEngine(false);
@@ -1509,6 +1572,8 @@
         pingTimer = setInterval(function () {
           if (closed) { clearInterval(pingTimer); return; }
           A.streamPing(streamTitle()).then(function (alive) {
+            // build 171: gestopt vanaf een ander apparaat: niet vanzelf opnieuw starten, maar het scherm Gepauzeerd
+            if (alive === false && !closed && A.lastStop && A.lastStop.remote) { var by = A.lastStop.by; A.lastStop = null; clearInterval(pingTimer); pauseOut(by); return; }
             if (alive === false && !closed) A.streamStart(profile.id, profile.name, streamTitle(), isCatchup() ? 'live' : item.type, item.id, streamExtra()).then(function (r2) {
               if (r2.limit && !closed) { stopEngine(false); showLimit(r2); }
               else if (r2.activation && !closed) { close(); if (B.lifetime) B.lifetime.required(); }
@@ -1528,9 +1593,22 @@
       errorBox.appendChild(h('h2', L('Too many people are watching')));
       errorBox.appendChild(h('p', r.limit === 1 ? L('Your account can be used on 1 screen at a time.')
         : L('Your account can be used on up to %d screens at the same time.', r.limit)));
+      // build 171 (#31): wie kijkt wat op welk apparaat, laatst actief, en per stream "Stoppen op dat apparaat";
+      // daarna gaat het afspelen hier meteen verder (zonder opnieuw te tikken)
       var list = h('div.limit-list');
       r.streams.forEach(function (s) {
-        list.appendChild(h('div.limit-row', [B.screens.platformIcon(s.platform), h('div', [h('div', s.deviceName + ' · ' + s.profileName), h('div.muted.small', s.title)])]));
+        var when = X171 && s.lastSeen ? X171.relTime(s.lastSeen, Date.now(), L) : '';
+        var info = h('div.limit-info', [h('div', s.deviceName + (s.current ? ' · ' + L('This device') : '')),
+          h('div.muted.small', [s.profileName, s.title].filter(Boolean).join(' · ')), when ? h('div.muted.small', L('Active %@', when)) : null]);
+        var stopB = null;
+        if (r.stopRemote && !s.current) {
+          stopB = U.button(L('Stop on that device'), function () {
+            stopB.disabled = true;
+            A.streamStopOn(s.deviceId).then(function () { if (closed) return; errorBox.style.display = 'none'; limited = false; start(ctx.resume || 0); },
+              function (e) { stopB.disabled = false; U.toast(e.message); });
+          }, { cls: 'small' });
+        }
+        list.appendChild(h('div.limit-row', [B.screens.platformIcon(s.platform), info, stopB]));
       });
       errorBox.appendChild(list);
       var up = B.screens.limitUpsell('streams', r);
@@ -1640,6 +1718,7 @@
 
     function tick() {
       if (!engine || closed) return;
+      stillCheck();
       updateTime();
       if (engine.playing) {
         watchedSeconds += 1;
@@ -1686,7 +1765,7 @@
     function close(fromPop) {
       if (closed) return;
       closed = true;
-      clearInterval(tickTimer); clearInterval(pingTimer); clearInterval(countdownTimer); clearInterval(extTimer);
+      clearInterval(tickTimer); clearInterval(pingTimer); clearInterval(countdownTimer); clearInterval(extTimer); clearInterval(stillTimer);
       clearTimeout(hideTimer); clearTimeout(zapTimer);
       if (scrobbled && !stopSent) scrobble('stop');
       if (isLive() && item.channel && B.guideStills && engine && engine.started && engine.v === localVideo) B.guideStills.grab(video, item.channel);

@@ -13,7 +13,8 @@
   var D = B.data = {};
 
   // build 128: hiddenCategories = categorieën die uit staan voor dit profiel ("<server-id>|<categorienaam>"), zoals myList
-  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories'];
+  // build 171: hiddenChannels (#15), pinnedCategories (#17) en blockedTitles (#20), per profiel, zoals myList
+  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories', 'hiddenChannels', 'pinnedCategories', 'blockedTitles'];
   var REMOVED_DAYS = 90, MAX_RECENT = 20, MAX_PROGRESS = 300, MAX_HISTORY = 500;
   var lower = function (s) { return String(s || '').toLowerCase(); };
 
@@ -449,7 +450,7 @@
     if (swBroken || typeof window.Worker !== 'function' || B.noSyncWorker) return null;
     if (sw) return sw;
     try {
-      sw = new window.Worker('js/sync-worker.js?v=158');
+      sw = new window.Worker('js/sync-worker.js?v=171');
       sw.onmessage = function (e) {
         var d = e.data || {}, w = swWait[d.id];
         if (!w) return;
@@ -1000,6 +1001,33 @@
     // uit: alle schrijfwijzen (anders komt het via de andere terug)
     else variants(m, k).concat([k]).forEach(function (x) { if (x === k || (m[x] && m[x].on)) m[x] = { at: now, on: false }; });
     changed(false);
+  };
+  /**
+   * build 171: set van een ander profiel (verborgen zenders en geblokkeerde titels van een kinderprofiel, ingesteld vanuit het
+   * ouderprofiel). Actief profiel = D.toggleSet. Anders in de lokale kopie van dat profiel (dirty) en meteen samenvoegen met
+   * de server en versturen (uploadOther); onbekende velden van de server blijven staan.
+   */
+  D.toggleSetFor = function (profileId, field, k, on) {
+    if (P.id && lower(P.id) === lower(profileId)) { D.toggleSet(field, k, on); return; }
+    var saved = B.store.get(pkey(profileId), null) || {};
+    var st = saved.st || { sets: {}, progress: {}, history: {} };
+    st.sets = st.sets || {};
+    SET_FIELDS.forEach(function (f) { st.sets[f] = st.sets[f] || {}; });
+    var m = st.sets[field], now = Date.now();
+    var all = Object.keys(m).filter(function (x) { return x === k || normKey(x) === normKey(k); }).concat([k]);
+    all.forEach(function (x) { if (m[x] && m[x].at >= now) now = m[x].at + 1; });
+    if (on) m[k] = { at: now, on: true };
+    else all.forEach(function (x) { if (x === k || (m[x] && m[x].on)) m[x] = { at: now, on: false }; });
+    B.store.set(pkey(profileId), { st: st, base: saved.base || null, names: saved.names || [], dirty: true });
+    uploadOther(profileId);
+    B.emit('profileData');
+  };
+  /** build 171: actieve sleutels van een set van een (ander) profiel. */
+  D.setListFor = function (profileId, field) {
+    if (P.id && lower(P.id) === lower(profileId)) return D.setList(field);
+    var saved = B.store.get(pkey(profileId), null);
+    var m = saved && saved.st && saved.st.sets && saved.st.sets[field];
+    return m ? Object.keys(m).filter(function (x) { return m[x] && m[x].on; }) : [];
   };
   D.pushRecentChannel = function (playlist, channelID) {
     if (!P.st) return;

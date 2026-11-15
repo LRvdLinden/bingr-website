@@ -323,7 +323,10 @@
       return {
         id: d.device_id, name: d.name || A.platformLabel(d.platform) || '?', platform: d.platform || '',
         createdAt: B.parseISO(d.created_at), lastSeenAt: B.parseISO(d.last_seen_at),
-        current: d.current === true || d.device_id === own
+        current: d.current === true || d.device_id === own,
+        // build 171: laatst actief en wat er op dat apparaat speelt (device_limit; oudere server: alleen last_seen_at)
+        lastSeen: B.parseISO(d.last_seen || d.last_seen_at || d.signed_in_at || d.created_at),
+        watching: d.watching === true, profileName: d.profile_name || '', title: d.title || ''
       };
     });
   }
@@ -343,7 +346,9 @@
     }).then(function (r) {
       if (!r) return 'failed';
       var j = r.json || {};
-      if (r.status === 403 && (r.errorCode === 'device_limit' || j.devices)) return { limit: j.limit || 15, devices: parseDevices(j.devices), plan: j.plan || null };
+      if (r.status === 403 && (r.errorCode === 'device_limit' || j.devices)) {
+        return { limit: j.limit || 15, devices: parseDevices(j.devices), plan: j.plan || null, suggest: j.suggest_remove && j.suggest_remove.device_id || null };
+      }
       if (!r.ok) return 'failed';
       B.store.set('deviceRegistered', true);
       B.store.set('registeredPlatform', B.config.platform);
@@ -559,7 +564,9 @@
       return {
         deviceId: s.device_id, deviceName: s.device_name || A.platformLabel(s.platform) || '?', platform: s.platform || '',
         profileId: s.profile_id || '', profileName: s.profile_name || '', title: s.title || '', kind: s.kind || '',
-        startedAt: B.parseISO(s.started_at), current: s.device_id === A.deviceId()
+        startedAt: B.parseISO(s.started_at), current: s.device_id === A.deviceId(),
+        // build 171: laatst actief (laatste ping)
+        lastSeen: B.parseISO(s.last_seen || s.last_ping || s.device_last_seen)
       };
     });
   }
@@ -576,7 +583,8 @@
     return authed(body).then(function (r) {
       if (!r) return { failed: true };
       var j = r.json || {};
-      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 3, streams: parseStreams(j.streams), plan: j.plan || null };
+      // build 171: stop_remote = "Stoppen op dat apparaat" kan (oudere server: knop niet tonen)
+      if (r.status === 403 && (r.errorCode === 'stream_limit' || j.streams)) return { limit: j.limit || 3, streams: parseStreams(j.streams), plan: j.plan || null, stopRemote: j.stop_remote === true };
       // build 167: alleen Lifetime; dit account moet eerst Lifetime activeren (scherm Activeer Lifetime)
       if (B.plan && B.plan.isActivationResponse(r)) return { activation: true, plan: j.plan || null };
       return r.ok ? { ok: true } : { failed: true };
@@ -587,7 +595,11 @@
     if (title) body.title = title;
     return authed(body).then(function (r) {
       if (!r) return null;
-      if (r.json && r.json.stopped === true) return false;
+      // build 171: gestopt vanaf een ander apparaat: reden bewaren (de speler start dan niet vanzelf opnieuw)
+      if (r.json && r.json.stopped === true) {
+        A.lastStop = r.json.reason === 'stopped_remotely' ? { remote: true, by: r.json.by_device_name || '' } : null;
+        return false;
+      }
       return r.ok ? true : null;
     });
   };
@@ -598,6 +610,13 @@
       if (B.plan && B.plan.isLockedResponse(r)) return { locked: true };
       if (!r.ok || !r.json) return null;
       return { limit: r.json.limit || 3, streams: parseStreams(r.json.streams) };
+    });
+  };
+  /** build 171: de stream op een ander apparaat van dit account stoppen ("Stoppen op dat apparaat"). */
+  A.streamStopOn = function (deviceId) {
+    return authed({ action: 'stream_stop', device_id: String(deviceId), by_device_id: A.deviceId() }).then(function (r) {
+      if (!r || !r.ok) throw new Error(L('Something went wrong. Please try again.'));
+      return true;
     });
   };
   A.streamStop = function () { return authed({ action: 'stream_stop', device_id: A.deviceId() }).catch(B.noop); };

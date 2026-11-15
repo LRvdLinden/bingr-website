@@ -1403,3 +1403,20 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .lt-offer-b { margin-top: 12px; }
 .lt-offer-b .btn { width: 100%; }
 .lt-offer-s { margin: 10px 0 0; }
+
+/* build 171: Kijk je nog? / Gepauzeerd (speler) */
+.pl-still { position: absolute; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: #000000b3; padding: 16px; }
+.player.still .pl-top, .player.still .pl-bottom, .player.still .pl-center { opacity: 0; pointer-events: none; }
+.pl-still-card { max-width: 440px; width: 100%; text-align: center; background: #141414f2; border: 1px solid #ffffff1f; border-radius: 16px; padding: 28px 22px; }
+.pl-still-card h2 { margin: 0 0 18px; font-size: 24px; }
+.pl-still-card .dlg-buttons { justify-content: center; }
+.pl-still-card p { margin: 14px 0 0; }
+/* build 171: limietschermen */
+.limit-row .limit-info { flex: 1; min-width: 0; }
+.limit-row .btn { flex: none; }
+.dev-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 14px; margin: 0 0 14px; border-radius: 12px; background: #ffffff12; }
+.dev-suggest p { margin: 0; flex: 1 1 200px; }
+/* build 171: categorieën vastpinnen en filterchips */
+.cat-chips { padding-bottom: 14px; }
+.cat-pin { display: inline-flex; width: 20px; height: 20px; margin-bottom: 4px; color: #ffd54a; }
+.cat-pin svg { width: 20px; height: 20px; fill: currentColor; }
