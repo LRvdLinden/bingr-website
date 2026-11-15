@@ -462,6 +462,10 @@
         var rows = [[L('Servers'), String(st.servers || 0) + (st.serverKinds && st.serverKinds.length ? ' · ' + st.serverKinds.join(', ') : '')]];
         r.extra.servers.forEach(function (s) {
           rows.push([L('Server %d', s.n) + (s.active ? ' (' + L('active') + ')' : ''), L('Updated') + ': ' + fmtAgo(s.at)]);
+          // build 178: wat Bingr aan terugkijken herkent op deze server
+          var src = (B.data && B.data.sources || [])[s.n - 1];
+          var cu = src && B.lib && B.lib.catchupSummary ? B.lib.catchupSummary[String(src.id).toLowerCase()] : null;
+          if (cu) rows.push(['  ' + L('Catch-up'), cu[0] ? L('%d channels, up to %d days', cu[0], cu[1]) : L('No channels with catch-up')]);
         });
         rows.push([L('Load servers on open'), LOm[r.extra.loadOnOpen] || '—']);
         rows.push([L('Last account sync'), st.lastSync ? when(st.lastSync) + ' · ' + (st.lastSyncOk ? L('OK') : L('Failed')) : L('Never')]);

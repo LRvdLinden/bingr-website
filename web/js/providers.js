@@ -53,8 +53,9 @@
   };
 
   /** build 147: M3U-bouwer per regel (add), zodat een grote lijst ook in stukjes kan (P.m3uLibraryAsync). */
-  function m3uBuilder(playlistID) {
+  function m3uBuilder(playlistID, header) {
     var channels = [], movies = [], seriesMap = {}, seriesEps = {}, seriesOrder = [];
+    header = header || {};
     var number = 0;
     var other = L('Other');
     var prefix = String(playlistID).slice(0, 8);
@@ -88,11 +89,15 @@
         movies.push(mo);
       } else {
         number++;
-        var catchup = parseInt(e.attrs['catchup-days'] || e.attrs.timeshift || '', 10) || 0;
-        channels.push({
+        // build 178: alle varianten (catchup, catchup-days, tvg-rec, timeshift, tv_archive …), ook op #EXTM3U
+        var cu = B.b178.m3u(e.attrs, header);
+        var chn = {
           id: id, name: e.name, logo: logo, group: group, streamURL: urlValue(e.url),
-          epgID: e.attrs['tvg-id'] || null, number: parseInt(e.attrs['tvg-chno'] || '', 10) || number, catchupDays: catchup
-        });
+          epgID: e.attrs['tvg-id'] || null, number: parseInt(e.attrs['tvg-chno'] || '', 10) || number, catchupDays: cu.days
+        };
+        if (cu.days > 0 && cu.type) chn.catchupType = cu.type;
+        if (cu.days > 0 && cu.source) chn.catchupSource = cu.source;
+        channels.push(chn);
       }
     }
     function done() {
@@ -109,14 +114,23 @@
     }
     return { add: add, done: done };
   }
+  /** Build 178: de attributen op de regel #EXTM3U (sleutels in kleine letters) */
+  P.m3uHeader = function (text) {
+    var first = (String(text || '').slice(0, 4096).split(/\r?\n/)[0] || '').replace(/^\uFEFF/, '').trim();
+    var out = {}, m;
+    if (first.indexOf('#EXTM3U') !== 0) return out;
+    var re = /([\w-]+)="([^"]*)"/g;
+    while ((m = re.exec(first)) !== null) out[m[1].toLowerCase()] = m[2];
+    return out;
+  };
   P.m3uLibrary = function (text, playlistID) {
-    var b = m3uBuilder(playlistID), entries = P.m3uEntries(text);
+    var b = m3uBuilder(playlistID, P.m3uHeader(text)), entries = P.m3uEntries(text);
     for (var i = 0; i < entries.length; i++) b.add(entries[i]);
     return b.done();
   };
   /** build 147: zelfde uitkomst als m3uLibrary, maar de regels in stukjes (de hoofdthread blijft vrij). */
   P.m3uLibraryAsync = function (text, playlistID) {
-    var b = m3uBuilder(playlistID), entries = P.m3uEntries(text);
+    var b = m3uBuilder(playlistID, P.m3uHeader(text)), entries = P.m3uEntries(text);
     text = null;
     return B.task.run('parse', function () { return B.chunked(entries, b.add); }).then(function () { return b.done(); });
   };
@@ -156,6 +170,7 @@
       if (!r || !r.user_info || B.int(r.user_info.auth) !== 1) throw new Error(L("Couldn't sign in to the server. Check the server, username and password."));
       var c = providerConnections(r.user_info);
       if (c) P.providerLimit.store(self.server, self.username, c);
+      P.serverTZ.store(self.server, self.username, r.server_info && r.server_info.timezone);   // build 178
       return r;
     });
   };
@@ -261,7 +276,7 @@
         return {
           id: 'x' + sid, name: l.name || 'Channel', logo: urlValue(l.stream_icon), group: lc[B.str(l.category_id) || ''] || other,
           streamURL: base + '/live/' + u + '/' + p + '/' + sid + '.' + ext, epgID: l.epg_channel_id || null,
-          number: B.int(l.num), catchupDays: B.int(l.tv_archive) === 1 ? (B.int(l.tv_archive_duration) || 0) : 0
+          number: B.int(l.num), catchupDays: B.b178.xtreamDays(l.tv_archive, l.tv_archive_duration)
         };
       }, 0, true);
     }
@@ -430,14 +445,24 @@
   Xtream.prototype.vodInfo = function (vodID) {
     return B.getJSON(this.api('get_vod_info', [['vod_id', String(vodID)]]), null, 30000).then(function (j) { return (j && j.info) || null; });
   };
-  /** Terugkijken (tv_archive): /timeshift/<user>/<pw>/<minuten>/<jjjj-mm-dd:uu-mm lokale tijd>/<id>.ts (= XtreamClient.catchupURL). */
+  /**
+   * Terugkijken (tv_archive): /timeshift/<user>/<pw>/<minuten>/<jjjj-mm-dd:uu-mm>/<id>.ts (= XtreamClient.catchupURL).
+   * Build 178: de tijd in de tijdzone van de server (server_info.timezone; onbekend = die van het apparaat).
+   */
   Xtream.prototype.catchupURL = function (ch, start, end) {
     if (!/^x\d/.test(String(ch.id))) return null;
-    var sid = String(ch.id).slice(1);
-    var d = new Date(start);
-    var stamp = d.getFullYear() + '-' + B.pad2(d.getMonth() + 1) + '-' + B.pad2(d.getDate()) + ':' + B.pad2(d.getHours()) + '-' + B.pad2(d.getMinutes());
-    var minutes = Math.max(1, Math.round((end - start) / 60000));
-    return this.server + '/timeshift/' + this.username + '/' + this.password + '/' + minutes + '/' + stamp + '/' + sid + '.ts';
+    return B.b178.xtreamURL(this.server, this.username, this.password, String(ch.id).slice(1), start, end,
+      P.serverTZ.get(this.server, this.username));
+  };
+  /** Build 178: de gids van één zender met archief (get_simple_data_table, met has_archive); [] bij een fout. */
+  Xtream.prototype.archiveEPG = function (ch) {
+    if (!/^x\d/.test(String(ch.id))) return Promise.resolve([]);
+    var key = ch.epgID || ch.id;
+    return B.getJSON(this.api('get_simple_data_table', [['stream_id', String(ch.id).slice(1)]]), null, 20000).then(function (j) {
+      return B.b178.simpleTable(j).map(function (p) {
+        return { channelID: key, title: p.title, description: p.description, start: p.start, end: p.end, archive: p.archive };
+      });
+    }, function () { return []; });
   };
   Xtream.prototype.xmltvURL = function () {
     return B.query(this.server + '/xmltv.php', [['username', this.username], ['password', this.password]]);
@@ -565,7 +590,7 @@
         return {
           id: 'st' + c.id, name: c.name || 'Channel', logo: urlValue(c.logo), group: gMap[String(c.tv_genre_id || '')] || other,
           streamURL: directURL(c.cmd), epgID: c.xmltv_id || null, number: B.int(c.number),
-          catchupDays: Math.floor((B.int(c.tv_archive_duration) || 0) / 24), stalkerCmd: c.cmd || null
+          catchupDays: B.b178.stalkerDays(c.tv_archive != null ? c.tv_archive : c.archive, c.tv_archive_duration), stalkerCmd: c.cmd || null
         };
       });
       return self.js(self.url([['type', 'vod'], ['action', 'get_categories']])).catch(function () { return []; });
@@ -688,7 +713,7 @@
   function XMLTVReader(wanted) {
     this.now = Date.now();
     this.lower = this.now - 3 * 3600000;
-    this.upper = this.now + 36 * 3600000;
+    this.upper = this.now + (B.b178 ? B.b178.MAX_AHEAD : 7) * 86400000;   // build 178: tot 7 dagen vooruit (was 36 uur)
     this.want = wanted && Object.keys(wanted).length ? wanted : null;
     this.out = {};
     this.buf = '';
@@ -751,6 +776,32 @@
    * Gids laden: binair ophalen; gzip (.xml.gz, 1f 8b) in stukken uitpakken met pako, de tekst in stukken
    * decoderen (TextDecoder) en meteen doorlezen. Tussen de stukken krijgt de afstandsbediening voorrang.
    */
+  /**
+   * Build 178: tijdzone van een Xtream-server (server_info.timezone bij het inloggen), per server en gebruiker in het
+   * geheugen en in localStorage (sleutel gehasht, alleen de naam van de tijdzone). Onbekend = die van het apparaat.
+   */
+  P.serverTZ = (function () {
+    var mem = {};
+    function key(server, user) { return 'xtreamTZ.' + B.stableHash(String(server) + '|' + String(user)); }
+    function valid(n) { try { new Intl.DateTimeFormat('en-US', { timeZone: n }); return true; } catch (e) { return false; } }
+    return {
+      store: function (server, user, name) {
+        var n = String(name || '').trim();
+        if (!n || !valid(n)) return;
+        mem[key(server, user)] = n;
+        try { localStorage.setItem('bingr.' + key(server, user), n); } catch (e) { /* stil */ }
+      },
+      get: function (server, user) {
+        var k = key(server, user);
+        if (mem[k]) return mem[k];
+        var n = null;
+        try { n = localStorage.getItem('bingr.' + k); } catch (e) { /* stil */ }
+        if (n && valid(n)) { mem[k] = n; return n; }
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; }
+      }
+    };
+  })();
+
   P.loadXMLTV = function (url, wanted) {
     return B.http(url, { timeout: 180000, binary: true }).then(function (r) {
       if (r.status < 200 || r.status >= 300 || !r.buffer || !r.buffer.byteLength) return {};

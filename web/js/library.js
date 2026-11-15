@@ -552,9 +552,12 @@
     var src = catchSrc(ch);
     if (!ch || !p || !(ch.catchupDays > 0) || !src) return false;
     var kind = src.kind;
-    if (kind !== 'Xtream Codes' && kind !== 'Stalker / MAC-portal') return false;
+    // build 178: ook M3U (catchup-type/-source of een Xtream-achtige stream-URL)
+    if (kind !== 'Xtream Codes' && kind !== 'Stalker / MAC-portal' && kind !== 'M3U / M3U8') return false;
     var now = Date.now();
-    return p.start < now && p.start > now - ch.catchupDays * 86400000;
+    if (p.start <= now && now < p.end) return true;   // lopend programma: vanaf het begin
+    // build 178: voorbij en volgens de server (has_archive) of binnen de termijn van de zender
+    return B.b178.replayable(p.start, p.end, now, ch.catchupDays, p.archive == null ? null : p.archive);
   };
   /** Afspeel-URL voor terugkijken, met de terugkijk-correctie van de zender (catchupOffsets, minuten). */
   Lib.catchupURL = function (ch, p) {
@@ -569,10 +572,31 @@
     var start = p.start + shift, end = Math.min(p.end, Date.now()) + shift;
     if (p.end > Date.now()) end = p.end + shift;
     if (src.kind === 'Xtream Codes') return Promise.resolve(new P.Xtream(src, D.secret(src, 'password')).catchupURL(raw, start, end));
+    if (src.kind === 'M3U / M3U8') {   // build 178
+      var su = raw.streamURL || ch.streamURL || '', xp = B.b178.xtreamParts(su);
+      var tz = xp ? P.serverTZ.get(xp.server, xp.user) : null;
+      return Promise.resolve(B.b178.m3uURL(su, raw.catchupType || ch.catchupType, raw.catchupSource || ch.catchupSource, start, end, Date.now(), tz || undefined));
+    }
     var st;
     if (other) { var lk = String(src.id).toLowerCase(); st = catchStalkers[lk] || (catchStalkers[lk] = new P.Stalker(src)); }
     else { st = Lib.stalker || new P.Stalker(src); Lib.stalker = st; }
     return st.archiveLink(raw, start, end).catch(function () { return null; });
+  };
+
+  /**
+   * Build 178: de gids met archief van één zender (Xtream get_simple_data_table, met has_archive), 20 minuten in het
+   * geheugen. Andere soorten servers of zonder terugkijken: [].
+   */
+  var archiveCache = {};
+  Lib.archiveEPG = function (ch) {
+    var src = catchSrc(ch);
+    if (!ch || !(ch.catchupDays > 0) || !src || src.kind !== 'Xtream Codes') return Promise.resolve([]);
+    var k = String(src.id).toLowerCase() + '|' + ch.id, hit = archiveCache[k];
+    if (hit && Date.now() - hit.at < 1200000) return hit.p;
+    if (Object.keys(archiveCache).length > 300) archiveCache = {};
+    var pr = new P.Xtream(src, D.secret(src, 'password')).archiveEPG(ch).catch(function () { return []; });
+    archiveCache[k] = { at: Date.now(), p: pr };
+    return pr;
   };
 
   // MARK: laden en cachen
@@ -585,7 +609,8 @@
     lib.channels.forEach(function (c) {
       if (!c.epgID) return;
       var k = String(c.epgID).toLowerCase();
-      var low = c.catchupDays > 0 ? now - Math.min(3, c.catchupDays) * 86400000 : now - 3 * 3600000;
+      // build 178: zenders met terugkijken tot hun termijn terug (hooguit 14 dagen; was 3)
+      var low = c.catchupDays > 0 ? now - Math.min(B.b178.MAX_BACK, c.catchupDays) * 86400000 : now - 3 * 3600000;
       w[k] = B.has(w, k) ? Math.min(w[k], low) : low;
     });
     return w;
@@ -665,7 +690,17 @@
     }
     Lib.fetchStatus[lid] = { at: Date.now(), kinds: f };
     B.store.set('diag.fetch', Lib.fetchStatus);
+    if (lib) Lib.noteCatchup(src.id, lib.channels);   // build 178
   }
+  /** Build 178: diagnose: per server [zenders met terugkijken, tot dagen] (geen namen of adressen) */
+  Lib.catchupSummary = B.store.get('diag.catchup', {}) || {};
+  Lib.noteCatchup = function (id, channels) {
+    var v = B.b178.summary((channels || []).map(function (c) { return c && c.catchupDays || 0; }));
+    var lid = String(id).toLowerCase(), cur = Lib.catchupSummary[lid];
+    if (cur && cur[0] === v[0] && cur[1] === v[1]) return;
+    Lib.catchupSummary[lid] = v;
+    B.store.set('diag.catchup', Lib.catchupSummary);
+  };
   Lib.noteFetch = noteFetch;
   /** Series die na de rest binnenkwamen (Xtream, trage provider): in de bibliotheek, de cache en de diagnose. */
   function lateSeries(src, series, st, sk) {
@@ -822,6 +857,7 @@
       if (my !== gen) { libDone(opts, null); return; }
       if (cached && cached.lib && !force) {
         Lib.raw = cached.lib; Lib.raw.epg = Lib.raw.epg || {};
+        Lib.noteCatchup(src.id, Lib.raw.channels);   // build 178
         Lib.loading = false;
         Lib.applyFilters();
         loadEpg(src, Lib.raw, false);

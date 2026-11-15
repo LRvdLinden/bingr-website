@@ -58,6 +58,8 @@ jobs:
           # build 177: tv-gids per zender op volgorde en zonder dubbelen (build177_test, docs/build177_cases.json)
           node tools/test/build177_test.js
           node tools/test/sportlogos_test.js
+          # build 178: terugkijken in de tv-gids (build178_test, docs/build178_cases.json)
+          node tools/test/build178_test.js
           node tools/test/build174_test.js
           node tools/test/player173_test.js
           node tools/test/plan_test.js

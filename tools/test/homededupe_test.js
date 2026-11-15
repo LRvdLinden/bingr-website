@@ -21,7 +21,7 @@ const D = B.data = { customization: () => ({}), ageLimit: () => null, strict: ()
 B.media = { isMediaServer: () => false };
 B.on = () => () => {};
 B.ui = { h: () => ({}), router: { link: (p) => '#/' + p.join('/') } };
-load('language.js'); load('providers.js'); load('library.js');
+load('language.js'); load('build178.js'); load('providers.js'); load('library.js');
 const Lib = B.lib;
 // xs.js zonder DOM-deel (alleen de pure logica)
 B.data = null; load('xs.js'); B.data = D;
