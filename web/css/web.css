@@ -1560,3 +1560,16 @@ html.lt-locked .dlg-layer { z-index: 450; }
 }
 [dir=rtl] .pl-ends { text-align: left; padding: 0 0 0 6px; }
 [dir=rtl] .pl-opt, [dir=rtl] .pl-zapit, [dir=rtl] .pl-ep { text-align: right; }
+
+/* build 174: detailpagina op een smal scherm: niets breder dan het scherm, vaste rij Mijn lijst · Trailer · Bronnen · Gezien · Meer */
+.dt-info { min-width: 0; }
+.dt-meta, .dt-lang { overflow-wrap: anywhere; }
+.dt-btns.compact { display: flex; flex-direction: column; align-items: stretch; gap: 14px; width: 100%; max-width: 520px; }
+.dt-btns.compact .btn.primary { width: 100%; justify-content: center; }
+.dt-acts { display: flex; width: 100%; }
+.dt-act { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 2px; background: none; border: 0; color: #fff; font: inherit; cursor: pointer; border-radius: 8px; }
+.dt-act .ic { width: 24px; height: 24px; }
+.dt-act span { font-size: 11px; font-weight: 600; color: #b3b3b3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-act.on .ic { color: var(--accent); }
+.dt-act:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.page.detail { overflow-x: clip; }

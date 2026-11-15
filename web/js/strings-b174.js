@@ -1,0 +1,185 @@
+/*
+ * Build 174: knoppen onder Afspelen op een smal scherm (Mijn lijst · Trailer · Bronnen · Gezien · Meer). Sleutel = Engels
+ * (terugval); hier de andere talen van de apps (zelfde teksten als Translations.json van Apple en Android). Niets
+ * overschrijven wat er al staat.
+ */
+(function () {
+  'use strict';
+  var T ={
+    "ar": {
+      "More": "المزيد",
+      "Sources": "المصادر",
+      "Watched": "تمت المشاهدة",
+      "Trailer": "الإعلان",
+      "Trailer season %d": "إعلان الموسم %d",
+      "Share": "مشاركة",
+      "My List": "قائمتي",
+      "In My List": "في قائمتي",
+      "Add to My List": "إضافة إلى قائمتي",
+      "Mark as watched": "وضع علامة كمُشاهد",
+      "Mark as unwatched": "وضع علامة كغير مُشاهد",
+      "Add to collection…": "إضافة إلى مجموعة…",
+      "Other language": "لغة أخرى",
+      "Resume": "استئناف",
+      "Play": "تشغيل"
+    },
+    "de": {
+      "More": "Mehr",
+      "Sources": "Quellen",
+      "Watched": "Gesehen",
+      "Trailer": "Trailer",
+      "Trailer season %d": "Trailer Staffel %d",
+      "Share": "Teilen",
+      "My List": "Meine Liste",
+      "In My List": "In „Meine Liste“",
+      "Add to My List": "Zu „Meine Liste“ hinzufügen",
+      "Mark as watched": "Als gesehen markieren",
+      "Mark as unwatched": "Als ungesehen markieren",
+      "Add to collection…": "Zur Sammlung hinzufügen…",
+      "Other language": "Andere Sprache",
+      "Resume": "Fortsetzen",
+      "Play": "Abspielen"
+    },
+    "es": {
+      "More": "Más",
+      "Sources": "Fuentes",
+      "Watched": "Visto",
+      "Trailer": "Tráiler",
+      "Trailer season %d": "Tráiler temporada %d",
+      "Share": "Compartir",
+      "My List": "Mi lista",
+      "In My List": "En Mi lista",
+      "Add to My List": "Añadir a Mi lista",
+      "Mark as watched": "Marcar como visto",
+      "Mark as unwatched": "Marcar como no visto",
+      "Add to collection…": "Añadir a colección…",
+      "Other language": "Otro idioma",
+      "Resume": "Reanudar",
+      "Play": "Reproducir"
+    },
+    "fr": {
+      "More": "Plus",
+      "Sources": "Sources",
+      "Watched": "Vu",
+      "Trailer": "Bande-annonce",
+      "Trailer season %d": "Bande-annonce saison %d",
+      "Share": "Partager",
+      "My List": "Ma liste",
+      "In My List": "Dans Ma liste",
+      "Add to My List": "Ajouter à Ma liste",
+      "Mark as watched": "Marquer comme vu",
+      "Mark as unwatched": "Marquer comme non vu",
+      "Add to collection…": "Ajouter à une collection…",
+      "Other language": "Autre langue",
+      "Resume": "Reprendre",
+      "Play": "Lecture"
+    },
+    "it": {
+      "More": "Altro",
+      "Sources": "Fonti",
+      "Watched": "Visto",
+      "Trailer": "Trailer",
+      "Trailer season %d": "Trailer stagione %d",
+      "Share": "Condividi",
+      "My List": "La mia lista",
+      "In My List": "Nella mia lista",
+      "Add to My List": "Aggiungi a La mia lista",
+      "Mark as watched": "Segna come visto",
+      "Mark as unwatched": "Segna come non visto",
+      "Add to collection…": "Aggiungi alla raccolta…",
+      "Other language": "Altra lingua",
+      "Resume": "Riprendi",
+      "Play": "Riproduci"
+    },
+    "nl": {
+      "More": "Meer",
+      "Sources": "Bronnen",
+      "Watched": "Bekeken",
+      "Trailer": "Trailer",
+      "Trailer season %d": "Trailer seizoen %d",
+      "Share": "Delen",
+      "My List": "Mijn lijst",
+      "In My List": "In Mijn lijst",
+      "Add to My List": "Toevoegen aan Mijn lijst",
+      "Mark as watched": "Markeer als bekeken",
+      "Mark as unwatched": "Markeer als niet bekeken",
+      "Add to collection…": "Aan collectie toevoegen…",
+      "Other language": "Andere taal",
+      "Resume": "Hervatten",
+      "Play": "Afspelen"
+    },
+    "pl": {
+      "More": "Więcej",
+      "Sources": "Źródła",
+      "Watched": "Obejrzane",
+      "Trailer": "Zwiastun",
+      "Trailer season %d": "Zwiastun sezonu %d",
+      "Share": "Udostępnij",
+      "My List": "Moja lista",
+      "In My List": "Na Mojej liście",
+      "Add to My List": "Dodaj do Mojej listy",
+      "Mark as watched": "Oznacz jako obejrzane",
+      "Mark as unwatched": "Oznacz jako nieobejrzane",
+      "Add to collection…": "Dodaj do kolekcji…",
+      "Other language": "Inny język",
+      "Resume": "Wznów",
+      "Play": "Odtwórz"
+    },
+    "pt": {
+      "More": "Mais",
+      "Sources": "Fontes",
+      "Watched": "Visto",
+      "Trailer": "Trailer",
+      "Trailer season %d": "Trailer temporada %d",
+      "Share": "Partilhar",
+      "My List": "A minha lista",
+      "In My List": "Na minha lista",
+      "Add to My List": "Adicionar à minha lista",
+      "Mark as watched": "Marcar como visto",
+      "Mark as unwatched": "Marcar como não visto",
+      "Add to collection…": "Adicionar à coleção…",
+      "Other language": "Outro idioma",
+      "Resume": "Retomar",
+      "Play": "Reproduzir"
+    },
+    "tr": {
+      "More": "Daha fazla",
+      "Sources": "Kaynaklar",
+      "Watched": "İzlendi",
+      "Trailer": "Fragman",
+      "Trailer season %d": "Sezon %d fragmanı",
+      "Share": "Paylaş",
+      "My List": "Listem",
+      "In My List": "Listemde",
+      "Add to My List": "Listeme ekle",
+      "Mark as watched": "İzlendi olarak işaretle",
+      "Mark as unwatched": "İzlenmedi olarak işaretle",
+      "Add to collection…": "Koleksiyona ekle…",
+      "Other language": "Başka dil",
+      "Resume": "Devam et",
+      "Play": "Oynat"
+    },
+    "zh-Hans": {
+      "More": "更多",
+      "Sources": "来源",
+      "Watched": "已看",
+      "Trailer": "预告片",
+      "Trailer season %d": "第 %d 季预告片",
+      "Share": "分享",
+      "My List": "我的片单",
+      "In My List": "已在我的片单中",
+      "Add to My List": "加入我的片单",
+      "Mark as watched": "标记为已看",
+      "Mark as unwatched": "标记为未看",
+      "Add to collection…": "添加到合集…",
+      "Other language": "其他语言",
+      "Resume": "继续播放",
+      "Play": "播放"
+    }
+  };
+  var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};
+  Object.keys(T).forEach(function (lang) {
+    var tab = all[lang] = all[lang] || {};
+    Object.keys(T[lang]).forEach(function (k) { if (!Object.prototype.hasOwnProperty.call(tab, k)) tab[k] = T[lang][k]; });
+  });
+})();

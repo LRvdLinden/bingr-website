@@ -146,12 +146,16 @@
    * seizoen, anders die van de serie; bij een film die van de film. Trailer boven teaser, de app-taal boven Engels.
    */
   function pickVideo(list) {
+    // build 174: zelfde keuze als de apps (B.b174.bestTrailer): officieel eerst, Trailer voor Teaser, app-taal, Engels
+    if (B.b174) return B.b174.bestTrailer(B.b174.tmdbCandidates(list), B.lang);
     var base = String(B.lang || 'en').slice(0, 2);
     var vids = (list || []).filter(function (v) { return v && v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser') && v.key; });
     function rank(v) { return (v.type === 'Trailer' ? 0 : 10) + (v.iso_639_1 === base ? 0 : v.iso_639_1 === 'en' ? 1 : 2); }
     vids.sort(function (a, b) { return rank(a) - rank(b); });
     return vids.length ? vids[0].key : null;
   }
+  /** build 174: type van een gekozen video (voor de vergelijking met de trailer van de server) */
+  function videoOf(list, key) { return (list || []).filter(function (v) { return v && v.key === key; })[0] || null; }
   var trailers = {};
   AR.trailer = function (x, isShow, season) {
     var k = (isShow ? 's' : 'm') + '|' + x.id + '|' + (season || '');
@@ -163,7 +167,10 @@
       var own = isShow && season ? tmdb('/tv/' + r.id + '/season/' + season + '/videos', q).then(function (j) { return j ? pickVideo(j.results) : null; }) : Promise.resolve(null);
       return own.then(function (key) {
         if (key) return { key: key, season: season };
-        return tmdb((isShow ? '/tv/' : '/movie/') + r.id + '/videos', q).then(function (j) { var v = j ? pickVideo(j.results) : null; return v ? { key: v, season: null } : null; });
+        return tmdb((isShow ? '/tv/' : '/movie/') + r.id + '/videos', q).then(function (j) {
+          var v = j ? pickVideo(j.results) : null, vid = v ? videoOf(j.results, v) : null;
+          return v ? { key: v, season: null, type: vid && vid.type, language: vid && vid.iso_639_1, official: vid && vid.official } : null;
+        });
       });
     }).catch(function () { return null; });
     return trailers[k];
