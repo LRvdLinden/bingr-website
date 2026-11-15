@@ -55,6 +55,8 @@ jobs:
         # gevallen in tools/test/build176_cases.json, kopie van iptv-ios-appletv/docs; build176_test)
         run: |
           node tools/test/build176_test.js
+          # build 177: tv-gids per zender op volgorde en zonder dubbelen (build177_test, docs/build177_cases.json)
+          node tools/test/build177_test.js
           node tools/test/build174_test.js
           node tools/test/player173_test.js
           node tools/test/plan_test.js

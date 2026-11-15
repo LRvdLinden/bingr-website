@@ -341,7 +341,8 @@
     var offs = [];
 
     function day() { for (var i = 0; i < days.length; i++) if (days[i].offset === dayOff) return days[i]; return days[0]; }
-    function progsOf(ch) { var d = day(); return Lib.programsBetween(ch, d.start, d.end); }
+    // build 177: op volgorde en zonder dubbelen (B.b177.clean, gelijk aan Apple en Android)
+    function progsOf(ch) { var d = day(); return B.b177.clean(Lib.programsBetween(ch, d.start, d.end)); }
     function selKey() { return 'guideChannel.' + lower(B.app.profile.id); }
 
     function render() {
