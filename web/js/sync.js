@@ -323,6 +323,27 @@
       });
     });
   };
+  /**
+   * Build 172: het android-blok van één bron wijzigen (de webspeler leest en schrijft de aanpassingen van Android:
+   * samenvoegen, hernoemen, volgorde). Eerst de nieuwste lijst lezen, dan fn(blok) → nieuw blok, updatedAt = nu, en de
+   * hele lijst terug. Onbekende sleutels in het blok laat fn staan. Alleen het hoofdprofiel.
+   */
+  D.updateAndroidBlock = function (id, fn) {
+    return A.getSources().then(function (r) {
+      if (!r) throw new Error(L('No internet connection.'));
+      var list = r.sources.slice(), idx = -1;
+      for (var i = 0; i < list.length; i++) if (lower(list[i].id) === lower(id) && list[i].deleted !== true) { idx = i; break; }
+      if (idx < 0) throw new Error(L('Server not found'));
+      var o = B.assign({}, list[idx]);
+      o.android = fn(B.assign({}, o.android || {}));
+      o.updatedAt = B.iso();
+      list[idx] = o;
+      return A.putSources(list, r.mainSourceID).then(function (at) {
+        applySources({ sources: list, mainSourceID: r.mainSourceID, updatedAt: at });
+        return o;
+      });
+    });
+  };
   /** Bron verwijderen: tombstone {id, deleted, deletedAt, updatedAt}; hoofdserver schuift door naar de eerste die overblijft. */
   D.deleteSource = function (id) {
     return A.getSources().then(function (r) {

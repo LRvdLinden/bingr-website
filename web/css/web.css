@@ -1420,3 +1420,11 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .cat-chips { padding-bottom: 14px; }
 .cat-pin { display: inline-flex; width: 20px; height: 20px; margin-bottom: 4px; color: #ffd54a; }
 .cat-pin svg { width: 20px; height: 20px; fill: currentColor; }
+
+/* build 172: Categorieën opschonen (web/js/catmerge-ui.js) */
+.cleanup-tabs { display: flex; flex-direction: row; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.cleanup-tabs .st-tab { border: 0; cursor: pointer; font-family: inherit; }
+.cleanup-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+.cleanup-actions .btn[disabled] { opacity: .45; pointer-events: none; }
+.cleanup-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid #ffffff2e; background: #1b1b1b; color: #fff; font-size: 16px; }
+.cleanup-input:focus { outline: 2px solid #fff; outline-offset: 1px; }

@@ -2172,6 +2172,8 @@
           if (B.xs) { B.xs.refreshAll(); render(); } else if (Lib.source) { Lib.select(Lib.source, true); U.toast(L('Updating…')); }
         }, { icon: 'refresh', sub: D.sources.length > 1 ? L('Updates all your servers, the active one first.') : null });
         if (main) row(sec, L('Manage servers'), String(D.sources.length), function () { location.href = '../account/'; }, { icon: 'layers' });
+        // build 172: categorieën slim samenvoegen, pas na akkoord (web/js/catmerge-ui.js)
+        if (main && src && S.pages.cleanup) row(sec, L('Clean up categories'), null, function () { location.hash = '#/cleanup'; }, { icon: 'grid' });
         if (main) {
           var canAdd = B.plan.canAddServer(D.sources.length);
           row(sec, L('Add server'), canAdd ? null : B.plan.badge(), canAdd ? function () { location.href = '../account/'; } : function () { B.plan.sheet('servers'); },
