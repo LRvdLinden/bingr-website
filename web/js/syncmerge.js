@@ -13,8 +13,8 @@
     // build 176: vergrendelen met pincode (docs/ACCOUNT.md "Build 176"), zelfde sleutels als hiddenChannels/blockedTitles
     'lockedChannels', 'lockedTitles'];
   var REMOVED_DAYS = 90, MAX_RECENT = 20, MAX_PROGRESS = 300, MAX_HISTORY = 500;
-  // build 176: momenten (bookmarks, docs/ACCOUNT.md "Build 176"): per id nieuwste at, bij gelijke at wint removed; max. 200
-  var MAX_BOOKMARKS = 200;
+  // build 178: momenten (`bookmarks`, build 176) vervallen: de sleutel wordt niet gelezen of geschreven en blijft via de
+  // basis (toJSON) ongewijzigd staan (docs/ACCOUNT.md "Build 176", 3)
 
   function time(v) {
     if (v == null) return null;
@@ -75,25 +75,6 @@
     return e;
   }
   function historyId(e) { return (e.playlistID || '-') + '|' + e.itemID; }
-  /** build 176: moment {at, on, v} (v = het item zonder id/at/removed) */
-  function putBm(map, id, item) {
-    var c = map[id];
-    if (!c || item.at > c.at || (item.at === c.at && !item.on && c.on)) map[id] = item;
-  }
-  function parseBookmarks(list, out) {
-    (Array.isArray(list) ? list : []).forEach(function (x) {
-      if (!x || typeof x !== 'object' || !x.id) return;
-      var at = time(x.at) || 0;
-      if (x.removed === true) { putBm(out, String(x.id), { at: at, on: false }); return; }
-      if (x.key == null) return;
-      var v = { playlistID: x.playlistID != null ? String(x.playlistID) : '', key: String(x.key), title: x.title != null ? String(x.title) : '', t: Math.max(0, Math.floor(B.num(x.t) || 0)) };
-      if (x.artwork) v.artwork = x.artwork;
-      if (x.seriesID != null) v.seriesID = String(x.seriesID);
-      putBm(out, String(x.id), { at: at, on: true, v: v });
-    });
-    return out;
-  }
-
   /** Serverobject → model {sets, progress, history}. */
   function parseState(o) {
     var removedObj = (o && o.removed && typeof o.removed === 'object') ? o.removed : {};
@@ -108,9 +89,8 @@
       return out;
     }
     var removed = { progress: removedFor('progress'), history: removedFor('history') };
-    var st = { sets: {}, progress: {}, history: {}, bookmarks: {} };
+    var st = { sets: {}, progress: {}, history: {} };
     SET_FIELDS.forEach(function (f) { st.sets[f] = parseSetField(o[f], removedFor(f)); });
-    parseBookmarks(o && o.bookmarks, st.bookmarks);
     var pr = o.progress || {};
     Object.keys(pr).forEach(function (k) {
       var p = pr[k];
@@ -138,9 +118,6 @@
   function mergeState(a, b) {
     var st = { sets: {}, progress: mergeMaps(a.progress, b.progress), history: mergeMaps(a.history, b.history) };
     SET_FIELDS.forEach(function (f) { st.sets[f] = mergeMaps(a.sets[f], b.sets[f]); });
-    var bm = {};
-    [a.bookmarks, b.bookmarks].forEach(function (m) { Object.keys(m || {}).forEach(function (k) { putBm(bm, k, m[k]); }); });
-    st.bookmarks = bm;
     return st;
   }
   function alive(item) { return item.on === undefined ? item.v != null : item.on; }
@@ -158,16 +135,8 @@
     }
     var o = { sets: {}, progress: prune(st.progress, MAX_PROGRESS), history: prune(st.history, MAX_HISTORY) };
     SET_FIELDS.forEach(function (f) { o.sets[f] = prune(st.sets[f] || {}, f === 'recentChannels' ? MAX_RECENT : 0); });
-    o.bookmarks = pruneBookmarks(st.bookmarks || {}, cutoff);
     capSize(o);
     return o;
-  }
-  function bmOrder(m) { return function (x, y) { return (m[y].at - m[x].at) || (x < y ? -1 : x > y ? 1 : 0); }; }
-  function pruneBookmarks(m, cutoff) {
-    var out = {}, live = [];
-    Object.keys(m).forEach(function (k) { if (m[k].on) live.push(k); else if (m[k].at >= cutoff) out[k] = m[k]; });
-    live.sort(bmOrder(m)).slice(0, MAX_BOOKMARKS).forEach(function (k) { out[k] = m[k]; });
-    return out;
   }
   /**
    * Build 154: profile.<id> hooguit 1 MB. Daarboven vallen eerst de titelsleutels van films (w:m:t:) weg die ook een
@@ -179,7 +148,6 @@
     SET_FIELDS.forEach(function (f) { var m = o.sets[f] || {}; for (var k in m) n += k.length + 46; });
     for (var p in o.progress) n += p.length + 260;
     for (var h in o.history) n += h.length * 2 + 320;
-    for (var b in o.bookmarks || {}) n += b.length + 200;
     return n;
   }
   function capSize(o) {
@@ -233,18 +201,6 @@
     });
     removed.history = {};
     sortedKeys(st.history, function (k) { return !st.history[k].v; }).forEach(function (k) { removed.history[k] = B.iso(st.history[k].at); });
-    // build 176: momenten als lijst (aanwezig op at aflopend, dan verwijderingen); alleen als er iets is of de server het had
-    var bm = st.bookmarks || {}, bk = Object.keys(bm);
-    if (bk.length || (base && B.has(base, 'bookmarks'))) {
-      var ord = bmOrder(bm);
-      out.bookmarks = bk.filter(function (k) { return bm[k].on; }).sort(ord).map(function (k) {
-        var v = bm[k].v || {}, x = { id: k, playlistID: v.playlistID || '', key: v.key, title: v.title || '', t: v.t || 0 };
-        if (v.artwork) x.artwork = v.artwork;
-        if (v.seriesID) x.seriesID = v.seriesID;
-        x.at = B.iso(bm[k].at);
-        return x;
-      }).concat(bk.filter(function (k) { return !bm[k].on; }).sort(ord).map(function (k) { return { id: k, removed: true, at: B.iso(bm[k].at) }; }));
-    }
     var baseRemoved = (base && base.removed && typeof base.removed === 'object') ? B.copy(base.removed) : {};
     out.removed = B.assign(baseRemoved, removed);
     out.updatedAt = B.iso();
@@ -256,7 +212,7 @@
   }
 
   function hasAny(st) {
-    var any = Object.keys(st.progress).length || Object.keys(st.history).length || Object.keys(st.bookmarks || {}).length;
+    var any = Object.keys(st.progress).length || Object.keys(st.history).length;
     SET_FIELDS.forEach(function (f) { if (Object.keys(st.sets[f]).length) any = true; });
     return !!any;
   }
@@ -295,7 +251,7 @@
 
   B.syncMerge = {
     mergeSteps: mergeSteps, mergeNow: mergeNow,
-    SET_FIELDS: SET_FIELDS, MAX_BOOKMARKS: MAX_BOOKMARKS, REMOVED_DAYS: REMOVED_DAYS, MAX_RECENT: MAX_RECENT, MAX_PROGRESS: MAX_PROGRESS, MAX_HISTORY: MAX_HISTORY,
+    SET_FIELDS: SET_FIELDS, REMOVED_DAYS: REMOVED_DAYS, MAX_RECENT: MAX_RECENT, MAX_PROGRESS: MAX_PROGRESS, MAX_HISTORY: MAX_HISTORY,
     time: time, putNewer: putNewer, parseSetField: parseSetField, historyId: historyId, parseState: parseState,
     mergeMaps: mergeMaps, mergeState: mergeState, normalize: normalize, toJSON: toJSON, stateKey: stateKey, hasAny: hasAny
   };

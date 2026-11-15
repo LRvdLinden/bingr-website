@@ -5,7 +5,6 @@
  * en Build176Logic.kt (Android):
  * - autoplayNext per profiel (automatisch volgende aflevering);
  * - vergrendelen met pincode (lockedChannels / lockedTitles, 4 uur open op dit apparaat);
- * - momenten (bookmarks): id, samenvoegen, opruimen;
  * - Binnenkort: herinnering met kind "release" (id, start = releasedatum 09:00 lokale tijd);
  * - zoeken in programmabeschrijvingen (normaliseren per teken, markeren);
  * - data besparen op mobiel netwerk (keuze en HLS-variant);
@@ -61,67 +60,6 @@
     var out = {};
     Object.keys(map || {}).forEach(function (k) { var t = +map[k]; if (t && nowMs - t < P.UNLOCK_SECONDS * 1000 && t <= nowMs + 60000) out[k] = t; });
     return out;
-  };
-
-  // MARK: 3. momenten (bookmarks)
-
-  P.BOOKMARK_MAX = 200;
-  P.BOOKMARK_REMOVED_DAYS = 90;
-  /** id = "<server-id kleine letters>|<key>@<t>" met t in gehele seconden (naar beneden). */
-  P.bookmarkID = function (sid, key, t) {
-    return String(sid || '').toLowerCase() + '|' + String(key) + '@' + Math.max(0, Math.floor(+t || 0));
-  };
-  function cmpBm(a, b) {
-    var d = time(b.at) - time(a.at);
-    if (d) return d;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  }
-  /**
-   * Twee lijsten samenvoegen: per id wint de nieuwste at, bij gelijke at wint removed; verwijderingen ouder dan 90 dagen
-   * weg; max. 200 aanwezige (nieuwste at); aanwezige op at aflopend, dan verwijderingen (elk op id bij gelijke at).
-   */
-  P.mergeBookmarks = function (local, server, nowMs) {
-    var by = {};
-    function add(x) {
-      if (!x || typeof x !== 'object' || !x.id) return;
-      var id = String(x.id), c = by[id];
-      if (!c) { by[id] = x; return; }
-      var ta = time(c.at), tb = time(x.at);
-      if (tb > ta || (tb === ta && x.removed === true && c.removed !== true)) by[id] = x;
-    }
-    (Array.isArray(local) ? local : []).forEach(add);
-    (Array.isArray(server) ? server : []).forEach(add);
-    var now = nowMs == null ? Date.now() : nowMs, cut = now - P.BOOKMARK_REMOVED_DAYS * 86400000;
-    var on = [], off = [];
-    Object.keys(by).forEach(function (id) {
-      var x = by[id];
-      if (x.removed === true) { if (time(x.at) >= cut) off.push(x); } else on.push(x);
-    });
-    on.sort(cmpBm); off.sort(cmpBm);
-    return on.slice(0, P.BOOKMARK_MAX).concat(off);
-  };
-  /** Nieuw moment. */
-  P.makeBookmark = function (o, nowISO) {
-    var t = Math.max(0, Math.floor(+o.t || 0));
-    var b = { id: P.bookmarkID(o.playlistID, o.key, t), playlistID: String(o.playlistID || ''), key: String(o.key), title: String(o.title || ''), t: t, at: nowISO };
-    if (o.artwork) b.artwork = o.artwork;
-    return b;
-  };
-  P.removedBookmark = function (id, nowISO) { return { id: String(id), removed: true, at: nowISO }; };
-  /** Aanwezige momenten (geen verwijderingen). */
-  P.liveBookmarks = function (list) { return (list || []).filter(function (x) { return x && x.id && x.removed !== true; }); };
-  /** Momenten van één titel (keys = sleutels van die film of de afleveringen), op t oplopend. */
-  P.bookmarksFor = function (list, keys) {
-    var set = {};
-    (keys || []).forEach(function (k) { set[String(k)] = 1; });
-    return P.liveBookmarks(list).filter(function (x) { return set[String(x.key)]; }).sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
-  };
-  /** "1:02:03" of "4:05" */
-  P.clock = function (t) {
-    t = Math.max(0, Math.floor(+t || 0));
-    var h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
-    var ss = (s < 10 ? '0' : '') + s;
-    return h ? h + ':' + (m < 10 ? '0' : '') + m + ':' + ss : m + ':' + ss;
   };
 
   // MARK: 4. Binnenkort: herinnering op de releasedatum

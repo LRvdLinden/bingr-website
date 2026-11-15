@@ -713,10 +713,6 @@
       if (isCatchup() && item.channel && item.program && P173.canGoLive(item.program.end, Date.now())) {
         rightBtns.appendChild(U.button(L('Back to live'), function () { goLive(); }, { icon: 'tv', cls: 'pl-tb pl-golive', title: L('Back to live') }));
       }
-      // build 176: Moment bewaren (films en afleveringen, sleutel = die van Verder kijken)
-      if ((item.type === 'movie' || item.type === 'episode') && B.b176ui && D.saveBookmark) {
-        rightBtns.appendChild(iconBtn('bookmark', L('Save moment') + ' (B)', function () { saveMoment(); }, 'pl-bmbtn'));
-      }
       // build 173 (#5): Afleveringen in de speler
       if (item.type === 'episode' && (ctx.episodes || []).length > 1) rightBtns.appendChild(iconBtn('list', L('Episodes') + ' (E)', function () { togglePanel('episodes'); }, 'pl-epsbtn'));
       // build 173 (#3): Zappen als lijst en Vorige zender
@@ -1859,14 +1855,6 @@
         if (left <= 0) { clearInterval(countdownTimer); if (sleepCheck(true)) return; playNext(); }
       }, 1000);
     }
-    function saveMoment() {
-      if (!engine || !D.saveBookmark || isLive() || isCatchup()) return;
-      var src = isrc();
-      D.saveBookmark({ playlistID: src ? src.id : '', key: item.id, t: engine.time(),
-        title: item.type === 'episode' ? B.showName(item.title) + ' · ' + String(item.subtitle || '').split(' · ')[0] : B.showName(item.title), artwork: item.artwork || null, seriesID: item.type === 'episode' ? item.seriesID : null });
-      U.toast(L('Moment saved') + ' · ' + B.b176.clock(engine.time()));
-      if (B.b176ui && B.b176ui.pop) B.b176ui.pop(root.querySelector('.pl-bmbtn'));
-    }
     function playNext() {
       var nx = nextEpisode();
       clearInterval(countdownTimer);
@@ -2089,7 +2077,6 @@
       }
       if (k === 'f' || k === 'F') { e.preventDefault(); toggleFullscreen(); return; }
       if (k === 'm' || k === 'M') { e.preventDefault(); video.muted = !video.muted; drawVolume(); flash(video.muted ? L('Muted') : Math.round(video.volume * 100) + '%'); return; }
-      if ((k === 'b' || k === 'B') && (item.type === 'movie' || item.type === 'episode') && D.saveBookmark) { e.preventDefault(); saveMoment(); return; }
       if (k === 'n' || k === 'N') { if (item.type === 'episode' && nextEpisode()) { e.preventDefault(); playNext(); } return; }
       if (k === 'p' || k === 'P') { e.preventDefault(); togglePip(); return; }
       if (k === 'Escape' || k === 'Backspace') {

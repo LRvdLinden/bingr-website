@@ -20,19 +20,6 @@ C.epgSearch.cases.forEach((c) => {
   const m = P.matchProgram(c.title, c.desc, c.q);
   eq(m ? { field: m.field, highlight: m.highlight } : null, c.expect, 'epg ' + JSON.stringify(c.q));
 });
-const iso = (t) => new Date(P.time(t)).toISOString();
-const simple = (l) => l.map((x) => ({ id: x.id, removed: x.removed === true, at: iso(x.at) }));
-C.bookmarks.cases.forEach((c) => {
-  eq(simple(P.mergeBookmarks(c.local, c.server, Date.parse(c.now))), simple(c.expect), 'bookmarks ' + c.name);
-});
-{
-  const lim = C.bookmarks.limit, base = Date.parse('2026-11-01T00:00:00Z');
-  const list = []; for (let i = 0; i < lim.count; i++) list.push({ id: 'abc|k' + i + '@1', key: 'k' + i, t: 1, at: new Date(base + i * 60000).toISOString() });
-  const out = P.mergeBookmarks(list, [], Date.parse('2026-11-15T12:00:00Z'));
-  eq(out.length, lim.keep, 'limiet');
-  eq(out.some((x) => /^abc\|k[0-4]@1$/.test(x.id)), false, 'oudste vijf weg');
-}
-C.bookmarkID.cases.forEach(([sid, key, t, exp]) => eq(P.bookmarkID(sid, key, t), exp, 'bookmarkID ' + key));
 C.releaseReminder.cases.forEach(([type, tmdb, season, prof, date, tz, id, start]) => {
   eq(P.releaseID(type, tmdb, season, prof), id, 'release id ' + id);
   eq(P.releaseStart(date, tz), start, 'release start ' + id);
@@ -59,11 +46,7 @@ eq(P.tmdbSize(160), 185); eq(P.tmdbSize(304), 342); eq(P.tmdbSize(2000, 'backdro
 eq(P.tmdbSrcset('https://image.tmdb.org/t/p/w500/abc.jpg', 160), { src: 'https://image.tmdb.org/t/p/w185/abc.jpg',
   srcset: 'https://image.tmdb.org/t/p/w185/abc.jpg 185w, https://image.tmdb.org/t/p/w342/abc.jpg 342w', sizes: '160px' });
 eq(P.tmdbSrcset('https://example.com/a.jpg', 160), null); eq(P.tmdbSrcset('https://image.tmdb.org/t/p/original/x.png', 400).src, 'https://image.tmdb.org/t/p/w500/x.png');
-eq(P.clock(3723), '1:02:03'); eq(P.clock(65), '1:05');
-eq(P.bookmarksFor([{ id: 'a|k@9', key: 'k', t: 9, at: 1 }, { id: 'a|k@3', key: 'k', t: 3, at: 2 }, { id: 'a|z@1', key: 'z', t: 1, at: 3 },
-  { id: 'a|k@1', removed: true, at: 4 }], ['k']).map((x) => x.t), [3, 9]);
-
-// MARK: sync van de momenten via syncmerge.js (zelfde gedeelde gevallen, het echte samenvoegpad van profile.<id>)
+// MARK: sync via syncmerge.js (het echte samenvoegpad van profile.<id>)
 {
   const mem = new Map();
   globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k), key: (i) => [...mem.keys()][i], get length() { return mem.size; } };
@@ -74,18 +57,17 @@ eq(P.bookmarksFor([{ id: 'a|k@9', key: 'k', t: 9, at: 1 }, { id: 'a|k@3', key: '
   (0, eval)(fs.readFileSync(path.join(WEB, 'core.js'), 'utf8'));
   (0, eval)(fs.readFileSync(path.join(WEB, 'syncmerge.js'), 'utf8'));
   const SM = globalThis.B.syncMerge;
-  const realNow = Date.now;
-  C.bookmarks.cases.forEach((c) => {
-    Date.now = () => Date.parse(c.now);
-    const st = SM.normalize(SM.mergeState(SM.parseState({ bookmarks: c.local }), SM.parseState({ bookmarks: c.server })));
-    const out = SM.toJSON({}, st).bookmarks || [];
-    eq(simple(out), simple(c.expect), 'sync bookmarks ' + c.name);
-  });
-  Date.now = realNow;
   // onbekende velden blijven, lockedChannels/lockedTitles als sets, autoplayNext blijft in de basis
   const base = { autoplayNext: { value: false, at: '2026-11-15T10:00:00Z' }, lockedTitles: [{ id: 's1|movie:m1', at: '2026-11-15T10:00:00Z' }], prefs: { x: 1 } };
   const j = SM.toJSON(base, SM.normalize(SM.parseState(base)));
   eq([j.autoplayNext.value, j.lockedTitles[0].id, j.prefs.x, 'bookmarks' in j], [false, 's1|movie:m1', 1, false], 'velden van build 176 in profile.<id>');
+  // build 178: momenten vervallen: `bookmarks` van de server wordt niet gelezen of geschreven, maar blijft ongewijzigd staan
+  const bms = [{ id: 'abc|x1@60', key: 'x1', playlistID: 'abc', title: 'Film', t: 60, at: '2026-11-15T10:00:00Z' }, { id: 'abc|x2@5', removed: true, at: '2020-01-01T00:00:00Z' }];
+  const withBm = { bookmarks: bms, myList: [] };
+  const st2 = SM.normalize(SM.parseState(withBm));
+  eq('bookmarks' in st2, false, '178: geen momenten in het model');
+  eq(SM.toJSON(withBm, st2).bookmarks, bms, '178: bookmarks blijft ongewijzigd staan');
+  eq('bookmarks' in SM.toJSON({}, SM.normalize(SM.mergeState(SM.parseState(withBm), SM.parseState({})))), false, '178: geen bookmarks geschreven');
 }
 
 // MARK: tik op een herinnering op de releasedatum: titel-link uit build 120 → #/titel van de webspeler (sw.js)

@@ -4,8 +4,6 @@
  * - Automatisch volgende aflevering per profiel (Instellingen > Afspelen; de aftelknop zelf zit in player.js).
  * - Vergrendelen met pincode (lockedChannels / lockedTitles): contextmenu, slotje op kaarten, pincode bij openen
  *   (speler, zappen, detailpagina), 4 uur open op dit apparaat, overzicht in Instellingen > Profielen.
- * - Momenten (bookmarks): rij Momenten op de detailpagina en in Mijn lijst (de knop zit in player.js, de sync in
- *   syncmerge.js/sync.js).
  * - Nieuw en populair (#/new): Binnenkort, Nieuwe seizoenen en Populair (TMDB via de bestaande route), belletje =
  *   herinnering met kind "release" in de state-section `reminders`; "Nu beschikbaar" als de titel op je server staat.
  * - Zoeken in programmabeschrijvingen: index op de achtergrond (in stukjes), sectie "In de tv-gids" bij Zoeken en in de
@@ -272,81 +270,6 @@
   B.on('playerOpened', stopPreview);
   window.addEventListener('hashchange', stopPreview);
   document.addEventListener('visibilitychange', function () { if (document.hidden) stopPreview(); });
-
-  // MARK: momenten (bookmarks)
-
-  /** Kan dit profiel het moment zien (kinderprofiel: alleen titels uit de eigen bibliotheek)? */
-  function playMoment(b) {
-    var src = D.sourceById ? D.sourceById(b.playlistID) : null;
-    var lib = src && B.xs && !B.xs.isActive(src.id) ? B.xs.view(src.id) : Lib.lib;
-    var hit = lib && lib.byId ? lib.byId[b.key] : null;
-    if (hit && hit.type === 'movie') { var mi = B.player.movieItem(hit.item); B.player.playVOD(mi, { resume: b.t }); return; }
-    // aflevering: via de serie (afleveringen laden), dan afspelen vanaf t
-    var series = findSeries(b, lib);
-    if (!series) { U.toast(L('This title is not in the library of this server.')); return; }
-    Lib.episodes(series).then(function (r) {
-      var eps = (r && r.episodes) || [];
-      var ep = eps.filter(function (e) { return String(e.id) === String(b.key) || D.episodeKey(series.id, e.season, e.number) === b.key; })[0];
-      if (!ep) { U.toast(L('This title is not in the library of this server.')); return; }
-      B.player.playVOD(B.player.episodeItem(ep, series), { episodes: eps, series: series, resume: b.t });
-    }, function () { U.toast(L('Something went wrong. Please try again.')); });
-  }
-  function findSeries(b, lib) {
-    if (!lib || !lib.series) return null;
-    if (b.seriesID) { var s = lib.byId && lib.byId[b.seriesID]; if (s && s.type === 'series') return s.item; }
-    var name = String(b.title || '').split(' · ')[0];
-    for (var i = 0; i < lib.series.length; i++) if (B.showName(lib.series[i].title) === name) return lib.series[i];
-    return null;
-  }
-  function visible(b) {
-    var p = prof();
-    if (!p || !p.kids) return true;
-    var lib = Lib.lib, hit = lib && lib.byId ? lib.byId[b.key] : null;
-    return !!(hit || findSeries(b, lib));
-  }
-  function momentCard(b, withTitle) {
-    var card = h('button.b176-moment', { type: 'button', 'aria-label': b.title + ' · ' + P.clock(b.t) }, [
-      h('div.b176-moment-img', [U.img(b.artwork || null, 'still', b.title), h('span.b176-moment-t', [U.icon('bookmark'), P.clock(b.t)])]),
-      withTitle ? h('div.card-title', b.title) : null
-    ]);
-    card.addEventListener('click', function () { playMoment(b); });
-    U.onMenu(card, function () {
-      return [{ icon: 'play', label: L('Play from %@', P.clock(b.t)), fn: function () { playMoment(b); } },
-        { icon: 'trash', label: L('Remove'), fn: function () { D.removeBookmark(b.id); card.remove(); U.toast(L('Moment removed')); } }];
-    }, b.title);
-    return card;
-  }
-  /** Mijn lijst: rij Momenten (alle, nieuwste eerst), of null. */
-  UI.momentsRow = function () {
-    if (!D.bookmarks) return null;
-    var list = D.bookmarks().filter(visible);
-    if (!list.length) return null;
-    return U.row(L('Moments'), list.slice(0, 60).map(function (b) { return momentCard(b, true); }), 'b176-moments');
-  };
-  /** Detailpagina: Momenten van deze titel (op t oplopend); bijgewerkt bij een sync. */
-  UI.titleMoments = function (x, type, srcFn, epsFn) {
-    var box = h('div.b176-title-moments');
-    function draw() {
-      U.clear(box);
-      var src = srcFn(), sid = lower(src ? src.id : '');
-      var all = D.bookmarks ? D.bookmarks().filter(function (b) { return lower(b.playlistID) === sid; }) : [];
-      var mine;
-      if (type === 'movie') mine = all.filter(function (b) { return String(b.key) === String(x.id); });
-      else {
-        var ids = {};
-        (epsFn() || []).forEach(function (e) { ids[String(e.id)] = 1; });
-        var name = B.showName(x.title) + ' · ';
-        mine = all.filter(function (b) { return ids[String(b.key)] || String(b.seriesID) === String(x.id) || String(b.title || '').indexOf(name) === 0; });
-      }
-      mine.sort(function (a, b) { return a.t - b.t; });
-      if (!mine.length) return;
-      var row = U.row(L('Moments'), mine.map(function (b) { return momentCard(b, type !== 'movie'); }), 'b176-moments');
-      if (row) box.appendChild(row);
-    }
-    draw();
-    var off = B.on('profileData', B.debounce(function () { if (!box.isConnected) { off(); return; } draw(); }, 200));
-    return box;
-  };
 
   // MARK: zoeken in programmabeschrijvingen
 

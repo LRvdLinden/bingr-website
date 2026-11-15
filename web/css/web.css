@@ -1574,7 +1574,7 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .dt-act:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .page.detail { overflow-x: clip; }
 
-/* build 176: vergrendelen (slotje), voorvertoning, In de tv-gids, momenten, Nieuw en populair, kleine animaties */
+/* build 176: vergrendelen (slotje), voorvertoning, In de tv-gids, Nieuw en populair, kleine animaties */
 .b176-lock { position: absolute; right: 6px; top: 6px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #000000b3; color: #fff; z-index: 2; }
 .b176-lock .ic { width: 15px; height: 15px; }
 .ccard-logo { position: relative; }
@@ -1601,12 +1601,6 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .b176-gh-lock { width: 16px; height: 16px; flex: 0 0 16px; opacity: .8; }
 .b176-desc { margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, transparent); color: #fff; border-radius: 3px; padding: 0 1px; }
-.b176-moment { flex: 0 0 auto; width: 220px; max-width: 70vw; padding: 0; border: 0; background: none; color: inherit; text-align: left; font: inherit; cursor: pointer; }
-.b176-moment-img { position: relative; aspect-ratio: 16/9; border-radius: 6px; overflow: hidden; background: var(--card, #1b1b1b); }
-.b176-moment-img .imgbox, .b176-moment-img img { width: 100%; height: 100%; object-fit: cover; }
-.b176-moment-t { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; background: #000000b3; color: #fff; font-size: .78rem; font-weight: 700; }
-.b176-moment-t .ic { width: 13px; height: 13px; }
-.b176-moment:hover .b176-moment-img, .b176-moment:focus-visible .b176-moment-img { box-shadow: 0 0 0 2px #ffffffd9; }
 .b176-new-card { position: relative; min-width: 0; }
 .b176-new-card .b176-bell { position: absolute; right: 6px; top: 6px; z-index: 2; width: 34px; height: 34px; padding: 0; border-radius: 50%; background: #000000b3; border: 1px solid #ffffff40; }
 .b176-new-card .b176-bell.on, .b176-bell.on .ic { color: var(--accent, #E50914); }
@@ -1616,4 +1610,3 @@ mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, trans
 .ic.b176-anim { animation: b176-pop .45s cubic-bezier(.3, 1.5, .5, 1); }
 .ic-bell.b176-anim { animation: b176-ring .7s ease-in-out; transform-origin: 50% 10%; }
 @media (prefers-reduced-motion: reduce) { .ic.b176-anim, .ic-bell.b176-anim { animation: none; } .b176-pv { transition: none; } }
-@media (max-width: 600px) { .b176-moment { width: 180px; } }

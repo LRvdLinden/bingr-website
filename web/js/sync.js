@@ -526,7 +526,7 @@
     P.id = id;
     P.st = (saved && saved.st) || { sets: { myList: {}, favorites: {}, watched: {}, recentChannels: {} }, progress: {}, history: {} };
     SET_FIELDS.forEach(function (f) { P.st.sets[f] = P.st.sets[f] || {}; });
-    P.st.bookmarks = P.st.bookmarks || {};
+    delete P.st.bookmarks;   // build 178: momenten vervallen (oude lokale kopie van 176/177)
     P.base = (saved && saved.base) || null;
     // build 146: lokaal nooit een pincode als tekst (oude kopie van ≤ 145): weg; de hash komt bij de volgende sync
     if (P.base && typeof P.base.pin === 'string') { delete P.base.pin; if (!B.has(P.base, 'pinHash')) delete P.base.pinUpdatedAt; }
@@ -1094,7 +1094,7 @@
     P.base.prefs = pr;
     changed(false);
   };
-  // MARK: build 176: automatisch volgende aflevering en momenten (docs/ACCOUNT.md "Build 176")
+  // MARK: build 176: automatisch volgende aflevering (docs/ACCOUNT.md "Build 176"; momenten vervallen in build 178)
 
   /** autoplayNext van het actieve profiel: true/false, of null = niet ingesteld (dan aan, in een kinderprofiel uit). */
   D.autoplayNext = function () {
@@ -1108,38 +1108,6 @@
     P.base.autoplayNext = { value: !!on, at: B.iso(Math.max(Date.now(), prev + 1)) };
     changed(false);
   };
-  /** Aanwezige momenten van het actieve profiel: [{id, playlistID, key, title, t, at (ms)}], nieuwste eerst. */
-  D.bookmarks = function () {
-    var m = P.st && P.st.bookmarks;
-    if (!m) return [];
-    return Object.keys(m).filter(function (k) { return m[k].on && m[k].v; })
-      .sort(function (x, y) { return (m[y].at - m[x].at) || (x < y ? -1 : x > y ? 1 : 0); })
-      .map(function (k) { return B.assign({ id: k, at: m[k].at }, m[k].v); });
-  };
-  /** Moment bewaren: o = {playlistID, key, title, t, artwork?}; geeft het id. */
-  D.saveBookmark = function (o) {
-    if (!P.st) return null;
-    var m = P.st.bookmarks = P.st.bookmarks || {};
-    var t = Math.max(0, Math.floor(+o.t || 0));
-    var id = String(o.playlistID || '').toLowerCase() + '|' + String(o.key) + '@' + t, now = Date.now();
-    if (m[id] && m[id].at >= now) now = m[id].at + 1;
-    var v = { playlistID: String(o.playlistID || ''), key: String(o.key), title: String(o.title || ''), t: t };
-    if (o.artwork) v.artwork = o.artwork;
-    if (o.seriesID != null) v.seriesID = String(o.seriesID);
-    m[id] = { at: now, on: true, v: v };
-    P.st = normalize(P.st);
-    changed(false);
-    return id;
-  };
-  D.removeBookmark = function (id) {
-    var m = P.st && P.st.bookmarks;
-    if (!m || !m[id] || !m[id].on) return;
-    var now = Date.now();
-    if (m[id].at >= now) now = m[id].at + 1;
-    m[id] = { at: now, on: false };
-    changed(false);
-  };
-
   D.addHistory = function (e) {
     if (!P.st) return;
     var id = historyId(e);
