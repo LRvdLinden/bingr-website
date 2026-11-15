@@ -1475,6 +1475,15 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .sp-fav span:nth-child(2) { flex: 1; }
 .sp-add { display: flex; gap: 8px; }
 .sp-add .input { flex: 1; min-width: 0; }
+/* build 178: club- en competitielogo's (zolang ze laden of ontbreken: de initialen) */
+.sp-logo { flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.sp-logo:empty { width: 0 !important; }
+.sp-logo .sp-badge { flex: none; }
+.sp-logo-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.sp-comp { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sp-comp > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-pair { flex: none; display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 56px; }
+.sp-logo-note { margin: 24px 0 0; max-width: 760px; font-size: 11px; }
 
 /* MARK: build 173: Trakt-waarschuwing, paneel in de speler (Audio en ondertitels, Zappen, Afleveringen, Slaaptimer),
    Eindigt om, dubbeltikken, Vanaf het begin / Terug naar live, weergave van ondertitels */
