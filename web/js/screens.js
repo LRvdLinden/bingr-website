@@ -435,7 +435,11 @@
         nn.now ? h('div.card-progress.inline', [h('div', { style: { width: pct(nn.now) } })]) : null])
     ]);
     if (ch._key || ch._noKey) phClick(b, ch, 'channel');
-    else b.addEventListener('click', function () { B.player.playChannel(ch, (list || [ch]).filter(function (c) { return !c._key && !c._noKey; })); });
+    else b.addEventListener('click', function () {
+      var l2 = (list || [ch]).filter(function (c) { return !c._key && !c._noKey; });
+      // build 173: rij "Nu live": een programma dat al bezig is, met de vraag Vanaf het begin / Live kijken
+      if (opts && opts.ask && B.player.playLive) B.player.playLive(ch, l2); else B.player.playChannel(ch, l2);
+    });
     if (S.cardMenu) U.onMenu(b, function () { return S.cardMenu(ch, 'channel', opts || {}); }, B.chanName(ch.name));
     // build 171 (#15): verborgen zender (ook favorieten en recent van andere servers)
     if (B.b171ui && B.b171ui.hides(ch, 'channel')) b.hidden = true;
@@ -483,6 +487,8 @@
       // build 146: ongelezen antwoorden van support (Instellingen opent via dit menu)
       var bd = B.support && B.support.badge('on-prof');
       if (bd) profBtn.appendChild(bd);
+      // build 173: blijvende Trakt-fout: rode stip (de melding staat in het profielmenu)
+      else if (B.trakt && B.trakt.warning && B.trakt.warning() && p && !p.kids) profBtn.appendChild(h('span.prof-warn', { 'aria-label': B.trakt.warning().text }));
     }
     drawProf();
     profBtn.addEventListener('click', function (e) { e.stopPropagation(); profileMenu(profBtn); });
@@ -577,6 +583,7 @@
       B.on('epg', function () { if (page && page.onEpg) soon('epg', doEpg, 300); }),
       B.on('profiles', drawProf),
       B.on('support', drawProf),
+      B.on('traktStatus', drawProf),
       B.on('collections', function () { if (page && page.onCollections) soon('coll', doColl, 150); }),
       B.on('trakt', function () { if (page && page.onData) soon('data', doData, 300); }),
       // vinkjes op álle posters (ook Films, Series, zoeken en categorie-rijen, die geen onData hebben)
@@ -622,6 +629,15 @@
       menu.appendChild(it);
     }
     if (menu.children.length) menu.appendChild(h('div.menu-sep'));
+    // build 173: Trakt synchroniseert niet en dat blijft zo (opnieuw inloggen, vergrendeld of > 24 uur): rood bovenaan
+    var tw = B.trakt && B.trakt.warning ? B.trakt.warning() : null;
+    if (tw && cur && !cur.kids) {
+      item('warn', tw.text, function () { if (S.traktSheet) S.traktSheet(tw.reauth ? { relogin: true } : null); });
+      menu.lastChild.classList.add('menu-warn');
+      menu.appendChild(h('div.menu-sep'));
+    }
+    // build 173: Categorieën staat sinds Sport (172) niet meer in de onderbalk van de telefoon: hier, boven Servers vernieuwen
+    if (D.sources.length && S.pages.categorie) item('grid', L('Categories'), null, '#/categorie');
     // build 146: alle servers één voor één vernieuwen (zoals de knop Vernieuwen), direct boven Wissel profiel; niet bij een
     // kinderprofiel
     if (cur && !cur.kids && D.sources.length && B.xs) item('refresh', L('Refresh servers'), function () { B.xs.refreshAll(); });
@@ -797,7 +813,7 @@
       B.xs.dedupeHome(B.xs.listTiles('recentChannels', 'channel').concat(B.xs.listTiles('favorites', 'channel'))).forEach(function (hit) { if (chans.indexOf(hit.item) < 0) chans.push(hit.item); });
       if (!chans.length) chans = lib.channels.slice(0, 20);
       chans = chans.slice(0, 24);
-      return U.row(L('Live now'), chans.map(function (c) { return channelCard(c, chans); }), 'live', '#/live');
+      return U.row(L('Live now'), chans.map(function (c) { return channelCard(c, chans, { ask: true }); }), 'live', '#/live');
     }
     function forYouRow() {
       // build 140: per actief profiel (geschiedenis, Verder kijken, genres en TMDB-aanbevelingen), meest passend eerst;
@@ -2112,8 +2128,13 @@
           }, { icon: 'guide', sub: L('Plays the chosen channel live and muted in the TV guide. It counts as a screen for your account and as a connection for your provider.') });
         }
         row(sec, L('Servers on http go through Bingr’s server, because browsers block http on a secure page. Movies and series that the server also offers as HLS play in every browser, Safari included. Otherwise MKV plays in Chrome, Edge and Firefox if the browser knows the picture and sound inside; AVI, and MKV in Safari, only play in the app. If something doesn’t play, “Details” in the error shows why.'), null, null);
+        // build 173 (#7): kort terugspoelen (10–30 s) met ondertitels uit: even aan tot je weer voorbij dat punt bent
+        var rwOn = D.local('rewindSubtitles', true) !== false;
+        row(sec, L('Subtitles after rewinding'), null, function () { D.setLocal('rewindSubtitles', !rwOn); render(); },
+          { toggle: rwOn, icon: 'subs', sub: L("Rewind briefly and subtitles turn on until you're past that point again (when there's a track in your language).") });
         sec = section(L('Keyboard shortcuts'));
         [['Space / K', L('Play / pause')], ['← →', L('10 seconds back / forward')], ['↑ ↓', L('Volume, or another channel during live TV')],
+          ['A', L('Audio & subtitles')], ['Z', L('Zap')], ['R', L('Previous channel')], ['E', L('Episodes')],
           ['F', L('Full screen')], ['M', L('Mute')], ['Esc', L('Close the player')], ['/', L('Search')], ['Shift + F10', L('More options for a title or channel')]].forEach(function (k) {
           var r2 = row(sec, k[1], null, null);
           r2.appendChild(h('kbd', k[0]));

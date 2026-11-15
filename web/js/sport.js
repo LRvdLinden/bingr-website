@@ -168,7 +168,9 @@
   function play(ch) {
     if (!ch) return;
     var list = Lib.lib.channels.filter(function (c) { return c.group === ch.group; });
-    B.guidePreview.openPlayer(ch, list.length ? list : [ch]);
+    if (!list.length) list = [ch];
+    // build 173: wedstrijd al bezig en terugkijken kan: eerst "Vanaf het begin" of "Live kijken"
+    B.player.playLive(ch, list, { live: function () { B.guidePreview.openPlayer(ch, list); }, beforeCatchup: function () { B.guidePreview.stop(false); } });
   }
 
   // MARK: teamcirkel
