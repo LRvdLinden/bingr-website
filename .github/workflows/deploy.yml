@@ -51,7 +51,10 @@ jobs:
         # build 173: bediening in de speler (Vanaf het begin, Zappen, Vorige zender, dubbeltikken, Eindigt om, ondertitels na
         # terugspoelen, slaaptimer) en de regels voor Trakt en OpenSubtitles (player173_test; Trakt/OpenSubtitles ook in watched_test)
         # build 174: knoppen onder Afspelen op een smal scherm en de beste trailer uit alle bronnen (build174_test)
+        # build 176: autoplay, vergrendelen, momenten, release-herinnering, zoeken in de gids, data besparen (gedeelde
+        # gevallen in tools/test/build176_cases.json, kopie van iptv-ios-appletv/docs; build176_test)
         run: |
+          node tools/test/build176_test.js
           node tools/test/build174_test.js
           node tools/test/player173_test.js
           node tools/test/plan_test.js

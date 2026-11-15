@@ -85,6 +85,8 @@
   var KNOWN_KEY = 'discover.known';
   var known = null;
   function knownMap() { if (!known) known = B.store.get(KNOWN_KEY, {}) || {}; return known; }
+  X.remember = function (list) { remember(list); };
+  X.tmdbLang = function () { return tmdbLang(); };
   X.known = function (id) { var k = knownMap()[id]; return k ? k.t : null; };
   function remember(list) {
     if (!list || !list.length) return;
@@ -367,7 +369,8 @@
       if (kind === 'streaming') return S.posterCard(e.item, e.type, { kindBadge: true });
       return S.posterCard(e.item, e.type, { badge: e.external ? dateLabel(e.t) : null });
     });
-    return U.row(X.title(kind), cards, 'discover-row');
+    // build 176: Binnenkort op Bingr → Meer = de pagina Nieuw en populair (#/new)
+    return U.row(X.title(kind), cards, 'discover-row', kind === 'upcoming' && S.pages['new'] ? '#/new' : undefined);
   };
 
   /** Regels op de detailpagina van een TMDB-titel: niet in je afspeellijst en de datum (build 112: zonder bronvermelding). */
@@ -417,6 +420,8 @@
             function () { S.toggleMyList(x, type); return S.inMyList(x); }));
         }
         buttons.appendChild(trailerSlot);
+        // build 176: belletje op de releasedatum (Binnenkort)
+        if (B.b176ui) { var bell = B.b176ui.releaseButton(t); if (bell) buttons.appendChild(bell); }
         buttons.appendChild(h('a.btn', { href: '#/search?q=' + encodeURIComponent(x.title) }, [U.icon('search'), h('span', L('Search'))]));
         // build 132: eigen Bingr-link delen
         if (B.titleLink) buttons.appendChild(U.button(L('Share'), function () { B.titleLink.share(x, type, p.id); }, { icon: 'share' }));

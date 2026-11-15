@@ -105,6 +105,8 @@
     pv.holder = holder;
     PV.ch = ch;
     var mode = B.guideSetting.mode();
+    // build 176: geen live voorbeeld bij data besparen op een mobiel netwerk of bij een vergrendelde zender
+    if (B.b176ui && (!B.b176ui.autoVideoOK() || B.b176ui.isLocked(ch, 'channel'))) mode = 'off';
     if (mode === 'off' || B.player.current || document.hidden) { if (pv.leased) { pv.leased = false; A.streamStop(); } return; }
     if (mode === 'tap' && !user) { setHolder('tap', true); if (pv.leased) { pv.leased = false; A.streamStop(); } return; }
     var gen = pv.gen;
@@ -630,6 +632,29 @@
       var res = h('div.gd-results');
       var body = h('div.gd-search', [input, res]);
       var dlg = U.modal({ title: L('Search the TV guide'), body: body, cls: 'sheet-dlg.gd-search-dlg' });
+      // build 176: ook in de beschrijvingen (index op de achtergrond, gevonden woord gemarkeerd; B.b176ui.guideSearch)
+      var run176 = B.debounce(function () {
+        U.clear(res);
+        var qv = input.value;
+        if (!B.b176.words(qv).length) return;
+        res.appendChild(h('p.muted.small', L('Searching…')));
+        var from = Math.max(Date.now(), days[0].start), to = days[days.length - 1].end;
+        B.b176ui.guideSearch(channels, qv, from, to).then(function (hits) {
+          if (input.value !== qv) return;
+          U.clear(res);
+          if (!hits.length) { res.appendChild(h('p.muted', L('No programmes found'))); return; }
+          var now = Date.now();
+          hits.forEach(function (x) {
+            var st = G.state(x.p, now);
+            var b = h('button.gd-hit.' + st, { type: 'button' }, [logoBox(x.ch, 'tiny'), h('div.gd-hit-t', [B.b176ui.marked(B.showName(x.p.title || ''), x.words, 'div'),
+              h('div.muted.small', B.chanName(x.ch.name) + ' · ' + dayText(x.p.start) + ' ' + B.fmtTime(x.p.start)),
+              x.m.field === 'description' ? B.b176ui.descSnippet(x.p.description, x.words, x.m.at) : null])]);
+            b.addEventListener('click', function () { dlg.close(); S.programSheet(x.ch, x.p, channels); });
+            res.appendChild(b);
+          });
+        }, B.noop);
+      }, B.b176 ? B.b176.SEARCH_DELAY : 250);
+      if (B.b176ui && B.b176ui.guideSearch) { input.addEventListener('input', run176); setTimeout(function () { input.focus(); }, 40); return; }
       var run = B.debounce(function () {
         var q = B.fold(input.value.trim());
         U.clear(res);

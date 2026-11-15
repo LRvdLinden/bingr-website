@@ -201,6 +201,7 @@
    * Afbeelding met terugval op een tekstvlak. http mag niet op een https-pagina: eerst dezelfde URL op https
    * (de meeste beeldbanken kunnen dat), lukt dat niet, dan via de proxy (alleen hosts van je eigen servers).
    */
+  var IMG_WIDTH = { poster: 160, 'hero-card-img': 420, 'hero-img': 500 };
   U.img = function (url, cls, alt) {
     var wrap = h('div.imgbox' + (cls ? '.' + cls : ''));
     var orig = url ? String(url).trim() : '';
@@ -211,6 +212,10 @@
     var viaProxy = !!direct;
     if (!u) { wrap.classList.add('noimg'); if (alt) wrap.appendChild(h('span.alt', alt)); return wrap; }
     var im = h('img', { src: u, alt: alt || '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer' });
+    // build 176: TMDB-afbeeldingen in de kleinste passende maat (srcset voor 1x en 2x; de browser kiest)
+    var tw = !viaProxy && B.b176 ? IMG_WIDTH[cls || ''] : 0;
+    var ts = tw ? B.b176.tmdbSrcset(u, tw) : null;
+    if (ts) { im.src = ts.src; im.srcset = ts.srcset; im.sizes = ts.sizes; }
     function giveUp() { if (im.parentNode) im.parentNode.removeChild(im); wrap.classList.add('noimg'); if (alt) wrap.appendChild(h('span.alt', alt)); }
     im.onerror = function () {
       if (http && !viaProxy) {
