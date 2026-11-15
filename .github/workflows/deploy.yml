@@ -54,6 +54,7 @@ jobs:
           node tools/test/lifetime_test.js
           node tools/test/storage_test.js
           node tools/test/watched_test.js
+          node tools/test/catmerge_test.js
           node tools/test/proxyerror_test.js
           node tools/test/pin_test.js
           node tools/test/format_test.js
