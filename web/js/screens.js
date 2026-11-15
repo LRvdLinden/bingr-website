@@ -452,8 +452,10 @@
   // [sleutel, tekst, icoon, waar]: 'top' = alleen bovenin (computer), 'tab' = alleen in de onderbalk (telefoon)
   // build 140: "Categorieën" (#/categorie: Live TV, Films en Series) staat weer in de navigatie, op de plek van Mijn Bingr;
   // Mijn Bingr blijft bereikbaar via het profiel (avatar) bovenin
+  // build 172: Sport naast Films en Series; in de onderbalk van de telefoon (max. 5) in plaats van Categorieën (bereikbaar
+  // via Home en Live TV); boven op de computer allebei
   var NAV = [['home', 'Home', 'home'], ['live', 'Live TV', 'tv'], ['movies', 'Movies', 'film'], ['series', 'Series', 'series'],
-    ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid']];
+    ['sport', 'Sport', 'sport'], ['mylist', 'My List', 'bookmark', 'top'], ['categorie', 'Categories', 'grid', 'top']];
   // build 140: pagina's waarmee je een kinderprofiel verlaat (instellingen, account, Mijn Bingr): eerst de ouderpoort
   var KIDS_GATED = { settings: 1, support: 1, mybingr: 1, profiles: 1, homelayout: 1, catprefs: 1, stats: 1 };
 
@@ -467,6 +469,7 @@
     var hidden = D.shared('hiddenTabs', []) || [];
     NAV.forEach(function (n) {
       if (hidden.indexOf(n[0]) >= 0) return;
+      if (n[0] === 'sport' && hidden.indexOf('live') >= 0) return;   // build 172: Sport hoort bij live tv
       if (n[3] !== 'tab') links.appendChild(h('a.top-link', { href: '#/' + n[0], 'data-k': n[0] }, L(n[1])));
       if (n[3] !== 'top') tabs.appendChild(h('a.tab', { href: '#/' + n[0], 'data-k': n[0] }, [U.icon(n[2]), h('span', L(n[1]))]));
     });
@@ -2036,6 +2039,8 @@
       if (fn) cleanup = fn(prof, main) || null;
       // build 171: Kijk je nog? (Afspelen), verborgen zenders en geblokkeerde titels (Profielen), crashrapporten (Over)
       if (B.b171ui) B.b171ui.settings(tab, section, row, render, prof, main);
+      // build 172: Sport (Algemeen): standaardmelding bij een wedstrijd, Mijn teams en competities
+      if (tab === 'general' && B.sport && B.sport.settings) B.sport.settings(section, row, render);
     }
     var TABS = {
       general: function (prof, main) {

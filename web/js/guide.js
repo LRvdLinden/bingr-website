@@ -247,6 +247,10 @@
       });
     });
   };
+  /** Build 172 (Sport, web/js/sport.js): huidige section-data en een nieuwe versie na eigen schrijven. */
+  RM.data = function () { return remData; };
+  RM.replace = function (d) { remData = d; B.store.set('reminders', d); B.emit('reminders'); };
+  RM.profileOf = remProfile;
   B.on('state', function (all) {
     if (!all || !B.has(all, 'reminders')) return;
     var d = all.reminders && all.reminders.data;
