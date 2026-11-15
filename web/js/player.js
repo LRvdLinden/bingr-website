@@ -508,7 +508,7 @@
     var backBtn = U.button('', function () { close(); }, { icon: 'back', cls: 'pl-ib', title: L('Back') + ' (Esc)' });
     var top = h('div.pl-top', [backBtn, h('div.pl-titles', [title, sub, epg])]);
     var fill = h('div.pl-fill'), buf = h('div.pl-buf'), knob = h('div.pl-knob'), hoverT = h('div.pl-hover');
-    var bar = h('div.pl-bar', { role: 'slider', tabindex: '0', 'aria-label': L('Position') }, [h('div.pl-track', [buf, fill]), knob, hoverT]);
+    var bar = h('div.pl-bar', { role: 'slider', tabindex: '0', 'aria-label': L('Position'), 'aria-valuemin': '0' }, [h('div.pl-track', [buf, fill]), knob, hoverT]);
     var tCur = h('span.pl-time'), tDur = h('span.pl-time.right');
     var leftBtns = h('div.pl-btns'), rightBtns = h('div.pl-btns.right');
     var bottom = h('div.pl-bottom', [h('div.pl-prog', [tCur, bar, tDur]), h('div.pl-row', [leftBtns, rightBtns])]);
@@ -650,21 +650,30 @@
       bar.setAttribute('aria-valuetext', B.fmtDur(t));
     }
 
-    // doorspoelen met de muis of een vinger
-    function fracAt(e) { var r = bar.getBoundingClientRect(); return B.clamp(((e.clientX != null ? e.clientX : 0) - r.left) / r.width, 0, 1); }
+    // doorspoelen met de muis of een vinger: klikken/tikken springt, slepen verschuift (build 169: ook met touch,
+    // tijd boven de balk bij hover en tijdens het slepen, met het verschil ten opzichte van nu)
+    function fracAt(e) { var r = bar.getBoundingClientRect(); return r.width > 0 ? B.clamp(((e.clientX != null ? e.clientX : 0) - r.left) / r.width, 0, 1) : 0; }
+    function drawHover(f) {
+      var s = f * engine.duration();
+      hoverT.textContent = seeking != null ? B.fmtDur(s) + '  ' + B.fmtDelta(s, engine.time()) : B.fmtDur(s);
+      hoverT.style.left = (f * 100) + '%';
+    }
+    function cancelDrag() { if (seeking == null && !bar.classList.contains('drag')) return; seeking = null; bar.classList.remove('drag'); updateTime(); }
     bar.addEventListener('pointerdown', function (e) {
       if (isLive() || !engine || !engine.duration()) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;   // alleen de linkerknop
       e.preventDefault();
+      try { bar.focus({ preventScroll: true }); } catch (x) { /* stil */ }
       bar.classList.add('drag');
       try { bar.setPointerCapture(e.pointerId); } catch (x) { /* stil */ }
-      seeking = fracAt(e) * engine.duration(); updateTime(); showControls();
+      var f = fracAt(e);
+      seeking = f * engine.duration(); drawHover(f); updateTime(); showControls();
     });
     bar.addEventListener('pointermove', function (e) {
       if (isLive() || !engine || !engine.duration()) return;
       var f = fracAt(e);
-      hoverT.textContent = B.fmtDur(f * engine.duration());
-      hoverT.style.left = (f * 100) + '%';
-      if (seeking != null) { seeking = f * engine.duration(); updateTime(); }
+      if (seeking != null) { seeking = f * engine.duration(); updateTime(); showControls(); }
+      drawHover(f);
     });
     function endDrag() {
       if (seeking == null) return;
@@ -674,7 +683,9 @@
       updateTime(); showControls();
     }
     bar.addEventListener('pointerup', endDrag);
-    bar.addEventListener('pointercancel', function () { seeking = null; bar.classList.remove('drag'); });
+    bar.addEventListener('pointercancel', cancelDrag);
+    // capture kwijt zonder pointerup (venster uit beeld e.d.): niet spoelen
+    bar.addEventListener('lostpointercapture', cancelDrag);
 
     // MARK: afspelen
 
@@ -1589,6 +1600,14 @@
       if (k === ' ' || k === 'k' || k === 'K' || k === 'MediaPlayPause') {
         if (t && t.tagName === 'BUTTON' && k === ' ') return;
         e.preventDefault(); togglePlay(); return;
+      }
+      // build 169: toetsenbordfocus op de tijdbalk: Home = begin, End = eind (←/→ hieronder: 10 s)
+      if ((k === 'Home' || k === 'End') && t === bar) {
+        e.preventDefault();
+        var to = !isLive() && engine ? B.scrubKey(k, engine.duration()) : null;
+        if (to != null) { engine.seek(to); if (extCues) renderExtSub(); updateTime(); }
+        showControls();
+        return;
       }
       if (k === 'ArrowLeft' || k === 'ArrowRight') {
         if (t && t.classList && t.classList.contains('pl-vol')) return;

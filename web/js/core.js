@@ -354,6 +354,21 @@
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
     return h > 0 ? h + ':' + B.pad2(m) + ':' + B.pad2(x) : m + ':' + B.pad2(x);
   };
+  // build 169: verschil van de voorbeeldpositie op de tijdbalk ten opzichte van nu: "+4:30", "−1:10" (echt minteken) of "0:00"
+  B.fmtDelta = function (preview, now) {
+    if (!isFinite(preview) || !isFinite(now)) return '0:00';
+    var d = Math.trunc(preview - now);
+    if (d === 0) return '0:00';
+    return (d > 0 ? '+' : '\u2212') + B.fmtDur(Math.abs(d));
+  };
+  // build 169: Home/End op de tijdbalk (toetsenbordfocus): begin, of het eind min 2 s (zoals ±10 s, zodat hij niet meteen stopt).
+  // Geeft de doeltijd in seconden, of null als de toets of de duur niet past.
+  B.scrubKey = function (key, d) {
+    if (!isFinite(d) || d <= 0) return null;
+    if (key === 'Home') return 0;
+    if (key === 'End') return Math.max(0, d - 2);
+    return null;
+  };
 
   // MARK: opslag (localStorage, vaste sleutels met versie; blijft staan bij een app-update)
   /*
