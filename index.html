@@ -319,6 +319,7 @@
 .dl .note{color:var(--sec);font-size:14px;margin-top:12px}
 .dl .note a{color:#fff}
 .dl.soon h3,.dl.soon .devs{opacity:.55}.dl.soon .os{color:#9a9a9a}
+.cars{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}.cars .car{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:14px;font-weight:700}.cars .car svg{width:18px;height:18px}.cars .car.soon{border-style:dashed;color:var(--sec)}
 .dl .badge-soon{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:10px;border:1px dashed var(--line);color:var(--sec);font-size:15px;font-weight:700;cursor:default}
 .dl.live{border-color:var(--red)}
 .dls>.dl:last-child:nth-child(odd){grid-column:1/-1}
@@ -520,6 +521,7 @@
       <div class="reason rv">
         <h3 data-i18n="r7.t">Radio, ook in de auto</h3>
         <p data-i18n="r7.p">Luister naar de radiozenders van je eigen server, ook op de achtergrond en vanaf je vergrendelscherm. In de auto met Android Auto, en binnenkort met CarPlay.</p>
+        <div class="cars"><span class="car"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><path d="M5 12h14"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>Android Auto</span><span class="car soon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><path d="M5 12h14"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg><span>CarPlay · <span data-i18n="r7.soon">binnenkort</span></span></span></div>
         <svg class="ic" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="16" width="38" height="26" rx="3"/><path d="M12 16l24-10"/><circle cx="31" cy="29" r="6"/><path d="M11 25h10M11 31h10M11 37h10"/></svg>
       </div>
       <div class="reason rv">
@@ -690,6 +692,7 @@ const EN = {
  "r6.p":"Up to four streams at once: football, news and Formula 1 side by side. You choose which one plays sound.",
  "r7.t":"Radio, also in the car",
  "r7.p":"Listen to the radio stations of your own server, also in the background and from your lock screen. In the car with Android Auto, and soon with CarPlay.",
+ "r7.soon":"coming soon",
  "r8.t":"Download and watch offline",
  "r8.p":"Save movies and episodes to your iPhone, iPad or Android phone and watch them without internet, on a plane or on holiday.",
  "start.title":"What do you need?","start.sub":"Bingr is only the player. The channels, movies and series come from your own provider or server.",
