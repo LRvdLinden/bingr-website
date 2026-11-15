@@ -136,7 +136,11 @@
       autoLockAdult: B.bool(D.shared('parentalAutoLockAdult', true)) !== false,
       lockedGroups: D.lockedGroups(src), unlocked: PC.isUnlocked(),
       // build 128: categorieën uit voor dit profiel (profile.<id>.hiddenCategories, per server)
-      hiddenCats: D.hiddenCategoryNames ? D.hiddenCategoryNames(src && src.id) : {}
+      hiddenCats: D.hiddenCategoryNames ? D.hiddenCategoryNames(src && src.id) : {},
+      // build 171: verborgen zenders (#15) en geblokkeerde titels (#20) van dit profiel, op deze server
+      hiddenChannels: B.b171 && D.setList ? B.b171.idsFor(D.setList('hiddenChannels'), src && src.id, null) : {},
+      blockedMovies: B.b171 && D.setList ? B.b171.idsFor(D.setList('blockedTitles'), src && src.id, 'movie') : {},
+      blockedSeries: B.b171 && D.setList ? B.b171.idsFor(D.setList('blockedTitles'), src && src.id, 'series') : {}
     };
   }
   /** Filter per item (= Playlists.apply): geeft per soort een functie item → gefilterde kopie of null. */
@@ -147,6 +151,7 @@
     function own(o, k) { return o && B.has(o, k) ? o[k] : undefined; }
     var hidden = Object.create(null); (c.hidden || []).forEach(function (h) { hidden[h] = true; });
     var hc = ctx.hiddenCats || {};
+    var hch = ctx.hiddenChannels || {}, bm = ctx.blockedMovies || {}, bs = ctx.blockedSeries || {};
     var locked = Object.create(null); (ctx.lockedGroups || []).forEach(function (g) { locked[g] = true; });
     var ageLimit = ctx.unlocked ? null : ctx.ageLimit;
     var kids = !!ctx.kids, kidsLimit = ctx.ageLimit != null ? ctx.ageLimit : 12;
@@ -206,6 +211,7 @@
     }
     return {
       channel: function (ch) {
+        if (hch[ch.id]) return drop('live', 'other');
         if (!visible(ch.id, ch.group)) return drop('live', why);
         // build 140: kinderprofiel: zenders volgen alleen de categorie (de zendernaam telt niet)
         if (kids && !PC.isKidsCategory(ch.group)) return drop('live', 'kids');
@@ -214,12 +220,14 @@
         return o;
       },
       movie: function (m) {
+        if (bm[m.id]) return drop('movie', 'other');
         if (!visible(m.id, m.group)) return drop('movie', why);
         if (!ageOK(m, false)) return drop('movie', 'kids');
         // taal-tag ("Animal (IT)", "NL | …") niet in de getoonde titel; rawTitle blijft voor TMDB, Trakt en sleutels
         return B.assign({}, m, { group: group(m.group), title: own(c.renamed, m.id) || CLs(m.title), rawTitle: m.title, rawGroup: m.group });
       },
       series: function (x) {
+        if (bs[x.id]) return drop('series', 'other');
         if (!visible(x.id, x.group)) return drop('series', why);
         if (!ageOK(x, true)) return drop('series', 'kids');
         return B.assign({}, x, { group: group(x.group), title: own(c.renamed, x.id) || CLs(x.title), rawTitle: x.title, rawGroup: x.group });

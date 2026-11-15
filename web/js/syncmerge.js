@@ -6,7 +6,8 @@
 (function (root) {
   'use strict';
   var B = root.B;
-  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories'];
+  // build 171: hiddenChannels (#15), pinnedCategories (#17) en blockedTitles (#20), per profiel, zoals myList
+  var SET_FIELDS = ['myList', 'favorites', 'watched', 'recentChannels', 'hiddenCategories', 'hiddenChannels', 'pinnedCategories', 'blockedTitles'];
   var REMOVED_DAYS = 90, MAX_RECENT = 20, MAX_PROGRESS = 300, MAX_HISTORY = 500;
 
   function time(v) {

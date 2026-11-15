@@ -375,10 +375,51 @@
 
   // MARK: overzicht (#/categorie)
 
+  // build 171 (#17): land/regio uit het voorvoegsel van de categorie op de server (rawGroup, vóór het opschonen van build 150),
+  // vastpinnen (profile.<id>.pinnedCategories, "<server-id>|<categorienaam exact>") en verbergen (hiddenCategories).
+  var X171 = B.b171;
+  function rawsOf(list) {
+    var seen = Object.create(null), out = [];
+    for (var i = 0; i < (list || []).length && out.length < 20; i++) {
+      var g = list[i] && (list[i].rawGroup != null ? list[i].rawGroup : list[i].group);
+      if (g != null && !seen[g]) { seen[g] = true; out.push(String(g)); }
+    }
+    return out;
+  }
+  function sidNow() { return Lib.source ? Lib.source.id : ''; }
+  function catMeta(c, lists) {
+    var raws = [];
+    lists.forEach(function (l) { rawsOf(l).forEach(function (x) { if (raws.indexOf(x) < 0) raws.push(x); }); });
+    if (!raws.length) raws = [c.name];
+    var region = null;
+    for (var i = 0; i < raws.length && !region; i++) region = X171 ? X171.region(raws[i]) : null;
+    return { raws: raws, region: region };
+  }
+  function isPinned(m) { return !!X171 && m.raws.some(function (x) { return D.inSet('pinnedCategories', X171.channelKey(sidNow(), x)); }); }
+  C.isPinned = isPinned;
+  function setPinned(m, on) {
+    if (on) D.toggleSet('pinnedCategories', X171.channelKey(sidNow(), m.raws[0]), true);
+    else m.raws.forEach(function (x) { D.toggleSet('pinnedCategories', X171.channelKey(sidNow(), x), false); });
+  }
+  function catMenu(m, name, redraw) {
+    if (!X171 || !Lib.source) return [];
+    var prof = B.app && B.app.profile, pin = isPinned(m), items = [];
+    items.push({ icon: pin ? 'close' : 'star', label: pin ? L('Unpin category') : L('Pin category'), fn: function () { setPinned(m, !pin); U.toast(pin ? L('Category unpinned') : L('Category pinned')); redraw(); } });
+    // verbergen = de bestaande verborgen categorieën (niet in een kinderprofiel: daar gelden alleen kindercategorieën)
+    if (!(prof && prof.kids) && D.setCategoriesHidden) {
+      items.push({ icon: 'eyeOff', label: L('Hide category'), danger: true, fn: function () {
+        D.setCategoriesHidden(m.raws.map(function (x) { return { sid: sidNow(), name: x, hidden: true }; }));
+        U.toast(L('%@ is hidden. Show it again in Settings → Show categories.', name));
+      } });
+    }
+    return items;
+  }
+
   function overview(r) {
     var el = h('div.page.cats');
     var pg = { el: el, title: L('Categories') };
     var type = typeFrom(r.query);
+    var chip = 'all';
     var grid = null, liveGrid = null, warm = warmer(), note = null, genreBox = null, shown = '';
     function genreList() { return genresByCount(type); }
     function drawGenres() {
@@ -407,16 +448,48 @@
       genreBox = h('div.cat-genres');
       if (C.available()) { el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', L('Genres')), genreBox])); drawGenres(); }
       var srv = serverCats().filter(function (c) { return count(c, type) > 0; }).map(function (c) {
-        return B.assign({ colors: SRV_PAL[hash(c.name) % SRV_PAL.length] }, c);
+        return B.assign({ colors: SRV_PAL[hash(c.name) % SRV_PAL.length], meta: catMeta(c, [c.movie, c.series]) }, c);
       });
+      // build 140: categorieën van Live TV (bij "Alles")
+      var byCh = type === 'all' && liveOn() ? Lib.byGroup('channel') : {};
+      var live = (type === 'all' && liveOn() ? liveCats() : []).map(function (c) { return B.assign({ meta: catMeta(c, [byCh[c.name]]) }, c); });
+      // build 171: filterchips (Alle, Favoriete categorieën, regio's) en vastgepinde categorieën bovenaan
+      var regions = X171 ? X171.chips(srv.concat(live).map(function (c) { return c.meta.region; })) : [];
+      var anyPinned = srv.concat(live).some(function (c) { return isPinned(c.meta); });
+      if (chip !== 'all' && chip !== 'pinned' && regions.indexOf(chip) < 0) chip = 'all';
+      if (chip === 'pinned' && !anyPinned) chip = 'all';
+      if (regions.length || anyPinned) {
+        var chips = [['all', L('All')]];
+        if (anyPinned) chips.push(['pinned', L('Favorite categories')]);
+        regions.forEach(function (x) { chips.push([x, x]); });
+        el.insertBefore(h('div.chips.cat-chips', { role: 'tablist', 'aria-label': L('Filter') }, chips.map(function (cp) {
+          var b = h('button.chip' + (cp[0] === chip ? '.active' : ''), { type: 'button', role: 'tab', 'aria-selected': cp[0] === chip ? 'true' : 'false' }, cp[1]);
+          b.addEventListener('click', function () { chip = cp[0]; render(); var f = el.querySelector('.cat-chips .chip.active'); if (f) f.focus({ preventScroll: true }); });
+          return b;
+        })), genreBox.parentNode || null); // vóór de genres (of achteraan als die er niet zijn)
+      }
+      function keep(c) { return chip === 'all' || (chip === 'pinned' ? isPinned(c.meta) : c.meta.region === chip); }
+      if (X171) {
+        srv = X171.pinnedFirst(srv.filter(keep), function (c) { return isPinned(c.meta); });
+        live = X171.pinnedFirst(live.filter(keep), function (c) { return isPinned(c.meta); });
+      }
+      // een filter op regio of favorieten geldt voor de categorieën van de server; de genres dan niet tonen
+      if (chip !== 'all' && genreBox.parentNode) genreBox.parentNode.remove();
+      function withMenu(a, c) {
+        if (isPinned(c.meta)) {
+          a.classList.add('cat-pinned');
+          var txt = a.querySelector('.cat-txt');
+          if (txt) txt.insertBefore(h('div.cat-pin', { 'aria-label': L('Pinned') }, [U.icon('star')]), txt.firstChild);
+        }
+        U.onMenu(a, function () { return catMenu(c.meta, c.name, render); }, c.name);
+        return a;
+      }
       if (srv.length) {
-        grid = U.grid(srv, function (c) { return tile(c, type, true); }, 'cat-grid.srv-grid', 24);
+        grid = U.grid(srv, function (c) { return withMenu(tile(c, type, true), c); }, 'cat-grid.srv-grid', 24);
         el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', [L('From your server'), Lib.source ? h('span.cat-src', Lib.source.name) : null]), grid]));
       }
-      // build 140: categorieën van Live TV (bij "Alles")
-      var live = type === 'all' && liveOn() ? liveCats() : [];
       if (live.length) {
-        liveGrid = U.grid(live, liveTile, 'cat-grid.srv-grid.live-grid', 24);
+        liveGrid = U.grid(live, function (c) { return withMenu(liveTile(c), c); }, 'cat-grid.srv-grid.live-grid', 24);
         el.appendChild(h('section.cat-sec', [h('h2.row-title.cat-sec-title', L('Live TV')), liveGrid]));
       }
       if (!C.available() && !live.length) el.appendChild(h('div.state', [U.icon('grid', 'state-ic'), h('p.muted', L('Nothing here yet'))]));
