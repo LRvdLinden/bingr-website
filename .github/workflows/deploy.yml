@@ -60,6 +60,7 @@ jobs:
           node tools/test/format_test.js
           node tools/test/homededupe_test.js
           node tools/test/guide_test.js
+          node tools/test/sport_test.js
           node --expose-gc tools/test/longtask_test.js
           node --expose-gc tools/test/bigserver_test.js
           node --expose-gc tools/test/sync_test.js
