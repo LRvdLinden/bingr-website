@@ -1179,15 +1179,10 @@
       if (st) { el.appendChild(st); return; }
       var items = myListItems();
       if (!items.length) {
-        var mom0 = B.b176ui ? B.b176ui.momentsRow(null) : null;
-        if (mom0) el.appendChild(mom0);
         el.appendChild(h('div.state', [U.icon('bookmark', 'state-ic'), h('h2', L('Your list is empty')), h('p.muted', L('Add movies and series with the My List button.'))]));
         return;
       }
       grid = U.grid(items, function (hit) { return posterCard(hit.item, hit.type); }, 'posters');
-      // build 176: Momenten (alle, nieuwste eerst)
-      var mom = B.b176ui ? B.b176ui.momentsRow(null) : null;
-      if (mom) el.appendChild(mom);
       el.appendChild(grid);
     }
     pg.refresh = render;
@@ -1967,8 +1962,6 @@
       drawButtons();
       setTimeout(function () { if (alive && refreshVersions()) drawButtons(); }, 60);
       B.ageRatings.originalLanguage(x, isShow).then(function () { if (!alive) return; drawLang(); metaText(); if (refreshVersions()) drawButtons(); });
-      // build 176: Momenten van deze titel (films: de film; series: de afleveringen)
-      if (B.b176ui) el.appendChild(B.b176ui.titleMoments(x, type, function () { return other || Lib.source; }, function () { return episodes; }));
       el.appendChild(extraSlot);
       if (isShow) loadEpisodes();
       else { loadTrailer(); autoTrailer(); }
