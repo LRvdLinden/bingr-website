@@ -50,7 +50,9 @@ jobs:
         # build 158: opslag binnen de grenzen (model per profiel in IndexedDB met migratie, volle localStorage/IndexedDB, tombstones)
         # build 173: bediening in de speler (Vanaf het begin, Zappen, Vorige zender, dubbeltikken, Eindigt om, ondertitels na
         # terugspoelen, slaaptimer) en de regels voor Trakt en OpenSubtitles (player173_test; Trakt/OpenSubtitles ook in watched_test)
+        # build 174: knoppen onder Afspelen op een smal scherm en de beste trailer uit alle bronnen (build174_test)
         run: |
+          node tools/test/build174_test.js
           node tools/test/player173_test.js
           node tools/test/plan_test.js
           node tools/test/b171_test.js

@@ -1596,6 +1596,15 @@
     function seasons() { var s = []; episodes.forEach(function (e) { if (s.indexOf(e.season) < 0) s.push(e.season); }); return s.sort(function (a, b) { return a - b; }); }
 
     var trailer = null;
+    // build 174: trailer van de IPTV-server (Xtream youtube_trailer); TMDB gaat voor als die een echte trailer heeft
+    var serverTrailer = null;
+    function bestTrailer(t) {
+      if (!serverTrailer || (t && t.season)) return t;
+      var B4 = B.b174, cands = [{ key: serverTrailer, source: 'server' }];
+      if (t) cands.push({ key: t.key, source: 'tmdb', type: t.type || 'Trailer', language: t.language || null, official: t.official });
+      var k = B4 ? B4.bestTrailer(cands, B.lang) : (t ? t.key : serverTrailer);
+      return k ? (t && k === t.key ? t : { key: k, season: null }) : t;
+    }
     function openTrailer(t) {
       stopHero();
       var frame = h('iframe', { src: 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(t.key) + '?autoplay=1&rel=0&modestbranding=1&hl=' + B.lang,
@@ -1607,9 +1616,12 @@
       var want = isShow ? season : null;
       B.ageRatings.trailer(x, isShow, want).then(function (t) {
         if (!alive || (isShow && want !== season)) return;
+        t = bestTrailer(t);
+        var had = !!trailer;
         trailer = t;
         U.clear(trailerBtnSlot);
         if (t) trailerBtnSlot.appendChild(U.button(t.season ? L('Trailer season %d', t.season) : L('Trailer'), function () { openTrailer(t); }, { icon: 'trailer' }));
+        if (compact() && had !== !!t) drawButtons();   // build 174: smalle rij met of zonder Trailer
       });
     }
 
@@ -1712,8 +1724,78 @@
       return U.button(L('Watched'), function () { S.setMovieWatched(x, !w); drawButtons(); },
         { icon: w ? 'checkCircleFill' : 'checkCircle', cls: w ? 'on' : null, title: w ? L('Mark as unwatched') : L('Mark as watched') });
     }
+    // MARK: build 174: smal scherm: Mijn lijst · Trailer · Bronnen · Gezien · Meer (de rest onder Meer)
+    function compact() { return !!(B.b174 && B.b174.isCompact(Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth))); }
+    function rowBtn(icon, label, fn, opts) {
+      opts = opts || {};
+      var b = h('button.dt-act' + (opts.on ? '.on' : ''), { type: 'button', title: opts.title || label, 'aria-label': opts.title || label }, [U.icon(icon), h('span', label)]);
+      b.addEventListener('click', function (e) { e.stopPropagation(); fn(b); });
+      return b;
+    }
+    function moreItems() {
+      var items = [];
+      var coll = S.collItem(x, type);
+      items.push({ icon: 'stackAdd', label: L('Add to collection…'), fn: function () { S.addToCollection(coll, x.title); } });
+      if (type === 'movie') {
+        var p = D.progress(x.id);
+        if (p && p.fraction > 0.02) items.push({ icon: 'replay', label: L('Watch from the beginning'), fn: function () { B.player.open(B.player.movieItem(x), { resume: 0 }); } });
+      }
+      if (stremio && (type === 'movie' ? x.stremio : currentEp)) items.push({ icon: 'layers', label: L('Choose a source'), fn: function () {
+        if (type === 'movie') chooseStream(B.player.movieItem(x), {}); else if (currentEp) chooseStream(B.player.episodeItem(currentEp, x), { episodes: episodes, series: x });
+      } });
+      if (B.titleLink && B.titleLink.canShare(x, type)) items.push({ icon: 'share', label: L('Share'), fn: function () { B.titleLink.share(x, type); } });
+      var hide = B.b171ui && B.b171ui.hideItems ? B.b171ui.hideItems(x, type) : (S.hideItems ? S.hideItems(x, type) : []);
+      if (hide && hide.length) items = items.concat(['sep'], hide);
+      return items;
+    }
+    function drawCompactRow() {
+      var acts = B.b174.compactActions({ hasListID: !!listKey, hasTrailer: !!trailer, otherSources: alts.length, languageVersions: versions.length, isMovie: type === 'movie' });
+      var row = h('div.dt-acts', { role: 'group' });
+      acts.forEach(function (a) {
+        if (a === 'myList') {
+          var on = D.inSet('myList', listKey);
+          var b = rowBtn(U.plusCheckIcon(on), L('My List'), function () { S.toggleMyList(x, type); drawButtons(); }, { on: on, title: on ? L('In My List') : L('Add to My List') });
+          row.appendChild(b);
+        } else if (a === 'trailer') {
+          row.appendChild(rowBtn('trailer', L('Trailer'), function () { if (trailer) openTrailer(trailer); }, { title: trailer && trailer.season ? L('Trailer season %d', trailer.season) : L('Trailer') }));
+        } else if (a === 'sources') {
+          row.appendChild(rowBtn('layers', L('Sources'), function (btn) {
+            var tgt = B.b174.sourcesTarget(alts.length, versions.length);
+            if (tgt === 'choose') U.menu(btn, [{ icon: 'layers', label: L('Other source'), fn: chooseAlt }, { icon: 'globe', label: L('Other language'), fn: chooseVersion }], L('Sources'));
+            else if (tgt === 'languages') chooseVersion(); else chooseAlt();
+          }));
+        } else if (a === 'watched') {
+          var w = S.movieWatched(x);
+          row.appendChild(rowBtn(w ? 'checkCircleFill' : 'checkCircle', L('Watched'), function () { S.setMovieWatched(x, !w); drawButtons(); },
+            { on: w, title: w ? L('Mark as unwatched') : L('Mark as watched') }));
+        } else {
+          row.appendChild(rowBtn('more', L('More'), function (btn) { U.menu(btn, moreItems(), L('More')); }));
+        }
+      });
+      return row;
+    }
     function drawButtons() {
       U.clear(buttons);
+      buttons.classList.toggle('compact', compact());
+      if (compact()) {
+        if (type === 'movie') {
+          var cp = D.progress(x.id), cres = cp && cp.fraction > 0.02;
+          buttons.appendChild(U.button(cres ? L('Resume') : L('Play'), function () { B.player.playVOD(B.player.movieItem(x), {}); }, { primary: true, icon: 'play' }));
+        } else {
+          var cep = currentEp;
+          var clbl = cep ? (D.progress(cep.id) ? L('Resume') : L('Play')) + '  S' + cep.season + ':E' + cep.number : L('Play');
+          var cpb = U.button(clbl, function () { if (currentEp) playEpisode(currentEp); }, { primary: true, icon: 'play' });
+          if (!cep) cpb.disabled = true;
+          buttons.appendChild(cpb);
+        }
+        buttons.appendChild(drawCompactRow());
+        if (type === 'movie') {
+          var cp2 = D.progress(x.id);
+          if (cp2 && cp2.fraction > 0.02) buttons.appendChild(h('div.dt-progress', [h('div.card-progress.inline', [h('div', { style: { width: Math.round(cp2.fraction * 100) + '%' } })]),
+            h('span.muted.small', L('%d min left', Math.max(1, Math.round((cp2.position / cp2.fraction - cp2.position) / 60))))]));
+        }
+        return;
+      }
       if (type === 'movie') {
         var p = D.progress(x.id);
         var resume = p && p.fraction > 0.02;
@@ -1871,6 +1953,9 @@
       // info, cast en aanbevelingen (= DetailsService op iOS, build 90)
       var cur = x;
       (isShow ? Lib.episodes(x).then(function (r) { return r && r.info; }) : Lib.movieInfo(x)).then(function (info) {
+        // build 174: trailer van de server meenemen in de keuze
+        var st = info && B.b174 ? B.b174.youtubeID(info.youtube_trailer) : null;
+        if (st && alive && x === cur && st !== serverTrailer) { serverTrailer = st; loadTrailer(); }
         return B.details.load(cur, isShow, info);
       }).then(function (d) {
         if (!alive || x !== cur || !d) return;
@@ -1894,10 +1979,15 @@
     pg.onCollections = function () { if (x) drawButtons(); };
     function onVis() { if (document.hidden) stopHero(); }
     document.addEventListener('visibilitychange', onVis);
+    // build 174: smal ↔ breed (draaien, venster) → knoppen opnieuw
+    var wasCompact = null;
+    var onResize = B.debounce(function () { if (!x || !alive) return; var c = compact(); if (c !== wasCompact) { wasCompact = c; drawButtons(); } }, 200);
+    window.addEventListener('resize', onResize);
     var offHero = [B.on('playerOpened', stopHero), B.on('settings', function () { if (!S.autoplayTrailers()) stopHero(); })];
     pg.destroy = function () {
       alive = false; stopHero();
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('resize', onResize);
       offHero.forEach(function (f) { if (typeof f === 'function') f(); });
     };
     build();
