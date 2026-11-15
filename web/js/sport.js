@@ -176,8 +176,159 @@
   // MARK: teamcirkel
 
   function hex(n) { return '#' + ('000000' + n.toString(16)).slice(-6); }
-  SP.badge = function (name, big) {
+  function initials(name, big) {
     return h('span.sp-badge' + (big ? '.big' : ''), { style: { background: hex(SL.color(name)) }, 'aria-hidden': 'true' }, SL.short(name));
+  }
+
+  // MARK: build 178: club- en competitielogo's (zoals Weekdot; regels in sportlogos.js)
+  // Niets in de site: logo's live van maak-agenda.nl (competities, vlaggen), ESPN-teamlijsten en TheSportsDB (clubs) en
+  // favicons via Google (kleine logo's). Indexen en "niet gevonden" in Cache Storage (bingr-sportlogos-v1, index 7 dagen,
+  // niet gevonden 1 dag); afbeeldingen via de HTTP-cache van de browser (geladen adressen worden 7 dagen onthouden).
+  // ESPN/TheSportsDB via fetch: weigert de browser het (CORS), dan blijft het bij vlaggen, competitielogo's en initialen.
+  // Data besparen op mobiel: alleen logo's die al eerder geladen zijn. Zolang een logo laadt of ontbreekt: de initialen.
+  var GL = B.sportLogos;
+  var LOGO_CACHE = 'bingr-sportlogos-v1';
+  var logoMem = {}, logoMiss = {}, idxMem = {}, crestMem = {}, inflight = {};
+
+  function saver() { try { return !!(B.b176ui && B.b176ui.saver()); } catch (e) { return false; } }
+  function cacheKey(name) { return location.origin + '/__sportlogos/' + name; }
+  function cget(name, kind) {
+    if (!window.caches) return Promise.resolve(null);
+    return caches.open(LOGO_CACHE).then(function (c) { return c.match(cacheKey(name)); }).then(function (r) {
+      return r ? r.json() : null;
+    }).then(function (o) {
+      if (!o || typeof o.t !== 'number') return null;
+      return GL.usable(kind, (Date.now() - o.t) / 1000, saver()) ? o : null;
+    }).catch(function () { return null; });
+  }
+  function cput(name, data) {
+    if (!window.caches) return;
+    caches.open(LOGO_CACHE).then(function (c) {
+      return c.put(cacheKey(name), new Response(JSON.stringify({ t: Date.now(), d: data }), { headers: { 'Content-Type': 'application/json' } }));
+    }).catch(function () {});
+  }
+  function once(key, work) {
+    if (!inflight[key]) inflight[key] = work().then(function (v) { delete inflight[key]; return v; }, function () { delete inflight[key]; return null; });
+    return inflight[key];
+  }
+  function getJSON(url) {
+    var ctl = window.AbortController ? new AbortController() : null;
+    var t = ctl ? setTimeout(function () { ctl.abort(); }, 15000) : null;
+    return fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (t) clearTimeout(t); return r.ok ? r.json() : null; })
+      .catch(function () { if (t) clearTimeout(t); return null; });
+  }
+  function leagueIndex(league) {
+    if (idxMem[league]) return Promise.resolve(idxMem[league]);
+    var file = GL.cacheName('crests2', league, 'json'), miss = GL.cacheName('miss-crests2', league, '');
+    return once('idx|' + league, function () {
+      return cget(file, 'index').then(function (o) {
+        if (o) return o.d || {};
+        return cget(miss, 'miss').then(function (m) {
+          if (m || saver()) return {};
+          return getJSON(GL.espnTeamsURL(league)).then(function (j) {
+            var idx = j ? GL.buildIndex(GL.espnTeams(j)) : {};
+            if (Object.keys(idx).length) cput(file, idx); else cput(miss, 1);
+            return idx;
+          });
+        });
+      }).then(function (idx) { idxMem[league] = idx; return idx; });
+    });
+  }
+  function searchCrest(name, sport, wanted) {
+    var k = wanted[0], file = GL.cacheName('crest-search', k, 'json'), miss = GL.cacheName('miss-search', k, '');
+    return once('search|' + k, function () {
+      return cget(file, 'index').then(function (o) {
+        if (o) return GL.match(wanted, o.d || {});
+        return cget(miss, 'miss').then(function (m) {
+          if (m || saver()) return null;
+          return getJSON(GL.sportsDBSearchURL(name)).then(function (j) {
+            var idx = j ? GL.buildIndex(GL.sportsDBTeams(j, sport)) : {};
+            var found = GL.match(wanted, idx);
+            if (found) cput(file, idx); else cput(miss, 1);
+            return found;
+          });
+        });
+      });
+    });
+  }
+  function crest(name, sport, comp) {
+    var leagues = GL.espnLeagues(sport, comp), key = name + '|' + sport + '|' + leagues.join(',');
+    if (Object.prototype.hasOwnProperty.call(crestMem, key)) return Promise.resolve(crestMem[key]);
+    var wanted = GL.keys(name);
+    if (!wanted.length) return Promise.resolve(null);
+    var i = 0;
+    function next() {
+      if (i >= leagues.length) return searchCrest(name, sport, wanted);
+      return leagueIndex(leagues[i++]).then(function (idx) { return GL.match(wanted, idx) || next(); });
+    }
+    return next().then(function (u) { crestMem[key] = u || null; return u || null; });
+  }
+  /** art = {comp, small} of {team, sport, compId} → adressen in volgorde van voorkeur. */
+  function logoURLs(art) {
+    if (art.comp) return Promise.resolve(GL.competitionURLs(art.comp, !!art.small));
+    var kind = GL.teamArt(art.team, art.sport || 'football', art.compId || '');
+    if (kind.indexOf('flag:') === 0) return Promise.resolve([GL.flagURL(kind.slice(5))]);
+    if (kind !== 'club') return Promise.resolve([]);
+    return crest(art.team, art.sport || 'football', art.compId || '').then(function (u) { return u ? [u] : []; });
+  }
+  function seen(url) {
+    var file = GL.cacheName('img', url, '');
+    return cget(file, 'image').then(function (o) { return !!o; });
+  }
+  /** Probeert de adressen een voor een (img, geen fetch: werkt zonder CORS); fout = 1 dag niet opnieuw. */
+  function loadInto(slot, urls, cls) {
+    var i = 0;
+    function next() {
+      if (i >= urls.length) return;
+      var u = urls[i++];
+      if (logoMiss[u]) return next();
+      var missFile = GL.cacheName('miss', u, '');
+      (logoMem[u] ? Promise.resolve('ok') : cget(missFile, 'miss').then(function (m) {
+        if (m) { logoMiss[u] = 1; return 'miss'; }
+        if (!saver()) return 'ok';
+        return seen(u).then(function (s) { return s ? 'ok' : 'skip'; });
+      })).then(function (state) {
+        if (state !== 'ok') return next();
+        var img = new Image();
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        img.alt = '';
+        img.className = cls;
+        img.onload = function () {
+          if (!img.naturalWidth || img.naturalWidth < 2) { img.onerror(); return; }
+          if (!logoMem[u]) { logoMem[u] = 1; cput(GL.cacheName('img', u, ''), 1); }
+          U.clear(slot);
+          slot.appendChild(img);
+          slot.classList.add('has-logo');
+        };
+        img.onerror = function () { logoMiss[u] = 1; cput(missFile, 1); next(); };
+        img.src = u;
+      });
+    }
+    next();
+  }
+  /** Logo-element: meteen de initialen (of leeg), het logo komt erin zodra het er is. */
+  SP.logo = function (art, title, size, placeholder) {
+    var slot = h('span.sp-logo', { 'aria-hidden': 'true', style: { width: size + 'px', height: size + 'px' } },
+      placeholder === false ? [] : [initials(title, size >= 36)]);
+    if (placeholder !== false) {
+      var b = slot.firstChild;
+      b.style.width = b.style.height = size + 'px';
+      b.style.fontSize = Math.round(size * 0.36) + 'px';
+    }
+    logoURLs(art).then(function (urls) { if (urls.length) loadInto(slot, urls, 'sp-logo-img'); }, function () {});
+    return slot;
+  };
+  SP.badge = function (name, big, match) {
+    return SP.logo({ team: name, sport: match ? match.sport : 'football', compId: match ? match.competitionId : '' }, name, big ? 40 : 30);
+  };
+  SP.compLogo = function (m, size) {
+    if (!m.competitionId) return null;
+    return SP.logo({ comp: m.competitionId, small: size < 24 }, m.competition, size, false);
+  };
+  SP.logoNotice = function () {
+    return h('p.muted.small.sp-logo-note', L('Logos and crests are trademarks of their respective owners and are shown for identification only.'));
   };
 
   // MARK: pagina
@@ -251,17 +402,18 @@
         days[d].forEach(function (g) { list.appendChild(matchRow(g)); });
         el.appendChild(list);
       });
+      el.appendChild(SP.logoNotice());
     }
 
     function liveCard(g, now, preview) {
       var ch = SP.channel(g);
       var media = h('div.sp-media', [ch ? U.img(ch.logo, 'logo', B.chanName(ch.name)) : null,
         h('span.sp-live-badge', L('LIVE')), ch ? h('span.sp-ch-badge', B.chanName(ch.name)) : null]);
-      var title = h('div.sp-title-row', [g.match.kind === 'duel' ? SP.badge(g.match.home) : null, h('span.sp-title', g.match.title),
-        g.match.kind === 'duel' ? SP.badge(g.match.away) : null]);
+      var title = h('div.sp-title-row', [g.match.kind === 'duel' ? SP.badge(g.match.home, false, g.match) : null, h('span.sp-title', g.match.title),
+        g.match.kind === 'duel' ? SP.badge(g.match.away, false, g.match) : null]);
       var pctW = Math.round(B.clamp((now - g.start) / (g.end - g.start), 0, 1) * 100) + '%';
       var card = h('button.sp-live-card', { type: 'button', 'aria-label': L('LIVE') + ', ' + SP.label(g.match) + ', ' + g.match.title }, [media,
-        h('div.sp-live-info', [h('div.muted.small', SP.label(g.match)), title, h('div.card-progress.inline', [h('div', { style: { width: pctW } })])])]);
+        h('div.sp-live-info', [h('div.muted.small.sp-comp', [SP.compLogo(g.match, 16), h('span', SP.label(g.match))]), title, h('div.card-progress.inline', [h('div', { style: { width: pctW } })])])]);
       card.addEventListener('click', function () { play(ch); });
       if (ch) {
         if (preview) setTimeout(function () { if (document.body.contains(media)) B.guidePreview.show(media, ch, false); }, 0);
@@ -275,7 +427,12 @@
       var ch = SP.channel(g), on = !!SP.reminder(g);
       var open = h('button.sp-row-main', { type: 'button' }, [
         h('div.sp-time', [h('div.sp-hm', B.fmtTime(g.start)), h('div.sp-ch.muted', ch ? B.chanName(ch.name) : '')]),
-        h('div.sp-txt', [h('div.muted.small', SP.label(g.match)), h('div.sp-title', g.match.title)])]);
+        // build 178: logo's van beide teams (of van de competitie bij een evenement)
+        g.match.kind === 'duel' ? h('div.sp-pair', [SP.logo({ team: g.match.home, sport: g.match.sport, compId: g.match.competitionId }, g.match.home, 26),
+          SP.logo({ team: g.match.away, sport: g.match.sport, compId: g.match.competitionId }, g.match.away, 26)])
+          : (g.match.competitionId ? h('div.sp-pair', [SP.compLogo(g.match, 30)]) : null),
+        h('div.sp-txt', [h('div.muted.small.sp-comp', [g.match.kind === 'duel' ? SP.compLogo(g.match, 14) : null, h('span', SP.label(g.match))]),
+          h('div.sp-title', g.match.title)])]);
       open.addEventListener('click', function () { sheet(g); });
       var bell = h('button.sp-bell' + (on ? '.on' : ''), { type: 'button', 'aria-label': on ? L('Turn off reminder') : L('Turn on reminder'),
         'aria-pressed': on ? 'true' : 'false' }, [U.icon('bell')]);
@@ -297,8 +454,8 @@
       var dlg = null;
       body.appendChild(h('div.muted.small', [SP.label(g.match), B.fmtDate(g.start, { weekday: 'short', day: 'numeric', month: 'short' }, B.lang === 'nl' ? 'nl-NL' : B.locale()),
         B.fmtTime(g.start), ch ? B.chanName(ch.name) : ''].filter(Boolean).join(' · ')));
-      body.appendChild(h('div.sp-title-row.big', [g.match.kind === 'duel' ? SP.badge(g.match.home, true) : null, h('span.sp-title', g.match.title),
-        g.match.kind === 'duel' ? SP.badge(g.match.away, true) : null]));
+      body.appendChild(h('div.sp-title-row.big', [g.match.kind === 'duel' ? SP.badge(g.match.home, true, g.match) : SP.compLogo(g.match, 36),
+        h('span.sp-title', g.match.title), g.match.kind === 'duel' ? SP.badge(g.match.away, true, g.match) : null]));
       if (live) {
         body.appendChild(U.button(L('Watch live'), function () { if (dlg) dlg.close(); play(ch); }, { primary: true, icon: 'play' }));
       } else {
@@ -408,8 +565,10 @@
         var cb = h('input', { type: 'checkbox' });
         cb.checked = D.inSet('favoriteCompetitions', c.id);
         cb.addEventListener('change', function () { SP.setFavoriteCompetition(c.id, cb.checked); });
-        body.appendChild(h('label.sp-toggle', [h('span', c.name), cb]));
+        // build 178: klein logo (favicon van de officiële site, zoals Weekdot)
+        body.appendChild(h('label.sp-toggle', [h('span.sp-comp', [SP.logo({ comp: c.id, small: true }, c.name, 22), h('span', c.name)]), cb]));
       });
+      body.appendChild(SP.logoNotice());
     }
     draw();
     U.modal({ title: L('My teams and competitions'), body: body, cls: 'sheet-dlg.sp-sheet-dlg', onClose: function () { if (after) after(); } });
