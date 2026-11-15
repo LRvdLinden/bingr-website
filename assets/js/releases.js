@@ -13,13 +13,13 @@
     var T = {
       nl: {
         apple: "Apple", android: "Android", live: "Live", list: "Versies",
-        tLive: { apple: "Nu in de App Store", android: "Nu in Google Play" },
+        tLive: { apple: "Nu in de App Store", android: "Nu als APK" },
         tBeta: { apple: "Nieuwste bèta via TestFlight", android: "Nieuwste testversie" },
         v: "versie %v, build %b", on: "sinds %d", locale: "nl-NL",
       },
       en: {
         apple: "Apple", android: "Android", live: "Live", list: "Versions",
-        tLive: { apple: "Now on the App Store", android: "Now on Google Play" },
+        tLive: { apple: "Now on the App Store", android: "Now as APK" },
         tBeta: { apple: "Latest beta on TestFlight", android: "Latest test version" },
         v: "version %v, build %b", on: "since %d", locale: "en-GB",
       },
