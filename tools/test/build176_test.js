@@ -88,4 +88,16 @@ eq(P.bookmarksFor([{ id: 'a|k@9', key: 'k', t: 9, at: 1 }, { id: 'a|k@3', key: '
   eq([j.autoplayNext.value, j.lockedTitles[0].id, j.prefs.x, 'bookmarks' in j], [false, 's1|movie:m1', 1, false], 'velden van build 176 in profile.<id>');
 }
 
+// MARK: tik op een herinnering op de releasedatum: titel-link uit build 120 → #/titel van de webspeler (sw.js)
+{
+  const sw = { location: { origin: 'https://bingr.online', href: 'https://bingr.online/web/sw.js' }, addEventListener: () => {}, registration: {}, clients: {} };
+  const target = new Function('self', fs.readFileSync(path.join(__dirname, '../../web/sw.js'), 'utf8') + '\nreturn target;')(sw);
+  eq(target({ kind: 'release', deeplink: 'bingr://title?type=movie&id=550&q=Fight%20Club' }),
+    { url: 'https://bingr.online/web/#/titel?type=movie&id=550&q=Fight%20Club', title: 'type=movie&id=550&q=Fight%20Club' }, 'release-herinnering (film)');
+  eq(target({ kind: 'reminder', deeplink: 'bingr://title?type=tv&id=1399&q=Game+of+Thrones' }).url, 'https://bingr.online/web/#/titel?type=tv&id=1399&q=Game%20of%20Thrones', 'serie');
+  eq(target({ kind: 'release', deeplink: 'bingr://title?type=tv&id=abc' }).url.indexOf('#/titel'), -1, 'ongeldige link: niet naar #/titel');
+  eq(target({ kind: 'release', deeplink: 'bingr://changelog?p=web&b=176' }).url, 'https://bingr.online/changelog/?p=web#build-176', 'app-release blijft de changelog');
+  eq(target({ kind: 'reminder', deeplink: 'bingr://live?channel=c1' }).reminder.channel, 'c1', 'gewone herinnering blijft live');
+}
+
 console.log('build176: ' + n + ' controles ok');

@@ -60,11 +60,27 @@ function safeHttps(u) {
   try { var x = new URL(String(u), WEB); return x.protocol === 'https:' || x.origin === ORIGIN ? x.href : null; } catch (e) { return null; }
 }
 
-/** Waar een tik naartoe gaat: {url, reminder?, support?}. */
+/**
+ * Build 176: titel-link uit build 120 (bingr://title?type=<movie|tv>&id=<tmdb-id>&q=<titel>), o.a. de herinnering op de
+ * releasedatum (Binnenkort): query voor de route #/titel van de webspeler (titlelink.js), of null.
+ */
+function titleQuery(deeplink, q) {
+  if (!/^bingr:\/\/title(?:[/?#]|$)/i.test(String(deeplink || ''))) return null;
+  var type = q.type === 'tv' || q.type === 'series' ? 'tv' : q.type === 'movie' ? 'movie' : null;
+  var id = /^[1-9]\d{0,9}$/.test(q.id || '') ? q.id : '';
+  var t = String(q.q || '').slice(0, 200), y = /^\d{4}$/.test(q.y || '') ? q.y : '';
+  if (!type || (!id && !t)) return null;
+  return 'type=' + type + (id ? '&id=' + id : '') + (t ? '&q=' + encodeURIComponent(t) : '') + (y ? '&y=' + y : '');
+}
+
+/** Waar een tik naartoe gaat: {url, reminder?, support?, title?}. */
 function target(data) {
   data = data || {};
   var kind = String(data.kind || '');
   var q = deeplinkQuery(data.deeplink);
+  // build 176: titel-link (ook bij kind "release" of "reminder"): de detailpagina via #/titel
+  var tq = titleQuery(data.deeplink, q);
+  if (tq) return { url: WEB + '#/titel?' + tq, title: tq };
   if (kind === 'release') {
     // changelog van precies die build, gefilterd op de webspeler
     var b = q.b || q.build || data.build;
@@ -102,6 +118,7 @@ self.addEventListener('notificationclick', function (event) {
       var c = web[0];
       if (t.reminder) c.postMessage({ type: 'bingr-push-open', reminder: t.reminder });
       if (t.support) c.postMessage({ type: 'bingr-push-open', support: t.support });
+      if (t.title) c.postMessage({ type: 'bingr-push-open', title: t.title });
       return c.focus ? c.focus() : c;
     }
     // zelfde pagina al open (bijv. de changelog): die naar voren halen
