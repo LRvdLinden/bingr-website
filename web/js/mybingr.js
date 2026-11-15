@@ -1126,14 +1126,22 @@
       return S.stRow(sec, 'Trakt', B.connections.trakt() ? L('Main account') : L('Not linked'), null, { lead: traktLogo() });
     }
     if (!T.isLoggedIn()) return S.stRow(sec, 'Trakt', L('Not linked'), function () { S.traktSheet(); }, { lead: traktLogo() });
+    // build 173: rode waarschuwing alleen bij een blijvende fout (opnieuw inloggen, vergrendeld, of > 24 uur tijdelijk)
+    var w = T.warning ? T.warning() : null;
+    if (w && !T.isSyncing()) {
+      var r = S.stRow(sec, 'Trakt', h('span.st-value.trakt-warn', w.text), function () { S.traktSheet(w.reauth ? { relogin: true } : null); }, { lead: traktLogo(), sub: T.username() });
+      r.classList.add('trakt-warn-row');
+      return r;
+    }
     var v = T.isSyncing() ? L('Syncing…') : (T.lastSync() ? syncedText(T.lastSync()) : T.username());
     return S.stRow(sec, 'Trakt', v, function () { S.traktSheet(); }, { lead: traktLogo(), sub: T.username() });
   };
   function traktLogo() { return h('img.st-logo', { src: '../assets/img/trakt.svg', alt: '' }); }
 
   /** Venster om Trakt te koppelen (apparaatcode op trakt.tv/activate) of de koppeling te beheren. */
-  S.traktSheet = function () {
+  S.traktSheet = function (opts) {
     var T = B.trakt;
+    opts = opts || {};
     if (!B.plan.has('trakt')) return B.plan.sheet('trakt');
     var body = h('div.trakt-sheet');
     var flow = null, dlg = null;
@@ -1143,8 +1151,14 @@
       body.appendChild(h('div.trakt-head', [traktLogo(), h('div', [h('div.trakt-user', T.username() || 'Trakt'),
         h('div.muted.small', T.isSyncing() ? L('Syncing…') : (T.lastSync() ? syncedText(T.lastSync()) : ''))])]));
       body.appendChild(h('p.muted.small', L("What you watch in Bingr is scrobbled automatically. What you've watched on Trakt (or in another app) is checked off here.")));
+      // build 173: blijvende fout: de melding en "Opnieuw inloggen bij Trakt" (koppelcode, de wachtrij blijft bewaard)
+      var w = T.warning ? T.warning() : null;
+      if (w && !T.isSyncing()) body.appendChild(h('div.login-err.trakt-warn', w.text));
+      var syncB = U.button(L('Sync now'), function () { T.syncNow().then(drawLinked); drawLinked(); }, { icon: 'refresh', primary: !(w && w.reauth) });
+      if (T.isSyncing()) syncB.disabled = true;
       body.appendChild(h('div.dlg-buttons', [
-        U.button(L('Sync now'), function () { T.refresh(true).then(drawLinked); drawLinked(); }, { icon: 'refresh', primary: true }),
+        w && w.reauth ? U.button(L('Sign in to Trakt again'), startFlow, { primary: true }) : null,
+        syncB,
         U.button(L('Sign out of Trakt'), function () {
           U.confirm(L('Sign out of Trakt'), null, L('Sign out'), function () { T.logout(); if (dlg) dlg.close(); }, { danger: true });
         }, { cls: 'danger' }),
@@ -1158,7 +1172,9 @@
       if (err) body.appendChild(h('div.login-err', err));
       body.appendChild(h('div.dlg-buttons', [U.button(L('Sign in to Trakt'), startFlow, { primary: true }), U.button(L('Cancel'), function () { dlg.close(); })]));
     }
+    var inFlow = false;
     function startFlow() {
+      inFlow = true;
       U.clear(body);
       body.appendChild(h('div.trakt-wait', [U.spinner()]));
       T.startLogin().then(function (code) {
@@ -1188,17 +1204,18 @@
         ]));
         flow = T.finishLogin(code);
         flow.then(function () {
-          flow = null;
+          flow = null; inFlow = false;
           U.toast(L('Signed in as %@', T.username() || 'Trakt'));
           if (dlg) dlg.close();
-        }, function (e) { flow = null; drawStart(e && e.message); });
-      }, function (e) { drawStart((e && e.message) || L('Something went wrong. Please try again.')); });
+        }, function (e) { flow = null; inFlow = false; drawStart(e && e.message); });
+      }, function (e) { inFlow = false; drawStart((e && e.message) || L('Something went wrong. Please try again.')); });
     }
     if (!T.ready()) body.appendChild(h('p.muted', L('Trakt is not available right now. Try again later.')));
     else if (!T.allowed()) body.appendChild(h('p.muted', L('The server, Trakt and OpenSubtitles belong to the main account and are used by all profiles.')));
+    else if (T.isLoggedIn() && opts.relogin) startFlow();
     else if (T.isLoggedIn()) drawLinked();
     else drawStart();
-    var off = B.on('traktStatus', function () { if (T.isLoggedIn() && !flow) drawLinked(); });
+    var off = B.on('traktStatus', function () { if (T.isLoggedIn() && !flow && !inFlow) drawLinked(); });
     dlg = U.modal({ title: 'Trakt', body: body, cls: 'trakt-dlg', onClose: function () { done(); off(); },
       buttons: (!T.ready() || !T.allowed()) ? [{ label: L('OK') }] : null });
     return dlg;

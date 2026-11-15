@@ -133,6 +133,7 @@ console.log('account: schrijven, lezen ±1, uitvinken, serie gezien, migratie, g
   }
   const refreshes = () => calls.filter((c) => /\/oauth\/token$/.test(c.url)).length;
   setTokens(2 * 3600000);
+  load('player173.js');
   load('connections.js');
   let T = B.trakt;
   assert.ok(T.isLoggedIn(), 'ingelogd');
@@ -216,5 +217,116 @@ console.log('account: schrijven, lezen ±1, uitvinken, serie gezien, migratie, g
   assert.ok(c.keys.includes('w:m:tmdb:277834') && c.keys.includes('w:m:t:vaiana|2016'), 'film zonder IMDb');
   assert.ok(c.keys.includes('w:e:t:flikkenmaastricht|2007|1-2') && c.keys.includes('w:s:tmdb:3'), 'aflevering + serie gezien');
   console.log('Trakt: token (> 1 uur niet, < 1 uur en 401 wel, één tegelijk), nooit null, wachtrij + herstart, 429, not_found, zoeken, sleutels ok');
+
+  // MARK: build 173: nooit een ouder Trakt-token uit het account; waarschuwing alleen bij een blijvende fout
+  const D90 = 90 * 86400000;
+  setTokens(D90); load('connections.js'); T = B.trakt; puts.length = 0;
+  B.store.set('connections', { data: { trakt: { accessToken: 'A2', refreshToken: 'R2', expiresAt: exp(D90), username: 'u' }, updatedAt: B.iso() }, at: Date.now() });
+  load('connections.js'); T = B.trakt; puts.length = 0;
+  let later = B.iso(Date.now() + 60000);
+  B.emit('state', { connections: { data: { trakt: { accessToken: 'A1', refreshToken: 'R1', expiresAt: exp(D90 - 86400000), username: 'u' },
+    opensubtitles: { token: 'OS1', username: 'x' }, updatedAt: later }, updatedAt: later } });
+  await wait(5);
+  assert.strictEqual(B.connections.trakt().accessToken, 'A2', 'ouder token uit het account niet overgenomen');
+  assert.strictEqual(B.connections.opensubtitles().token, 'OS1', 'de rest van het account wel');
+  assert.ok(puts.some((p) => p.n === 'connections' && p.d.trakt.accessToken === 'A2'), 'eigen token terug naar het account');
+  later = B.iso(Date.now() + 120000);
+  B.emit('state', { connections: { data: { trakt: { accessToken: 'A5', refreshToken: 'R5', expiresAt: exp(D90 + 86400000), username: 'u' }, updatedAt: later }, updatedAt: later } });
+  assert.strictEqual(B.connections.trakt().accessToken, 'A5', 'nieuwer token wel');
+  // verlopen token en Trakt weigert het refresh-token (400/401): blijvend, waarschuwing "Opnieuw inloggen bij Trakt"
+  setTokens(-60000); load('connections.js'); T = B.trakt;
+  http = (url) => /\/oauth\/token$/.test(url) ? { status: 400, json: { error: 'invalid_grant' } } : { status: 401, json: null };
+  await T.refresh(true);
+  assert.ok(T.warning() && T.warning().reauth, 'opnieuw inloggen nodig');
+  assert.strictEqual(T.warning().text, 'Sign in to Trakt again');
+  assert.ok(B.connections.trakt(), 'koppeling blijft (opnieuw inloggen vervangt hem)');
+  // tijdelijke fouten (5xx, netwerk): geen waarschuwing, pas na 24 uur
+  B.store.del('trakt.health'); setTokens(D90); load('connections.js'); T = B.trakt;
+  http = () => ({ status: 503, json: null });
+  await T.refresh(true);
+  assert.strictEqual(T.warning(), null, 'tijdelijke fout: geen waarschuwing');
+  http = () => Promise.reject(new Error('offline'));
+  await T.refresh(true);
+  assert.strictEqual(T.warning(), null, 'netwerkfout: geen waarschuwing');
+  B.store.set('trakt.health', { kind: 'transient', since: Date.now() - 25 * 3600000 }); load('connections.js'); T = B.trakt;
+  assert.strictEqual(T.warning().text, 'Trakt: could not connect', 'na 24 uur wel');
+  http = () => ({ status: 423, json: null });
+  await T.refresh(true);
+  assert.strictEqual(T.warning().kind, 'locked', '423: account vergrendeld');
+  // geslaagde sync: weg
+  http = (url) => ({ status: 200, json: /last_activities/.test(url) ? { all: 'x' } : [] });
+  await T.refresh(true);
+  assert.strictEqual(T.warning(), null, 'na een geslaagde sync geen waarschuwing');
+  // Nu synchroniseren: eerst de wachtrij, dan ophalen
+  calls.length = 0;
+  http = (url) => (/\/sync\/history/.test(url) ? { status: 201, json: { added: {} } } : { status: 200, json: /last_activities/.test(url) ? { all: 'y' } : [] });
+  T.queueWatched({ type: 'movie', id: 'xv3', title: 'Heat', year: 1995, tmdb: 949 }, true, Date.now(), false);
+  await T.syncNow();
+  const order = calls.map((c) => c.url.replace(/^https:\/\/api\.trakt\.tv/, '').split('?')[0]);
+  assert.ok(order.indexOf('/sync/history') >= 0 && order.indexOf('/sync/history') < order.indexOf('/sync/last_activities'), 'wachtrij vóór ophalen: ' + order.join(','));
+  assert.strictEqual(T.queue.list().length, 0);
+  console.log('Trakt 173: ouder token niet over een nieuwer, waarschuwing alleen bij 401/403/423 of > 24 uur, Nu synchroniseren ok');
+
+  // MARK: build 173: OpenSubtitles blijft ingelogd
+  const osCalls = [];
+  const OS = { isLinked: () => B.opensubtitles.isLinked(), login: (u, p) => B.opensubtitles.login(u, p) };
+  let osHttp = () => ({ status: 200, json: {} });
+  B.proxyPost = (req) => { osCalls.push(JSON.parse(JSON.stringify(req))); return Promise.resolve().then(() => osHttp(req)); };
+  const H = 3600000;
+  function setOS(o, loggedAgo) {
+    const d = { opensubtitles: o, updatedAt: B.iso() };
+    B.store.set('connections', { data: d, at: Date.parse(d.updatedAt) });
+    server = { connections: { data: JSON.parse(JSON.stringify(d)), updatedAt: d.updatedAt } };
+    if (loggedAgo == null) B.store.del('os.loggedInAt'); else B.store.set('os.loggedInAt', Date.now() - loggedAgo);
+    load('connections.js');
+  }
+  const okLogin = (tok) => (req) => req.path === '/login' ? { status: 200, json: { token: tok, base_url: 'vip-api.opensubtitles.com' } } : { status: 200, json: { data: [], tokenSeen: req.token } };
+  // 1. token ouder dan 23 uur + wachtwoord: eerst stil opnieuw inloggen
+  setOS({ token: 'T1', username: 'u', password: 'pw' }, 24 * H); osCalls.length = 0; osHttp = okLogin('T2');
+  await B.opensubtitles._request('/infos/user', 'GET');
+  assert.deepStrictEqual(osCalls.map((c) => c.path), ['/login', '/infos/user'], 'eerst /login');
+  assert.strictEqual(osCalls[1].token, 'T2', 'nieuw token gebruikt');
+  assert.strictEqual(B.connections.opensubtitles().password, 'pw', 'wachtwoord blijft bewaard');
+  // 2. 401 met wachtwoord: stil opnieuw inloggen en opnieuw proberen
+  setOS({ token: 'T1', username: 'u', password: 'pw' }, H); osCalls.length = 0;
+  osHttp = (req) => req.path === '/login' ? { status: 200, json: { token: 'T3' } } : (req.token === 'T1' ? { status: 401, json: { message: 'expired' } } : { status: 200, json: { link: 'x' } });
+  const j = await B.opensubtitles._request('/download', 'POST', null, { file_id: 1 });
+  assert.strictEqual(j.link, 'x'); assert.strictEqual(B.connections.opensubtitles().token, 'T3');
+  // 3. netwerk, 429, 5xx bij /login: blijft ingelogd
+  for (const st of [429, 503, null]) {
+    setOS({ token: 'T1', username: 'u', password: 'pw' }, H);
+    osHttp = (req) => req.path === '/login' ? (st == null ? Promise.reject(new Error('net')) : { status: st, json: null }) : { status: 401, json: { message: 'x' } };
+    await B.opensubtitles._request('/download', 'POST').catch(() => null);
+    assert.ok(OS.isLinked(), "blijft ingelogd bij " + st);
+  }
+  // 4. 429/5xx bij een gewone aanroep: niets met de sessie
+  setOS({ token: 'T1', username: 'u', password: 'pw' }, H); osCalls.length = 0;
+  osHttp = () => ({ status: 503, json: null });
+  await B.opensubtitles._request('/download', 'POST').catch(() => null);
+  assert.ok(OS.isLinked() && !osCalls.some((c) => c.path === '/login'), '5xx: niet opnieuw inloggen, niet uitloggen');
+  // 5. zonder wachtwoord en een 401: niet uitloggen, wel een melding
+  setOS({ token: 'T1', username: 'u' }, H); osCalls.length = 0;
+  osHttp = () => ({ status: 401, json: { message: 'x' } });
+  const e5 = await B.opensubtitles._request('/download', 'POST').then(() => null, (e) => e);
+  assert.ok(OS.isLinked(), 'zonder wachtwoord niet uitloggen');
+  assert.strictEqual(e5.message, 'Your OpenSubtitles session has expired. Sign in again in Settings.');
+  // 6. foute gegevens (400/401 van /login): uitloggen, ook in het account
+  setOS({ token: 'T1', username: 'u', password: 'oud' }, H); puts.length = 0;
+  osHttp = (req) => req.path === '/login' ? { status: 401, json: { message: 'bad' } } : { status: 401, json: { message: 'x' } };
+  await B.opensubtitles._request('/download', 'POST').catch(() => null);
+  assert.ok(!OS.isLinked(), 'foute gegevens: uitgelogd');
+  assert.ok(puts.some((p) => p.n === 'connections' && p.d.opensubtitles === null));
+  // 7. foute gegevens hier, maar op een ander apparaat al opnieuw ingelogd: dat overnemen, niet uitloggen
+  setOS({ token: 'T1', username: 'u', password: 'oud' }, H);
+  const fresh = { opensubtitles: { token: 'T9', username: 'u', password: 'nieuw' }, updatedAt: B.iso(Date.now() + 5000) };
+  server = { connections: { data: fresh, updatedAt: fresh.updatedAt } };
+  osHttp = (req) => req.path === '/login' ? { status: 401, json: { message: 'bad' } } : (req.token === 'T9' ? { status: 200, json: { ok: 1 } } : { status: 401, json: { message: 'x' } });
+  const j7 = await B.opensubtitles._request('/download', 'POST');
+  assert.deepStrictEqual(j7, { ok: 1 }); assert.strictEqual(B.connections.opensubtitles().token, 'T9');
+  // 8. inloggen in de browser bewaart het wachtwoord
+  setOS(null, null); osHttp = okLogin('T4');
+  await OS.login('u', 'geheim');
+  assert.strictEqual(B.connections.opensubtitles().password, 'geheim'); assert.ok(B.store.get('os.loggedInAt', 0) > 0);
+  console.log('OpenSubtitles 173: stil opnieuw inloggen (23 uur, 401), niet uitloggen bij netwerk/429/5xx of zonder wachtwoord, alleen bij foute gegevens ok');
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

@@ -203,6 +203,8 @@
       for (var i = 0; i < lib.channels.length; i++) { if (lower(lib.channels[i].id) === id) { ch = lib.channels[i]; break; } }
     }
     B.ui.router.go('/live', true);
+    // build 173: herinnering voor een programma dat al bezig is: eerst "Vanaf het begin" of "Live kijken" (met terugkijken)
+    if (ch && B.player && B.player.playLive) { B.player.playLive(ch, [ch]); return true; }
     if (ch && B.player && B.player.playChannel) { B.player.playChannel(ch, [ch]); return true; }
     return false;
   };

@@ -486,6 +486,15 @@
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
     var seeking = null;
+    // build 173: paneel onderin (Audio en ondertitels, Zappen, Afleveringen, Slaaptimer), Vorige zender, dubbeltikken,
+    // ondertitels na terugspoelen en de slaaptimer (pure regels in player173.js)
+    var P173 = B.p173;
+    var panelKind = null, panelTimer = null;
+    var prevCh = new P173.PreviousChannel(item.channel ? item.channel.id : null), chSeen = {};
+    if (item.channel) chSeen[item.channel.id] = item.channel;
+    var dtap = new P173.DoubleTap(), tapTimer = null, lastTap = null, tapFxTimer = null;
+    var rwSubs = null;   // {until, startedAt, index}: ondertitels even aan na kort terugspoelen
+    var sleep = { choice: null, deadline: null }, sleepStopped = false;
     // build 164: het live voorbeeld van de tv-gids geeft zijn lopende stream mee ({engine, video, url}): dezelfde
     // <video> en dezelfde hls.js/mpegts.js, zonder opnieuw te laden (alleen live, alleen bij de eerste start)
     var adopt = ctx.adopt && item.type === 'live' && ctx.adopt.engine && ctx.adopt.video ? ctx.adopt : null;
@@ -511,7 +520,9 @@
     var bar = h('div.pl-bar', { role: 'slider', tabindex: '0', 'aria-label': L('Position'), 'aria-valuemin': '0' }, [h('div.pl-track', [buf, fill]), knob, hoverT]);
     var tCur = h('span.pl-time'), tDur = h('span.pl-time.right');
     var leftBtns = h('div.pl-btns'), rightBtns = h('div.pl-btns.right');
-    var bottom = h('div.pl-bottom', [h('div.pl-prog', [tCur, bar, tDur]), h('div.pl-row', [leftBtns, rightBtns])]);
+    // build 173 (#6): "Eindigt om …" naast de tijdbalk
+    var endsEl = h('div.pl-ends', { 'aria-live': 'off' });
+    var bottom = h('div.pl-bottom', [h('div.pl-prog', [tCur, bar, tDur]), h('div.pl-row', [leftBtns, endsEl, rightBtns])]);
     var center = h('div.pl-center');
     var skipBtn = U.button(L('Skip intro'), function () { skipIntro(); }, { cls: 'pl-skip' });
     skipBtn.style.display = 'none';
@@ -522,7 +533,10 @@
     tapPlay.style.display = 'none';
     // build 171 (#1): "Kijk je nog?" en het scherm Gepauzeerd (ook na "gestopt vanaf een ander apparaat")
     var stillBox = h('div.pl-still', { role: 'alertdialog', 'aria-modal': 'true' }); stillBox.style.display = 'none';
-    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, castVideo, castUI, subtitle, tap, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, errorBox, stillBox]);
+    // build 173: één paneel onderin, over de video; pauzeert niet (ook in volledig scherm zichtbaar: binnen de speler)
+    var panel = h('div.pl-panel', { role: 'dialog', 'aria-modal': 'false' }); panel.style.display = 'none';
+    var tapFx = h('div.pl-tapfx', { 'aria-hidden': 'true' });
+    var root = h('div.player', { role: 'dialog', 'aria-label': L('Player') }, [video, castVideo, castUI, subtitle, tap, tapFx, spinner, top, center, bottom, skipBtn, nextCard, zapBanner, tapPlay, panel, errorBox, stillBox]);
     var screen = { el: root, item: function () { return item; } };
 
     function isLive() { return item.type === 'live'; }
@@ -562,17 +576,24 @@
     }
     function hideStill() { clearInterval(stillTimer); stillAskedAt = 0; stillBox.style.display = 'none'; root.classList.remove('still'); }
     function answerStill() { hideStill(); if (still) still.answered(Date.now()); }
-    /** Pauzeren en afmelden; by = naam van het apparaat dat stopte (gestopt op afstand) of null ("Kijk je nog?"). */
-    function pauseOut(by) {
+    /**
+     * Pauzeren en afmelden; by = naam van het apparaat dat stopte (gestopt op afstand) of null ("Kijk je nog?").
+     * Build 173: o = {text, label, resume} voor de slaaptimer ("Slaaptimer: gestopt" met Verder kijken).
+     */
+    var resumeFn = null;
+    function pauseOut(by, o) {
+      o = o || {};
       hideStill();
+      closePanel();
       pausedOut = true;
+      resumeFn = o.resume || null;
       pausedAt = engine && !isLive() ? engine.time() : 0;
       clearInterval(countdownTimer);
       if (scrobbled && !stopSent) scrobble('stop');
       stopEngine(true);
       U.clear(stillBox);
-      var play = U.button(L('Play'), function () { resumeOut(); }, { primary: true, icon: 'play' });
-      var text = by == null ? L('Paused: press Play to continue') : (by ? L('Stopped from %@', by) : L('Stopped from another device'));
+      var play = U.button(o.label || L('Play'), function () { resumeOut(); }, { primary: true, icon: 'play' });
+      var text = o.text || (by == null ? L('Paused: press Play to continue') : (by ? L('Stopped from %@', by) : L('Stopped from another device')));
       stillBox.appendChild(h('div.pl-still-card', [h('h2', text), h('div.dlg-buttons', [play, U.button(L('Close'), function () { close(); })])]));
       stillBox.style.display = 'flex';
       root.classList.add('still');
@@ -584,6 +605,8 @@
       pausedOut = false;
       if (still) still.answered(Date.now());
       attempts = 0;
+      var fn = resumeFn; resumeFn = null;
+      if (fn) { fn(); return; }
       start(isLive() ? 0 : pausedAt);
     }
 
@@ -593,16 +616,43 @@
       root.classList.add('ui');
       clearTimeout(hideTimer);
       hideTimer = setTimeout(function () {
+        if (panelKind) return;
         if (engine && engine.playing && !root.querySelector('.pl-bar.drag') && !root.matches(':hover .pl-bottom:hover')) root.classList.remove('ui');
       }, 3200);
     }
     root.addEventListener('mousemove', showControls);
-    root.addEventListener('touchstart', function () { if (!root.classList.contains('ui')) { showControls(); } }, { passive: true });
-    tap.addEventListener('click', function () {
-      if (U.isTouch()) { if (root.classList.contains('ui')) root.classList.remove('ui'); else showControls(); return; }
+    // build 173: stand van de bediening vóór deze aanraking (touchstart toont hem al; een tik verbergt hem dan niet meteen weer)
+    var uiBeforeTouch = false;
+    root.addEventListener('touchstart', function () { uiBeforeTouch = root.classList.contains('ui'); if (!uiBeforeTouch) { showControls(); } }, { passive: true });
+    tap.addEventListener('click', function (e) {
+      if (panelKind) { closePanel(); return; }
+      if (U.isTouch()) { touchTap(e); return; }
       togglePlay();
     });
-    tap.addEventListener('dblclick', function () { toggleFullscreen(); });
+    tap.addEventListener('dblclick', function () { if (!U.isTouch()) toggleFullscreen(); });
+    /**
+     * Build 173 (#4): aanraakscherm: dubbeltik links = 10 s terug, rechts = 10 s vooruit; elke tik erachteraan aan
+     * dezelfde kant telt 10 s op (20, 30 s) met een kleine animatie. Eén tik = bediening tonen/verbergen (iets later,
+     * zodat een dubbeltik dat niet eerst doet). Niet bij live tv.
+     */
+    function touchTap(e) {
+      var r = root.getBoundingClientRect(), now = Date.now();
+      var side = isLive() ? null : P173.tapSide((e.clientX || 0) - r.left, r.width);
+      if (side && dtap.active(now) && (side === 'fwd') === dtap.forward) { clearTimeout(tapTimer); lastTap = null; doubleTap(side, now); return; }
+      if (side && lastTap && lastTap.side === side && now - lastTap.at <= P173.DOUBLE_TAP_MS) { clearTimeout(tapTimer); lastTap = null; doubleTap(side, now); return; }
+      lastTap = { side: side, at: now };
+      clearTimeout(tapTimer);
+      var wasUI = uiBeforeTouch;
+      tapTimer = setTimeout(function () { lastTap = null; if (wasUI) root.classList.remove('ui'); else showControls(); }, side ? P173.DOUBLE_TAP_MS : 0);
+    }
+    function doubleTap(side, now) {
+      var r = dtap.tap(side === 'fwd', now);
+      jump(r.delta, true);
+      tapFx.className = 'pl-tapfx show ' + side;
+      tapFx.textContent = (r.total > 0 ? '+' : '−') + Math.abs(r.total) + ' s';
+      clearTimeout(tapFxTimer);
+      tapFxTimer = setTimeout(function () { tapFx.className = 'pl-tapfx'; }, P173.TAP_WINDOW);
+    }
 
     function iconBtn(icon, label, fn, cls) { return U.button('', fn, { icon: icon, cls: 'pl-ib' + (cls ? ' ' + cls : ''), title: label }); }
     var playBtn = iconBtn('pause', L('Play / pause') + ' (K)', function () { togglePlay(); }, 'pl-playbtn');
@@ -645,17 +695,31 @@
         leftBtns.appendChild(iconBtn('back10', L('10 seconds back') + ' (←)', function () { jump(-10); }, 'pl-desk'));
         leftBtns.appendChild(iconBtn('fwd10', L('10 seconds forward') + ' (→)', function () { jump(10); }, 'pl-desk'));
       } else if ((ctx.channels || []).length > 1) {
-        leftBtns.appendChild(iconBtn('chUp', L('Previous channel') + ' (↑)', function () { zap(-1); }, 'pl-desk'));
-        leftBtns.appendChild(iconBtn('chDown', L('Next channel') + ' (↓)', function () { zap(1); }, 'pl-desk'));
+        // build 173: ↑/↓ = zender omhoog/omlaag; "Vorige zender" is nu de laatst bekeken zender (knop rechts, toets R)
+        leftBtns.appendChild(iconBtn('chUp', L('Channel up') + ' (↑)', function () { zap(-1); }, 'pl-desk'));
+        leftBtns.appendChild(iconBtn('chDown', L('Channel down') + ' (↓)', function () { zap(1); }, 'pl-desk'));
       }
       leftBtns.appendChild(h('div.pl-volbox', [muteBtn, vol]));
       if (item.type === 'episode' && nextEpisode()) rightBtns.appendChild(U.button(L('Next episode'), function () { playNext(); }, { icon: 'next', cls: 'pl-tb' }));
+      // build 173 (#2): Vanaf het begin (live met terugkijken) en Terug naar live (terugkijken van een lopend programma)
       if (isLive() && item.channel) {
         var nn2 = Lib.nowNext(item.channel);
-        if (nn2.now && Lib.canCatchup(item.channel, nn2.now)) rightBtns.appendChild(iconBtn('replay', L('From the start'), function () { B.player.playCatchup(item.channel, nn2.now, ctx.channels); }));
+        if (nn2.now && P173.canStartOver(Lib.canCatchup(item.channel, nn2.now), nn2.now.start, Date.now(), 0)) {
+          rightBtns.appendChild(U.button(L('From the start'), function () { startOver(nn2.now); }, { icon: 'replay', cls: 'pl-tb pl-startover', title: L('From the start') }));
+        }
       }
-      rightBtns.appendChild(iconBtn('audio', L('Audio'), chooseAudio));
-      rightBtns.appendChild(iconBtn('subs', L('Subtitles'), chooseText));
+      if (isCatchup() && item.channel && item.program && P173.canGoLive(item.program.end, Date.now())) {
+        rightBtns.appendChild(U.button(L('Back to live'), function () { goLive(); }, { icon: 'tv', cls: 'pl-tb pl-golive', title: L('Back to live') }));
+      }
+      // build 173 (#5): Afleveringen in de speler
+      if (item.type === 'episode' && (ctx.episodes || []).length > 1) rightBtns.appendChild(iconBtn('list', L('Episodes') + ' (E)', function () { togglePanel('episodes'); }, 'pl-epsbtn'));
+      // build 173 (#3): Zappen als lijst en Vorige zender
+      if ((isLive() || isCatchup()) && zapChannels().length > 1) rightBtns.appendChild(iconBtn('guide', L('Zap') + ' (Z)', function () { togglePanel('zap'); }, 'pl-zapbtn'));
+      if (isLive() && previousChannel()) rightBtns.appendChild(iconBtn('history', L('Previous channel') + ' (R)', function () { goPrevious(); }, 'pl-prevbtn'));
+      // build 173 (A): één knop voor audio en ondertitels
+      rightBtns.appendChild(iconBtn('subs', L('Audio & subtitles') + ' (A)', function () { togglePanel('av'); }, 'pl-avbtn'));
+      // build 173 (#9): slaaptimer
+      rightBtns.appendChild(iconBtn('clock', L('Sleep timer'), function () { togglePanel('sleep'); }, 'pl-sleepbtn' + (sleep.choice ? ' on' : '')));
       if (castSupported) rightBtns.appendChild(castBtn);
       if (document.pictureInPictureEnabled || video.webkitSupportsPresentationMode) rightBtns.appendChild(pipBtn);
       rightBtns.appendChild(fsBtn);
@@ -667,6 +731,7 @@
       if (!isLive()) center.appendChild(U.button('', function () { jump(10); }, { icon: 'fwd10', cls: 'pl-cb', title: L('10 seconds forward') }));
       else if ((ctx.channels || []).length > 1) center.appendChild(U.button('', function () { zap(1); }, { icon: 'chDown', cls: 'pl-cb', title: L('Next channel') }));
       bar.classList.toggle('live', isLive());
+      drawEnds();
       drawPlay(); drawVolume(); drawCast();
       mediaSession();
     }
@@ -687,8 +752,17 @@
       } catch (e) { /* niet ondersteund */ }
     }
 
+    /** Build 173 (#6): "Eindigt om" (met de afspeelsnelheid); live: einde van het programma volgens de gids. */
+    function drawEnds() {
+      var at = null;
+      if (isLive()) { var nn0 = item.channel ? Lib.nowNext(item.channel) : {}; at = nn0.now ? nn0.now.end : null; }
+      else if (engine) { var d0 = engine.duration(); at = d0 > 0 ? P173.endsAt(Date.now(), (d0 - engine.time()) * 1000, video.playbackRate || 1) : null; }
+      var txt = at ? L('Ends at %@', B.fmtTime(at)) : '';
+      if (endsEl.textContent !== txt) endsEl.textContent = txt;
+    }
     function updateTime() {
       if (!engine) return;
+      drawEnds();
       if (isLive()) {
         var nn = item.channel ? Lib.nowNext(item.channel) : {};
         if (nn.now) {
@@ -791,7 +865,7 @@
         ended: function () { if (engine === my) onEnded(); },
         error: function (e) { if (engine === my) fail(e); },
         state: function () { if (engine === my) { drawPlay(); if (!engine.playing) showControls(); } },
-        tracks: function () { if (engine !== my) return; if (!audioChosen) applyTrackPrefs(); if (subsStartedAt && Date.now() - subsStartedAt > 1500) autoSubtitles(); },
+        tracks: function () { if (engine !== my) return; if (!audioChosen) applyTrackPrefs(); if (subsStartedAt && Date.now() - subsStartedAt > 1500) autoSubtitles(); if (panelKind === 'av' && !osState) drawPanel(); },
         needsTap: function () { if (engine === my) { spinner.style.display = 'none'; tapPlay.style.display = ''; showControls(); } }
       };
       // build 164: stream van het live voorbeeld overnemen (zelfde URL en hij speelt al): geen nieuwe poging
@@ -1335,15 +1409,45 @@
       if (engine.playing) { engine.pause(); scrobble('pause'); } else { engine.play(); scrobble('start'); }
       showControls();
     }
-    function jump(s) {
+    function jump(s, quiet) {
       if (!engine || isLive()) return;
-      var d = engine.duration();
-      var t = B.clamp(engine.time() + s, 0, d > 0 ? d - 2 : engine.time() + s);
+      var d = engine.duration(), from = engine.time();
+      var t = B.clamp(from + s, 0, d > 0 ? d - 2 : from + s);
       engine.seek(t);
+      rewound(t - from, from, t);
       if (extCues) renderExtSub();
       updateTime();
-      showControls();
-      flash(s > 0 ? '+' + s + ' s' : s + ' s');
+      if (!quiet) { showControls(); flash(s > 0 ? '+' + s + ' s' : s + ' s'); }
+    }
+
+    // MARK: build 173 (#7): ondertitels even aan na kort terugspoelen
+
+    function rewindOn() { return B.data.local('rewindSubtitles', true) !== false; }
+    /** Spoor in de taal van de app of de gekozen ondertiteltaal (alleen sporen uit de stream). */
+    function rewindTrack(tr) {
+      var want = [];
+      var pref = B.clang && B.clang.preferredSubtitle ? B.clang.preferredSubtitle() : '';
+      if (pref) want.push(pref);
+      want.push(String(B.lang || 'en').slice(0, 2));
+      var i = P173.subtitleTrack(tr.text.map(function (x) { return x.lang || x.label || ''; }), want);
+      return i == null ? null : tr.text[i].index;
+    }
+    function rewound(delta, from, to) {
+      if (!engine || isLive()) return;
+      if (rwSubs) { rwSubs.until = Math.max(rwSubs.until, from); rwSubs.startedAt = Math.min(rwSubs.startedAt, to); return; }
+      var tr = engine.tracks();
+      var on = tr.currentText != null || !!extCues;
+      var idx = on ? null : rewindTrack(tr);
+      if (!P173.rewindSubtitles(delta, on, idx != null, rewindOn())) return;
+      rwSubs = { until: from, startedAt: to, index: idx };
+      try { engine.selectText(idx); } catch (e) { rwSubs = null; }
+    }
+    function rewindCheck() {
+      if (!rwSubs || !engine) return;
+      var tr = engine.tracks();
+      // zelf ondertitels gekozen in de tussentijd: niets meer terugzetten
+      if (tr.currentText !== rwSubs.index || extCues) { rwSubs = null; return; }
+      if (P173.rewindSubtitlesDone(engine.time(), rwSubs.until, rwSubs.startedAt)) { rwSubs = null; try { engine.selectText(null); } catch (e) { /* stil */ } }
     }
     var flashEl = h('div.pl-flash');
     root.appendChild(flashEl);
@@ -1356,26 +1460,6 @@
       if (item.type === 'movie') { var hit = Lib.lib && Lib.lib.byId ? Lib.lib.byId[item.id] : null; return hit ? B.clang.versions(hit.item, 'movie') : []; }
       if (item.type === 'episode' && ctx.series) return B.clang.versions(ctx.series, 'series');
       return [];
-    }
-    function chooseAudio() {
-      if (!engine) return;
-      var tr = engine.tracks();
-      var vs = versions();
-      if (tr.audio.length > 1) {
-        var opts = tr.audio.map(function (t) { return { value: t.index, label: t.label }; });
-        vs.slice(0, 6).forEach(function (v, i) { opts.push({ value: 'v' + i, label: L('Other language') + ': ' + v.label }); });
-        U.choose(L('Audio'), opts, tr.currentAudio, function (v) {
-          if (typeof v === 'string') { switchVersion(vs[B.int(v.slice(1))]); return; }
-          audioChosen = true;
-          engine.selectAudio(v);
-        });
-        return;
-      }
-      var lg = currentAudioLang();
-      var name = lg ? B.clang.name(lg) : (tr.audio[0] ? tr.audio[0].label : L('Audio'));
-      var buttons = vs.slice(0, 4).map(function (v) { return { label: v.label, icon: 'globe', fn: function () { switchVersion(v); }, primary: false }; });
-      buttons.push({ label: L('Close'), primary: false });
-      U.modal({ title: L('Audio') + ': ' + name, text: L('This stream has one audio language') + (vs.length ? '. ' + L('Watch another language version from the same moment:') : '.'), buttons: buttons });
     }
     function switchVersion(v) {
       if (!v || !engine) return;
@@ -1402,54 +1486,312 @@
         start(pos);
       }, function () { U.toast(L('Something went wrong. Please try again.')); });
     }
-    function chooseText() {
-      if (!engine) return;
-      var tr = engine.tracks();
-      var opts = [{ value: -1, label: L('Off') }].concat(tr.text.map(function (t) { return { value: t.index, label: t.label }; }));
-      if (!isLive()) opts.push({ value: -2, label: 'OpenSubtitles…' });
-      if (extCues) opts.push({ value: -3, label: L('Subtitle timing') + ' (' + (extOffset > 0 ? '+' : '') + extOffset + ' s)' });
-      var cur = extCues ? -2 : (tr.currentText == null ? -1 : tr.currentText);
-      U.choose(L('Subtitles'), opts, cur, function (v) {
-        if (v === -2) { openSubtitles(); return; }
-        if (v === -3) { chooseOffset(); return; }
-        autoSubsDone = true;
-        clearExtSubs();
-        engine.selectText(v < 0 ? null : v);
+    // MARK: build 173: paneel onderin (A: Audio en ondertitels, 3: Zappen, 5: Afleveringen, 9: Slaaptimer)
+
+    function togglePanel(kind) { if (panelKind === kind) closePanel(); else openPanel(kind); }
+    function openPanel(kind) {
+      if (!engine && kind !== 'sleep') return;
+      panelKind = kind;
+      root.classList.add('ui', 'panel-open');
+      clearTimeout(hideTimer);
+      panel.style.display = '';
+      drawPanel();
+      clearInterval(panelTimer);
+      panelTimer = setInterval(function () { if (panelKind === 'sleep') drawSleepLeft(); }, 1000);
+      setTimeout(function () {
+        var f = null;
+        ['.pl-opt.on:not([disabled])', '.pl-zapit.on', '.pl-ep.on', '.pl-opt:not([disabled])', '.pl-zapit', '.pl-ep', 'button'].some(function (q) { f = panel.querySelector(q); return !!f; });
+        if (f) { try { f.focus({ preventScroll: false }); } catch (e) { /* stil */ } }
+      }, 30);
+    }
+    function closePanel() {
+      if (!panelKind) return;
+      panelKind = null;
+      clearInterval(panelTimer);
+      panel.style.display = 'none';
+      U.clear(panel);
+      root.classList.remove('panel-open');
+      showControls();
+    }
+    function drawPanel() {
+      if (!panelKind) return;
+      var y = (panel.querySelector('.pl-panel-body') || {}).scrollTop || 0;
+      U.clear(panel);
+      ({ av: avPanel, zap: zapPanel, episodes: episodesPanel, sleep: sleepPanel })[panelKind]();
+      var body = panel.querySelector('.pl-panel-body');
+      if (body && y) body.scrollTop = y;
+    }
+    function panelHead(title, extra) {
+      panel.setAttribute('aria-label', title);
+      return h('div.pl-panel-head', [h('h2', title), extra || null, U.button('', function () { closePanel(); }, { icon: 'close', cls: 'pl-ib pl-panel-x', title: L('Close') + ' (Esc)' })]);
+    }
+    function opt(label, sub, on, fn, cls) {
+      var b = h('button.pl-opt' + (on ? '.on' : '') + (cls ? '.' + cls : ''), { type: 'button', 'aria-pressed': on ? 'true' : 'false' },
+        [h('span.pl-opt-l', [h('span', label), sub ? h('span.pl-opt-sub', sub) : null]), on ? U.icon('check') : null]);
+      if (fn) b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+      else b.disabled = !on;
+      return b;
+    }
+    function seg(items, cur, fn) {
+      var box = h('div.pl-seg', { role: 'group' });
+      items.forEach(function (it) {
+        var b = h('button.pl-chip' + (it[0] === cur ? '.on' : ''), { type: 'button', 'aria-pressed': it[0] === cur ? 'true' : 'false' }, it[1]);
+        b.addEventListener('click', function (e) { e.stopPropagation(); fn(it[0]); });
+        box.appendChild(b);
       });
+      return box;
     }
-    function chooseOffset() {
-      var o = [];
-      for (var x = -10; x <= 10; x += 0.5) o.push({ value: x, label: (x > 0 ? '+' : '') + x + ' s' });
-      U.choose(L('Subtitle timing'), o, extOffset, function (v) { extOffset = v; renderExtSub(); buildExtTrack(); });
+
+    // A: audio, ondertitels (stream, OpenSubtitles) en de weergave in één paneel; het afspelen gaat door
+    var osState = null;   // {busy, list, error}: zoekresultaten van OpenSubtitles in het paneel
+    function avPanel() {
+      if (osState) { osPanel(); return; }
+      panel.appendChild(panelHead(L('Audio & subtitles')));
+      var tr = engine ? engine.tracks() : { audio: [], text: [], currentAudio: null, currentText: null };
+      var body = h('div.pl-panel-body.pl-cols');
+      var ac = h('div.pl-col', [h('h3', L('Audio'))]);
+      if (tr.audio.length > 1) {
+        tr.audio.forEach(function (t) { ac.appendChild(opt(t.label, null, t.index === tr.currentAudio, function () { audioChosen = true; engine.selectAudio(t.index); drawPanel(); })); });
+      } else {
+        var lg = currentAudioLang();
+        ac.appendChild(opt(lg ? B.clang.name(lg) : (tr.audio[0] ? tr.audio[0].label : L('Audio')), null, true, null));
+        ac.appendChild(h('p.muted.small.pl-note', L('No alternative audio tracks')));
+      }
+      versions().slice(0, 6).forEach(function (v) { ac.appendChild(opt(L('Other language') + ': ' + v.label, null, false, function () { closePanel(); switchVersion(v); })); });
+      var sc = h('div.pl-col', [h('h3', L('Subtitles'))]);
+      var cur = extCues ? 'os' : (tr.currentText == null ? -1 : tr.currentText);
+      function pickText(i) { autoSubsDone = true; rwSubs = null; clearExtSubs(); engine.selectText(i); drawPanel(); }
+      sc.appendChild(opt(L('Off'), null, cur === -1, function () { pickText(null); }));
+      tr.text.forEach(function (t) { sc.appendChild(opt(t.label, null, cur === t.index, function () { pickText(t.index); })); });
+      if (extCues) sc.appendChild(opt('OpenSubtitles', extLabel || null, true, null));
+      if (!isLive()) sc.appendChild(opt(L('Search OpenSubtitles…'), null, false, function () { osSearch(); }, 'pl-os'));
+      if (extCues) {
+        var val = h('span.pl-timing-v', (extOffset > 0 ? '+' : '') + extOffset + ' s');
+        var tb = function (label, d) { return U.button(label, function () { extOffset = d == null ? 0 : Math.round((extOffset + d) * 10) / 10; renderExtSub(); buildExtTrack(); drawPanel(); }, { cls: 'pl-chip' }); };
+        sc.appendChild(h('div.pl-timing', [h('div.muted.small', L('Subtitle timing')), h('div.pl-seg', [tb(L('Earlier'), -0.5), val, tb(L('Later'), 0.5), tb(L('In sync'), null)])]));
+      }
+      var dc = h('div.pl-col', [h('h3', L('Subtitle display'))]);
+      dc.appendChild(h('div.muted.small', L('Subtitle size')));
+      dc.appendChild(seg([['small', L('Small')], ['medium', L('Medium')], ['large', L('Large')]], P173.subSize(D.shared('subtitleSize', 'medium')), function (v) { D.setShared('subtitleSize', v); applySubStyle(); drawPanel(); }));
+      dc.appendChild(h('div.muted.small', L('Subtitle background')));
+      dc.appendChild(seg([['shadow', L('Shadow')], ['box', L('Dark box')]], P173.subBackground(D.local('subtitleBackground', 'box')), function (v) { D.setLocal('subtitleBackground', v); applySubStyle(); drawPanel(); }));
+      body.appendChild(ac); body.appendChild(sc); body.appendChild(dc);
+      panel.appendChild(body);
     }
-    function openSubtitles() {
+    /** Weergave van ondertitels: grootte (settings.shared.subtitleSize, zoals de apps) en achtergrond (dit apparaat). */
+    function applySubStyle() {
+      var size = P173.subSize(D.shared('subtitleSize', 'medium')), bg = P173.subBackground(D.local('subtitleBackground', 'box'));
+      subtitle.style.setProperty('--sub-scale', String(P173.SUB_SIZES[size]));
+      root.classList.toggle('sub-small', size === 'small');
+      root.classList.toggle('sub-large', size === 'large');
+      root.classList.toggle('sub-shadow', bg === 'shadow');
+    }
+    var extLabel = null;
+    function osSearch() {
       var OS = B.opensubtitles;
       if (!OS.ready()) { U.toast(L('Something went wrong. Please try again.')); return; }
       // build 157: OpenSubtitles hoort bij Lifetime (ondertitels uit de stream blijven gratis)
-      if (!OS.allowed()) { B.plan.sheet('opensubtitles'); return; }
-      if (!OS.isLoggedIn()) { U.toast(L('Sign in to OpenSubtitles first (My Bingr).'), 5000); return; }
-      var lang = OS.defaultLanguage();
+      if (!OS.allowed()) { closePanel(); B.plan.sheet('opensubtitles'); return; }
+      if (!OS.isLoggedIn()) { osState = { error: L('Sign in to OpenSubtitles first (My Bingr).') }; drawPanel(); return; }
+      var lang = OS.defaultLanguage(), my = item.id;
       var series = ctx.series || null;
       var imdb = item.imdbID || (item.type === 'episode' ? B.trakt.imdbFor(series || { title: item.title }, true) : B.trakt.imdbFor({ title: item.title, year: B.int(item.subtitle) }, false));
-      U.toast(L('Searching…'));
+      osState = { busy: true, lang: lang };
+      drawPanel();
       tmdbFor().then(function (tmdb) {
         return OS.search({ imdb: imdb, title: item.title, year: item.type === 'movie' ? B.int(item.subtitle) : null,
           season: item.type === 'episode' ? item.season : null, episode: item.type === 'episode' ? item.episode : null, tmdb: tmdb }, lang ? [lang] : []);
       }).then(function (list) {
-        if (closed) return;
-        if (!list.length) { U.toast(lang ? L('No subtitles found in %@.', B.clang.name(lang) || lang) : L('No subtitles found for this title.')); return; }
-        U.choose('OpenSubtitles', list.slice(0, 30).map(function (x, i) {
-          return { value: i, label: (B.clang.name(x.language) || x.language), sub: x.release + (x.hearingImpaired ? ' · SDH' : '') };
-        }), null, function (i) {
-          U.toast(L('Loading…'));
-          OS.download(list[i]).then(function (cues) {
+        if (closed || item.id !== my || !osState) return;
+        osState = list.length ? { list: list.slice(0, 30) } : { error: lang ? L('No subtitles found in %@.', B.clang.name(lang) || lang) : L('No subtitles found for this title.') };
+        drawPanel();
+      }, function (e) {
+        if (closed || !osState) return;
+        osState = { error: (e && e.message) || L('Something went wrong. Please try again.') };
+        drawPanel();
+      });
+    }
+    function osPanel() {
+      var back = U.button('', function () { osState = null; drawPanel(); }, { icon: 'back', cls: 'pl-ib', title: L('Back') });
+      panel.appendChild(panelHead('OpenSubtitles', back));
+      var body = h('div.pl-panel-body');
+      if (osState.busy) body.appendChild(h('div.pl-panel-wait', [U.spinner(), h('span.muted', L('Searching…'))]));
+      else if (osState.error) body.appendChild(h('p.muted.pl-note', osState.error));
+      else osState.list.forEach(function (x) {
+        body.appendChild(opt(B.clang.name(x.language) || x.language, x.release + (x.hearingImpaired ? ' · SDH' : ''), false, function () {
+          osState = { busy: true }; drawPanel();
+          B.opensubtitles.download(x).then(function (cues) {
             if (closed) return;
-            if (!cues.length) { U.toast(L('No subtitles found for this title.')); return; }
+            osState = null;
+            if (!cues.length) { U.toast(L('No subtitles found for this title.')); drawPanel(); return; }
+            rwSubs = null;
             showExtCues(cues);
-            U.toast(L('Subtitles: %@', B.clang.name(list[i].language) || list[i].language));
-          }, function (e) { U.toast(e.message || L('Something went wrong. Please try again.')); });
-        });
-      }, function (e) { U.toast(e.message || L('Something went wrong. Please try again.')); });
+            extLabel = B.clang.name(x.language) || x.language;
+            autoSubsDone = true;
+            drawPanel();
+            U.toast(L('Subtitles: %@', extLabel));
+          }, function (e) { osState = { error: (e && e.message) || L('Something went wrong. Please try again.') }; drawPanel(); });
+        }));
+      });
+      panel.appendChild(body);
+    }
+
+    // 3: Zappen (wat er nu op de andere zenders is; favorieten en de huidige categorie eerst) en Vorige zender
+    function zapChannels() {
+      return (ctx.channels || []).filter(function (c) { return !(B.b171ui && B.b171ui.hides(c, 'channel')); });
+    }
+    function previousChannel() { return prevCh.previous != null ? chSeen[prevCh.previous] || null : null; }
+    function zapPanel() {
+      var pc = previousChannel();
+      var prevB = pc ? U.button(L('Previous channel'), function () { closePanel(); goPrevious(); }, { icon: 'history', cls: 'pl-chip', title: L('Previous channel') + ' (R): ' + B.chanName(pc.name) }) : null;
+      panel.appendChild(panelHead(L('Zap'), prevB));
+      var list = zapChannels(), now = Date.now();
+      var curId = item.channel ? item.channel.id : null, curGroup = item.channel ? item.channel.group || '' : null;
+      var favs = list.map(function (c) { return D.inSet('favorites', B.xs && B.xs.keyOf ? B.xs.keyOf(c) : c.id) || D.inSet('favorites', c.id); });
+      var order = P173.zapOrder(list.map(function (c) { return c.group || ''; }), favs, curGroup);
+      var box = h('div.pl-panel-body.pl-zaplist', { role: 'list' });
+      order.slice(0, 500).forEach(function (i) {
+        var c = list[i], nn = Lib.nowNext(c), on = c.id === curId;
+        var prog = nn.now ? h('div.card-progress.inline', [h('div', { style: { width: (B.clamp((now - nn.now.start) / (nn.now.end - nn.now.start), 0, 1) * 100) + '%' } })]) : null;
+        var b = h('button.pl-zapit' + (on ? '.on' : ''), { type: 'button', role: 'listitem', 'aria-current': on ? 'true' : null }, [
+          h('div.pl-zaplogo', [U.img(c.logo, 'logo', B.chanName(c.name))]),
+          h('div.pl-zaptxt', [h('div.pl-zapname', [c.number != null ? h('span.pl-zapnum', String(c.number)) : null, B.chanName(c.name), favs[i] ? U.icon('starFill', 'pl-zapfav') : null]),
+            h('div.muted.small.pl-zapnow', nn.now ? B.showName(nn.now.title) : (c.group || '')), prog])]);
+        b.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); if (!on || isCatchup()) tuneTo(c); });
+        box.appendChild(b);
+      });
+      panel.appendChild(box);
+      setTimeout(function () { var o = box.querySelector('.on'); if (o && o.scrollIntoView) o.scrollIntoView({ block: 'center' }); }, 0);
+    }
+    /** Naar een andere zender zonder de speler te verlaten (ook vanuit terugkijken). */
+    function tuneTo(c) {
+      if (!c) return;
+      var list = ctx.channels || [];
+      for (var k = 0; k < list.length; k++) if (list[k] === c || list[k].id === c.id) { ctx.index = k; break; }
+      clearTimeout(zapTimer); zapIndex = null;
+      stopEngine(false);
+      item = B.player.channelItem(c);
+      chSeen[c.id] = c; prevCh.tuned(c.id);
+      watchedSeconds = 0; recorded = false; attempts = 0; triedBackup = false;
+      start(0);
+    }
+    function goPrevious() {
+      var c = previousChannel();
+      if (!c) return;
+      U.clear(zapBanner);
+      zapBanner.appendChild(h('div.pl-zap-num', c.number != null ? String(c.number) : ''));
+      zapBanner.appendChild(h('div', [h('div.pl-zap-name', B.chanName(c.name)), h('div.muted', L('Previous channel'))]));
+      zapBanner.style.display = 'flex';
+      setTimeout(function () { zapBanner.style.display = 'none'; }, 2000);
+      tuneTo(c);
+    }
+    // 2: Vanaf het begin (terugkijken van het lopende programma) en Terug naar live, in dezelfde speler
+    function startOver(p) {
+      if (!item.channel || !p) return;
+      var ch = item.channel;
+      closePanel();
+      stopEngine(false);
+      item = B.player.catchupItem(ch, p);
+      watchedSeconds = 0; recorded = false; attempts = 0; triedBackup = false;
+      start(0);
+    }
+    function goLive() {
+      if (!item.channel) return;
+      var ch = item.channel;
+      closePanel();
+      stopEngine(false);
+      item = B.player.channelItem(ch);
+      watchedSeconds = 0; recorded = false; attempts = 0; triedBackup = false;
+      start(0);
+    }
+
+    // 5: Afleveringen (seizoenen en afleveringen met voortgang; kiezen speelt direct af, de speler blijft open)
+    var epSeason = null;
+    function episodesPanel() {
+      var eps = ctx.episodes || [];
+      var seasons = [];
+      eps.forEach(function (e) { if (seasons.indexOf(e.season) < 0) seasons.push(e.season); });
+      seasons.sort(function (a, b) { return a - b; });
+      if (epSeason == null || seasons.indexOf(epSeason) < 0) epSeason = seasons.indexOf(item.season) >= 0 ? item.season : seasons[0];
+      panel.appendChild(panelHead(L('Episodes'), ctx.series ? h('span.muted.pl-panel-sub', B.showName(ctx.series.title)) : null));
+      if (seasons.length > 1) panel.appendChild(seg(seasons.map(function (n) { return [n, L('Season %d', n)]; }), epSeason, function (n) { epSeason = n; drawPanel(); }));
+      var box = h('div.pl-panel-body.pl-eplist', { role: 'list' });
+      eps.filter(function (e) { return e.season === epSeason; }).forEach(function (ep) {
+        var on = ep.id === item.id, pr = D.progress(ep.id);
+        var seen = ctx.series && D.episodeWatched ? D.episodeWatched(ctx.series, ep) : false;
+        var b = h('button.pl-ep' + (on ? '.on' : ''), { type: 'button', role: 'listitem', 'aria-current': on ? 'true' : null }, [
+          h('div.pl-ep-still', [U.img(ep.still || (ctx.series && ctx.series.poster) || null, 'still', ''), seen ? U.icon('checkCircleFill', 'pl-ep-seen') : null]),
+          h('div.pl-ep-txt', [h('div.pl-ep-title', L('Episode %d', ep.number) + (ep.title ? ' · ' + B.showName(ep.title) : '')),
+            ep.duration ? h('div.muted.small', ep.duration) : null,
+            pr && pr.fraction > 0 ? h('div.card-progress.inline', [h('div', { style: { width: Math.round(B.clamp(pr.fraction, 0, 1) * 100) + '%' } })]) : null])]);
+        b.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); playEpisode(ep); });
+        box.appendChild(b);
+      });
+      panel.appendChild(box);
+      setTimeout(function () { var o = box.querySelector('.on'); if (o && o.scrollIntoView) o.scrollIntoView({ block: 'nearest' }); }, 0);
+    }
+    function playEpisode(ep) {
+      if (!ep || ep.id === item.id) return;
+      clearInterval(countdownTimer); nextCard.style.display = 'none';
+      saveProgress(true);
+      if (scrobbled) scrobble('stop');
+      stopEngine(false);
+      item = B.player.episodeItem(ep, ctx.series);
+      watchedSeconds = 0; recorded = false; attempts = 0;
+      var p = D.progress(ep.id);
+      start(p && p.fraction < 0.95 ? p.position : 0);
+    }
+
+    // 9: Slaaptimer (na deze aflevering/dit programma, 30/60/90 minuten, uit); bij het einde pauzeren en stream_stop
+    function sleepEndLabel() {
+      if (item.type === 'episode') return L('After this episode');
+      if (isCatchup() || (isLive() && item.channel && Lib.nowNext(item.channel).now)) return L('After this programme');
+      return null;
+    }
+    function sleepPanel() {
+      panel.appendChild(panelHead(L('Sleep timer')));
+      var body = h('div.pl-panel-body');
+      var left = h('p.pl-sleep-left', { 'aria-live': 'polite' });
+      body.appendChild(left);
+      P173.SLEEP_CHOICES.forEach(function (c) {
+        var label = c === 'end' ? sleepEndLabel() : c === 'off' ? L('Off') : L('%d minutes', c);
+        if (!label) return;
+        var on = c === 'off' ? !sleep.choice : sleep.choice === c;
+        body.appendChild(opt(label, null, on, function () { setSleep(c); }));
+      });
+      panel.appendChild(body);
+      drawSleepLeft();
+    }
+    function setSleep(c) {
+      if (c === 'off' || c == null) sleep = { choice: null, deadline: null };
+      else {
+        var pe = isLive() && item.channel ? (Lib.nowNext(item.channel).now || {}).end : null;
+        sleep = { choice: c, deadline: P173.sleepDeadline(c, Date.now(), pe) };
+      }
+      var sb = rightBtns.querySelector('.pl-sleepbtn');
+      if (sb) sb.classList.toggle('on', !!sleep.choice);
+      drawPanel();
+    }
+    function sleepText() {
+      if (!sleep.choice) return '';
+      if (sleep.deadline != null) return L('Stops in %@', P173.countdown(sleep.deadline - Date.now()));
+      return item.type === 'episode' ? L('Stops after this episode') : L('Stops after this programme');
+    }
+    function drawSleepLeft() {
+      var el = panel.querySelector('.pl-sleep-left');
+      if (el) el.textContent = sleepText();
+      var sb = rightBtns.querySelector('.pl-sleepbtn');
+      if (sb) sb.title = L('Sleep timer') + (sleep.choice ? ' · ' + sleepText() : '');
+    }
+    /** true = de slaaptimer stopt het afspelen nu (titleEnded: de aflevering/film/het programma is afgelopen). */
+    function sleepCheck(titleEnded) {
+      if (!sleep.choice || pausedOut || closed) return false;
+      if (!P173.sleepDue(sleep.choice, sleep.deadline, Date.now(), titleEnded)) return false;
+      var resumeNext = titleEnded && item.type === 'episode' && nextEpisode();
+      sleep = { choice: null, deadline: null };
+      closePanel();
+      pauseOut(null, { text: L('Sleep timer: stopped'), label: L('Continue watching'), resume: resumeNext ? function () { playNext(); } : null });
+      return true;
     }
 
     // MARK: Trakt
@@ -1496,7 +1838,8 @@
         if (engine && !engine.playing && !engine.v.ended) return;
         left--;
         count.textContent = String(left);
-        if (left <= 0) { clearInterval(countdownTimer); playNext(); }
+        // build 173: slaaptimer "Na deze aflevering": niet vanzelf door naar de volgende
+        if (left <= 0) { clearInterval(countdownTimer); if (sleepCheck(true)) return; playNext(); }
       }, 1000);
     }
     function playNext() {
@@ -1516,6 +1859,8 @@
     function onEnded() {
       saveProgress(true, true);
       if (!isLive() && !isCatchup() && engine && !stopSent) { stopSent = true; B.trakt.scrobble('stop', item, 1).catch(B.noop); }
+      // build 173 (#9): slaaptimer "Na deze aflevering / dit programma"
+      if (sleepCheck(true)) return;
       if (item.type === 'episode' && nextEpisode()) { nextDismissed = false; nextShown = false; showNextCard(); return; }
       close();
     }
@@ -1636,12 +1981,8 @@
       clearTimeout(zapTimer);
       zapTimer = setTimeout(function () {
         var c = ctx.channels[zapIndex];
-        ctx.index = zapIndex; zapIndex = null;
         setTimeout(function () { zapBanner.style.display = 'none'; }, 2000);
-        stopEngine(false);
-        item = B.player.channelItem(c);
-        watchedSeconds = 0; recorded = false; attempts = 0; triedBackup = false;
-        start(0);
+        tuneTo(c);
       }, 600);
     }
 
@@ -1675,6 +2016,25 @@
       if (t && (t.tagName === 'INPUT' && t.type !== 'range') || (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT'))) return;
       if (U.dialogOpen()) { if (e.key === 'Escape') { e.preventDefault(); U.closeTopDialog(); } return; }
       var k = e.key;
+      // build 173: paneel open: Esc sluit het, pijltjes lopen door de knoppen van het paneel (niet zappen of spoelen)
+      if (panelKind) {
+        if (k === 'Escape' || k === 'Backspace') { e.preventDefault(); closePanel(); return; }
+        if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+          var all = Array.prototype.filter.call(panel.querySelectorAll('button:not([disabled])'), function (x) { return x.getClientRects().length > 0; });
+          if (all.length) {
+            e.preventDefault();
+            var i = all.indexOf(document.activeElement), dn = k === 'ArrowDown' || k === 'ArrowRight';
+            var nx = all[i < 0 ? 0 : B.clamp(i + (dn ? 1 : -1), 0, all.length - 1)];
+            try { nx.focus({ preventScroll: false }); } catch (x) { /* stil */ }
+          }
+          return;
+        }
+        if (t && panel.contains(t) && (k === ' ' || k === 'Enter')) return;
+      }
+      if (k === 'a' || k === 'A') { e.preventDefault(); togglePanel('av'); return; }
+      if ((k === 'z' || k === 'Z') && (isLive() || isCatchup()) && zapChannels().length > 1) { e.preventDefault(); togglePanel('zap'); return; }
+      if ((k === 'r' || k === 'R') && isLive() && previousChannel()) { e.preventDefault(); goPrevious(); return; }
+      if ((k === 'e' || k === 'E') && item.type === 'episode' && (ctx.episodes || []).length > 1) { e.preventDefault(); togglePanel('episodes'); return; }
       if (k === ' ' || k === 'k' || k === 'K' || k === 'MediaPlayPause') {
         if (t && t.tagName === 'BUTTON' && k === ' ') return;
         e.preventDefault(); togglePlay(); return;
@@ -1719,6 +2079,9 @@
     function tick() {
       if (!engine || closed) return;
       stillCheck();
+      // build 173: slaaptimer (minuten of einde van het live programma) en ondertitels na terugspoelen
+      if (sleepCheck(false)) return;
+      rewindCheck();
       updateTime();
       if (engine.playing) {
         watchedSeconds += 1;
@@ -1766,7 +2129,7 @@
       if (closed) return;
       closed = true;
       clearInterval(tickTimer); clearInterval(pingTimer); clearInterval(countdownTimer); clearInterval(extTimer); clearInterval(stillTimer);
-      clearTimeout(hideTimer); clearTimeout(zapTimer);
+      clearTimeout(hideTimer); clearTimeout(zapTimer); clearTimeout(tapTimer); clearTimeout(tapFxTimer); clearInterval(panelTimer);
       if (scrobbled && !stopSent) scrobble('stop');
       if (isLive() && item.channel && B.guideStills && engine && engine.started && engine.v === localVideo) B.guideStills.grab(video, item.channel);
       stopEngine(true);
@@ -1805,6 +2168,7 @@
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pageshow', onShow);
     tickTimer = setInterval(tick, 1000);
+    applySubStyle();
     // build 164: vanuit het live voorbeeld (knop Volledig scherm): meteen volledig scherm, nog binnen de klik
     if (ctx.fullscreen) { ctx.fullscreen = false; toggleFullscreen(); }
     start(ctx.resume || 0);
@@ -1845,6 +2209,25 @@
     var idx = 0;
     for (var i = 0; i < list.length; i++) if (list[i].id === ch.id) { idx = i; break; }
     return B.player.open(channelItem(ch), { channels: list, index: idx });
+  };
+  /**
+   * Build 173 (#2): een programma openen dat al bezig is (Sport, Nu live, herinnering): met terugkijken eerst de vraag
+   * "Vanaf het begin" of "Live kijken"; zonder terugkijken (of net begonnen/bijna afgelopen) direct live.
+   * opts: {program (anders wat er nu op de zender is), live: function (eigen manier om live te openen), beforeCatchup}.
+   */
+  B.player.playLive = function (ch, list, opts) {
+    opts = opts || {};
+    var P173 = B.p173, now = Date.now();
+    var p = opts.program || Lib.nowNext(ch).now;
+    var live = function () { if (opts.live) opts.live(); else B.player.playChannel(ch, list); };
+    if (!p || !P173 || !P173.askStartOver(Lib.canCatchup(ch, p), p.start, p.end, now)) { live(); return null; }
+    return U.modal({ title: L('This programme has already started'),
+      text: B.showName(p.title) + ' · ' + B.fmtTime(p.start) + '–' + B.fmtTime(p.end) + ' · ' + B.chanName(ch.name),
+      cls: 'pl-ask',
+      buttons: [
+        { label: L('From the start'), icon: 'replay', primary: true, fn: function () { if (opts.beforeCatchup) opts.beforeCatchup(); B.player.playCatchup(ch, p, list); } },
+        { label: L('Watch live'), icon: 'play', primary: false, fn: live }
+      ] });
   };
   /** Film of aflevering; vraagt eerst "Hervatten" als er voortgang is. */
   B.player.playVOD = function (item, ctx) {

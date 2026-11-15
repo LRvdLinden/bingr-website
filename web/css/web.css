@@ -1475,3 +1475,88 @@ html.lt-locked .dlg-layer { z-index: 450; }
 .sp-fav span:nth-child(2) { flex: 1; }
 .sp-add { display: flex; gap: 8px; }
 .sp-add .input { flex: 1; min-width: 0; }
+
+/* MARK: build 173: Trakt-waarschuwing, paneel in de speler (Audio en ondertitels, Zappen, Afleveringen, Slaaptimer),
+   Eindigt om, dubbeltikken, Vanaf het begin / Terug naar live, weergave van ondertitels */
+.menu-it.menu-warn, .menu-it.menu-warn .ic { color: #ff6b6b; font-weight: 700; }
+.prof-warn { position: absolute; top: 0; right: 16px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--bg); }
+.st-value.trakt-warn, .login-err.trakt-warn { color: #ff6b6b; font-weight: 700; }
+.pl-ends { flex: 1; text-align: right; font-size: 14px; color: #ddd; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+.btn.pl-ib.on { color: var(--accent); }
+.btn.pl-tb.pl-startover, .btn.pl-tb.pl-golive { border: 1px solid #ffffff59; border-radius: 99px; min-height: 38px; }
+.pl-sub { font-size: calc(clamp(17px, 2.6vw, 34px) * var(--sub-scale, 1)); }
+.player.sub-shadow .pl-sub span { background: none; }
+.player.sub-small .pl-video::cue { font-size: 80%; }
+.player.sub-large .pl-video::cue { font-size: 130%; }
+.player.sub-shadow .pl-video::cue { background: transparent; text-shadow: 0 0 6px #000, 0 2px 3px #000; }
+.player.panel-open .pl-sub { bottom: calc(min(46vh, 420px) + 24px); }
+.pl-panel { position: absolute; left: 50%; bottom: 0; z-index: 30; transform: translateX(-50%); width: min(980px, 100%); max-height: min(46vh, 420px); display: flex; flex-direction: column;
+  background: #141414f2; border: 1px solid #ffffff1f; border-bottom: 0; border-radius: 16px 16px 0 0; box-shadow: 0 -12px 40px #000a; padding: 6px 18px calc(10px + env(safe-area-inset-bottom)); cursor: default; animation: pl-panel-in .18s ease-out; }
+@keyframes pl-panel-in { from { transform: translate(-50%, 24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pl-panel { animation: none; } }
+.player.panel-open .pl-bottom { opacity: 0; pointer-events: none; }
+.pl-panel-head { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.pl-panel-head h2 { font-size: 18px; margin: 0; flex: none; }
+.pl-panel-sub { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.btn.pl-panel-x { margin-left: auto; }
+.pl-panel-head .pl-chip { margin-left: 8px; }
+.pl-panel-body { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 6px; }
+.pl-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.pl-col h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--sec); margin: 6px 0 6px; }
+.pl-col .muted.small { margin: 10px 0 6px; }
+.pl-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 42px; padding: 8px 12px; border: 0; border-radius: 8px; background: none; color: #ddd; font-size: 15px; text-align: left; cursor: pointer; }
+.pl-opt:hover, .pl-opt:focus-visible { background: #ffffff17; color: #fff; outline: none; }
+.pl-opt.on { color: #fff; font-weight: 700; }
+.pl-opt:disabled { cursor: default; opacity: .6; }
+.pl-opt .ic { width: 18px; height: 18px; flex: none; color: var(--accent); }
+.pl-opt-l { display: flex; flex-direction: column; min-width: 0; }
+.pl-opt-sub { font-size: 12.5px; color: var(--sec); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-note { margin: 4px 12px 8px; }
+.pl-seg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pl-panel > .pl-seg { margin: 2px 0 10px; }
+.pl-chip, .btn.pl-chip { min-height: 34px; padding: 0 14px; border-radius: 99px; border: 1px solid #ffffff33; background: #ffffff0f; color: #ddd; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.pl-chip.on { background: #fff; color: #000; border-color: #fff; font-weight: 700; }
+.pl-chip:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.btn.pl-chip .ic { width: 16px; height: 16px; }
+.pl-timing { margin: 8px 12px 0; }
+.pl-timing-v { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+.pl-panel-wait { display: flex; align-items: center; gap: 12px; padding: 18px 12px; }
+.pl-zaplist { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+.pl-zapit { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid transparent; border-radius: 10px; background: #ffffff0a; color: #ddd; text-align: left; cursor: pointer; min-width: 0; }
+.pl-zapit:hover, .pl-zapit:focus-visible { background: #ffffff1a; outline: none; border-color: #ffffff40; }
+.pl-zapit.on { border-color: var(--accent); background: #ffffff14; color: #fff; }
+.pl-zaplogo { width: 64px; height: 40px; flex: none; border-radius: 6px; background: #ffffff10; overflow: hidden; display: grid; place-items: center; }
+.pl-zaplogo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.pl-zaptxt { min-width: 0; flex: 1; }
+.pl-zapname { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pl-zapnum { color: var(--sec); font-variant-numeric: tabular-nums; font-weight: 600; }
+.pl-zapfav { width: 14px; height: 14px; color: #ffc93c; flex: none; }
+.pl-zapnow { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pl-zapit .card-progress, .pl-ep .card-progress { margin-top: 5px; }
+.pl-eplist { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.pl-ep { display: flex; gap: 12px; align-items: center; padding: 8px; border: 1px solid transparent; border-radius: 10px; background: #ffffff0a; color: #ddd; text-align: left; cursor: pointer; min-width: 0; }
+.pl-ep:hover, .pl-ep:focus-visible { background: #ffffff1a; outline: none; border-color: #ffffff40; }
+.pl-ep.on { border-color: var(--accent); color: #fff; }
+.pl-ep-still { position: relative; width: 112px; aspect-ratio: 16/9; flex: none; border-radius: 6px; overflow: hidden; background: #ffffff10; }
+.pl-ep-still img { width: 100%; height: 100%; object-fit: cover; }
+.pl-ep-seen { position: absolute; right: 4px; top: 4px; width: 18px; height: 18px; color: #fff; filter: drop-shadow(0 1px 2px #000); }
+.pl-ep-txt { min-width: 0; flex: 1; }
+.pl-ep-title { font-weight: 700; font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pl-sleep-left { font-size: 15px; font-weight: 700; color: #fff; margin: 0 12px 8px; min-height: 20px; font-variant-numeric: tabular-nums; }
+.pl-tapfx { position: absolute; top: 0; bottom: 0; width: 38%; display: flex; align-items: center; justify-content: center; padding-bottom: 26vh; pointer-events: none; opacity: 0; font-size: 22px; font-weight: 800; color: #fff; text-shadow: 0 1px 4px #000; transition: opacity .2s; }
+.pl-tapfx.back { left: 0; border-radius: 0 50% 50% 0 / 0 50% 50% 0; background: radial-gradient(circle at 30% 50%, #ffffff2e, transparent 70%); }
+.pl-tapfx.fwd { right: 0; border-radius: 50% 0 0 50% / 50% 0 0 50%; background: radial-gradient(circle at 70% 50%, #ffffff2e, transparent 70%); }
+.pl-tapfx.show { opacity: 1; animation: pl-tap .35s ease-out; }
+@keyframes pl-tap { from { transform: scale(.92); } to { transform: scale(1); } }
+.dialog.pl-ask .dlg-text { color: var(--sec); }
+@media (max-width: 699px), (pointer: coarse) and (max-device-width: 599px) {
+  .pl-panel { max-height: 62vh; padding: 4px 12px calc(8px + env(safe-area-inset-bottom)); border-radius: 14px 14px 0 0; }
+  .player.panel-open .pl-sub { bottom: calc(62vh + 16px); }
+  .pl-cols { grid-template-columns: 1fr; gap: 4px; }
+  .pl-zaplist, .pl-eplist { grid-template-columns: 1fr; }
+  .pl-ends { font-size: 12.5px; }
+  .pl-row .pl-btns.right { flex-wrap: wrap; justify-content: flex-end; }
+  .btn.pl-tb.pl-startover span, .btn.pl-tb.pl-golive span { display: none; }
+}
+[dir=rtl] .pl-ends { text-align: left; padding: 0 0 0 6px; }
+[dir=rtl] .pl-opt, [dir=rtl] .pl-zapit, [dir=rtl] .pl-ep { text-align: right; }

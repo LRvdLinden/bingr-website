@@ -12,12 +12,14 @@
   var A = B.account;
   var L = function () { return B.L.apply(null, arguments); };
   var C = B.connections = {};
+  var P = B.p173;
 
   // MARK: lokale kopie en samenvoegen
 
   var local = B.store.get('connections', null);   // {data, at}
   function save() { B.store.set('connections', local); }
   function at(v) { return B.parseISO(v) || 0; }
+  function tokInfo(t) { return { accessToken: t.accessToken, expiresAt: at(t.expiresAt) }; }
   C.data = function () { return (local && local.data) || {}; };
   C.trakt = function () { var t = C.data().trakt; return t && t.accessToken && t.refreshToken ? t : null; };
   C.opensubtitles = function () { var o = C.data().opensubtitles; return o && o.token ? o : null; };
@@ -47,6 +49,22 @@
     var srvAt = at(data.updatedAt) || at(sec.updatedAt);
     var locAt = local ? local.at || 0 : 0;
     if (!local || srvAt > locAt) {
+      // build 173: nooit een ouder Trakt-token uit het account over een nieuwer lokaal token (Trakt geeft bij elke
+      // verversing een nieuw refresh-token; het oude is dan al gebruikt). Dat gebeurde als een ander apparaat alleen
+      // OpenSubtitles opnieuw koppelde en zijn oude Trakt-kopie meestuurde: daarna faalde elke verversing. De rest van
+      // het account overnemen, het eigen token houden en terugzetten.
+      var mine = C.trakt(), theirs = data.trakt && data.trakt.accessToken && data.trakt.refreshToken ? data.trakt : null;
+      if (mine && theirs && !P.traktAdoptRemote(tokInfo(mine), tokInfo(theirs))) {
+        var d = B.copy(data);
+        d.trakt = mine;
+        d.updatedAt = B.iso(Math.max(Date.now(), srvAt + 1000));
+        var was = JSON.stringify(C.data());
+        local = { data: d, at: Date.parse(d.updatedAt) };
+        save();
+        if (was !== JSON.stringify(d)) B.emit('connections');
+        upload();
+        return;
+      }
       var before = JSON.stringify(C.data());
       local = { data: data, at: srvAt };
       save();
@@ -148,7 +166,7 @@
     keys.forEach(function (k) { if (tset[k]) { delete tset[k]; gone = true; } });
     if (gone) cacheT.keys = cacheT.keys.filter(function (k) { return tset[k] === 1; });
   }
-  Trakt.reset = function () { cacheGen++; cacheT = emptyCache(); loadCache(); Q.clear(); };
+  Trakt.reset = function () { cacheGen++; cacheT = emptyCache(); loadCache(); Q.clear(); health = null; B.store.del('trakt.health'); };
   Trakt._cache = function () { return cacheT; };
 
   Trakt.clientID = function () { return A.serverKey('traktClientID') || ''; };
@@ -236,6 +254,8 @@
             B.http(BASE + '/users/settings', { headers: apiHeaders(t.accessToken), timeout: 15000 }).then(function (u) {
               t.username = (u.json && u.json.user && u.json.user.username) || null;
             }, B.noop).then(function () {
+              // build 173: opnieuw ingelogd: de waarschuwing weg (de wachtrij blijft bewaard)
+              health = null; B.store.del('trakt.health'); lastFail = null; Trakt.lastError = null;
               return changed(function (d) { d.trakt = t; });
             }).then(function () { Trakt.refresh(true); resolve(t); });
             return;
@@ -285,19 +305,23 @@
       // net mislukt met dezelfde refresh-token: niet bij elk verzoek opnieuw (hooguit eens per 5 minuten)
       if (lastFail && lastFail.rt === cur.refreshToken && Date.now() - lastFail.at < 300000) return cur.accessToken;
       var i = 0;
+      // build 173: status per poging (null = netwerkfout): "opnieuw inloggen" alleen als Trakt het refresh-token echt weigert
+      var statuses = [];
       function next() {
         if (i >= REDIRECTS.length) return failed();
         var red = REDIRECTS[i++];
         Trakt.refreshCount++;
         return oauthPost('/oauth/token', oauthBody({ refresh_token: cur.refreshToken, redirect_uri: red, grant_type: 'refresh_token' })).then(function (r) {
+          statuses.push(r.status || null);
           var n = r.status === 200 ? parseTokens(r.json) : null;
           if (n) {
             n.username = cur.username || null;
+            // het nieuwe refresh-token meteen bewaren en uploaden (het oude is nu gebruikt)
             return changed(function (d) { d.trakt = n; }).then(function () { Q.soon(1000); return n.accessToken; });
           }
           if (r.status === 400 || r.status === 401) return next();
           return failed();
-        }, failed);
+        }, function () { statuses.push(null); return failed(); });
       }
       function failed() {
         // nooit `trakt: null` (dat doet alleen een bewuste uitlog): opnieuw lezen, een nieuwer token overnemen
@@ -305,6 +329,8 @@
           var n = newerThan(cur);
           if (n) return n.accessToken;
           Trakt.lastError = 'token_refresh_failed'; lastFail = { at: Date.now(), rt: cur.refreshToken };
+          // build 173: geweigerd refresh-token en het access-token is verlopen: blijvend (opnieuw inloggen)
+          if (P.traktRefreshFailure(statuses) === P.TRAKT_REAUTH && at(cur.expiresAt) <= Date.now()) noteFailure(P.TRAKT_REAUTH);
           return cur.accessToken;
         });
       }
@@ -315,6 +341,33 @@
     return p;
   }
   Trakt._refreshToken = refreshToken;
+
+  // MARK: build 173: alleen een blijvende fout als waarschuwing
+  // {kind: 'transient'|'reauth'|'locked', since: ms} sinds de laatste geslaagde aanroep (localStorage, geen tokens)
+  var HKEY = 'trakt.health';
+  var health = B.store.get(HKEY, null);
+  function noteFailure(kind) {
+    var before = JSON.stringify(health);
+    health = { kind: P.traktNextFailure(health && health.kind, kind), since: (health && health.since) || Date.now() };
+    if (JSON.stringify(health) !== before) { B.store.set(HKEY, health); B.emit('traktStatus'); }
+  }
+  function noteSuccess() {
+    if (!health) return;
+    health = null; B.store.del(HKEY); Trakt.lastError = null;
+    B.emit('traktStatus');
+  }
+  Trakt._noteFailure = noteFailure;
+  /** Waarschuwing voor het profiel en Koppelingen, of null: {kind, text, reauth}. */
+  Trakt.warning = function () {
+    if (!Trakt.isLoggedIn() || !health || !P.traktShowWarning(health.kind, health.since, Date.now())) return null;
+    var k = health.kind;
+    return { kind: k, reauth: k === P.TRAKT_REAUTH,
+      text: k === P.TRAKT_REAUTH ? L('Sign in to Trakt again') : k === P.TRAKT_LOCKED ? L('Your Trakt account is locked. Check trakt.tv.') : L('Trakt: could not connect') };
+  };
+  /** "Nu synchroniseren": eerst de wachtrij versturen, dan alles ophalen. */
+  Trakt.syncNow = function () {
+    return Promise.resolve(Q.flush()).catch(B.noop).then(function () { return Trakt.refresh(true); });
+  };
   /** Geldig access-token: het huidige als het nog meer dan 1 uur geldig is, anders eerst verversen. */
   function validToken() {
     var t = C.trakt();
@@ -335,18 +388,32 @@
         if (r.status !== 401) return r;
         return refreshToken(true).then(function (t2) { return t2 && t2 !== token ? once(t2) : r; });
       });
+    }).then(function (r) {
+      // build 173: ook na verversen nog 401 (of 403): de koppeling is niet meer geldig; 423: account vergrendeld
+      if (r.status === 401 || r.status === 403 || r.status === 423) {
+        var kind = P.traktClassify(r.status);
+        noteFailure(kind);
+        throw traktError(r.status, kind);
+      }
+      if (r.status >= 200 && r.status < 300) noteSuccess();
+      return r;
     });
+  }
+  function traktError(status, kind) {
+    var e = new Error(kind === P.TRAKT_REAUTH ? L('Sign in to Trakt again') : kind === P.TRAKT_LOCKED ? L('Your Trakt account is locked. Check trakt.tv.') : 'Trakt ' + status);
+    e.status = status; e.kind = kind;
+    return e;
   }
   function get(path, params, auth) {
     if (auth === false) {
       var u = params && params.length ? B.query(BASE + path, params) : BASE + path;
       return B.http(u, { headers: apiHeaders(null), timeout: 30000 }).then(function (r) {
-        if (r.status < 200 || r.status >= 300) throw new Error('Trakt ' + r.status);
+        if (r.status < 200 || r.status >= 300) throw traktError(r.status, P.TRAKT_TRANSIENT);
         return r.json;
       });
     }
     return call('GET', path, null, params).then(function (r) {
-      if (r.status < 200 || r.status >= 300) throw new Error('Trakt ' + r.status);
+      if (r.status < 200 || r.status >= 300) throw traktError(r.status, P.traktClassify(r.status));
       return r.json;
     });
   }
@@ -504,8 +571,12 @@
         saveCache();
         B.emit('trakt');
       });
-    }).then(function () { Trakt.lastError = null; B.store.set('trakt.lastSync', Date.now()); },
-      function (e) { Trakt.lastError = (e && e.message) || 'Trakt'; B.log('trakt', e && e.message); })
+    }).then(function () { Trakt.lastError = null; noteSuccess(); B.store.set('trakt.lastSync', Date.now()); },
+      function (e) {
+        Trakt.lastError = (e && e.message) || 'Trakt'; B.log('trakt', e && e.message);
+        // build 173: 401/403/423 zijn al genoteerd (call); de rest (netwerk, 429, 5xx) is tijdelijk
+        noteFailure((e && e.kind) || P.TRAKT_TRANSIENT);
+      })
       .then(function () { syncing = false; B.emit('traktStatus'); });
   };
 
@@ -787,40 +858,98 @@
   function apiCodes(c) { c = String(c || '').toLowerCase(); if (c === 'pt' || c === 'pt-pt') return ['pt-br', 'pt-pt']; if (c === 'zh' || c === 'zh-cn') return ['zh-cn', 'zh-tw']; return c ? [c] : []; }
   /**
    * Build 91: elke aanroep gaat via de proxy (web-proxy, actie "os"): de OpenSubtitles-API stuurt geen CORS-headers,
-   * dus de browser kan hem niet zelf aanroepen. De proxy zet de API-sleutel en de user-agent. Een 401 van
-   * OpenSubtitles bij een aanroep met sessie: één keer opnieuw inloggen als er een wachtwoord bewaard is, anders
-   * (alleen bij /download en /infos/user) uitloggen. Een 401 van de proxy zelf (Bingr-sessie) laat OpenSubtitles staan.
+   * dus de browser kan hem niet zelf aanroepen. De proxy zet de API-sleutel en de user-agent. Een 401 van de proxy zelf
+   * (Bingr-sessie) laat OpenSubtitles staan.
+   * Build 173: het token van OpenSubtitles verloopt na ongeveer 24 uur. Met een bewaard wachtwoord eerst stil opnieuw
+   * inloggen (na 23 uur vooraf, en bij een 401); alleen bij foute gegevens (400/401 van /login) uitloggen, met een
+   * melding. Bij een netwerkfout, 429 of 5xx niets met de sessie doen. Vroeger wiste een 401 de koppeling (ook via het
+   * account op je andere apparaten).
    */
+  var OS_AT = 'os.loggedInAt';
+  function osRaw(path, method, params, body, host, token) {
+    var o = C.opensubtitles();
+    var hh = String(host || (o && o.baseURL) || OS_HOST).replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    var req = { action: 'os', path: path, method: method || 'GET', query: params || {}, host: hh };
+    if (body) req.body = body;
+    if (token) req.token = token;
+    return B.proxyPost(req);
+  }
+  function proxyErrorOf(r) { return !!(r && r.json && typeof r.json.error === 'string' && !r.json.message); }
+  /** Stil opnieuw inloggen met de bewaarde gegevens (één tegelijk). Geeft 'ok', 'bad' of 'transient'. */
+  var relogging = null;
+  function silentLogin() {
+    if (relogging) return relogging;
+    var o = C.opensubtitles();
+    if (!o || !o.password || !o.username) return Promise.resolve('transient');
+    relogging = osRaw('/login', 'POST', null, { username: o.username, password: o.password }, OS_HOST).then(function (r) {
+      // een fout van de proxy zelf (Bingr-sessie, limiet) zegt niets over de gegevens
+      var res = proxyErrorOf(r) ? 'transient' : P.osLoginResult(r.status);
+      if (res === 'ok' && !(r.json && r.json.token)) res = 'transient';
+      if (res === 'ok') {
+        B.store.set(OS_AT, Date.now());
+        // eerst het account lezen, zodat er geen oude Trakt-kopie van hier mee teruggaat
+        return C.sync().catch(B.noop).then(function () {
+          return changed(function (d) {
+            d.opensubtitles = { token: r.json.token, username: o.username, baseURL: r.json.base_url || OS_HOST, password: o.password };
+          });
+        }).then(function () { return 'ok'; });
+      }
+      if (res !== 'bad') return res;
+      // foute gegevens: eerst het account opnieuw lezen (misschien is er op een ander apparaat al opnieuw ingelogd)
+      return C.sync().catch(B.noop).then(function () {
+        var n = C.opensubtitles();
+        if (n && (n.token !== o.token || n.password !== o.password || n.username !== o.username)) return 'ok';
+        return changed(function (d) { d.opensubtitles = null; }).then(function () {
+          B.store.del(OS_AT);
+          U0().toast(L('OpenSubtitles: your username or password is no longer correct. Please sign in again.'), 7000);
+          return 'bad';
+        });
+      });
+    }, function () { return 'transient'; });
+    var p = relogging;
+    p.then(function () { relogging = null; }, function () { relogging = null; });
+    return p;
+  }
+  function U0() { return B.ui || { toast: B.noop }; }
+  OS._silentLogin = silentLogin;
   function osRequest(path, method, params, body, host, retried) {
     var o = C.opensubtitles();
-    var h = String(host || (o && o.baseURL) || OS_HOST).replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    var req = { action: 'os', path: path, method: method || 'GET', query: params || {}, host: h };
-    if (body) req.body = body;
-    if (o && o.token && path !== '/login') req.token = o.token;
-    return B.proxyPost(req).then(function (r) {
-      var proxyErr = r.json && typeof r.json.error === 'string' && !r.json.message;
-      if (r.status === 401 && o && path !== '/login' && !proxyErr) {
-        if (o.password && !retried) {
-          return OS.login(o.username, o.password).then(function () { return osRequest(path, method, params, body, null, true); });
+    var authed = !!(o && o.token && path !== '/login');
+    var hasPw = !!(o && o.password);
+    var pre = authed && !retried && P.osShouldRenew(B.store.get(OS_AT, null), Date.now(), hasPw) ? silentLogin() : Promise.resolve('ok');
+    return pre.then(function () {
+      var o2 = C.opensubtitles();
+      if (authed && !o2) throw new Error(L('Sign in to OpenSubtitles first (My Bingr).'));
+      return osRaw(path, method, params, body, host, authed ? o2.token : null).then(function (r) {
+        var proxyErr = proxyErrorOf(r);
+        var act = proxyErr ? 'keep' : P.osOnResponse(r.status, authed, hasPw);
+        if (act === 'relogin' && !retried) {
+          return silentLogin().then(function (res) {
+            if (res === 'ok') return osRequest(path, method, params, body, null, true);
+            if (res === 'bad') throw new Error(L('OpenSubtitles: your username or password is no longer correct. Please sign in again.'));
+            throw new Error(L('Something went wrong. Please try again.'));
+          });
         }
-        if (path === '/download' || path === '/infos/user') changed(function (d) { d.opensubtitles = null; });
-        throw new Error(L('Sign in to OpenSubtitles first (My Bingr).'));
-      }
-      if (proxyErr && r.status === 429) throw new Error(L('Something went wrong. Please try again.'));
-      if (r.status < 200 || r.status >= 300) throw new Error((r.json && r.json.message) || ('OpenSubtitles ' + r.status));
-      return r.json || {};
+        // verlopen zonder bewaard wachtwoord: vragen om opnieuw in te loggen, maar niet uitloggen
+        if (act === 'expired' || (act === 'relogin' && retried)) throw new Error(L('Your OpenSubtitles session has expired. Sign in again in Settings.'));
+        if (proxyErr && r.status === 429) throw new Error(L('Something went wrong. Please try again.'));
+        if (r.status < 200 || r.status >= 300) { var e = new Error((r.json && r.json.message) || ('OpenSubtitles ' + r.status)); e.status = r.status; throw e; }
+        return r.json || {};
+      });
     });
   }
+  OS._request = osRequest;
   OS.login = function (user, pass) {
     return osRequest('/login', 'POST', null, { username: user, password: pass }, OS_HOST).then(function (j) {
       if (!j.token) throw new Error(L('Incorrect email or password.'));
-      var old = C.opensubtitles();
-      var keep = old && old.password && old.username === user ? { password: old.password } : {};
-      return changed(function (d) { d.opensubtitles = Object.assign({ token: j.token, username: user, baseURL: j.base_url || OS_HOST }, keep); });
+      B.store.set(OS_AT, Date.now());
+      // build 173: het wachtwoord bewaren (contract: opensubtitles.password, zoals de apps) om stil opnieuw in te loggen
+      return changed(function (d) { d.opensubtitles = { token: j.token, username: user, baseURL: j.base_url || OS_HOST, password: pass }; });
     });
   };
   OS.logout = function () {
-    osRequest('/logout', 'DELETE').catch(B.noop);
+    osRequest('/logout', 'DELETE', null, null, null, true).catch(B.noop);
+    B.store.del(OS_AT);
     return changed(function (d) { d.opensubtitles = null; });
   };
   /** Zoeken op IMDb-id (afleveringen: parent_imdb_id + seizoen/aflevering) of anders op titel. */
