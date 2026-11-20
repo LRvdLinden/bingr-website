@@ -1645,3 +1645,29 @@ mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, trans
 .dt-thumbs { display: flex; gap: 8px; margin-top: 12px; }
 .dt-thumb.on { background: #fff; color: #000; }
 .page.catalog .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* build 181: Bingr Premium (web/js/premium.js): plannen (Kies je plan, upgradevenster) en het huidige abonnement */
+.pm-box { max-width: 640px; }
+.pm-offer { margin: 20px 0 0; text-align: left; }
+.pm-toggle { display: flex; width: max-content; max-width: 100%; margin: 0 auto; padding: 4px; gap: 4px; border-radius: 999px; background: #ffffff12; box-shadow: inset 0 0 0 1px #ffffff1f; }
+.pm-tab { flex: 1 1 auto; min-height: 40px; padding: 6px 14px; border: 0; border-radius: 999px; background: none; color: var(--sec); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.pm-tab.on { background: #fff; color: #000; }
+.pm-tab:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.pm-save { margin-left: 4px; font-size: 11.5px; font-weight: 800; color: #46d369; }
+.pm-tab.on .pm-save { color: #0b7a34; }
+.pm-cards { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; margin-top: 16px; }
+.pm-card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 22px 18px 16px; border-radius: 14px; background: #161616; border: 1px solid #ffffff1f; }
+.pm-card.pm-prem { background: linear-gradient(160deg, #2a0a0c 0%, #161616 65%); border-color: #e5091466; }
+.pm-card.hl { border-color: #e50914b3; box-shadow: 0 0 0 1px #e5091466; }
+.pm-tag { position: absolute; top: -11px; left: 16px; background: var(--red); color: #fff; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; border-radius: 20px; padding: 3px 9px; white-space: nowrap; }
+.pm-tag.dim { background: #fff; color: #000; }
+.pm-name { font-size: 18px; font-weight: 800; }
+.pm-price { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.pm-price b { font-size: 30px; font-weight: 900; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.pm-price span, .pm-eq { color: var(--sec); font-size: 13.5px; }
+.pm-trial { align-self: flex-start; margin-top: 2px; padding: 3px 10px; border-radius: 999px; border: 1px solid #46d36959; background: #46d3691f; color: #46d369; font-size: 12.5px; font-weight: 800; }
+.btn.pm-cta { margin-top: auto; width: 100%; min-height: 44px; }
+.pm-card > :nth-last-child(2) { margin-bottom: 10px; }
+.pm-fine { text-align: center; margin: 12px 0 0; }
+.pm-status .plan-title { margin-bottom: 2px; }
+.pm-manage { margin-top: 10px; }
+@media (max-width: 560px) { .pm-cards { grid-template-columns: 1fr; } .pm-toggle { width: 100%; } .pm-tab { padding: 6px 8px; font-size: 13px; } }

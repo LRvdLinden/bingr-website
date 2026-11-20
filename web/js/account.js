@@ -110,11 +110,12 @@
   }
 
   /** device-auth met een geldige sessie; bij 401 één keer vernieuwen. null = netwerkfout of geen sessie. */
-  function authed(body) {
+  // build 181: path = een andere functie met dezelfde sessie (billing: portal, refresh); standaard device-auth
+  function authed(body, path) {
     if (!A.isSignedIn()) return Promise.resolve(null);
     var attempt = 0;
     function go(token) {
-      return post('/functions/v1/device-auth', body, token).then(function (r) {
+      return post(path || '/functions/v1/device-auth', body, token).then(function (r) {
         if (r.status >= 400 && A.isBanned(r)) { bannedOut(); return null; }
         if (r.status !== 401 || attempt > 0) return r;
         attempt++;

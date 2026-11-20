@@ -68,6 +68,8 @@ jobs:
           node tools/test/plan_test.js
           node tools/test/b171_test.js
           node tools/test/lifetime_test.js
+          # build 181: Bingr Premium (prijsblok, prijzen, wat de apps tonen; docs/build181_cases.json)
+          node tools/test/premium_test.js
           node tools/test/storage_test.js
           node tools/test/watched_test.js
           node tools/test/catmerge_test.js

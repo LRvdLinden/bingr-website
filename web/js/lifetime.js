@@ -111,8 +111,20 @@
     if (overlay.contains(t)) return;
     if (e.key === '/' || e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
   }
+  function links() {
+    var u = U(), h = u.h;
+    return h('div.lt-links', [
+      u.button(L('Support'), function () { open(SUPPORT_URL); }, { cls: 'small', icon: 'help' }),
+      u.button(L('Delete account'), function () { open(ACCOUNT_URL); }, { cls: 'small', icon: 'trash' }),
+      u.button(L('Sign out'), function () { if (B.app && B.app.signOut) B.app.signOut(); }, { cls: 'small' })
+    ]);
+  }
   function drawActivate() {
     var u = U(), h = u.h, p = B.plan.get(), i = LT.info(p);
+    // build 181: Bingr Premium doet mee voor dit account: het scherm Kies je plan (web/js/premium.js)
+    if (B.premium && p.premium && p.premium.enabled) {
+      return h('div.lt-activate', [B.premium.drawPaywall(p, { statusEl: h('p.lt-status.muted.small', { 'aria-live': 'polite' }), links: links() })]);
+    }
     var box = h('div.lt-box', { role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'lt-title' });
     box.appendChild(h('div.lt-mark', [u.icon('lifetime')]));
     var buy = buyButton(p, 'lt-buy');
@@ -246,7 +258,9 @@
     var signed = B.account && B.account.isSignedIn && B.account.isSignedIn();
     if (!signed) { hide(); hideAnnounce(); return; }
     var p = B.plan.get(), i = LT.info(p);
-    if (i.activate) { showActivate(); return; }
+    // build 181: ook offline met een opgezegd abonnement dat verlopen is (tot de server weer antwoordt)
+    var scr = B.premium ? B.premium.screen(p, Date.now(), typeof navigator !== 'undefined' && navigator.onLine === false) : null;
+    if (i.activate || (scr && scr.blocked)) { showActivate(); return; }
     hide();
     if (i.announce && !dismissedToday()) showAnnounce(i); else hideAnnounce();
   };
