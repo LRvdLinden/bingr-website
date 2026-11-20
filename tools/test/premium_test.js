@@ -20,6 +20,14 @@ if (fs.existsSync(WEB)) {
   global.B = globalThis.B || {};
   (0, eval)(fs.readFileSync(WEB, 'utf8'));
   for (const c of cases.client) eq(globalThis.B.premium.screen(c.entitlements, Date.parse(c.now), c.offline), c.expect, 'webspeler client: ' + c.name);
+  const W = globalThis.B.premium;
+  eq(W.normalize(null), null, 'webspeler: oudere server');
+  const nv = W.normalize({ enabled: true, active: true, source: 'stripe', plan: 'year', status: 'trialing', expires_at: '2026-12-04T10:00:00Z',
+    trial_until: '2026-12-04T10:00:00Z', will_renew: true, manage: 'stripe', prices: { month: 599 }, source_x: 1 });
+  eq([nv.enabled, nv.source, nv.plan, nv.status, nv.manage, nv.prices.month, nv.prices.year], [true, 'stripe', 'year', 'trialing', 'stripe', 599, 2999], 'webspeler: normalize');
+  eq(W.normalize({ source: 'hacker', plan: 'week', status: 'x', manage: 'paypal', expires_at: 'morgen' }), Object.assign(W.normalize({}), {}), 'webspeler: onbekende waarden weg');
+  eq([W.isSubscription(nv), W.isSubscription({ active: true, source: 'legacy' }), W.savings(nv.prices, 'year')], [true, false, 58], 'webspeler: abonnement en voordeel');
+  eq(W.upgradeUrl('half'), 'https://bingr.online/upgrade/?plan=half&from=app&platform=web', 'webspeler: upgrade-link');
 }
 
 // prijzen en voordeel

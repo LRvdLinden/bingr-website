@@ -82,6 +82,8 @@
       plans: { free: planLimits(pl.free, P.FREE), lifetime: planLimits(pl.lifetime, P.LIFETIME) },
       access: raw.access === 'activate' ? 'activate' : 'full',
       lifetime_only: lifetimeOnly(raw.lifetime_only),
+      // build 181: Bingr Premium (web/js/premium.js); null = oudere server
+      premium: B.premium ? B.premium.normalize(raw.premium) : null,
       v: CACHE_V,
       at: Date.now()
     };
@@ -106,8 +108,8 @@
   };
   function same(a, b) {
     if (!a || !b) return a === b;
-    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade, a.plans, a.access || 'full', a.lifetime_only || null]) ===
-      JSON.stringify([b.plan, b.limits, b.features, b.upgrade, b.plans, b.access || 'full', b.lifetime_only || null]);
+    return JSON.stringify([a.plan, a.limits, a.features, a.upgrade, a.plans, a.access || 'full', a.lifetime_only || null, a.premium || null]) ===
+      JSON.stringify([b.plan, b.limits, b.features, b.upgrade, b.plans, b.access || 'full', b.lifetime_only || null, b.premium || null]);
   }
   /** Nieuw antwoord van de server toepassen (entitlements, of het veld in config/heartbeat). true = geldig. */
   P.apply = function (raw) {
@@ -310,6 +312,24 @@
     var u = U(), h = u.h, p = P.get();
     var dlg = null;
     var body = h('div.plan-sheet');
+    // build 181: Bingr Premium. Abonnement: plan, verlengt op en Abonnement beheren; nog geen Premium en de groep doet mee:
+    // de plannen (afrekenen op bingr.online). Lifetime en alles daarbuiten: zoals voorheen.
+    var pm = p.premium, PM = B.premium;
+    if (PM && pm && !p.assumed && (PM.isSubscription(pm) || (pm.enabled && !pm.active))) {
+      if (PM.isSubscription(pm)) {
+        body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), PM.statusBlock(pm)]));
+        body.appendChild(P.compareTable(null));
+      } else {
+        body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), h('div', [h('div.plan-title', L('Choose your plan'))])]));
+        var why = featureLine(reason);
+        if (why) body.appendChild(h('p.plan-why', why.replace(/Lifetime/g, 'Premium')));
+        body.appendChild(PM.offer(pm, function () { dlg.close(); }));
+      }
+      body.appendChild(h('p.muted.small.plan-note', L(PROVIDER_NOTE)));
+      body.appendChild(h('div.dlg-buttons', [u.button(L('Close'), function () { dlg.close(); }, { primary: PM.isSubscription(pm) })]));
+      dlg = u.modal({ title: '', body: body, cls: 'plan-dlg' });
+      return dlg;
+    }
     if (p.plan === 'lifetime' && !p.assumed) {
       body.appendChild(h('div.plan-hero', [h('div.plan-mark', [u.icon('lifetime')]), h('div', [h('div.plan-title', 'Bingr Lifetime'),
         h('div.muted.small', L('You have Lifetime. Thanks for supporting Bingr!'))])]));
@@ -364,5 +384,10 @@
     var srv = l.servers == null ? L('unlimited servers') : (l.servers === 1 ? L('1 server') : L('%d servers', l.servers));
     return [l.streams === 1 ? L('1 screen at once') : L('up to %d screens at once', l.streams), L('%d devices', l.devices), srv].join(' · ');
   };
-  P.name = function () { return P.isFree() ? L('Free') : 'Lifetime'; };
+  P.name = function () {
+    // build 181: een abonnement heet naar zijn plan ("Premium jaarlijks"), nooit "Lifetime"
+    var pm = P.get().premium;
+    if (B.premium && B.premium.isSubscription(pm)) return B.premium.planName(pm.plan);
+    return P.isFree() ? L('Free') : 'Lifetime';
+  };
 })();
