@@ -218,6 +218,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/site.css?v=96">
 <link rel="stylesheet" href="assets/css/plans.css?v=167">
+<link rel="stylesheet" href="assets/css/premium.css?v=181">
 <style>
 /* homepage: alleen wat hier hoort; gedeelde stijl staat in assets/css/site.css */
 /* hero */
@@ -695,6 +696,7 @@
 <script src="assets/js/plans.js?v=167"></script>
 <script src="assets/config.js?v=97"></script>
 <script src="assets/js/lifetime.js?v=169"></script>
+<script src="assets/js/premium.js?v=181"></script>
 <script>
 const EN = {
  "nav.features":"Features","nav.start":"What you need","nav.platforms":"Devices","nav.web":"Watch in your browser",
@@ -753,6 +755,24 @@ const NL = {}, NL_ALT = {}, NL_TITLE = document.title;
 document.querySelectorAll('[data-i18n]').forEach(el => { NL[el.dataset.i18n] = el.innerHTML; });
 // build 167: alleen Lifetime (assets/js/lifetime.js): lifetime_only uit billing `config`; null = alles zoals het was
 let LTO = null;
+// build 181: Bingr Premium (assets/js/premium.js). PREM = premium uit billing `config` met show_prices_web; null = zoals het was
+let PREM = null, PREM_PERIOD = 'year';
+const PREM_TXT = {
+  nl: { 'plans.sub': 'Eén account voor iPhone, iPad, Apple TV, Mac, Android, Windows en je browser. Kies maandelijks, halfjaarlijks, jaarlijks of één keer Lifetime.',
+    a7: 'Bingr Premium kost € 4,99 per maand, € 19,99 per halfjaar of € 29,99 per jaar; nieuwe accounts proberen het eerst 3 dagen gratis. Liever één keer betalen? Lifetime kost eenmalig € 49,99. Je krijgt tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, Verder kijken, kinderprofielen, OpenSubtitles, statistieken, Nu aan het kijken, Trakt en thema\'s. Je IPTV-abonnement regel en betaal je zelf bij je eigen aanbieder. Had je al Lifetime? Dan blijft dat gewoon van jou. <a href="#prijzen">Bekijk de prijzen</a>',
+    q10: 'Hoe werken Premium en Lifetime?',
+    a10: 'Premium is een abonnement per maand, halfjaar of jaar voor je hele account: alle profielen en al je apparaten. Opzeggen kan altijd; je houdt Premium tot het einde van de periode. Op iPhone, iPad, Mac en Apple TV sluit je Premium af in de app via de App Store, elders op <a href="upgrade/">bingr.online/upgrade</a>. Lifetime betaal je één keer en houd je voor altijd. Had je al Lifetime (gekocht of cadeau)? Dan verandert er voor jou niets. Vragen? <a href="https://support.bingr.online">support.bingr.online</a>' },
+  en: { 'plans.sub': 'One account for iPhone, iPad, Apple TV, Mac, Android, Windows and your browser. Choose monthly, every 6 months, yearly or Lifetime once.',
+    a7: 'Bingr Premium costs €4.99 per month, €19.99 every 6 months or €29.99 per year; new accounts try it free for 3 days first. Prefer to pay once? Lifetime is a one-time €49.99. You get up to 3 screens at once, 15 devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles, statistics, Watching now, Trakt and themes. You arrange and pay for your IPTV subscription with your own provider. Already have Lifetime? It stays yours. <a href="#prijzen">See the prices</a>',
+    q10: 'How do Premium and Lifetime work?',
+    a10: 'Premium is a subscription per month, 6 months or year for your whole account: all profiles and all your devices. Cancel any time; you keep Premium until the end of the period. On iPhone, iPad, Mac and Apple TV you subscribe in the app through the App Store, elsewhere at <a href="upgrade/">bingr.online/upgrade</a>. Lifetime you pay once and keep forever. Already have Lifetime (bought or as a gift)? Nothing changes for you. Questions? <a href="https://support.bingr.online">support.bingr.online</a>' },
+};
+function drawPremium(l, focus) {
+  const box = document.getElementById('plansTable');
+  box.innerHTML = BingrPremium.pricing(PREM, l, { period: PREM_PERIOD, base: '', mode: 'home' });
+  BingrPremium.wire(box, (p, kb) => { PREM_PERIOD = p; drawPremium(document.documentElement.lang === 'en' ? 'en' : 'nl', kb); });
+  if (focus) { const b = box.querySelector('.pp-toggle .on'); if (b) b.focus(); }
+}
 document.querySelectorAll('[data-i18n-alt]').forEach(el => { NL_ALT[el.dataset.i18nAlt] = el.alt; });
 function setLang(l){
   const d = l === 'en' ? EN : NL;
@@ -794,6 +814,13 @@ function setLang(l){
   // vergelijkingstabel Gratis / Lifetime (assets/js/plans.js); de NL-versie staat ook al in de HTML
   if (window.BingrPlans) document.getElementById('plansTable').innerHTML = BingrPlans.table(l, Object.assign({ base: '' },
     LT && LTO ? { freeName: LT.freeName(LTO, l), lifetimeOnly: LT.phase(LTO) === 'after' } : {}));
+  // build 181: met premium.show_prices_web het nieuwe prijsblok (en de FAQ over prijzen), anders de tabel hierboven
+  if (PREM && window.BingrPremium) {
+    const o = PREM_TXT[l];
+    document.querySelectorAll('[data-i18n]').forEach(el => { const v = o[el.dataset.i18n]; if (v) el.innerHTML = v; });
+    document.getElementById('plans-t').textContent = BingrPremium.text(l).title;
+    drawPremium(l);
+  }
 }
 document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => {
   setLang(b.dataset.lang);
@@ -806,8 +833,11 @@ setLang((saved || navigator.language || 'nl').toLowerCase().startsWith('nl') ? '
 // build 167: staat alleen Lifetime aan (billing `config`), dan de pagina daarop bijwerken; anders verandert er niets
 if (window.BingrLifetime) BingrLifetime.fetchConfig().then(c => {
   const lo = BingrLifetime.parse(c);
-  if (!lo || BingrLifetime.phase(lo) === 'off') return;
-  LTO = lo; setLang(document.documentElement.lang === 'en' ? 'en' : 'nl');
+  // build 181: prijsblok van Premium alleen met show_prices_web
+  const pm = window.BingrPremium ? BingrPremium.parse(c) : null;
+  if (pm && pm.show) PREM = pm;
+  if (lo && BingrLifetime.phase(lo) !== 'off') LTO = lo;
+  if (LTO || PREM) setLang(document.documentElement.lang === 'en' ? 'en' : 'nl');
 });
 
 document.getElementById('yr').textContent = new Date().getFullYear();
