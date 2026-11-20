@@ -493,6 +493,8 @@
     var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false, traktMarked = false;
     var failPos = 0; // plek bij de laatste fout (films/afleveringen), voor "Opnieuw"
     // build 179 (#3): automatisch een andere speler (één keer per stream)
+    // build 179 (X2): live opnieuw verbinden met oplopende wachttijd (retryDelay), reden van de laatste stop in Diagnose
+    var reconnecting = false, retryN = 0, outageAt = 0, stableTimer = null, everPicture = false;
     var engineSwitched = false, stallTimer = null, startedAt = 0, startedWith = null, playedSec = 0, lastTick = 0;
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
@@ -845,6 +847,8 @@
       var gen = ++startGen;
       failPos = 0;
       engineSwitched = false; clearTimeout(stallTimer); stallTimer = null;
+      if (!reconnecting) { retryN = 0; outageAt = 0; everPicture = false; }
+      reconnecting = false;
       limited = false; audioChosen = false; autoSubsDone = false; subsStartedAt = Date.now(); clearTimeout(subsRetry); subsRetry = null;
       errorBox.style.display = 'none'; tapPlay.style.display = 'none';
       spinner.style.display = 'flex';
@@ -916,7 +920,9 @@
         if (took) { my.play(); events.state(); }
         if (closed || limited || engine !== my || (gen != null && gen !== startGen)) { if (engine === my && (closed || limited)) my.stop(); return; }
         attempts = 0;
-        startedAt = Date.now(); playedSec = 0; lastTick = 0;
+        startedAt = Date.now(); playedSec = 0; lastTick = 0; everPicture = true;
+        clearTimeout(stableTimer);
+        stableTimer = setTimeout(function () { if (!closed && engine === my && engine.playing) { retryN = 0; outageAt = 0; } }, (B.b179 ? B.b179.STABLE_SECONDS : 10) * 1000);
         if (B.b179 && my.how) {
           var eng = B.b179.engineOf(my.how), first0 = (my.order || [])[0] || eng;
           if (!startedWith) startedWith = sw ? null : first0;
@@ -1368,6 +1374,35 @@
       return true;
     }
 
+    /** Reden van de stop bewaren voor Diagnose ("Laatste stop"). */
+    function logStop(reason) {
+      if (!B.b179) return;
+      var u = (engine && engine.url) || item.streamURL || '';
+      var fmt = (String(u).split('?')[0].match(/\.([a-z0-9]{2,5})$/i) || [])[1] || (/m3u8/i.test(u) ? 'm3u8' : '?');
+      var st = { when: Date.now(), reason: reason, after: startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0,
+        engine: engine && engine.how ? B.b179.engineOf(engine.how) : '?', format: String(fmt).toLowerCase(), live: isLive() };
+      B.store.set('diag.stops', B.b179.pushStop(B.store.get('diag.stops', []), st, 10));
+      B.log('stream gestopt: ' + reason + ' na ' + st.after + ' s (' + st.engine + ', ' + st.format + ')');
+    }
+    /** Live opnieuw verbinden (verse link); false = opgeven. Altijd eerst de oude verbinding dicht. */
+    function reconnectLive() {
+      if (!B.b179 || closed || limited) return false;
+      if (!outageAt) outageAt = Date.now();
+      var d = B.b179.retryDelay(retryN, true, everPicture, (Date.now() - outageAt) / 1000);
+      if (d == null) return false;
+      retryN++;
+      clearTimeout(stableTimer);
+      if (engine) engine.stop();
+      spinner.style.display = 'flex';
+      var g = startGen;
+      setTimeout(function () {
+        if (closed || g !== startGen) return;
+        reconnecting = true;
+        start(0);
+      }, d * 1000);
+      return true;
+    }
+
     // MARK: fouten
 
     function fail(e) {
@@ -1378,6 +1413,13 @@
       spinner.style.display = 'none';
       if (e && e.insecure) { showError(e); return; }
       if (switchEngine('error')) return;
+      // build 179 (X2): live na beeld: tot 5 pogingen met oplopende wachttijd (verse link), daarna back-upbron of fout
+      if (isLive() && !isCatchup() && engine && engine.started) {
+        logStop('error');
+        if (reconnectLive()) return;
+        logStop('gaveUp');
+        attempts = 1;
+      }
       // ook de andere engine lukte niet: het onthouden wissen (engineMemo)
       if (engineSwitched && B.b179ui) B.b179ui.rememberEngine(streamKey(), null);
       if (attempts < 1 && engine && engine.started) {
@@ -2001,6 +2043,8 @@
       start(p ? p.position : 0);
     }
     function onEnded() {
+      // build 179 (X2): een live stream die de server afsluit (vaak na ±30 s of een minuut) = opnieuw verbinden, niet sluiten
+      if (isLive() && !isCatchup()) { logStop('serverClosed'); if (reconnectLive()) return; logStop('gaveUp'); }
       saveProgress(true, true);
       if (!isLive() && !isCatchup() && engine && !stopSent) { stopSent = true; B.trakt.scrobble('stop', item, 1).catch(B.noop); }
       // build 173 (#9): slaaptimer "Na deze aflevering / dit programma"

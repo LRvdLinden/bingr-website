@@ -535,5 +535,32 @@
     return out;
   };
 
+  // MARK: X2. live stream: opnieuw verbinden en de reden van de laatste stop (zoals Stream179 op Apple, ba0a666)
+
+  P.LIVE_DELAYS = [0.5, 1.5, 3, 5, 8];   // live met beeld gehad: snel, daarna rustiger
+  P.COLD_DELAYS = [1.5, 3];               // live zonder ooit beeld
+  P.VOD_DELAYS = [1.5];                   // films en series: één stille poging
+  P.OUTAGE_MAX = 45;                      // één storing (alle pogingen samen) hooguit zo lang
+  P.STABLE_SECONDS = 10;                  // zo lang stabiel beeld en de pogingen tellen weer vanaf nul
+  /** Wachttijd (s) vóór poging `attempt` (0 = de eerste); null = opgeven (back-upbron of foutmelding). */
+  P.retryDelay = function (attempt, live, hadPicture, outage) {
+    if (outage != null && outage > P.OUTAGE_MAX) return null;
+    var list = !live ? P.VOD_DELAYS : (hadPicture ? P.LIVE_DELAYS : P.COLD_DELAYS);
+    return attempt >= 0 && attempt < list.length ? list[attempt] : null;
+  };
+  P.STOP_REASONS = ['serverClosed', 'error', 'timeout', 'gaveUp', 'limit', 'remotePause'];
+  /** Waarom greep de speler in? null = geen storing. */
+  P.stopReason = function (error, ended, live, stalledFor) {
+    if (error) return 'error';
+    if (ended && live) return 'serverClosed';
+    if (live && stalledFor > 15) return 'timeout';
+    return null;
+  };
+  /** Nieuwste eerst, hooguit `keep`. */
+  P.pushStop = function (list, stop, keep) {
+    var out = [stop].concat(Array.isArray(list) ? list : []);
+    return out.slice(0, keep || 10);
+  };
+
   if (typeof module !== 'undefined' && module.exports) module.exports = P;
 })(typeof window !== 'undefined' ? window : globalThis);

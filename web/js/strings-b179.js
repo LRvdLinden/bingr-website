@@ -40,7 +40,16 @@
       "Played": "لعب",
       "Points": "النقاط",
       "Add": "إضافة",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "يحدّث Bingr خوادمك ودليل التلفزيون تلقائيًا عندما يحين الوقت: عند الفتح، وعند العودة إلى علامة التبويب، وكل 15 دقيقة، وليس أثناء المشاهدة أبدًا."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "يحدّث Bingr خوادمك ودليل التلفزيون تلقائيًا عندما يحين الوقت: عند الفتح، وعند العودة إلى علامة التبويب، وكل 15 دقيقة، وليس أثناء المشاهدة أبدًا.",
+      "%@ after %@ s (%@, %@)": "%@ بعد %@ ث (%@، %@)",
+      "Last stop": "آخر توقف",
+      "No stops": "لا توقفات",
+      "pause command from a remote or the TV": "أمر إيقاف مؤقت من جهاز تحكم أو من التلفاز",
+      "reconnecting failed": "فشلت إعادة الاتصال",
+      "server closed the connection": "أغلق الخادم الاتصال",
+      "stream error": "خطأ في البث",
+      "stream limit": "حد البث",
+      "time-out (no picture for 15 s)": "انتهت المهلة (15 ث بلا صورة)"
     },
     "de": {
       "%d titles no longer available": "%d Titel nicht mehr verfügbar",
@@ -77,7 +86,16 @@
       "Played": "Gespielt",
       "Points": "Punkte",
       "Add": "Hinzufügen",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr aktualisiert deine Server und das TV-Programm von selbst, wenn es Zeit ist: beim Öffnen, wenn du zum Tab zurückkehrst und alle 15 Minuten, nie während du schaust."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr aktualisiert deine Server und das TV-Programm von selbst, wenn es Zeit ist: beim Öffnen, wenn du zum Tab zurückkehrst und alle 15 Minuten, nie während du schaust.",
+      "%@ after %@ s (%@, %@)": "%@ nach %@ s (%@, %@)",
+      "Last stop": "Letzter Stopp",
+      "No stops": "Keine Stopps",
+      "pause command from a remote or the TV": "Pause-Befehl von einer Fernbedienung oder dem Fernseher",
+      "reconnecting failed": "erneutes Verbinden fehlgeschlagen",
+      "server closed the connection": "Server hat die Verbindung geschlossen",
+      "stream error": "Stream-Fehler",
+      "stream limit": "Stream-Limit",
+      "time-out (no picture for 15 s)": "Zeitüberschreitung (15 s kein Bild)"
     },
     "es": {
       "%d titles no longer available": "%d títulos ya no están disponibles",
@@ -114,7 +132,16 @@
       "Played": "Jugados",
       "Points": "Puntos",
       "Add": "Añadir",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr actualiza tus servidores y la guía de TV por sí solo cuando toca: al abrir, al volver a la pestaña y cada 15 minutos, nunca mientras ves algo."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr actualiza tus servidores y la guía de TV por sí solo cuando toca: al abrir, al volver a la pestaña y cada 15 minutos, nunca mientras ves algo.",
+      "%@ after %@ s (%@, %@)": "%@ tras %@ s (%@, %@)",
+      "Last stop": "Última parada",
+      "No stops": "Sin paradas",
+      "pause command from a remote or the TV": "orden de pausa de un mando o del televisor",
+      "reconnecting failed": "no se pudo reconectar",
+      "server closed the connection": "el servidor cerró la conexión",
+      "stream error": "error de emisión",
+      "stream limit": "límite de emisiones",
+      "time-out (no picture for 15 s)": "tiempo agotado (15 s sin imagen)"
     },
     "fr": {
       "%d titles no longer available": "%d titres ne sont plus disponibles",
@@ -151,7 +178,16 @@
       "Played": "Joués",
       "Points": "Points",
       "Add": "Ajouter",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr actualise vos serveurs et le guide TV tout seul quand il est temps : à l’ouverture, quand vous revenez sur l’onglet et toutes les 15 minutes, jamais pendant que vous regardez."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr actualise vos serveurs et le guide TV tout seul quand il est temps : à l’ouverture, quand vous revenez sur l’onglet et toutes les 15 minutes, jamais pendant que vous regardez.",
+      "%@ after %@ s (%@, %@)": "%@ après %@ s (%@, %@)",
+      "Last stop": "Dernier arrêt",
+      "No stops": "Aucun arrêt",
+      "pause command from a remote or the TV": "commande de pause d'une télécommande ou du téléviseur",
+      "reconnecting failed": "échec de la reconnexion",
+      "server closed the connection": "le serveur a fermé la connexion",
+      "stream error": "erreur de flux",
+      "stream limit": "limite de flux",
+      "time-out (no picture for 15 s)": "délai dépassé (15 s sans image)"
     },
     "it": {
       "%d titles no longer available": "%d titoli non più disponibili",
@@ -188,7 +224,16 @@
       "Played": "Giocate",
       "Points": "Punti",
       "Add": "Aggiungi",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr aggiorna da solo i tuoi server e la guida TV quando è il momento: all’apertura, quando torni alla scheda e ogni 15 minuti, mai mentre guardi."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr aggiorna da solo i tuoi server e la guida TV quando è il momento: all’apertura, quando torni alla scheda e ogni 15 minuti, mai mentre guardi.",
+      "%@ after %@ s (%@, %@)": "%@ dopo %@ s (%@, %@)",
+      "Last stop": "Ultimo arresto",
+      "No stops": "Nessun arresto",
+      "pause command from a remote or the TV": "comando di pausa da un telecomando o dalla TV",
+      "reconnecting failed": "riconnessione non riuscita",
+      "server closed the connection": "il server ha chiuso la connessione",
+      "stream error": "errore dello stream",
+      "stream limit": "limite di stream",
+      "time-out (no picture for 15 s)": "timeout (15 s senza immagine)"
     },
     "nl": {
       "%d titles no longer available": "%d titels niet meer beschikbaar",
@@ -225,7 +270,16 @@
       "Played": "Gespeeld",
       "Points": "Punten",
       "Add": "Toevoegen",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr ververst je servers en de tv-gids vanzelf als het tijd is: bij het openen, als je terugkomt naar het tabblad en elke 15 minuten, nooit terwijl je kijkt."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr ververst je servers en de tv-gids vanzelf als het tijd is: bij het openen, als je terugkomt naar het tabblad en elke 15 minuten, nooit terwijl je kijkt.",
+      "%@ after %@ s (%@, %@)": "%@ na %@ s (%@, %@)",
+      "Last stop": "Laatste stop",
+      "No stops": "Geen stops",
+      "pause command from a remote or the TV": "pauze-opdracht van een afstandsbediening of de tv",
+      "reconnecting failed": "opnieuw verbinden mislukt",
+      "server closed the connection": "server sloot de verbinding",
+      "stream error": "fout in de stream",
+      "stream limit": "streamlimiet",
+      "time-out (no picture for 15 s)": "time-out (15 s geen beeld)"
     },
     "pl": {
       "%d titles no longer available": "%d tytułów nie jest już dostępnych",
@@ -262,7 +316,16 @@
       "Played": "Mecze",
       "Points": "Punkty",
       "Add": "Dodaj",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr sam odświeża twoje serwery i program TV, gdy przyjdzie czas: przy otwarciu, po powrocie na kartę i co 15 minut, nigdy podczas oglądania."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr sam odświeża twoje serwery i program TV, gdy przyjdzie czas: przy otwarciu, po powrocie na kartę i co 15 minut, nigdy podczas oglądania.",
+      "%@ after %@ s (%@, %@)": "%@ po %@ s (%@, %@)",
+      "Last stop": "Ostatnie zatrzymanie",
+      "No stops": "Brak zatrzymań",
+      "pause command from a remote or the TV": "polecenie pauzy z pilota lub telewizora",
+      "reconnecting failed": "ponowne łączenie nie powiodło się",
+      "server closed the connection": "serwer zamknął połączenie",
+      "stream error": "błąd strumienia",
+      "stream limit": "limit strumieni",
+      "time-out (no picture for 15 s)": "przekroczono czas (15 s bez obrazu)"
     },
     "pt": {
       "%d titles no longer available": "%d títulos já não estão disponíveis",
@@ -299,7 +362,16 @@
       "Played": "Jogos",
       "Points": "Pontos",
       "Add": "Adicionar",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "O Bingr atualiza os teus servidores e o guia de TV sozinho quando chega a altura: ao abrir, ao voltares ao separador e a cada 15 minutos, nunca enquanto vês."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "O Bingr atualiza os teus servidores e o guia de TV sozinho quando chega a altura: ao abrir, ao voltares ao separador e a cada 15 minutos, nunca enquanto vês.",
+      "%@ after %@ s (%@, %@)": "%@ após %@ s (%@, %@)",
+      "Last stop": "Última paragem",
+      "No stops": "Sem paragens",
+      "pause command from a remote or the TV": "comando de pausa de um comando ou da TV",
+      "reconnecting failed": "falha ao religar",
+      "server closed the connection": "o servidor fechou a ligação",
+      "stream error": "erro na transmissão",
+      "stream limit": "limite de transmissões",
+      "time-out (no picture for 15 s)": "tempo esgotado (15 s sem imagem)"
     },
     "tr": {
       "%d titles no longer available": "%d başlık artık mevcut değil",
@@ -336,7 +408,16 @@
       "Played": "Oynanan",
       "Points": "Puan",
       "Add": "Ekle",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr, zamanı geldiğinde sunucularını ve TV rehberini kendiliğinden yeniler: açılışta, sekmeye döndüğünde ve her 15 dakikada bir; izlerken asla."
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "Bingr, zamanı geldiğinde sunucularını ve TV rehberini kendiliğinden yeniler: açılışta, sekmeye döndüğünde ve her 15 dakikada bir; izlerken asla.",
+      "%@ after %@ s (%@, %@)": "%@, %@ sn sonra (%@, %@)",
+      "Last stop": "Son durma",
+      "No stops": "Durma yok",
+      "pause command from a remote or the TV": "kumandadan veya TV'den duraklatma komutu",
+      "reconnecting failed": "yeniden bağlanılamadı",
+      "server closed the connection": "sunucu bağlantıyı kapattı",
+      "stream error": "yayın hatası",
+      "stream limit": "yayın sınırı",
+      "time-out (no picture for 15 s)": "zaman aşımı (15 sn görüntü yok)"
     },
     "zh-Hans": {
       "%d titles no longer available": "%d 个标题已不再提供",
@@ -373,7 +454,16 @@
       "Played": "场次",
       "Points": "积分",
       "Add": "添加",
-      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "时间到了，Bingr 会自动刷新你的服务器和电视指南：打开时、回到标签页时以及每 15 分钟一次，观看时绝不刷新。"
+      "Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.": "时间到了，Bingr 会自动刷新你的服务器和电视指南：打开时、回到标签页时以及每 15 分钟一次，观看时绝不刷新。",
+      "%@ after %@ s (%@, %@)": "%@，%@ 秒后（%@，%@）",
+      "Last stop": "上次停止",
+      "No stops": "无停止",
+      "pause command from a remote or the TV": "来自遥控器或电视的暂停指令",
+      "reconnecting failed": "重新连接失败",
+      "server closed the connection": "服务器关闭了连接",
+      "stream error": "流错误",
+      "stream limit": "流数量上限",
+      "time-out (no picture for 15 s)": "超时（15 秒无画面）"
     }
   };
   var all = window.BINGR_STRINGS = window.BINGR_STRINGS || {};

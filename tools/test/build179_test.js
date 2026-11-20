@@ -63,4 +63,14 @@ eq(P.mergeThumbs([{ key: 'a', value: 1, at: '2026-11-15T10:00:00Z' }], [{ key: '
   [{ key: 'a', value: 0, at: '2026-11-15T11:00:00Z' }], 'duimen samenvoegen, oude tombstone weg');
 eq(P.espnLeague('eredivisie'), 'soccer/ned.1', 'competitie → ESPN');
 eq(P.espnLeague('wk'), null, 'geen scores voor andere competities');
+// X2: opnieuw verbinden bij live (gelijk aan Stream179 op Apple)
+eq([0, 1, 2, 3, 4, 5].map((a) => P.retryDelay(a, true, true, 0)), [0.5, 1.5, 3, 5, 8, null], 'live met beeld');
+eq([0, 1, 2].map((a) => P.retryDelay(a, true, false, 0)), [1.5, 3, null], 'live zonder beeld');
+eq([0, 1].map((a) => P.retryDelay(a, false, true, 0)), [1.5, null], 'film');
+eq(P.retryDelay(0, true, true, 46), null, 'storing te lang');
+eq(P.stopReason(false, true, true, 0), 'serverClosed', 'server sloot');
+eq(P.stopReason(true, true, true, 0), 'error', 'fout gaat voor');
+eq(P.stopReason(false, false, true, 16), 'timeout', 'time-out');
+eq(P.stopReason(false, true, false, 0), null, 'film afgelopen');
+eq(P.pushStop([1, 2, 3], 0, 3), [0, 1, 2], 'nieuwste eerst, max');
 console.log('build179: ' + n + ' controles, alles goed');
