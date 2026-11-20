@@ -468,6 +468,11 @@
           if (cu) rows.push(['  ' + L('Catch-up'), cu[0] ? L('%d channels, up to %d days', cu[0], cu[1]) : L('No channels with catch-up')]);
         });
         rows.push([L('Load servers on open'), LOm[r.extra.loadOnOpen] || '—']);
+        // build 179 (X2): reden van de laatste stop van een stream
+        var stops = B.store.get('diag.stops', []) || [], ls = stops[0];
+        var RS = { serverClosed: L('server closed the connection'), error: L('stream error'), timeout: L('time-out (no picture for 15 s)'),
+          gaveUp: L('reconnecting failed'), limit: L('stream limit'), remotePause: L('pause command from a remote or the TV') };
+        rows.push([L('Last stop'), ls ? when(new Date(ls.when).toISOString()) + ' · ' + L('%@ after %@ s (%@, %@)', RS[ls.reason] || ls.reason, String(ls.after), ls.engine, ls.format) : L('No stops')]);
         rows.push([L('Last account sync'), st.lastSync ? when(st.lastSync) + ' · ' + (st.lastSyncOk ? L('OK') : L('Failed')) : L('Never')]);
         rows.push([L('Bingr server'), CHECK(net.backend, net.backendMs)]);
         rows.push([L('Your server'), CHECK(net.provider, net.providerMs)]);

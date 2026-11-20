@@ -177,7 +177,9 @@
 
   function hex(n) { return '#' + ('000000' + n.toString(16)).slice(-6); }
   function initials(name, big) {
-    return h('span.sp-badge' + (big ? '.big' : ''), { style: { background: hex(SL.color(name)) }, 'aria-hidden': 'true' }, SL.short(name));
+    // build 179 (#8): kleur van het team (ESPN of logo), leesbaar met witte tekst; anders de vaste kleur
+    var bg = B.sportScores ? '#' + B.sportScores.teamColor(name) : hex(SL.color(name));
+    return h('span.sp-badge' + (big ? '.big' : ''), { style: { background: bg }, 'aria-hidden': 'true' }, SL.short(name));
   }
 
   // MARK: build 178: club- en competitielogo's (zoals Weekdot; regels in sportlogos.js)
@@ -367,13 +369,15 @@
       var present = {};
       SP.groups.forEach(function (g) { present[g.match.sport] = 1; });
       var chips = h('div.sp-chips', { role: 'toolbar', 'aria-label': L('Filter') });
-      [['all', L('All')], ['mine', L('My teams')]].concat(SL.SPORTS.filter(function (s) { return present[s]; }).map(function (s) { return [s, SP.sportName(s)]; }))
+      var SC = B.sportScores, tableTab = SC && SC.leagues(SP.groups).length ? [['standings', L('Standings')]] : [];
+      [['all', L('All')], ['mine', L('My teams')]].concat(SL.SPORTS.filter(function (s) { return present[s]; }).map(function (s) { return [s, SP.sportName(s)]; })).concat(tableTab)
         .forEach(function (f) {
           var b = h('button.sp-chip' + (f[0] === filter ? '.on' : ''), { type: 'button', 'aria-pressed': f[0] === filter ? 'true' : 'false' }, f[1]);
           b.addEventListener('click', function () { filter = f[0]; render(); });
           chips.appendChild(b);
         });
       el.appendChild(chips);
+      if (filter === 'standings') { standingsView(); return; }
       if (SP.loading && !SP.groups.length) { el.appendChild(h('p.muted.sp-empty', L('Looking for matches…'))); return; }
       if (!SP.groups.length) {
         el.appendChild(h('div.state', [U.icon('sport', 'state-ic'), h('p', L('No matches found')),
@@ -402,7 +406,71 @@
         days[d].forEach(function (g) { list.appendChild(matchRow(g)); });
         el.appendChild(list);
       });
+      espnSections(now);
       el.appendChild(SP.logoNotice());
+    }
+
+    // MARK: build 179 (#7): scores, Afgelopen, Niet in je gids en standen (ESPN, zie b179sport.js)
+    function scoreEl(g) {
+      var SC = B.sportScores, sc = SC ? SC.score(SC.eventFor(g)) : null;
+      if (!sc || !sc.text) return null;
+      return h('div.sp-score' + (sc.final ? '.final' : ''), [h('span', sc.text), sc.final ? h('span.muted.small', L('Full time')) : null]);
+    }
+    function compName(league) {
+      var P9 = B.b179, out = league;
+      SL.COMPETITIONS.forEach(function (c) { if (P9.espnLeague(c.id) === league) out = c.name; });
+      return out;
+    }
+    function espnRow(ev, note) {
+      var sc = B.b179.eventScore(ev);
+      var when = ev.state === 'pre' ? B.fmtTime(ev.start * 1000) : '';
+      return h('div.sp-row.sp-espn', [h('div.sp-row-main', [
+        h('div.sp-time', [h('div.sp-hm', when || (ev.state === 'post' ? L('Full time') : L('LIVE'))), h('div.sp-ch.muted', compName(ev.league))]),
+        h('div.sp-pair', [initials(ev.home.name, false), initials(ev.away.name, false)]),
+        h('div.sp-txt', [h('div.muted.small.sp-comp', note || ''), h('div.sp-title', ev.home.short + ' - ' + ev.away.short + (sc ? '  ' + sc : ''))])])]);
+    }
+    function espnSections(now) {
+      var SC = B.sportScores;
+      if (!SC || filter !== 'all' && filter !== 'mine' && filter !== 'football') return;
+      var extra = SC.notInGuide(SP.groups).filter(function (ev) { return ev.state !== 'post'; });
+      var done = SC.events().filter(function (ev) { return ev.state === 'post' && now - ev.start * 1000 < 18 * 3600000; });
+      if (extra.length) {
+        el.appendChild(h('h2.sp-day', L('Not in your guide')));
+        var l1 = h('div.sp-list');
+        extra.forEach(function (ev) { l1.appendChild(espnRow(ev, L('Not in your guide'))); });
+        el.appendChild(l1);
+      }
+      if (done.length) {
+        el.appendChild(h('h2.sp-day', L('Full time')));
+        var l2 = h('div.sp-list');
+        done.sort(function (a, b) { return b.start - a.start; }).forEach(function (ev) { l2.appendChild(espnRow(ev)); });
+        el.appendChild(l2);
+      }
+    }
+    function standingsView() {
+      var SC = B.sportScores, leagues = SC.leagues(SP.groups);
+      var box = h('div.sp-tables');
+      el.appendChild(box);
+      leagues.forEach(function (lg) {
+        var sec = h('section.sp-table', [h('h2.sp-day', compName(lg)), h('p.muted.small', L('Loading…'))]);
+        box.appendChild(sec);
+        SC.standings(lg).then(function (groups) {
+          while (sec.childNodes.length > 1) sec.removeChild(sec.lastChild);
+          if (!groups.length) { sec.appendChild(h('p.muted.small', L('Standings aren’t available right now.'))); return; }
+          groups.forEach(function (gr) {
+            if (groups.length > 1 && gr.name) sec.appendChild(h('div.sp-label', gr.name));
+            var tb = h('table.sp-stand', [h('thead', [h('tr', [h('th', '#'), h('th', L('Team')), h('th', L('Played')), h('th', L('Points'))])])]);
+            var body = h('tbody');
+            gr.rows.forEach(function (r) {
+              body.appendChild(h('tr', [h('td', String(r.rank)), h('td', [initials(r.team, false), h('span', r.team)]),
+                h('td', r.played == null ? '' : String(r.played)), h('td', r.points == null ? (r.won == null ? '' : r.won + '-' + r.lost) : String(r.points))]));
+            });
+            tb.appendChild(body);
+            sec.appendChild(tb);
+          });
+        });
+      });
+      if (!leagues.length) box.appendChild(h('p.muted', L('Standings aren’t available right now.')));
     }
 
     function liveCard(g, now, preview) {
@@ -413,7 +481,13 @@
         g.match.kind === 'duel' ? SP.badge(g.match.away, false, g.match) : null]);
       var pctW = Math.round(B.clamp((now - g.start) / (g.end - g.start), 0, 1) * 100) + '%';
       var card = h('button.sp-live-card', { type: 'button', 'aria-label': L('LIVE') + ', ' + SP.label(g.match) + ', ' + g.match.title }, [media,
-        h('div.sp-live-info', [h('div.muted.small.sp-comp', [SP.compLogo(g.match, 16), h('span', SP.label(g.match))]), title, h('div.card-progress.inline', [h('div', { style: { width: pctW } })])])]);
+        h('div.sp-live-info', [h('div.muted.small.sp-comp', [SP.compLogo(g.match, 16), h('span', SP.label(g.match))]), title, scoreEl(g), h('div.card-progress.inline', [h('div', { style: { width: pctW } })])])]);
+      // build 179 (#8): kaart in de kleuren van de teams (tekst blijft wit)
+      if (B.sportScores && g.match.kind === 'duel') {
+        card.classList.add('sp-tc');
+        card.style.setProperty('--sp-c1', '#' + B.sportScores.teamColor(g.match.home));
+        card.style.setProperty('--sp-c2', '#' + B.sportScores.teamColor(g.match.away));
+      }
       card.addEventListener('click', function () { play(ch); });
       if (ch) {
         if (preview) setTimeout(function () { if (document.body.contains(media)) B.guidePreview.show(media, ch, false); }, 0);
@@ -456,6 +530,8 @@
         B.fmtTime(g.start), ch ? B.chanName(ch.name) : ''].filter(Boolean).join(' · ')));
       body.appendChild(h('div.sp-title-row.big', [g.match.kind === 'duel' ? SP.badge(g.match.home, true, g.match) : SP.compLogo(g.match, 36),
         h('span.sp-title', g.match.title), g.match.kind === 'duel' ? SP.badge(g.match.away, true, g.match) : null]));
+      var sce = scoreEl(g);
+      if (sce) body.appendChild(sce);
       if (live) {
         body.appendChild(U.button(L('Watch live'), function () { if (dlg) dlg.close(); play(ch); }, { primary: true, icon: 'play' }));
       } else {
@@ -516,11 +592,12 @@
     }
 
     render();
-    SP.refresh().then(render);
+    SP.refresh().then(function () { render(); if (B.sportScores) B.sportScores.refresh(SP.groups); });
     offs.push(B.on('sport', render));
+    offs.push(B.on('sportScores', function () { if (filter !== 'standings') render(); }));
     offs.push(B.on('epg', function () { SP.refresh(true); }));
     offs.push(B.on('library', function () { SP.refresh(true); }));
-    timer = setInterval(function () { SP.refresh(); render(); }, 60000);
+    timer = setInterval(function () { SP.refresh(); if (B.sportScores) B.sportScores.refresh(SP.groups); if (filter !== 'standings') render(); }, 60000);
     pg.destroy = function () {
       clearInterval(timer);
       offs.forEach(function (off) { if (typeof off === 'function') off(); });

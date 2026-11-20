@@ -822,6 +822,7 @@
     function forYouRow() {
       // build 140: per actief profiel (geschiedenis, Verder kijken, genres en TMDB-aanbevelingen), meest passend eerst;
       // zonder geschiedenis heet de rij "Populair". Label Serie/Film linksboven op de cover (zoals iOS build 74)
+      if (B.b179ui && !B.b179ui.forYouOn()) return null;   // build 179: uitgezet in Instellingen
       var fy = S.forYou();
       return U.row(fy.popular ? L('Popular') : L('For you'), fy.items.map(function (hit) { return posterCard(hit.item, hit.type, { kindBadge: true }); }));
     }
@@ -1149,6 +1150,12 @@
         }
         var items = Lib.byGroup(type)[group] || [];
         if (!items.length) { el.appendChild(h('div.state', [h('p.muted', L('Nothing here yet'))])); return; }
+        // build 179 (#12): sorteren per categorie, onthouden per profiel (categorySort)
+        if (B.b179ui && Lib.source) {
+          var sid = Lib.source.id;
+          head.appendChild(B.b179ui.sortButton(sid, type, group, render));
+          items = B.b179ui.sortItems(items, B.b179ui.sortFor(sid, type, group));
+        }
         grid = U.grid(items, function (x) { return posterCard(x, type); }, 'posters');
         el.appendChild(grid);
       }
@@ -1933,6 +1940,20 @@
       listKey = S.keyOf(x);
       meta = h('div.dt-meta'); langEl = h('div.dt-lang'); plot = h('p.dt-plot', x.plot || '');
       creditsSlot = h('div.dt-credits-slot'); extraSlot = h('div.dt-extra-slot');
+      // build 179: meer beoordelingen (#9) en duim omhoog/omlaag (#11)
+      var b179 = B.b179ui, ratingsSlot = h('div.dt-ratings-slot'), tmdbNow = B.int(x.tmdb || x.tmdbID) || null;
+      var thumbsEl = b179 ? b179.thumbButtons(function () { return B.b179.thumbKey(type, tmdbNow, (other || Lib.source || {}).id || '', x.id); }) : null;
+      function drawRatings(id) {
+        if (!b179 || !id) return;
+        var curX = x;
+        b179.ratings(type, id).then(function (list) {
+          if (!alive || x !== curX) return;
+          U.clear(ratingsSlot);
+          var line = b179.ratingsLine(list);
+          if (line) ratingsSlot.appendChild(line);
+        }, B.noop);
+      }
+      pg._b179 = function (id) { if (id && id !== tmdbNow) { tmdbNow = id; if (thumbsEl) thumbsEl.redraw(); } drawRatings(id || tmdbNow); };
       buttons = h('div.dt-btns');
       trailerBtnSlot = h('span.dt-trailer');
       var back = h('button.icon-btn.dt-back', { type: 'button', 'aria-label': L('Back'), title: L('Back') }, [U.icon('back')]);
@@ -1940,7 +1961,8 @@
       el.appendChild(h('div.dt-bg', [U.img(x.poster, 'hero-img')]));
       el.appendChild(h('div.dt-shade'));
       el.appendChild(h('div.dt-top', [back, h('div.dt-poster', [U.img(x.poster, 'poster', x.title)]),
-        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', B.showName(x.title)), meta, langEl, plot, creditsSlot, buttons])]));
+        h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', B.showName(x.title)), meta, ratingsSlot, langEl, plot, creditsSlot, buttons, thumbsEl])]));
+      if (tmdbNow) drawRatings(tmdbNow);
       if (isShow) {
         seasonSel = h('select.dt-season', { 'aria-label': L('Season') });
         seasonSel.addEventListener('change', function () {
@@ -1974,6 +1996,7 @@
         return B.details.load(cur, isShow, info);
       }).then(function (d) {
         if (!alive || x !== cur || !d) return;
+        if (pg._b179) pg._b179(d.tmdbID || null);
         if (d.overview) plot.textContent = d.overview;
         metaText([d.runtime]);
         U.clear(creditsSlot); var cr = B.details.credits(d); if (cr) creditsSlot.appendChild(cr);
@@ -2164,6 +2187,8 @@
       if (B.b176ui) cleanup = B.b176ui.settings(tab, section, row, render, prof, main, list) || cleanup;
       // build 172: Sport (Algemeen): standaardmelding bij een wedstrijd, Mijn teams en competities
       if (tab === 'general' && B.sport && B.sport.settings) B.sport.settings(section, row, render);
+      // build 179: rij Voor jou aan/uit (Algemeen)
+      if (tab === 'general' && B.b179ui && B.b179ui.generalRows) B.b179ui.generalRows(section, row, render);
     }
     var TABS = {
       general: function (prof, main) {
@@ -2313,7 +2338,7 @@
             { icon: 'plus', sub: canAdd ? L('Servers are added on bingr.online/account.') : null });
         }
         // build 145: "Servers laden bij openen" (per browser); build 146: de tv-gids volgt dezelfde keuze
-        sec = section(L('Updating'), L('The TV guide is updated together with your servers: when you choose Update now, with Always, or with Refresh now. It is no longer refreshed on a timer.'));
+        sec = section(L('Updating'), B.b179ui ? L('Bingr refreshes your servers and the TV guide by itself when the time has come: when you open Bingr, when you come back to the tab and every 15 minutes, never while you watch.') : L('The TV guide is updated together with your servers: when you choose Update now, with Always, or with Refresh now. It is no longer refreshed on a timer.'));
         if (B.xs && B.xs.loadOnOpen && !(prof && prof.kids)) {
           var LO = B.xs.loadOnOpen, lmode = LO.mode();
           var lmodes = [['ask', L('Ask')], ['always', L('Always')], ['never', L('Never, manually only')]], lLabel = L('Ask');
@@ -2324,6 +2349,8 @@
             });
           }, { icon: 'clock', sub: L('Bingr opens with your saved list. Choose whether it asks to update your servers, updates them right away, or only when you refresh.') });
         }
+        // build 179: vanzelf verversen (termijn per browser)
+        if (B.b179ui && !(prof && prof.kids)) B.b179ui.settingsRows(sec, row, render);
         var gv = h('span.st-value', '…');
         row(sec, L('TV guide'), gv, null, { icon: 'guide' });
         if (src) B.idb.getMeta('epg:' + src.id).then(function (c) { gv.textContent = c && c.at ? L('Updated') + ' ' + U.fmtDate(c.at) + ' ' + B.fmtTime(c.at) : L('Not loaded yet'); }, function () { gv.textContent = '—'; });

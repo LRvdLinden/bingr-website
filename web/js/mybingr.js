@@ -356,6 +356,9 @@
   // build 147: Voor jou vooraf (vóór het event 'library'), zodat Home en Uitgelicht hem uit Lib.memo halen
   if (Lib && Lib.warmers) Lib.warmers.push(function () { if (B.app && B.app.profile && S.forYou) S.forYou(); });
   S.forYou = function () {
+    // build 179 (#11): met duimen omhoog/omlaag de rij volgens het contract (forYou); zonder duimen de bestaande rij
+    var t179 = B.b179ui && B.b179ui.forYou ? B.b179ui.forYou() : null;
+    if (t179) return t179;
     var p = prof();
     var libs = B.xs ? B.xs.libs(null) : [Lib.lib];
     var hist = D.history(), prog = D.progressList();

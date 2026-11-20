@@ -278,7 +278,10 @@
 
   // MARK: servers
 
-  D.kinds = ['M3U / M3U8', 'Xtream Codes', 'Stalker / MAC-portal', 'Plex', 'Jellyfin', 'Emby', 'Stremio'];
+  D.kinds = ['M3U / M3U8', 'Xtream Codes', 'Stalker / MAC-portal', 'Plex', 'Jellyfin', 'Emby', 'Stremio', 'WebDAV'];
+  var lastSources = null;
+  /** build 179: de lijst opnieuw toepassen (een WebDAV-bron is net bruikbaar gebleken). */
+  D.reapplySources = function () { if (lastSources) applySources(lastSources); };
   D.supportedKinds = D.kinds;
   D.syncSources = function () {
     return A.getSources().then(function (r) {
@@ -288,7 +291,10 @@
     });
   };
   function applySources(r) {
-    D.sources = r.sources.filter(function (s) { return s.deleted !== true; });
+    lastSources = r;
+    // build 179: WebDAV alleen als de server browsers toelaat (proef in b179webdav.js); anders niet in de webspeler
+    D.allSources = r.sources.filter(function (s) { return s.deleted !== true; });
+    D.sources = D.allSources.filter(function (s) { return s.kind !== 'WebDAV' || !!(B.webdav && B.webdav.usable(s)); });
     D.mainSourceID = r.mainSourceID;
     D.sourcesSynced = true; // build 128: de lijst komt van de server (opruimen van categorieën van verwijderde servers mag)
     save();
@@ -721,8 +727,11 @@
         }
       });
       if (nb) base = nb;
+      // build 179: duimen (ratings) en sortering per categorie (categorySort) per sleutel samenvoegen (nieuwste at)
+      var kb = mergeKeyed(base, localBase);
+      if (kb) { base = kb; prefsNewer = true; }
       P.base = base;
-    } else if (localBase && WHOLE.some(function (o) { return o.at(localBase) > 0; })) prefsNewer = true;
+    } else if (localBase && (WHOLE.some(function (o) { return o.at(localBase) > 0; }) || mergeKeyed({}, localBase))) prefsNewer = true;
     // build 91: kijkvoorkeuren van een ander apparaat → instellingen opnieuw tekenen
     if (active && JSON.stringify(localBase && localBase.prefs || null) !== JSON.stringify(P.base && P.base.prefs || null)) setTimeout(function () { B.emit('settings'); }, 0);
     if (names.length) P.names = names;
@@ -754,6 +763,34 @@
       });
     });
   }
+  /**
+   * build 179 (docs/ACCOUNT.md "Build 179"): `ratings` [{key, value, at}] en `categorySort` {sleutel: {value, at}} per
+   * sleutel samenvoegen. Geeft een nieuw base-object als de lokale versie iets toevoegt dat de server nog niet heeft, anders null.
+   */
+  function canonList(l) { return (Array.isArray(l) ? l : []).map(function (r) { return r && r.key + '=' + r.value + '@' + time(r.at); }).sort().join('|'); }
+  function canonMap(m) { return Object.keys(m && typeof m === 'object' ? m : {}).sort().map(function (k) { var v = m[k] || {}; return k + '=' + v.value + '@' + time(v.at); }).join('|'); }
+  function mergeKeyed(server, local) {
+    var P9 = B.b179;
+    if (!P9 || !local) return null;
+    var out = null;
+    if (Array.isArray(local.ratings) && local.ratings.length) {
+      var mr = P9.mergeThumbs(server && server.ratings, local.ratings, Date.now());
+      if (canonList(mr) !== canonList(server && server.ratings)) { out = out || B.copy(server || {}); out.ratings = mr; }
+    }
+    if (local.categorySort && typeof local.categorySort === 'object' && Object.keys(local.categorySort).length) {
+      var ms = P9.sortMerge(server && server.categorySort, local.categorySort);
+      if (canonMap(ms) !== canonMap(server && server.categorySort)) { out = out || B.copy(server || {}); out.categorySort = ms; }
+    }
+    return out;
+  }
+  /** build 179: veld van profile.<id> van het actieve profiel lezen/zetten (ratings, categorySort). */
+  D.profileField = function (name) { return P.base ? P.base[name] : undefined; };
+  D.setProfileField = function (name, value) {
+    if (!P.id) return;
+    P.base = P.base ? B.copy(P.base) : {};
+    P.base[name] = value;
+    changed(false);
+  };
   /** Onderdelen van profile.<id> die als geheel samenvoegen (nieuwste tijd wint), met hun tijd. */
   var WHOLE = [
     { fields: ['prefs'], at: function (d) { var v = d && d.prefs; return v && typeof v === 'object' ? time(v.updatedAt) || time(d.prefsUpdatedAt) || 0 : 0; } },

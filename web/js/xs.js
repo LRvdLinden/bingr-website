@@ -1753,6 +1753,8 @@
       else if (!result.failed.length) U().toast(list.length > 1 ? L('All servers are up to date.') : L('Updated.'), 4000);
       else if (result.failed.length === list.length) U().toast(L('Couldn’t update %@.', names), 7000);
       else U().toast(L('Couldn’t update %@. Your other servers are up to date.', names), 7000);
+      // build 179: titels die de aanbieder verwijderd heeft (opruimen of naar een andere server wijzen; eigen melding)
+      if (B.b179ui && B.b179ui.refreshed) B.b179ui.refreshed(result);
       return { ok: result.ok.map(function (s) { return s.name; }), failed: result.failed.map(function (s) { return s.name; }) };
     });
     return refreshing;
@@ -1779,6 +1781,8 @@
     decisionPending = false;
     // zonder bewaarde lijst is de open server net van het netwerk geladen
     if (!savedList && Lib.source) done[lower(Lib.source.id)] = true;
+    // build 179: vanzelf verversen volgens de termijn per apparaat (vervangt de vraag "Servers bijwerken?")
+    if (B.b179ui && B.b179ui.afterOpen && B.b179ui.afterOpen(!!savedList)) return;
     var act = LO.decide(LO.mode(), !!savedList, !!B.app.profile.kids, askedThisLaunch);
     if (act === 'ask') { askedThisLaunch = true; askUpdate(openGen); }
     else if (act === 'updateAll') X.updateAll(true);

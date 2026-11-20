@@ -60,6 +60,9 @@ jobs:
           node tools/test/sportlogos_test.js
           # build 178: terugkijken in de tv-gids (build178_test, docs/build178_cases.json)
           node tools/test/build178_test.js
+          # build 179: vanzelf verversen, andere speler, zappen, scores, teamkleuren, beoordelingen, Voor jou, sorteren,
+          # opruimen en WebDAV (build179_test, docs/build179_cases.json)
+          node tools/test/build179_test.js
           node tools/test/build174_test.js
           node tools/test/player173_test.js
           node tools/test/plan_test.js

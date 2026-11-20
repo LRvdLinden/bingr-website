@@ -1,7 +1,9 @@
 /*
  * Bingr web: service worker voor pushmeldingen (Web Push met VAPID, contract docs/PUSH.md van iptv-ios-appletv).
- * Scope /web/. Doet alleen push, notificationclick en pushsubscriptionchange: geen fetch-handler en geen cache,
- * zodat de webspeler gewoon via het netwerk laadt en de ?v=-aanpak in web/index.html blijft werken.
+ * Scope /web/. Doet push, notificationclick en pushsubscriptionchange, en (build 179) alleen voor de route __dav/ een
+ * fetch-handler: video van een WebDAV-bron met de inlog als Authorization-kop (een <video> kan die zelf niet sturen).
+ * Verder geen fetch-afhandeling en geen cache, zodat de webspeler gewoon via het netwerk laadt en de ?v=-aanpak in
+ * web/index.html blijft werken.
  * Geen scripts van derden.
  */
 'use strict';
@@ -145,4 +147,33 @@ self.addEventListener('pushsubscriptionchange', function (event) {
       list.forEach(function (c) { if (c.url.indexOf(WEB) === 0) c.postMessage({ type: 'bingr-push-resubscribe' }); });
     });
   event.waitUntil(p);
+});
+
+// MARK: build 179: WebDAV-video met inlog (route __dav/<base64url van het adres>)
+// De pagina stuurt {type: 'bingr-dav', base, auth} (alleen in het geheugen van deze worker, nooit bewaard of gelogd).
+var DAV = {};
+self.addEventListener('message', function (event) {
+  var d = event.data;
+  if (!d || d.type !== 'bingr-dav' || typeof d.base !== 'string' || typeof d.auth !== 'string') return;
+  if (event.source && event.source.url && event.source.url.indexOf(ORIGIN) !== 0) return;
+  if (!/^https?:\/\//i.test(d.base) || !/^Basic [A-Za-z0-9+\/=]+$/.test(d.auth)) return;
+  DAV[d.base] = d.auth;
+});
+function davTarget(url) {
+  var i = url.indexOf(WEB + '__dav/');
+  if (i !== 0) return null;
+  var b = url.slice((WEB + '__dav/').length).split(/[?#]/)[0].replace(/-/g, '+').replace(/_/g, '/');
+  while (b.length % 4) b += '=';
+  try { return decodeURIComponent(escape(atob(b))); } catch (e) { return null; }
+}
+self.addEventListener('fetch', function (event) {
+  var target = davTarget(event.request.url);
+  if (target == null) return;   // al het andere: gewoon het netwerk, zonder deze worker
+  var auth = null;
+  Object.keys(DAV).forEach(function (b) { if (target.indexOf(b) === 0) auth = DAV[b]; });
+  if (!auth) { event.respondWith(new Response('', { status: 401 })); return; }
+  var h = { Authorization: auth };
+  var range = event.request.headers.get('Range');
+  if (range) h.Range = range;
+  event.respondWith(fetch(target, { headers: h, mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' }));
 });
