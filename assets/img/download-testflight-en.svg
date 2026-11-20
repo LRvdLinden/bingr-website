@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="246" height="82" viewBox="0 0 246 82" role="img" aria-label="Join the beta via TestFlight">
+<title>Join the beta via TestFlight</title>
+<rect x="1" y="1" width="244" height="80" rx="11" fill="#080808" stroke="#b8b8b8" stroke-width="1.5"/>
+<circle cx="46" cy="41" r="26" fill="#1689F8"/><g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M44 38C39 29 42 23 47 23C54 23 56 30 50 39"/><path d="M50 40C60 38 66 43 64 49C62 56 54 56 49 49"/><path d="M44 45C39 54 31 56 27 50C24 44 32 40 42 41"/></g><circle cx="46" cy="42" r="4" fill="#fff"/>
+<text x="85" y="31" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14.5" font-weight="400">Join the beta via</text>
+<text x="85" y="62" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="600" letter-spacing="-0.6">TestFlight</text>
+</svg>
