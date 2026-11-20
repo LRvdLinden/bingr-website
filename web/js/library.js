@@ -657,6 +657,8 @@
         return lib;
       });
     }
+    // build 179 (#16): WebDAV (alleen als de server browsers toelaat)
+    if (kind === 'WebDAV' && B.webdav) return B.webdav.library(src).then(function (lib) { phase('parse'); return lib; });
     if (B.media.isMediaServer(kind)) {
       return B.media.library(src, {
         // Plex vond een nieuw serveradres: bewaren in het account (secrets.session), zoals de andere apps
@@ -996,6 +998,8 @@
       else { var lk = String(src.id).toLowerCase(); st = otherStalkers[lk] || (otherStalkers[lk] = new P.Stalker(src)); }
       return st.createLink(item.stalkerCmd, live).then(function (u) { return u || item.streamURL; }, function () { return item.streamURL; });
     }
+    // build 179 (#16): WebDAV via de service worker (inlog als kop)
+    if (src && src.kind === 'WebDAV' && B.webdav && item.streamURL) return B.webdav.playURL(src, item.streamURL);
     return Promise.resolve(item.streamURL);
   };
 

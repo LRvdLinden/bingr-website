@@ -239,7 +239,9 @@
     var gen = this.gen;
     return new Promise(function (resolve, reject) {
       // via de proxy komt een film in stukken van 8 MB: wat meer tijd voor het eerste beeld
-      var done = false, timer = setTimeout(function () { fail(new Error('timeout')); }, opts.live ? 20000 : (step.orig ? 45000 : 25000));
+      // build 179 (#3): live zonder proxy en er is nog een andere engine: na 10 s zonder beeld de volgende
+      var quick = opts.live && !step.orig && B.b179 && step.otherNext;
+      var done = false, timer = setTimeout(function () { fail(new Error('timeout')); }, quick ? 10000 : opts.live ? 20000 : (step.orig ? 45000 : 25000));
       var onErr = null, once = null;
       // build 97: alle listeners van deze poging weg, bij succes, fout én stop
       function cleanup() {
@@ -334,6 +336,9 @@
     function alive() { return !self.stopped && self.gen === gen; }
     this.url = url; this.trace = []; this.hlsTried = false; this.hlsFound = false;
     var plan = B.playPlan(url, opts.live, opts.forceTry, opts.hls);
+    // build 179 (#3): de speler die bij deze stream werkte eerst; na vastlopen de andere speler eerst
+    if (!plan.error && B.b179 && opts.first) plan.steps = B.b179.startWith(plan.steps, opts.first);
+    this.order = B.b179 && !plan.error ? B.b179.orderOf(plan.steps) : [];
     if (plan.error) { this.trace.push({ how: 'format', ok: false, err: plan.error.message, url: PD.mask(url) }); return Promise.reject(plan.error); }
     var hlsFound = false;
     var i = 0, lastErr = null;
@@ -354,6 +359,7 @@
         return next();
       }
       if (step.probe) return probeHls(step);
+      step.otherNext = plan.steps.slice(i).some(function (st) { return st.how !== step.how; });
       if (step.proxy || B.mustProxy(step.url)) {
         return B.ensureProxyToken().then(function () {
           if (!alive()) return Promise.reject(new Error('stopped')); // build 97
@@ -483,8 +489,11 @@
     var closed = false, hideTimer = null, tickTimer = null, pingTimer = null;
     var watchedSeconds = 0, recorded = false, lastSave = 0, attempts = 0, triedBackup = false;
     var nextShown = false, nextDismissed = false, countdownTimer = null;
+    var recapSeg = null;   // build 179 (#10): samenvatting ("Previously on…") uit IntroDB
     var marker = null, extCues = null, extOffset = 0, extTimer = null, scrobbled = false, stopSent = false, traktMarked = false;
     var failPos = 0; // plek bij de laatste fout (films/afleveringen), voor "Opnieuw"
+    // build 179 (#3): automatisch een andere speler (één keer per stream)
+    var engineSwitched = false, stallTimer = null, startedAt = 0, startedWith = null, playedSec = 0, lastTick = 0;
     var startGen = 0, limited = false, audioChosen = false, autoSubsDone = false, forceTry = false, subsStartedAt = 0, extTrack = null, subsRetry = null;
     var zapTimer = null, zapIndex = null;
     var seeking = null;
@@ -507,6 +516,12 @@
     video.setAttribute('x-webkit-airplay', 'allow');
     // build 102: `video` is de <video> die nu speelt (tijdens casten castVideo); localVideo blijft de eigen speler
     var localVideo = video;
+    // echt afgespeelde seconden (voor de regel engineSwitch: na 10 s/30 s spelen niet meer wisselen)
+    localVideo.addEventListener('timeupdate', function () {
+      var t = Date.now();
+      if (lastTick && !localVideo.paused && t - lastTick < 2000) playedSec += (t - lastTick) / 1000;
+      lastTick = t;
+    });
     var castVideo = h('video.pl-castvid', { preload: 'none', playsinline: true, 'webkit-playsinline': true, 'aria-hidden': 'true', tabindex: '-1' });
     castVideo.setAttribute('x-webkit-airplay', 'allow');
     var castText = h('div.pl-cast-t'), castHint = h('div.pl-cast-h');
@@ -829,6 +844,7 @@
     function start(resumeAt) {
       var gen = ++startGen;
       failPos = 0;
+      engineSwitched = false; clearTimeout(stallTimer); stallTimer = null;
       limited = false; audioChosen = false; autoSubsDone = false; subsStartedAt = Date.now(); clearTimeout(subsRetry); subsRetry = null;
       errorBox.style.display = 'none'; tapPlay.style.display = 'none';
       spinner.style.display = 'flex';
@@ -836,6 +852,18 @@
       clearInterval(countdownTimer);
       subtitle.textContent = '';
       marker = item.type === 'episode' && item.seriesID && isrc() ? D.introMarker(isrc().id, item.seriesID) : null;
+      // build 179 (#10): tijden per aflevering uit IntroDB (functie introdb) gaan voor; anders de eigen markeringen
+      recapSeg = null;
+      if (item.type === 'episode' && B.b179ui && ctx.series && item.season != null && item.episode != null) {
+        B.b179ui.seriesTmdb(ctx.series).then(function (id) { return id ? B.b179ui.introFor(id, item.season, item.episode) : null; }).then(function (seg) {
+          if (!seg || closed || gen !== startGen) return;
+          var m = B.assign({}, marker || {});
+          if (seg.intro) { m.introStart = seg.intro.start; m.introEnd = seg.intro.end; }
+          if (seg.credits && seg.credits.start > 60) m.creditsStart = seg.credits.start;
+          marker = m;
+          recapSeg = seg.recap || null;
+        }, B.noop);
+      }
       renderInfo();
       showControls();
       clearExtSubs();
@@ -856,14 +884,14 @@
         B.store.set('lastChannel.' + String(profile.id).toLowerCase(), { sourceId: isrc().id, channelId: item.channel.id });
       }
     }
-    function openURL(url, resumeAt, gen) {
+    function openURL(url, resumeAt, gen, sw) {
       // build 102: nieuwe stream (volgende aflevering, zappen, opnieuw) tijdens het casten via castVideo: eerst lokaal
       // starten; is de tv daarna nog verbonden, dan gaat de nieuwe stream meteen weer naar de tv (castResume)
       if (cast.el === castVideo) { cast.keep = cast.mode === 'swap'; leaveCast(); }
       setCastURL(null);
       if (engine) engine.stop();
       var events = {
-        buffering: function (b) { if (engine === my) spinner.style.display = b ? 'flex' : 'none'; },
+        buffering: function (b) { if (engine === my) { spinner.style.display = b ? 'flex' : 'none'; watchStall(my, b); } },
         ended: function () { if (engine === my) onEnded(); },
         error: function (e) { if (engine === my) fail(e); },
         state: function () { if (engine === my) { drawPlay(); if (!engine.playing) showControls(); } },
@@ -879,12 +907,24 @@
       var my = engine;
       var opening = took ? Promise.resolve() : vodHls(url).then(function (cands) {
         if (closed || engine !== my) return Promise.reject(new Error('stopped'));
-        return my.open(url, { live: isLive(), start: resumeAt || 0, forceTry: forceTry, hls: cands, onReady: function () { if (engine === my) applyTrackPrefs(); } });
+        var first = sw ? sw.engine : (B.b179ui ? B.b179ui.engineFor(streamKey()) : null);
+        if (!sw) startedWith = null;
+        return my.open(url, { live: isLive(), start: resumeAt || 0, forceTry: forceTry, hls: cands, first: first,
+          onReady: function () { if (engine === my) applyTrackPrefs(); } });
       });
       return opening.then(function () {
         if (took) { my.play(); events.state(); }
         if (closed || limited || engine !== my || (gen != null && gen !== startGen)) { if (engine === my && (closed || limited)) my.stop(); return; }
         attempts = 0;
+        startedAt = Date.now(); playedSec = 0; lastTick = 0;
+        if (B.b179 && my.how) {
+          var eng = B.b179.engineOf(my.how), first0 = (my.order || [])[0] || eng;
+          if (!startedWith) startedWith = sw ? null : first0;
+          // vóór het eerste beeld al naar een andere engine gegaan (de eerste kwam niet binnen 10 s): ook dat is de ene wissel
+          var moved = !sw && eng !== first0;
+          if (moved && !engineSwitched) { engineSwitched = true; U.toast(L('Tried another player'), 3000); }
+          if (B.b179ui) B.b179ui.rememberEngine(streamKey(), B.b179.engineMemo(null, startedWith || eng, sw || moved ? eng : null, true));
+        }
         spinner.style.display = 'none';
         prepareCast();
         renderInfo();
@@ -1298,6 +1338,36 @@
       if (extCues) { extCues = null; subtitle.innerHTML = ''; subtitle._last = ''; }
     }
 
+    // MARK: build 179 (#3): automatisch een andere speler
+
+    function streamKey() { return B.b179 ? B.b179.memoKey(isrc() ? isrc().id : '', item) : ''; }
+    /** Na het eerste beeld: 10 s aan één stuk bufferen (en minder dan 30 s gespeeld) = een andere engine. */
+    function watchStall(my, waiting) {
+      clearTimeout(stallTimer); stallTimer = null;
+      if (!waiting || !B.b179 || engineSwitched || !my.started) return;
+      var since = Date.now();
+      stallTimer = setTimeout(function () {
+        stallTimer = null;
+        if (closed || engine !== my || (!video.paused && video.readyState >= 3)) return;
+        if (B.b179.engineSwitch(false, true, (Date.now() - startedAt) / 1000, (Date.now() - since) / 1000, playedSec, engineSwitched)) switchEngine('stall');
+      }, 10000);
+    }
+    /** Eén keer per stream: dezelfde stream met de volgende engine (hls ↔ mpegts ↔ native). Nooit een externe app. */
+    function switchEngine(why) {
+      if (!B.b179 || engineSwitched || closed || limited || !engine || !engine.started || !engine.how || cast.el === castVideo || item.offline) return false;
+      if (why === 'error' && !B.b179.engineSwitch(true, true, (Date.now() - startedAt) / 1000, 0, playedSec, false)) return false;
+      var next = B.b179.engineNext(engine.order || [], B.b179.engineOf(engine.how), false);
+      if (!next) return false;
+      engineSwitched = true;
+      var at = !isLive() ? engine.time() : 0, g = startGen;
+      B.log('andere speler proberen (' + why + '): ' + next);
+      U.toast(L('Tried another player'), 3000);
+      spinner.style.display = 'flex';
+      var again = isCatchup() && item.streamURL ? Promise.resolve(item.streamURL) : (B.media.webStream(isrc(), item) ? Promise.resolve(B.media.webStream(isrc(), item)) : Lib.resolveURL(item, isLive()));
+      again.then(function (u) { if (!closed && g === startGen) return openURL(u, at, g, { engine: next }); }).catch(function (e2) { if (g === startGen) fail(e2); });
+      return true;
+    }
+
     // MARK: fouten
 
     function fail(e) {
@@ -1307,6 +1377,9 @@
       B.log('player error', e && e.message);
       spinner.style.display = 'none';
       if (e && e.insecure) { showError(e); return; }
+      if (switchEngine('error')) return;
+      // ook de andere engine lukte niet: het onthouden wissen (engineMemo)
+      if (engineSwitched && B.b179ui) B.b179ui.rememberEngine(streamKey(), null);
       if (attempts < 1 && engine && engine.started) {
         attempts++;
         var at = engine && !isLive() ? engine.time() : 0;
@@ -1494,6 +1567,7 @@
     function openPanel(kind) {
       if (!engine && kind !== 'sleep') return;
       panelKind = kind;
+      if (kind === 'zap') { zapCat = null; zapQuery = ''; }   // build 179: opent op de categorie van de zender die speelt
       root.classList.add('ui', 'panel-open');
       clearTimeout(hideTimer);
       panel.style.display = '';
@@ -1640,9 +1714,14 @@
 
     // 3: Zappen (wat er nu op de andere zenders is; favorieten en de huidige categorie eerst) en Vorige zender
     function zapChannels() {
-      return (ctx.channels || []).filter(function (c) { return !(B.b171ui && B.b171ui.hides(c, 'channel')); });
+      // build 179 (#5): alle zenders van de open server (zelfde filters: verborgen, kinderprofiel), anders de lijst van de speler
+      var base = B.b179ui && B.b179ui.zapChannels ? B.b179ui.zapChannels(ctx.channels || [], item) : (ctx.channels || []);
+      return base.filter(function (c) { return !(B.b171ui && B.b171ui.hides(c, 'channel')); });
     }
     function previousChannel() { return prevCh.previous != null ? chSeen[prevCh.previous] || null : null; }
+    // build 179 (#5): tabs Alle / Favorieten / categorieën en zoeken (zapCategories, zapSearch); de keuze blijft staan
+    // zolang de speler open is, en opent op de categorie van de zender die speelt
+    var zapCat = null, zapQuery = '';
     function zapPanel() {
       var pc = previousChannel();
       var prevB = pc ? U.button(L('Previous channel'), function () { closePanel(); goPrevious(); }, { icon: 'history', cls: 'pl-chip', title: L('Previous channel') + ' (R): ' + B.chanName(pc.name) }) : null;
@@ -1651,17 +1730,62 @@
       var curId = item.channel ? item.channel.id : null, curGroup = item.channel ? item.channel.group || '' : null;
       var favs = list.map(function (c) { return D.inSet('favorites', B.xs && B.xs.keyOf ? B.xs.keyOf(c) : c.id) || D.inSet('favorites', c.id); });
       var order = P173.zapOrder(list.map(function (c) { return c.group || ''; }), favs, curGroup);
+      var P9 = B.b179;
+      var tabs = P9 ? ['*all'].concat(P9.zapCategories(list.map(function (c) { return c.group || ''; }), favs)) : ['*all'];
+      if (zapCat == null || tabs.indexOf(zapCat) < 0) zapCat = curGroup && tabs.indexOf(curGroup) >= 0 ? curGroup : '*all';
       var box = h('div.pl-panel-body.pl-zaplist', { role: 'list' });
-      order.slice(0, 500).forEach(function (i) {
-        var c = list[i], nn = Lib.nowNext(c), on = c.id === curId;
-        var prog = nn.now ? h('div.card-progress.inline', [h('div', { style: { width: (B.clamp((now - nn.now.start) / (nn.now.end - nn.now.start), 0, 1) * 100) + '%' } })]) : null;
-        var b = h('button.pl-zapit' + (on ? '.on' : ''), { type: 'button', role: 'listitem', 'aria-current': on ? 'true' : null }, [
-          h('div.pl-zaplogo', [U.img(c.logo, 'logo', B.chanName(c.name))]),
-          h('div.pl-zaptxt', [h('div.pl-zapname', [c.number != null ? h('span.pl-zapnum', String(c.number)) : null, B.chanName(c.name), favs[i] ? U.icon('starFill', 'pl-zapfav') : null]),
-            h('div.muted.small.pl-zapnow', nn.now ? B.showName(nn.now.title) : (c.group || '')), prog])]);
-        b.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); if (!on || isCatchup()) tuneTo(c); });
-        box.appendChild(b);
-      });
+      var locked = function (c) { try { return !!(B.b176ui && B.b176ui.isLocked && B.b176ui.isLocked(c, 'channel')); } catch (e) { return false; } };
+      function fill() {
+        U.clear(box);
+        var pool = order.filter(function (i) {
+          if (zapCat === '*favorites') return favs[i];
+          if (zapCat !== '*all') return (list[i].group || '') === zapCat;
+          return true;
+        });
+        var shown = pool;
+        if (P9 && zapQuery.trim()) {
+          var hits = P9.zapSearch(zapQuery, pool.map(function (i) { return { name: B.chanName(list[i].name), number: list[i].number }; }));
+          shown = hits.map(function (k) { return pool[k]; });
+        }
+        if (!shown.length) { box.appendChild(h('p.muted.pl-zapnone', L('No channels found'))); return; }
+        shown.slice(0, 500).forEach(function (i) {
+          var c = list[i], nn = Lib.nowNext(c), on = c.id === curId;
+          var prog = nn.now ? h('div.card-progress.inline', [h('div', { style: { width: (B.clamp((now - nn.now.start) / (nn.now.end - nn.now.start), 0, 1) * 100) + '%' } })]) : null;
+          var b = h('button.pl-zapit' + (on ? '.on' : ''), { type: 'button', role: 'listitem', 'aria-current': on ? 'true' : null }, [
+            h('div.pl-zaplogo', [U.img(c.logo, 'logo', B.chanName(c.name))]),
+            h('div.pl-zaptxt', [h('div.pl-zapname', [c.number != null ? h('span.pl-zapnum', String(c.number)) : null, B.chanName(c.name),
+              favs[i] ? U.icon('starFill', 'pl-zapfav') : null, locked(c) ? U.icon('lock', 'pl-zapfav') : null]),
+              h('div.muted.small.pl-zapnow', nn.now ? B.showName(nn.now.title) : (c.group || '')), prog])]);
+          b.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); if (!on || isCatchup()) tuneTo(c); });
+          box.appendChild(b);
+        });
+      }
+      if (P9 && list.length > 1) {
+        var search = h('input.input.pl-zapsearch', { type: 'search', placeholder: L('Search channels'), 'aria-label': L('Search channels') });
+        search.value = zapQuery;
+        search.addEventListener('input', function () { zapQuery = search.value; fill(); });
+        search.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); if (search.value) { search.value = ''; zapQuery = ''; fill(); } else closePanel(); return; }
+          if (e.key === 'ArrowDown') { var f = box.querySelector('button'); if (f) { e.preventDefault(); f.focus(); } }
+          e.stopPropagation();
+        });
+        var bar = h('div.pl-zaptabs', { role: 'tablist', 'aria-label': L('Category') });
+        tabs.forEach(function (t) {
+          var label = t === '*all' ? L('All') : t === '*favorites' ? L('Favorites') : t;
+          var tb = h('button.pl-zaptab' + (t === zapCat ? '.on' : ''), { type: 'button', role: 'tab', 'aria-selected': t === zapCat ? 'true' : 'false' }, label);
+          tb.addEventListener('click', function (e) {
+            e.stopPropagation();
+            zapCat = t;
+            Array.prototype.forEach.call(bar.children, function (x) { x.classList.remove('on'); x.setAttribute('aria-selected', 'false'); });
+            tb.classList.add('on'); tb.setAttribute('aria-selected', 'true');
+            fill();
+          });
+          bar.appendChild(tb);
+        });
+        panel.appendChild(h('div.pl-zaptools', [search, bar]));
+        setTimeout(function () { var o = bar.querySelector('.on'); if (o && o.scrollIntoView) o.scrollIntoView({ block: 'nearest', inline: 'center' }); }, 0);
+      }
+      fill();
       panel.appendChild(box);
       setTimeout(function () { var o = box.querySelector('.on'); if (o && o.scrollIntoView) o.scrollIntoView({ block: 'center' }); }, 0);
     }
@@ -1822,7 +1946,14 @@
       var s = marker.introStart || 0;
       return marker.introEnd > s + 1 && t >= s && t < marker.introEnd - 1;
     }
-    function skipIntro() { if (engine && marker) { engine.seek(marker.introEnd); skipBtn.style.display = 'none'; } }
+    function inRecap(t) { return !!recapSeg && t >= recapSeg.start && t < recapSeg.end - 1; }
+    function skipIntro() {
+      if (!engine) return;
+      var t = engine.time();
+      // build 179: in de samenvatting = naar het einde daarvan; anders naar het einde van de intro
+      if (inRecap(t)) { engine.seek(recapSeg.end); skipBtn.style.display = 'none'; return; }
+      if (marker) { engine.seek(marker.introEnd); skipBtn.style.display = 'none'; }
+    }
     function nextEpisode() {
       var eps = ctx.episodes || [];
       for (var i = 0; i < eps.length; i++) if (eps[i].id === item.id) return eps[i + 1] || null;
@@ -2106,7 +2237,8 @@
       if (isLive() && Date.now() % 30000 < 1000) renderTitleOnly();
       if (!isLive()) {
         var t = engine.time(), d = engine.duration();
-        var intro = inIntro(t);
+        var recap = inRecap(t), intro = recap || inIntro(t);
+        if (intro) { var sl = recap ? L('Skip recap') : L('Skip intro'), sp = skipBtn.querySelector('span'); if (sp && sp.textContent !== sl) sp.textContent = sl; }
         if (intro && skipBtn.style.display === 'none') skipBtn.style.display = '';
         else if (!intro && skipBtn.style.display !== 'none') skipBtn.style.display = 'none';
         if (item.type === 'episode' && d > 120) {

@@ -1619,3 +1619,29 @@ mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, trans
 .ic.b176-anim { animation: b176-pop .45s cubic-bezier(.3, 1.5, .5, 1); }
 .ic-bell.b176-anim { animation: b176-ring .7s ease-in-out; transform-origin: 50% 10%; }
 @media (prefers-reduced-motion: reduce) { .ic.b176-anim, .ic-bell.b176-anim { animation: none; } .b176-pv { transition: none; } }
+
+/* MARK: build 179: zaplijst (tabs en zoeken), scores en standen, teamkleuren, beoordelingen, duimen, sorteren */
+.pl-zaptools { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 10px; }
+.pl-zapsearch { width: 100%; min-height: 40px; }
+.pl-zaptabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.pl-zaptabs::-webkit-scrollbar { display: none; }
+.pl-zaptab { flex: none; min-height: 34px; padding: 6px 12px; border-radius: 999px; border: 1px solid #333; background: #1a1a1a; color: #fff; font: 600 13px/1.2 inherit; cursor: pointer; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.pl-zaptab.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.pl-zaptab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.pl-zapnone { padding: 18px 16px; }
+.sp-score { display: flex; align-items: baseline; gap: 8px; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; margin: 4px 0; }
+.sp-score.final { opacity: .9; }
+.sp-live-card.sp-tc { background: linear-gradient(120deg, color-mix(in srgb, var(--sp-c1) 55%, #181818) 0%, #181818 50%, color-mix(in srgb, var(--sp-c2) 55%, #181818) 100%); }
+.sp-espn .sp-row-main { cursor: default; }
+.sp-tables { display: grid; gap: 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); padding: 0 var(--gutter); }
+.sp-stand { width: 100%; border-collapse: collapse; font-size: 14px; }
+.sp-stand th { text-align: left; color: #9a9a9a; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #2a2a2a; }
+.sp-stand td { padding: 7px 8px; border-bottom: 1px solid #1f1f1f; font-variant-numeric: tabular-nums; }
+.sp-stand td:nth-child(2) { display: flex; align-items: center; gap: 8px; }
+.sp-stand .sp-badge { width: 22px; height: 22px; font-size: 9px; }
+.dt-ratings { display: flex; flex-wrap: wrap; gap: 2px 0; margin: 6px 0 2px; font-size: 14px; color: #d6d6d6; }
+.dt-ratings .rt-src { color: #9a9a9a; font-weight: 600; }
+.dt-ratings .rt-dot { color: #6b6b6b; white-space: pre; }
+.dt-thumbs { display: flex; gap: 8px; margin-top: 12px; }
+.dt-thumb.on { background: #fff; color: #000; }
+.page.catalog .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
