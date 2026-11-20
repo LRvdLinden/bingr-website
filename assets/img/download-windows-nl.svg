@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="246" height="82" viewBox="0 0 246 82" role="img" aria-label="Download voor Windows">
+<title>Download voor Windows</title>
+<rect x="1" y="1" width="244" height="80" rx="11" fill="#080808" stroke="#b8b8b8" stroke-width="1.5"/>
+<g fill="#E50914"><path d="M19 23L43 19V40H19Z"/><path d="M47 18L72 14V40H47Z"/><path d="M19 44H43V65L19 61Z"/><path d="M47 44H72V70L47 66Z"/></g>
+<text x="85" y="31" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14.5" font-weight="400">Download voor</text>
+<text x="85" y="62" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="600" letter-spacing="-0.6">Windows</text>
+</svg>
