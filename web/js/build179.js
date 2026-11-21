@@ -346,6 +346,29 @@
     return { intro: seg(r.intro, true), recap: seg(r.recap, true), credits: seg(r.credits, false) };
   };
 
+  /** Build 186: verzoek aan `introdb` → {key, body} of null. Zonder TMDB-id de serietitel, het jaar en het imdb-id
+   *  (de server zoekt dan zelf het TMDB-id). Zelfde regels als Android (Build179Logic.Intro.request). */
+  P.introRequest = function (tmdb, imdb, title, year, season, episode) {
+    season = num(season); episode = num(episode);
+    if (season == null || episode == null || season < 0 || episode < 0 || season % 1 || episode % 1) return null;
+    var id = num(tmdb); if (id == null || id <= 0 || id % 1) id = null;
+    var tt = typeof imdb === 'string' && /^tt\d{5,10}$/.test(imdb.trim()) ? imdb.trim() : null;
+    var name = typeof title === 'string' && title.trim() ? title.trim().slice(0, 200) : null;
+    var y = num(year); if (y == null || y < 1900 || y > 2100 || y % 1) y = null;
+    var body = {}, key;
+    if (id != null) { body.tmdb = id; key = String(id); }
+    else if (tt || name) {
+      if (name) body.title = name;
+      if (y != null) body.year = y;
+      key = tt || 't:' + name.toLowerCase() + ':' + (y != null ? y : '');
+    } else return null;
+    if (tt) body.imdb = tt;
+    body.season = season; body.episode = episode;
+    return { key: key + ':' + season + ':' + episode, body: body };
+  };
+  /** Build 186: heeft IntroDB tijden voor de intro of de samenvatting, dan geen "Intro hier markeren". */
+  P.introKnown = function (seg) { return !!(seg && (seg.intro || seg.recap)); };
+
   // MARK: 11. Voor jou (profile.<id>.ratings)
 
   P.FORYOU_MAX = 30;

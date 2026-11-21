@@ -859,7 +859,7 @@
       // build 179 (#10): tijden per aflevering uit IntroDB (functie introdb) gaan voor; anders de eigen markeringen
       recapSeg = null;
       if (item.type === 'episode' && B.b179ui && ctx.series && item.season != null && item.episode != null) {
-        B.b179ui.seriesTmdb(ctx.series).then(function (id) { return id ? B.b179ui.introFor(id, item.season, item.episode) : null; }).then(function (seg) {
+        B.b179ui.seriesTmdb(ctx.series).then(function (id) { return B.b179ui.introFor(id, item.season, item.episode, null, ctx.series); }, function () { return B.b179ui.introFor(null, item.season, item.episode, null, ctx.series); }).then(function (seg) {
           if (!seg || closed || gen !== startGen) return;
           var m = B.assign({}, marker || {});
           if (seg.intro) { m.introStart = seg.intro.start; m.introEnd = seg.intro.end; }
