@@ -51,6 +51,19 @@ eq(P.memoKey('ABC', { type: 'movie', id: 9 }), 'abc|movie:9', 'sleutel film');
 eq(P.introSegments({ ok: true, intro: { start: 12.5, end: 75 }, recap: null, credits: { start: 2580 } }),
   { intro: { start: 12.5, end: 75 }, recap: null, credits: { start: 2580, end: null } }, 'introdb');
 eq(P.introSegments({ ok: false, error: 'not_found' }), null, 'introdb niet gevonden');
+// build 186: zonder TMDB-id de serietitel, het jaar en het imdb-id (zelfde gevallen als Android)
+eq(P.introRequest(1396, 'tt0903747', 'Breaking Bad', 2008, 1, 2),
+  { key: '1396:1:2', body: { tmdb: 1396, imdb: 'tt0903747', season: 1, episode: 2 } }, 'introRequest tmdb');
+eq(P.introRequest(null, null, ' NL | Dark (2017) ', 2017, 1, 1),
+  { key: 't:nl | dark (2017):2017:1:1', body: { title: 'NL | Dark (2017)', year: 2017, season: 1, episode: 1 } }, 'introRequest titel');
+eq(P.introRequest(0, 'tt5753856', 'Dark', 1800, 2, 3),
+  { key: 'tt5753856:2:3', body: { title: 'Dark', imdb: 'tt5753856', season: 2, episode: 3 } }, 'introRequest imdb');
+eq(P.introRequest(null, 'x', ' ', null, 1, 1), null, 'introRequest niets');
+eq(P.introRequest(1396, null, null, null, 1, null), null, 'introRequest geen aflevering');
+eq(P.introKnown({ intro: { start: 10, end: 70 }, recap: null }), true, 'introKnown intro');
+eq(P.introKnown({ intro: null, recap: { start: 0, end: 40 } }), true, 'introKnown recap');
+eq(P.introKnown({ intro: null, recap: null, credits: { start: 2500 } }), false, 'introKnown alleen aftiteling');
+eq(P.introKnown(null), false, 'introKnown null');
 const xml = '<?xml version="1.0"?><d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/Films/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>' +
   '<d:response><d:href>/dav/Films/Heat%20(1995)/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>' +
   '<d:response><d:href>/dav/Films/Avatar.mkv</d:href><d:propstat><d:prop><d:resourcetype/><d:getcontentlength>123</d:getcontentlength></d:prop></d:propstat></d:response></d:multistatus>';

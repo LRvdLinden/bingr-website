@@ -421,18 +421,18 @@
 
   // MARK: 10. intro en samenvatting overslaan (functie introdb)
 
-  /** {intro, recap, credits} in seconden voor een aflevering, of null (dan de bestaande intro-markeringen). */
-  UI.introFor = function (tmdb, season, episode, imdb) {
-    tmdb = B.int(tmdb);
-    if (!tmdb || season == null || episode == null) return Promise.resolve(null);
-    var key = tmdb + ':' + season + ':' + episode;
-    var hit = cacheGet('b179.introdb', key, P.INTRO_DAYS);
+  /** {intro, recap, credits} in seconden voor een aflevering, of null (dan de bestaande intro-markeringen).
+   *  Build 186: zonder TMDB-id de serie (titel, jaar, imdb) meegeven; de server zoekt dan zelf het TMDB-id. */
+  UI.introFor = function (tmdb, season, episode, imdb, series) {
+    var t = B.int(tmdb) || null;
+    var rq = P.introRequest(t, imdb || (series && series.imdbID) || null, t ? null : series && (series.rawTitle || series.title),
+      t ? null : series && series.year, season, episode);
+    if (!rq) return Promise.resolve(null);
+    var hit = cacheGet('b179.introdb', rq.key, P.INTRO_DAYS);
     if (hit && (hit.v || Date.now() - hit.at < P.INTRO_MISS_DAYS * 86400000)) return Promise.resolve(hit.v || null);
-    var body = { tmdb: tmdb, season: season, episode: episode };
-    if (imdb) body.imdb = imdb;
-    return callFn('introdb', body).then(function (j) {
+    return callFn('introdb', rq.body).then(function (j) {
       var seg = P.introSegments(j);
-      if (j && (seg || j.error === 'not_found')) cachePut('b179.introdb', key, seg, 400);
+      if (j && (seg || j.error === 'not_found')) cachePut('b179.introdb', rq.key, seg, 400);
       return seg;
     });
   };
