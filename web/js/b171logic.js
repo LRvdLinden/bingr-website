@@ -15,7 +15,7 @@
   // MARK: 1. "Kijk je nog?"
 
   X.ASK_AFTER_EPISODES = 3;
-  X.ANSWER_SECONDS = 60;
+  X.ANSWER_SECONDS = 30;
   X.HOUR_CHOICES = [2, 3, 4];
   X.DEFAULT_HOURS = 3;
   X.QUIET_MS = 3000;

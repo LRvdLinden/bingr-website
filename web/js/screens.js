@@ -1533,6 +1533,7 @@
     var el = h('div.page.detail');
     var pg = { el: el };
     var x = null, episodes = [], season = null, currentEp = null, versions = [], alts = [];
+    var tabBar = null, trailersPanel = null, tabCur = null, recsCount = 0;
     var buttons, epsEl, seasonSel, trailerBtnSlot, meta, langEl, plot, watchLine, seasonToggle, creditsSlot, extraSlot;
     // build 128: titel van een andere server (?s=<server>): via die server, zonder de actieve te wisselen
     var other = r.query.s && B.xs && !B.xs.isActive(r.query.s) ? D.sourceById(r.query.s) : null;
@@ -1631,6 +1632,23 @@
         title: L('Trailer'), allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin' });
       U.modal({ title: t.season ? L('Trailer season %d', t.season) : L('Trailer'), body: h('div.trailer', [frame]), cls: 'trailer-dlg', buttons: [{ label: L('Close') }] });
     }
+    // build 191: tabbladen op de detailpagina. De pure logica staat in build191.js; het actieve tabblad krijgt een rode streep.
+    function drawTabs() {
+      if (!tabBar || !B.b191) return;
+      var tabs = B.b191.tabs({ episodes: isShow && episodes.length, more: recsCount, trailers: !!trailer });
+      tabCur = B.b191.pick(tabs, tabCur);
+      if (tabCur) el.setAttribute('data-tab', tabCur); else el.removeAttribute('data-tab');
+      U.clear(tabBar);
+      tabBar.style.display = B.b191.showBar(tabs) ? '' : 'none';
+      var names = { episodes: L('Episodes'), more: L('More like this'), trailers: L('Trailers') };
+      tabs.forEach(function (k) {
+        var b = h('button.dt-tab' + (k === tabCur ? '.on' : ''), { type: 'button', role: 'tab', 'aria-selected': k === tabCur ? 'true' : 'false' }, names[k]);
+        b.addEventListener('click', function () { tabCur = k; drawTabs(); });
+        tabBar.appendChild(b);
+      });
+      U.clear(trailersPanel);
+      if (trailer) trailersPanel.appendChild(U.button(trailer.season ? L('Trailer season %d', trailer.season) : L('Trailer'), function () { openTrailer(trailer); }, { icon: 'trailer' }));
+    }
     function loadTrailer() {
       if (!trailerBtnSlot) return;
       var want = isShow ? season : null;
@@ -1642,6 +1660,7 @@
         U.clear(trailerBtnSlot);
         if (t) trailerBtnSlot.appendChild(U.button(t.season ? L('Trailer season %d', t.season) : L('Trailer'), function () { openTrailer(t); }, { icon: 'trailer' }));
         if (compact() && had !== !!t) drawButtons();   // build 174: smalle rij met of zonder Trailer
+        drawTabs();
       });
     }
 
@@ -1912,7 +1931,7 @@
         currentEp = pickCurrent();
         season = currentEp ? currentEp.season : seasons()[0];
         drawSeasons();
-        drawEpisodes();
+        drawEpisodes(); drawTabs();
         drawButtons();
         loadTrailer();
         autoTrailer();
@@ -1963,6 +1982,12 @@
       el.appendChild(h('div.dt-top', [back, h('div.dt-poster', [U.img(x.poster, 'poster', x.title)]),
         h('div.dt-info', [h('div.hero-kind', isShow ? L('SERIES') : L('FILM')), h('h1.dt-title', B.showName(x.title)), meta, ratingsSlot, langEl, plot, creditsSlot, buttons, thumbsEl])]));
       if (tmdbNow) drawRatings(tmdbNow);
+      // build 191: tabbladen Afleveringen / Meer zoals dit / Trailers (alleen met inhoud)
+      tabBar = h('div.dt-tabs', { role: 'tablist' });
+      trailersPanel = h('section.dt-trailers');
+      tabBar.style.display = 'none';
+      el.appendChild(tabBar);
+      el.appendChild(trailersPanel);
       if (isShow) {
         seasonSel = h('select.dt-season', { 'aria-label': L('Season') });
         seasonSel.addEventListener('change', function () {
@@ -1982,6 +2007,7 @@
       metaText();
       drawLang();
       drawButtons();
+      drawTabs();
       setTimeout(function () { if (alive && refreshVersions()) drawButtons(); }, 60);
       B.ageRatings.originalLanguage(x, isShow).then(function () { if (!alive) return; drawLang(); metaText(); if (refreshVersions()) drawButtons(); });
       el.appendChild(extraSlot);
@@ -2001,6 +2027,7 @@
         metaText([d.runtime]);
         U.clear(creditsSlot); var cr = B.details.credits(d); if (cr) creditsSlot.appendChild(cr);
         U.clear(extraSlot); var ex = B.details.sections(d); if (ex) extraSlot.appendChild(ex);
+        recsCount = (d.recommendations || []).length; drawTabs();
       }, function () { /* stil: de pagina werkt ook zonder */ });
     }
     pg.refresh = function () { if (!x || x !== find()) build(); };
