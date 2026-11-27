@@ -80,7 +80,7 @@
   function askMainPin(onOK, onCancel) {
     var main = D.mainProfile();
     var done = false;
-    var dlg = U.askPIN(L('Enter PIN'), function (v) { return D.checkPin(main, v); }, function () { done = true; onOK(); }, S.avatar(main, 'pinav'));
+    var dlg = U.askPIN(L('Enter PIN'), function (v) { return D.checkPin(main, v); }, function () { done = true; onOK(); }, S.avatar(main, 'pinav'), { profile: main });
     if (onCancel && dlg && dlg.el) {
       var obs = new MutationObserver(function () { if (!document.body.contains(dlg.el)) { obs.disconnect(); if (!done) onCancel(); } });
       obs.observe(document.body, { childList: true, subtree: true });

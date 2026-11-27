@@ -42,7 +42,7 @@
     var needs = !!((p && p.kids) || (target && target.kids));
     var pin = main ? D.pinFor(main) : null;
     if (!needs || !pin) { fn(); return; }
-    U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(main, x); }, fn, S.avatar(main, 'pinav'));
+    U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(main, x); }, fn, S.avatar(main, 'pinav'), { profile: main });
   }
   function setFor(p, field, key, on) {
     if (!p) return;

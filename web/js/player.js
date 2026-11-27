@@ -731,12 +731,14 @@
         rightBtns.appendChild(U.button(L('Back to live'), function () { goLive(); }, { icon: 'tv', cls: 'pl-tb pl-golive', title: L('Back to live') }));
       }
       // build 173 (#5): Afleveringen in de speler
-      if (item.type === 'episode' && (ctx.episodes || []).length > 1) rightBtns.appendChild(iconBtn('list', L('Episodes') + ' (E)', function () { togglePanel('episodes'); }, 'pl-epsbtn'));
+      if (item.type === 'episode' && (ctx.episodes || []).length > 1) rightBtns.appendChild(U.button(L('Episodes'), function () { togglePanel('episodes'); }, { icon: 'list', cls: 'pl-tb pl-epsbtn', title: L('Episodes') + ' (E)' }));
       // build 173 (#3): Zappen als lijst en Vorige zender
       if ((isLive() || isCatchup()) && zapChannels().length > 1) rightBtns.appendChild(iconBtn('guide', L('Zap') + ' (Z)', function () { togglePanel('zap'); }, 'pl-zapbtn'));
       if (isLive() && previousChannel()) rightBtns.appendChild(iconBtn('history', L('Previous channel') + ' (R)', function () { goPrevious(); }, 'pl-prevbtn'));
+      // build 190: Snelheid (niet bij live), met symbool en tekst zoals in de apps
+      if (!isLive()) rightBtns.appendChild(U.button(L('Speed'), function () { togglePanel('speed'); }, { icon: 'speed', cls: 'pl-tb pl-speedbtn', title: L('Speed') }));
       // build 173 (A): één knop voor audio en ondertitels
-      rightBtns.appendChild(iconBtn('subs', L('Audio & subtitles') + ' (A)', function () { togglePanel('av'); }, 'pl-avbtn'));
+      rightBtns.appendChild(U.button(L('Audio & subtitles'), function () { togglePanel('av'); }, { icon: 'subs', cls: 'pl-tb pl-avbtn', title: L('Audio & subtitles') + ' (A)' }));
       // build 173 (#9): slaaptimer
       rightBtns.appendChild(iconBtn('clock', L('Sleep timer'), function () { togglePanel('sleep'); }, 'pl-sleepbtn' + (sleep.choice ? ' on' : '')));
       if (castSupported) rightBtns.appendChild(castBtn);
@@ -1635,7 +1637,7 @@
       if (!panelKind) return;
       var y = (panel.querySelector('.pl-panel-body') || {}).scrollTop || 0;
       U.clear(panel);
-      ({ av: avPanel, zap: zapPanel, episodes: episodesPanel, sleep: sleepPanel })[panelKind]();
+      ({ av: avPanel, zap: zapPanel, episodes: episodesPanel, sleep: sleepPanel, speed: speedPanel })[panelKind]();
       var body = panel.querySelector('.pl-panel-body');
       if (body && y) body.scrollTop = y;
     }
@@ -1668,8 +1670,10 @@
       var tr = engine ? engine.tracks() : { audio: [], text: [], currentAudio: null, currentText: null };
       var body = h('div.pl-panel-body.pl-cols');
       var ac = h('div.pl-col', [h('h3', L('Audio'))]);
+      var audioLabels = B.b190.numberDuplicates(tr.audio.map(function (t) { return t.label; }));
+      var textLabels = B.b190.numberDuplicates(tr.text.map(function (t) { return t.label; }));
       if (tr.audio.length > 1) {
-        tr.audio.forEach(function (t) { ac.appendChild(opt(t.label, null, t.index === tr.currentAudio, function () { audioChosen = true; engine.selectAudio(t.index); drawPanel(); })); });
+        tr.audio.forEach(function (t, ai) { ac.appendChild(opt(audioLabels[ai], null, t.index === tr.currentAudio, function () { audioChosen = true; engine.selectAudio(t.index); drawPanel(); })); });
       } else {
         var lg = currentAudioLang();
         ac.appendChild(opt(lg ? B.clang.name(lg) : (tr.audio[0] ? tr.audio[0].label : L('Audio')), null, true, null));
@@ -1680,7 +1684,7 @@
       var cur = extCues ? 'os' : (tr.currentText == null ? -1 : tr.currentText);
       function pickText(i) { autoSubsDone = true; rwSubs = null; clearExtSubs(); engine.selectText(i); drawPanel(); }
       sc.appendChild(opt(L('Off'), null, cur === -1, function () { pickText(null); }));
-      tr.text.forEach(function (t) { sc.appendChild(opt(t.label, null, cur === t.index, function () { pickText(t.index); })); });
+      tr.text.forEach(function (t, ti) { sc.appendChild(opt(textLabels[ti], null, cur === t.index, function () { pickText(t.index); })); });
       if (extCues) sc.appendChild(opt('OpenSubtitles', extLabel || null, true, null));
       if (!isLive()) sc.appendChild(opt(L('Search OpenSubtitles…'), null, false, function () { osSearch(); }, 'pl-os'));
       if (extCues) {
@@ -1921,6 +1925,17 @@
       if (item.type === 'episode') return L('After this episode');
       if (isCatchup() || (isLive() && item.channel && Lib.nowNext(item.channel).now)) return L('After this programme');
       return null;
+    }
+    /** build 190: afspeelsnelheid (0,5× tot 2×), zoals Snelheid in de apps. */
+    var SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+    function speedPanel() {
+      panel.appendChild(panelHead(L('Speed')));
+      var body = h('div.pl-panel-body');
+      var cur = video.playbackRate || 1;
+      SPEEDS.forEach(function (s) {
+        body.appendChild(opt(s === 1 ? L('Normal') : String(s).replace('.', ',') + '×', null, Math.abs(cur - s) < 0.01, function () { video.playbackRate = s; drawPanel(); }));
+      });
+      panel.appendChild(body);
     }
     function sleepPanel() {
       panel.appendChild(panelHead(L('Sleep timer')));

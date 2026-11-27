@@ -305,7 +305,7 @@
       if (!m) return;
       var go = function () { history.replaceState(null, '', location.pathname + location.search + '#/profiles'); onPick(m); };
       var pin = D.pinFor(m);
-      if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(m, x); }, go, S.avatar(m, 'pinav')); else go();
+      if (pin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(m, x); }, go, S.avatar(m, 'pinav'), { profile: m }); else go();
     }, { cls: 'ghost pf-manage' });
     var el = h('div.profiles-screen', [h('header.login-top', [h('a.logo', { href: '../' }, 'BINGR')]),
       h('div.pf-wrap', [h('h1.pf-title', L("Who's watching?")), grid, manage])]);
@@ -323,7 +323,7 @@
           // build 147 (diagnose): het pincodescherm is wachten op de gebruiker
           if (pin) {
             if (B.diag) { B.diag.waitStart('pin'); B.diag.mark('pin_screen'); }
-            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); onPick(p); }, S.avatar(p, 'pinav'));
+            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); onPick(p); }, S.avatar(p, 'pinav'), { profile: p });
           } else onPick(p);
         });
         grid.appendChild(tile);
@@ -2367,7 +2367,7 @@
         var mainP = D.mainProfile(), mainPin = D.pinFor(mainP);
         sec = section(L('Parental lock'), main ? (mainPin ? null : L('Set a PIN on the main account to protect the parental lock (Manage profiles → main account → PIN code).')) : null);
         var pcOn = B.bool(D.shared('parentalControl', false)) === true;
-        function withPin(go) { if (mainPin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, go); else go(); }
+        function withPin(go) { if (mainPin) U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, go, null, { profile: D.mainProfile() }); else go(); }
         row(sec, L('Lock adult content with this PIN'), main ? null : onOff(pcOn), main ? function () {
           var go = function () { D.setShared('parentalControl', !pcOn); setTimeout(function () { Lib.applyFilters(); render(); }, 50); };
           if (pcOn) withPin(go); else go();
@@ -2381,7 +2381,7 @@
         if (mainPin) {
           row(sec, PC.isUnlocked() ? L('Lock now') : L('Unlock with PIN'), null, function () {
             if (PC.isUnlocked()) { PC.lock(); render(); return; }
-            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, function () { PC.unlock(); render(); });
+            U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(D.mainProfile(), x); }, function () { PC.unlock(); render(); }, null, { profile: D.mainProfile() });
           }, { icon: PC.isUnlocked() ? 'lock' : 'unlock' });
         }
         if (D.ageLimit(prof) != null) row(sec, L('Age limit'), prof.kids ? L('Kids profile') : D.ageLimit(prof) + '+', null);

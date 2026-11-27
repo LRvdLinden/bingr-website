@@ -432,9 +432,12 @@ button.st-row:hover { background: var(--card2); }
 .field-dlg { margin-top: 10px; }
 .pin { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 10px; }
 .pin-input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.pin-dots { display: flex; gap: 14px; margin: 6px 0; }
-.pin-dots span { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; }
-.pin-dots span.on { background: #fff; }
+.pin-dots { display: flex; gap: 12px; margin: 6px 0; }
+.pin-dots span { width: 52px; height: 60px; border-radius: 10px; border: 2px solid #ffffff55; background: #ffffff0f; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; }
+.pin-dots span.on { border-color: #fff; }
+.pin-dots span.cur { border-color: var(--accent); }
+.pin-forgot { background: none; border: 0; color: var(--sec); font-size: 14px; cursor: pointer; text-decoration: underline; padding: 8px; }
+.pin-forgot:hover { color: #fff; }
 .pin-dots.shake { animation: shake .4s; }
 @keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
 .pin-err { color: #ff9a62; min-height: 20px; font-size: 14px; }
@@ -1671,3 +1674,9 @@ mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, trans
 .pm-status .plan-title { margin-bottom: 2px; }
 .pm-manage { margin-top: 10px; }
 @media (max-width: 560px) { .pm-cards { grid-template-columns: 1fr; } .pm-toggle { width: 100%; } .pm-tab { padding: 6px 8px; font-size: 13px; } }
+
+/* build 190: detailpagina zoals de apps: Afspelen rood, overige acties als donkergrijze pillen */
+.dt-btns:not(.compact) .btn:not(.primary) { background: #2a2a2d; border-radius: 99px; padding: 0 18px; }
+.dt-btns:not(.compact) .btn:not(.primary):hover { background: #3a3a3e; }
+.dt-btns:not(.compact) .btn.on { background: #3a3a3e; }
+.btn.pl-tb.pl-speedbtn, .btn.pl-tb.pl-epsbtn, .btn.pl-tb.pl-avbtn { white-space: nowrap; }
