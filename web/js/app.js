@@ -236,7 +236,7 @@
       var pin = D.pinFor(p);
       if (pin) {
         if (B.diag) B.diag.waitStart('pin');
-        U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); pickProfile(p); }, S.avatar(p, 'pinav'));
+        U.askPIN(L('Enter PIN'), function (x) { return D.checkPin(p, x); }, function () { if (B.diag) B.diag.mark('pin_ok'); pickProfile(p); }, S.avatar(p, 'pinav'), { profile: p });
       }
       else pickProfile(p);
     }, p);

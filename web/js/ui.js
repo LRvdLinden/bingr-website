@@ -128,6 +128,7 @@
     heart: '<path d="M12 20s-7-4.4-9-8.6C1.5 8.2 3.5 5 6.7 5c2 0 3.4 1.1 4.3 2.4h2C13.9 6.1 15.3 5 17.3 5c3.2 0 5.2 3.2 3.7 6.4-2 4.2-9 8.6-9 8.6z"/>',
     // build 179: duim omhoog/omlaag (Voor jou)
     thumbUp: '<path d="M7 10v11H3V10h4z"/><path d="M7 10l4-8c1.7 0 3 1.3 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/>',
+    speed: '<path d="M12 14l4-5"/><path d="M3.5 17a9 9 0 1 1 17 0"/><circle cx="12" cy="14" r="1.2"/>',
     thumbDown: '<path d="M17 14V3h4v11h-4z"/><path d="M17 14l-4 8c-1.7 0-3-1.3-3-3v-4H4.5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 5.9 3H17"/>'
   };
   U.icon = function (name, cls) {
@@ -338,7 +339,18 @@
     var dots = h('div.pin-dots');
     var err = h('div.pin-err');
     var input = h('input.pin-input', { type: 'password', inputmode: 'numeric', autocomplete: 'off', maxlength: '4', 'aria-label': title, pattern: '[0-9]*' });
-    function draw() { U.clear(dots); for (var i = 0; i < 4; i++) dots.appendChild(h('span' + (i < val.length ? '.on' : ''))); }
+    var lastTimer = null;
+    // build 190: vier losse vakjes (zoals de apps); het laatst ingetoetste cijfer is even te zien, daarna een punt.
+    function draw(showLast) {
+      clearTimeout(lastTimer);
+      U.clear(dots);
+      for (var i = 0; i < 4; i++) {
+        var on = i < val.length;
+        var vis = on && showLast && i === val.length - 1;
+        dots.appendChild(h('span.pin-box' + (on ? '.on' : '') + (i === val.length ? '.cur' : ''), vis ? val.charAt(i) : (on ? '\u2022' : '')));
+      }
+      if (showLast && val.length < 4) lastTimer = setTimeout(function () { draw(false); }, 700);
+    }
     var dlg;
     function showLock() {
       clearTimeout(lockTimer);
@@ -372,7 +384,7 @@
       }
       done(!!res);
     }
-    input.addEventListener('input', function () { if (checking) { input.value = val; return; } val = input.value.replace(/\D/g, '').slice(0, 4); input.value = val; err.textContent = ''; draw(); attempt(); });
+    input.addEventListener('input', function () { if (checking) { input.value = val; return; } val = input.value.replace(/\D/g, '').slice(0, 4); input.value = val; err.textContent = ''; draw(true); attempt(); });
     var pad = h('div.pin-pad');
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].forEach(function (k) {
       if (!k) { pad.appendChild(h('span')); return; }
@@ -380,13 +392,31 @@
       b.addEventListener('click', function () {
         if (checking) return;
         if (k === '⌫') val = val.slice(0, -1); else if (val.length < 4) val += k;
-        input.value = val; err.textContent = ''; draw(); attempt();
+        input.value = val; err.textContent = ''; draw(k !== '\u232b'); attempt();
       });
       pad.appendChild(b);
     });
     draw();
-    dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }],
-      onClose: function () { clearTimeout(lockTimer); } });
+    // build 190: "Pincode vergeten?": het Bingr-wachtwoord intypen haalt de pincode weg (zoals in de Android-app); alleen met een account.
+    var forgot = null;
+    if (opts.profile && !opts.free && B.account && B.account.isSignedIn() && B.account.email()) {
+      forgot = h('button.pin-forgot', { type: 'button' }, L('Forgot PIN?'));
+      forgot.addEventListener('click', function () {
+        var pid = opts.profile;
+        U.form(L('Forgot PIN?'), [{ key: 'pw', label: L('Password'), type: 'password', autocomplete: 'current-password' }], function (v) {
+          if (!v.pw) return false;
+          return B.account.signIn(B.account.email(), v.pw).then(function () {
+            return B.data.setPin(pid, null);
+          }).then(function () {
+            clearTimeout(lockTimer);
+            if (B.pin && B.pin.succeeded) B.pin.succeeded();
+            dlg.close(); U.toast(L('PIN removed. You can set a new one in Settings.')); onOK();
+          }, function () { throw new Error(L('Wrong password')); });
+        }, { note: L('Enter your Bingr account password to remove the PIN.'), saveLabel: L('Remove PIN') });
+      });
+    }
+    dlg = U.modal({ title: title, body: h('div.pin', [avatar ? h('div.pin-av', [avatar]) : null, input, dots, err, pad, forgot]), cls: 'pin-dlg', buttons: [{ label: L('Cancel'), primary: false }],
+      onClose: function () { clearTimeout(lockTimer); clearTimeout(lastTimer); } });
     showLock();
     setTimeout(function () { input.focus(); }, 40);
     return dlg;
