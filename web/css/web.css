@@ -1680,3 +1680,14 @@ mark.b176-hit { background: color-mix(in srgb, var(--accent, #E50914) 45%, trans
 .dt-btns:not(.compact) .btn:not(.primary):hover { background: #3a3a3e; }
 .dt-btns:not(.compact) .btn.on { background: #3a3a3e; }
 .btn.pl-tb.pl-speedbtn, .btn.pl-tb.pl-epsbtn, .btn.pl-tb.pl-avbtn { white-space: nowrap; }
+
+/* build 191: tabbladen op de detailpagina (Afleveringen / Meer zoals dit / Trailers): rode streep boven het actieve tabblad */
+.dt-tabs { display: flex; gap: 6px; padding: 8px var(--gutter) 0; max-width: 1200px; overflow-x: auto; scrollbar-width: none; }
+.dt-tabs::-webkit-scrollbar { display: none; }
+.dt-tab { position: relative; background: none; border: 0; border-top: 3px solid transparent; padding: 10px 14px 8px; color: #8c8c8c; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.dt-tab.on { color: #fff; border-top-color: var(--accent); }
+.dt-tab:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.dt-trailers { display: none; padding: 14px var(--gutter) 40px; max-width: 1200px; }
+.page.detail[data-tab="trailers"] .dt-trailers { display: block; }
+.page.detail[data-tab]:not([data-tab="episodes"]) .dt-episodes { display: none; }
+.page.detail[data-tab]:not([data-tab="more"]) .dt-recs, .page.detail[data-tab]:not([data-tab="more"]) .dt-recs-slot { display: none; }

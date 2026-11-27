@@ -157,7 +157,7 @@
 
   UI.settings = function (tab, section, row, render, p, main) {
     if (tab === 'playback') {
-      var sec = section(L('Are you still watching?'), L('After 3 episodes in a row without using the controls, or after a few hours of live TV or a movie without any input, Bingr asks if you are still watching. Without an answer it pauses after 60 seconds and frees the stream. Applies to this device.'));
+      var sec = section(L('Are you still watching?'), L('After 3 episodes in a row without using the controls, or after a few hours of live TV or a movie without any input, Bingr asks if you are still watching. Without an answer it pauses after 30 seconds and frees the stream. Applies to this device.'));
       var on = D.local('stillWatching', true) !== false;
       row(sec, L('Ask if you are still watching'), null, function () { D.setLocal('stillWatching', !on); render(); }, { toggle: on });
       if (on) {

@@ -17,7 +17,7 @@
     'Live TV and movies: ask after': 'Live en films: vragen na',
     'Ask after': 'Vragen na',
     '%d hours': '%d uur',
-    'After 3 episodes in a row without using the controls, or after a few hours of live TV or a movie without any input, Bingr asks if you are still watching. Without an answer it pauses after 60 seconds and frees the stream. Applies to this device.': 'Na 3 afleveringen achter elkaar zonder bediening, of na een paar uur live of film zonder enige bediening, vraagt Bingr of je nog kijkt. Zonder antwoord pauzeert hij na 60 seconden en komt de stream vrij. Geldt voor dit apparaat.',
+    'After 3 episodes in a row without using the controls, or after a few hours of live TV or a movie without any input, Bingr asks if you are still watching. Without an answer it pauses after 30 seconds and frees the stream. Applies to this device.': 'Na 3 afleveringen achter elkaar zonder bediening, of na een paar uur live of film zonder enige bediening, vraagt Bingr of je nog kijkt. Zonder antwoord pauzeert hij na 30 seconden en komt de stream vrij. Geldt voor dit apparaat.',
     'Hide channel': 'Zender verbergen',
     'Hide for this profile': 'Verbergen voor dit profiel',
     'Hide for %@': 'Verbergen voor %@',

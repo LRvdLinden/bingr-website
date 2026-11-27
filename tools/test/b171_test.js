@@ -26,8 +26,8 @@ sw.answered(22000);
 eq(sw.shouldAsk(23000, 3, true), false, 'na Verder kijken opnieuw');
 sw.autoEpisode(30000); sw.interaction(40000);
 eq(sw.autoEpisodes, 0, 'bediening na het stille venster zet de teller op 0');
-eq(X.secondsLeft(0, 59001), 1); eq(X.secondsLeft(0, 70000), 0);
-eq(X.timedOut(0, 59999), false); eq(X.timedOut(0, 60000), true);
+eq(X.secondsLeft(0, 29001), 1); eq(X.secondsLeft(0, 40000), 0);
+eq(X.timedOut(0, 29999), false); eq(X.timedOut(0, 30000), true);
 
 // 15/20. sleutels
 eq(X.channelKey('ABC-1', 'x12'), 'abc-1|x12');
