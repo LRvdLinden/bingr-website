@@ -29,6 +29,7 @@ eq(F.code('plan_required'), 'plan_required');
 // foutcodes van billing `checkout`
 eq(F.errorCode(400, { error: 'plan_required' }), 'plan_required');
 eq(F.errorCode(409, { error: 'already_premium' }), 'already_premium');
+eq(F.errorCode(0, { error: 'waiver_required' }), 'waiver_required', 'klik zonder het vinkje');
 eq(F.errorCode(503, { error: 'billing_unavailable' }), 'billing_unavailable');
 eq(F.errorCode(503, {}), 'checkout_unavailable');
 eq(F.errorCode(502, null), 'checkout_unavailable');
@@ -98,7 +99,7 @@ eq(F.platformFromQuery(q('')), 'web');
   const lt = fs.readFileSync(path.join(root, 'web', 'js', 'lifetime.js'), 'utf8');
   for (const [name, html] of [['upgrade', up], ['klaar', klaar], ['web', web]]) assert.ok(/assets\/js\/funnel\.js\?v=193/.test(html), name + ' laadt funnel.js');
   assert.ok(web.indexOf('funnel.js') < web.indexOf('js/premium.js'), 'webspeler: funnel.js vóór premium.js');
-  for (const s of ['funnelPaywall()', 'funnelStart(b.dataset.plan)', 'funnelStart("lifetime")', 'funnelBack("purchase_ok")', 'funnelBack("purchase_cancelled")', 'funnelFail(']) assert.ok(up.includes(s), 'upgrade: ' + s);
+  for (const s of ['funnelPaywall()', 'funnelStart(b.dataset.plan)', 'funnelStart("lifetime")', 'funnelBack("purchase_ok")', 'funnelBack("purchase_cancelled")', 'funnelFail(', 'waiver_required']) assert.ok(up.includes(s), 'upgrade: ' + s);
   assert.ok(klaar.includes('"purchase_ok"'), 'klaar: purchase_ok');
   assert.ok(lt.includes("'paywall_shown'"), 'webspeler: paywall_shown');
   // de build staat nergens vast in de aanroepen

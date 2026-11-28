@@ -389,7 +389,8 @@ function premPricing(trialDays, disabled) {
 }
 async function premCheckout(b) {
   const err = $("ppErr");
-  if (!$("ppWaiver").checked) { err.textContent = ptr("needWaiver"); $("ppWaiver").focus(); return; }
+  // build 193: een klik zonder het vinkje komt nooit bij de server; tel hem als mislukte poging (waiver_required)
+  if (!$("ppWaiver").checked) { funnelFail(b.dataset.plan, 0, { error: "waiver_required" }); err.textContent = ptr("needWaiver"); $("ppWaiver").focus(); return; }
   const label = b.textContent;
   busy(b, true, tr("payBusy")); err.textContent = "";
   try {
@@ -561,7 +562,7 @@ function wirePay(guest) {
   }).catch(paySoon);
   $("waiver").onchange = () => { if ($("waiver").checked) $("payErr").textContent = ""; };
   b.onclick = async () => {
-    if (!$("waiver").checked) { $("payErr").textContent = tr("needWaiver"); $("waiver").focus(); return; }
+    if (!$("waiver").checked) { funnelFail("lifetime", 0, { error: "waiver_required" }); $("payErr").textContent = tr("needWaiver"); $("waiver").focus(); return; }
     busy(b, true, tr("payBusy")); $("payErr").textContent = ""; b.dataset.busy = "1";
     try {
       // build 167: met de kortingscode uit het veld (zonder code kiest de server zelf de eigen geldige code van het account)
