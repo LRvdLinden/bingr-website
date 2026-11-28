@@ -102,6 +102,18 @@ eq(F.platformFromQuery(q('')), 'web');
   for (const s of ['funnelPaywall()', 'funnelStart(b.dataset.plan)', 'funnelStart("lifetime")', 'funnelBack("purchase_ok")', 'funnelBack("purchase_cancelled")', 'funnelFail(', 'waiver_required']) assert.ok(up.includes(s), 'upgrade: ' + s);
   assert.ok(klaar.includes('"purchase_ok"'), 'klaar: purchase_ok');
   assert.ok(lt.includes("'paywall_shown'"), 'webspeler: paywall_shown');
+  // klik zonder vinkje: zichtbare melding (rode rand, scrollen, focus), nog steeds geteld als waiver_required; vinkje blijft
+  assert.ok(up.includes('function needWaiver(') && up.includes('classList.add("need")') && up.includes('scrollIntoView') && up.includes('.waiver.need{'), 'upgrade: zichtbare waiver-melding');
+  assert.ok(up.includes('needWaiver("ppWaiver"') && up.includes('needWaiver("waiver"'), 'upgrade: beide checkouts gebruiken hem');
+  assert.ok(up.includes('funnelFail(b.dataset.plan, 0, { error: "waiver_required" })') && up.includes('funnelFail("lifetime", 0, { error: "waiver_required" })'), 'waiver_required blijft geteld');
+  assert.ok(up.includes('id="ppWaiver"') && up.includes('id="waiver"'), 'het vinkje blijft verplicht');
+  // al een account: duidelijke keuze om in te loggen, zonder token in een URL
+  assert.ok((up.match(/id="guestLogin"/g) || []).length === 2 && up.includes('I already have an account: sign in') && up.includes('Ik heb al een account: inloggen'), 'upgrade: inlogkeuze voor gasten (Premium en Lifetime)');
+  assert.ok(up.includes('WANT_ACCT') && up.includes('afterLogin'), 'upgrade: na inloggen een aanwijzing');
+  // bedankpagina: Lifetime alleen na Lifetime; Premium na een abonnement; anders neutraal
+  assert.ok(klaar.includes('Je hebt nu Premium') && klaar.includes('You now have Premium') && klaar.includes('doneTitleN'), 'klaar: Premium- en neutrale tekst');
+  assert.ok(klaar.includes('m.product === "lifetime" ? "lifetime" : "premium"'), 'klaar: soort uit de gestarte aankoop');
+  assert.ok(klaar.indexOf('let KIND') < klaar.indexOf('const FRESH') && klaar.indexOf('let KIND') < klaar.indexOf('funnelOk();'), 'klaar: soort vastgelegd vóór purchase_ok het onthouden product wist');
   // de build staat nergens vast in de aanroepen
   for (const [name, t] of [['upgrade', up], ['klaar', klaar], ['lifetime.js', lt]]) assert.ok(!/build:\s*19\d/.test(t), name + ': geen vast buildnummer');
   console.log('build193_test ok');

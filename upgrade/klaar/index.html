@@ -117,6 +117,10 @@ const tr = t({
         signUp: "Maak je account", sameEmail: "Gebruik het e-mailadres waarmee je hebt betaald; dan vinden we je aankoop ook als deze pagina later dicht is.",
         orSignIn: "Heb je al een account? Log in", signIn: "Inloggen", email: "E-mailadres", password: "Wachtwoord", show: "Tonen", hide: "Verbergen", forgot: "Wachtwoord vergeten?",
         waiting: "Even geduld…", claiming: "We zetten Lifetime op je account…",
+        leadP: "Maak nu je Bingr-account, of log in als je er al een hebt. Daarna staat Premium meteen aan, op al je apparaten.", claimingP: "We zetten Premium op je account…",
+        doneTitleP: "Je hebt nu Premium 🎉", doneTextP: "Premium staat op je account. Open de app opnieuw of vernieuw de pagina. Je bevestiging komt per e-mail.",
+        leadN: "Maak nu je Bingr-account, of log in als je er al een hebt. Daarna staat je aankoop meteen aan, op al je apparaten.", claimingN: "We zetten je aankoop op je account…",
+        doneTitleN: "Je aankoop staat aan 🎉", doneTextN: "Je aankoop staat op je account. Open de app opnieuw of vernieuw de pagina. Je bevestiging komt per e-mail.",
         doneTitle: "Je hebt nu Lifetime 🎉", doneText: "Lifetime staat op je account. Open de app opnieuw of vernieuw de pagina. Je kwitantie komt per e-mail.", watch: "Kijk in je browser", toAccount: "Naar Mijn Bingr",
         noToken: "We konden deze aankoop niet aan je account koppelen. Gebruik je hetzelfde e-mailadres als bij het betalen, dan gebeurt het vanzelf. Lukt het niet, neem dan contact op met <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
         otherAccount: "Deze aankoop staat al op een ander Bingr-account. Log in met het account waarmee je hebt betaald, of neem contact op met <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
@@ -128,6 +132,10 @@ const tr = t({
         signUp: "Create your account", sameEmail: "Use the email address you paid with; then we can find your purchase even if this page is closed later.",
         orSignIn: "Already have an account? Sign in", signIn: "Sign In", email: "Email", password: "Password", show: "Show", hide: "Hide", forgot: "Forgot password?",
         waiting: "One moment…", claiming: "Adding Lifetime to your account…",
+        leadP: "Now create your Bingr account, or sign in if you already have one. Premium is then on right away, on all your devices.", claimingP: "Adding Premium to your account…",
+        doneTitleP: "You now have Premium 🎉", doneTextP: "Premium is on your account. Reopen the app or refresh the page. Your confirmation is on its way by email.",
+        leadN: "Now create your Bingr account, or sign in if you already have one. Your purchase is then on right away, on all your devices.", claimingN: "Adding your purchase to your account…",
+        doneTitleN: "Your purchase is on 🎉", doneTextN: "Your purchase is on your account. Reopen the app or refresh the page. Your confirmation is on its way by email.",
         doneTitle: "You now have Lifetime 🎉", doneText: "Lifetime is on your account. Reopen the app or refresh the page. Your receipt is on its way by email.", watch: "Watch in your browser", toAccount: "Go to My Bingr",
         noToken: "We couldn't link this purchase to your account. If you use the same email address you paid with, it happens automatically. If that doesn't work, contact <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
         otherAccount: "This purchase is already on another Bingr account. Sign in with the account you paid with, or contact <a href=\"https://support.bingr.online/nieuw/\">support</a>.",
@@ -142,6 +150,18 @@ const KEY = "bingr.claim", MAX_AGE = 30 * 86400000;
 const okToken = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{20,200}$/.test(v);
 // build 193: betaaltrechter (assets/js/funnel.js). FRESH = net terug van Stripe (token en sessie in de link); alleen dan
 // telt een betaalde sessie één keer als purchase_ok, met het platform en product van de gestarte aankoop.
+// build 193: wat is er gekocht? Uit de gestarte aankoop (zelfde browser, vóór Stripe onthouden) of daarna uit de rechten.
+// "lifetime" of "premium"; onbekend = neutrale tekst. Nooit "Lifetime" zeggen na een abonnement.
+const PRODUCTS = ["month", "half", "year", "lifetime"];
+let KIND = (() => { try { const m = window.BingrFunnel && window.BingrFunnel.recall(true); return m && PRODUCTS.indexOf(m.product) >= 0 ? (m.product === "lifetime" ? "lifetime" : "premium") : null; } catch (e) { return null; } })();
+const sfx = () => (KIND === "lifetime" ? "" : KIND === "premium" ? "P" : "N");
+const kt = (k) => tr(k + sfx());
+function applyKind() {
+  $("lead").textContent = kt("lead");
+  const d = document.querySelector('#done [data-t="doneTitle"]'), x = document.querySelector('#done [data-t="doneText"]');
+  if (d) d.textContent = kt("doneTitle");
+  if (x) x.textContent = kt("doneText");
+}
 const FRESH = okToken(params.get("claim")) && /^cs_[A-Za-z0-9_]+$/.test(params.get("session_id") || "");
 function funnelOk() {
   try { const F = window.BingrFunnel; if (!F || !FRESH) return; const m = F.recall() || {}; F.once("back", "purchase_ok", { platform: m.platform || "web", product: m.product }); } catch (e) {}
@@ -152,11 +172,11 @@ try { const m = FRESH && window.BingrFunnel ? window.BingrFunnel.recall(true) : 
 // token uit de link: bewaren in deze browser en meteen uit de adresbalk (en dus uit de geschiedenis)
 (function () {
   const tok = params.get("claim"), sid = params.get("session_id");
-  if (okToken(tok)) { try { localStorage.setItem(KEY, JSON.stringify({ t: tok, s: /^cs_[A-Za-z0-9_]+$/.test(sid || "") ? sid : null, at: Date.now() })); } catch (e) {} }
+  if (okToken(tok)) { try { localStorage.setItem(KEY, JSON.stringify({ k: KIND, t: tok, s: /^cs_[A-Za-z0-9_]+$/.test(sid || "") ? sid : null, at: Date.now() })); } catch (e) {} }
   if (params.has("claim") || params.has("session_id")) { try { history.replaceState(null, "", location.pathname + (params.get("lang") ? "?lang=" + params.get("lang") : "")); } catch (e) {} }
 })();
 function stored() {
-  try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); if (v && okToken(v.t) && Date.now() - v.at < MAX_AGE) return v; localStorage.removeItem(KEY); } catch (e) {}
+  try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); if (v && okToken(v.t) && Date.now() - v.at < MAX_AGE) { if (!KIND && (v.k === "lifetime" || v.k === "premium")) KIND = v.k; return v; } localStorage.removeItem(KEY); } catch (e) {}
   return null;
 }
 function forget() { try { localStorage.removeItem(KEY); } catch (e) {} }
@@ -171,27 +191,31 @@ async function billing(action, body, authed) {
   return { status: r.status, ok: r.ok, j };
 }
 async function isLifetime() {
+  // ook: bepaal wat het account nu heeft (Lifetime of Premium), voor de juiste tekst
+
   const { data } = await sb.auth.getSession();
   if (!data.session) return false;
   const r = await fetch(cfg.url + "/functions/v1/device-auth", { method: "POST",
     headers: { "Content-Type": "application/json", apikey: cfg.anonKey, Authorization: "Bearer " + data.session.access_token },
     body: JSON.stringify({ action: "entitlements", platform: "web" }) });
   const j = await r.json().catch(() => ({}));
-  return r.ok && j.plan === "lifetime";
+  if (r.ok && !KIND) KIND = j.plan === "lifetime" ? "lifetime" : j.premium && j.premium.active ? "premium" : null;
+  if (r.ok && j.plan !== "lifetime" && j.premium && j.premium.active) KIND = "premium";
+  return r.ok && (j.plan === "lifetime" || !!(j.premium && j.premium.active));
 }
 async function claim() {
-  show("loading"); $("loading").querySelector("p").textContent = tr("claiming"); notice(null);
+  show("loading"); $("loading").querySelector("p").textContent = kt("claiming"); notice(null);
   const c = stored();
   try {
     if (c) {
       const { ok, status, j } = await billing("claim", { claim_token: c.t }, true);
-      if (ok) { funnelOk(); forget(); show("done"); return; }
+      if (ok) { funnelOk(); forget(); await isLifetime().catch(() => {}); applyKind(); show("done"); return; }
       if (status === 409 && j.error === "owned_by_other_account") { notice(tr("otherAccount")); show("auth"); return; }
-      if (status === 409 && j.error === "already_lifetime") { forget(); show("done"); return; }
+      if (status === 409 && j.error === "already_lifetime") { forget(); KIND = "lifetime"; applyKind(); show("done"); return; }
       if (status === 202 || j.error === "not_paid") { notice(tr("pendingPay")); show("auth"); return; }
     }
     // geen (geldig) token meer, of al gekoppeld via het e-mailadres: kijk of het account Lifetime heeft
-    if (await isLifetime()) { forget(); show("done"); return; }
+    if (await isLifetime()) { forget(); applyKind(); show("done"); return; }
     notice(tr("noToken")); show("auth");
   } catch (e) {
     if (e.message === "banned") { notice(tr("banned")); show("auth"); return; }
@@ -199,6 +223,7 @@ async function claim() {
   }
 }
 async function load() {
+  stored(); applyKind();
   const { data } = await sb.auth.getSession();
   if (data.session) { claim(); return; }
   show("auth");
