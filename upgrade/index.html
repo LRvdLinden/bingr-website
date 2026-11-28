@@ -66,6 +66,10 @@
 #auth .authcard{margin-top:10px}
 .pay .waiver{display:flex;gap:10px;align-items:flex-start;margin-top:14px;font-size:14px;color:#e5e5e5;cursor:pointer;line-height:1.45}
 .pay .waiver input{flex:none;width:18px;height:18px;margin-top:2px;accent-color:var(--red)}
+.waiver.need{outline:2px solid #ff453a;outline-offset:6px;border-radius:10px}
+.pp-pay .err,.pay .err{color:#ff6b61;font-weight:600}
+.have-acct .until{margin:0}
+.have-acct{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
 .pay .side{display:flex;flex-direction:column;gap:8px;align-items:stretch}
 .pay .err{min-height:0;font-size:14px}
 .pay .seller{font-size:12.5px;color:var(--sec);margin-top:8px}
@@ -165,6 +169,7 @@
 <script src="../assets/js/plans.js?v=167"></script>
 <script src="../assets/js/lifetime.js?v=169"></script>
 <script src="../assets/js/premium.js?v=181"></script>
+<script src="../assets/js/funnel.js?v=193"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
 // `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
@@ -183,7 +188,7 @@ const tr = t({
         payTitle: "Lifetime voor je hele account", payText: "Eén keer betalen, voor altijd. Het werkt meteen in al je apps, op al je apparaten. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
         price: "<b>€ 4,99</b> eenmalig · prijs incl. btw", payBtn: "Koop Lifetime – € 4,99", paySoon: "Betalen is binnenkort beschikbaar", payBusy: "Even geduld…",
         waiver: "Ik wil Lifetime direct gebruiken en weet dat ik daardoor mijn herroepingsrecht verlies.",
-        needWaiver: "Vink eerst aan dat je Lifetime direct wilt gebruiken.", payFailed: "Afrekenen lukte niet. Probeer het opnieuw of neem contact op met support.",
+        needWaiver: "Vink eerst het vakje hierboven aan (Lifetime direct gebruiken, afstand herroepingsrecht). Daarna kun je betalen.", payFailed: "Afrekenen lukte niet. Probeer het opnieuw of neem contact op met support.",
         rateLimited: "Te veel pogingen. Probeer het over een paar minuten opnieuw.",
         seller: "Verkoper: PixelForges (KvK 70031576), Apeldoorn · btw-id NL001876986B40 · veilig afrekenen via Stripe (o.a. iDEAL, kaart, Apple Pay, Bancontact)",
         legal: "Op Lifetime zijn de <a href=\"../voorwaarden/\">algemene voorwaarden</a> van toepassing; zie ook de <a href=\"../privacy.html#betalen\">privacyverklaring</a>. Lifetime is digitale inhoud die direct na betaling wordt geleverd. Terugbetaling op verzoek via <a href=\"https://support.bingr.online\">support</a>.",
@@ -205,7 +210,7 @@ const tr = t({
         freeUntil: "Gratis (tot %s)", notActive: "Nog niet geactiveerd", notActiveText: "Bingr is nu alleen Lifetime. Je gegevens zijn bewaard: koop Lifetime om verder te kijken.",
         untilText: "Bingr wordt Lifetime op %s. Daarna werkt Bingr alleen nog met Lifetime; je gegevens blijven bewaard.",
         guestTitle: "Koop Lifetime, maak daarna je account", guestText: "Je betaalt eerst. Daarna maak je je Bingr-account (of log je in) en staat Lifetime meteen aan, op al je apparaten.",
-        haveAccount: "Heb je al een account?", signInNow: "Log in.", guestLink: "Koop eerst Lifetime, daarna maak je je account.",
+        haveAccount: "Heb je al een account?", signInNow: "Ik heb al een account: inloggen", afterLogin: "Je bent ingelogd. Betaal nu op je eigen account.", guestLink: "Koop eerst Lifetime, daarna maak je je account.",
         guestPayTitle: "Lifetime, zonder account te kopen", guestPayText: "Je vult je e-mailadres in bij het afrekenen. Gebruik daarna hetzelfde adres voor je Bingr-account; dan koppelen we de aankoop vanzelf. Vragen? <a href=\"https://support.bingr.online\">support.bingr.online</a>" },
   en: { docTitle: "Upgrade to Lifetime · Bingr", title: "Upgrade to Lifetime", lead: "Pay €4.99 once, keep it forever: more screens at once, more devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles subtitles, statistics, Watching now, Trakt and themes.",
         fromApp: "After upgrading, Lifetime shows up in the app within a few minutes.",
@@ -216,7 +221,7 @@ const tr = t({
         payTitle: "Lifetime for your whole account", payText: "Pay once, keep it forever. It works right away in all your apps, on all your devices. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>",
         price: "<b>€4.99</b> one-time · price incl. VAT", payBtn: "Buy Lifetime – €4.99", paySoon: "Payment is coming soon", payBusy: "One moment…",
         waiver: "I want to use Lifetime right away and understand that I thereby lose my right of withdrawal.",
-        needWaiver: "First tick the box to confirm you want to use Lifetime right away.", payFailed: "Checkout didn't work. Please try again or contact support.",
+        needWaiver: "First tick the box above (use Lifetime right away, waive the right of withdrawal). Then you can pay.", payFailed: "Checkout didn't work. Please try again or contact support.",
         rateLimited: "Too many attempts. Please try again in a few minutes.",
         seller: "Seller: PixelForges (Dutch Chamber of Commerce 70031576), Apeldoorn · VAT ID NL001876986B40 · secure checkout via Stripe (including iDEAL, card, Apple Pay, Bancontact)",
         legal: "Lifetime is subject to the <a href=\"../voorwaarden/\">terms and conditions</a>; see also the <a href=\"../privacy.html#betalen-en\">privacy policy</a>. Lifetime is digital content delivered right after payment. Refunds on request via <a href=\"https://support.bingr.online\">support</a>.",
@@ -238,7 +243,7 @@ const tr = t({
         freeUntil: "Free (until %s)", notActive: "Not activated yet", notActiveText: "Bingr is now Lifetime only. Your data has been kept: buy Lifetime to keep watching.",
         untilText: "Bingr is going Lifetime on %s. After that, Bingr only works with Lifetime; your data stays safe.",
         guestTitle: "Buy Lifetime, then create your account", guestText: "You pay first. Then you create your Bingr account (or sign in) and Lifetime is on right away, on all your devices.",
-        haveAccount: "Already have an account?", signInNow: "Sign in.", guestLink: "Buy Lifetime first, then create your account.",
+        haveAccount: "Already have an account?", signInNow: "I already have an account: sign in", afterLogin: "You're signed in. Pay now on your own account.", guestLink: "Buy Lifetime first, then create your account.",
         guestPayTitle: "Lifetime, buy without an account", guestPayText: "You enter your email address at checkout. Use the same address for your Bingr account afterwards and we'll link the purchase automatically. Questions? <a href=\"https://support.bingr.online\">support.bingr.online</a>" },
 });
 pwToggles(tr);
@@ -248,7 +253,7 @@ const ptr = t({
   nl: { docTitle: "Kies je plan · Bingr", title: "Kies je Bingr-plan", lead: "Alles van Bingr op al je apparaten: tot 3 schermen tegelijk, 15 apparaten, onbeperkt servers, Verder kijken, kinderprofielen, OpenSubtitles, statistieken, Trakt en thema's.",
         signInTitle: "Log in om je plan te kiezen", intro: "Premium hoort bij je Bingr-account en geldt op al je apparaten.",
         waiver: "Ik wil Premium direct gebruiken en weet dat ik daardoor mijn herroepingsrecht verlies (bij een proef pas na de proef: je kunt in de proefperiode kosteloos opzeggen).",
-        needWaiver: "Vink eerst aan dat je Premium direct wilt gebruiken.",
+        needWaiver: "Vink eerst het vakje hierboven aan (Premium direct gebruiken, afstand herroepingsrecht). Daarna kun je een plan kiezen.",
         legal: "Op Premium en Lifetime zijn de <a href=\"../voorwaarden/\">algemene voorwaarden</a> van toepassing; zie ook de <a href=\"../privacy.html#betalen\">privacyverklaring</a>. Een abonnement verlengt automatisch tot je opzegt; opzeggen kan altijd via Abonnement beheren, tot het einde van de periode.",
         choose: "Kies een plan", chooseText: "Je gegevens zijn bewaard. Kies een plan om verder te kijken.", free: "Gratis",
         renews: "Verlengt op %s", ends: "Loopt af op %s", trialUntil: "Gratis proef tot %s", pastDue: "Betaling mislukt: werk je betaalmethode bij vóór %s",
@@ -256,12 +261,12 @@ const ptr = t({
         haveP: "Je hebt Bingr Premium", havePText: "Alles van Bingr staat voor je aan, op al je apparaten.",
         haveNewP: "Welkom bij Bingr Premium 🎉", haveNewPText: "Het werkt meteen in al je apps: open de app opnieuw of vernieuw de pagina. Je bevestiging komt per e-mail.",
         legacyTitle: "Of: Lifetime met je persoonlijke korting", legacyText: "Je hebt al een account van vóór Premium. Tot %s kun je nog Lifetime kopen voor de oude prijs, met je kortingscode.",
-        haveAccount: "Heb je al een account?", signInNow: "Log in.", soonText: "Premium is nog niet te koop. Log in om je huidige abonnement te zien.",
+        haveAccount: "Heb je al een account?", signInNow: "Ik heb al een account: inloggen", afterLogin: "Je bent ingelogd. Kies je plan en vink het vakje aan; het komt op je eigen account.", soonText: "Premium is nog niet te koop. Log in om je huidige abonnement te zien.",
         alreadyPremium: "Je hebt al een abonnement. Beheer het via Abonnement beheren.", manageFailed: "Abonnement beheren lukte niet. Probeer het opnieuw." },
   en: { docTitle: "Choose your plan · Bingr", title: "Choose your Bingr plan", lead: "Everything in Bingr on all your devices: up to 3 screens at once, 15 devices, unlimited servers, Continue watching, kids profiles, OpenSubtitles, statistics, Trakt and themes.",
         signInTitle: "Sign in to choose your plan", intro: "Premium belongs to your Bingr account and works on all your devices.",
         waiver: "I want to use Premium right away and understand that I thereby lose my right of withdrawal (with a trial only after the trial: you can cancel free of charge during the trial).",
-        needWaiver: "First tick the box to confirm you want to use Premium right away.",
+        needWaiver: "First tick the box above (use Premium right away, waive the right of withdrawal). Then you can choose a plan.",
         legal: "Premium and Lifetime are subject to the <a href=\"../voorwaarden/\">terms and conditions</a>; see also the <a href=\"../privacy.html#betalen-en\">privacy policy</a>. A subscription renews automatically until you cancel; you can cancel any time via Manage subscription, until the end of the period.",
         choose: "Choose a plan", chooseText: "Your data has been kept. Choose a plan to keep watching.", free: "Free",
         renews: "Renews on %s", ends: "Ends on %s", trialUntil: "Free trial until %s", pastDue: "Payment failed: update your payment method before %s",
@@ -269,9 +274,31 @@ const ptr = t({
         haveP: "You have Bingr Premium", havePText: "Everything in Bingr is unlocked for you, on all your devices.",
         haveNewP: "Welcome to Bingr Premium 🎉", haveNewPText: "It works right away in all your apps: reopen the app or refresh the page. Your confirmation is on its way by email.",
         legacyTitle: "Or: Lifetime with your personal discount", legacyText: "You had an account before Premium. Until %s you can still buy Lifetime at the old price, with your discount code.",
-        haveAccount: "Already have an account?", signInNow: "Sign in.", soonText: "Premium isn't on sale yet. Sign in to see your current plan.",
+        haveAccount: "Already have an account?", signInNow: "I already have an account: sign in", afterLogin: "You're signed in. Choose your plan and tick the box; it goes on your own account.", soonText: "Premium isn't on sale yet. Sign in to see your current plan.",
         alreadyPremium: "You already have a subscription. Manage it via Manage subscription.", manageFailed: "Manage subscription didn't work. Please try again." },
 });
+// build 193: de betaaltrechter meten (assets/js/funnel.js): alleen tellen, nooit wachten of de pagina breken.
+// Kwam je uit een app (?from=app&platform=…), dan telt die app het betaalscherm zelf en hoort de aankoop bij dat platform.
+// Terug van Stripe (?status=…) telt het betaalscherm niet opnieuw.
+const FN = window.BingrFunnel || null, FROM_APP = params.get("from") === "app";
+const FN_PLATFORM = FN ? FN.platformFromQuery(params) : "web";
+function funnel(step, o) { try { if (FN) FN.send(step, Object.assign({ platform: FN_PLATFORM }, o || {})); } catch (e) {} }
+function funnelPaywall() { try { if (FN && !FROM_APP && !params.get("status")) FN.once("paywall", "paywall_shown", { platform: FN_PLATFORM }); } catch (e) {} }
+function funnelStart(product) { try { if (FN) { FN.remember({ platform: FN_PLATFORM, product }); funnel("purchase_started", { product }); } } catch (e) {} }
+function funnelFail(product, status, j, thrown) { try { if (FN) funnel("purchase_failed", { product, error: FN.errorCode(status, j, thrown) }); } catch (e) {} }
+// terug van Stripe: platform en product van de gestarte aankoop (bewaard in dit tabblad)
+// build 193: klik zonder het vinkje: rode rand, melding, scrollen en focus (niet stil blijven)
+function needWaiver(inputId, errEl, msg) {
+  const inp = $(inputId), lab = inp.closest("label");
+  errEl.textContent = msg;
+  if (lab) { lab.classList.add("need"); inp.addEventListener("change", () => { if (inp.checked) { lab.classList.remove("need"); errEl.textContent = ""; } }, { once: true }); }
+  try { (lab || inp).scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
+  inp.focus({ preventScroll: true });
+}
+let WANT_ACCT = false; // build 193: gekozen "ik heb al een account"; na het inloggen een korte aanwijzing
+function funnelBack(step) {
+  try { if (!FN) return; const m = FN.recall() || {}; FN.once("back", step, { platform: m.platform || FN_PLATFORM, product: m.product }); } catch (e) {}
+}
 let PREM = null, PREM_PERIOD = "year";
 { const q = params.get("plan"); if (q && q !== "lifetime" && window.BingrPremium) PREM_PERIOD = BingrPremium.cleanPeriod(q); }
 const PJ = window.BingrPremium;
@@ -371,21 +398,26 @@ function premPricing(trialDays, disabled) {
     box.querySelectorAll("[data-plan]").forEach((b) => { b.onclick = () => premCheckout(b); });
   };
   draw();
+  funnelPaywall();
 }
 async function premCheckout(b) {
   const err = $("ppErr");
-  if (!$("ppWaiver").checked) { err.textContent = ptr("needWaiver"); $("ppWaiver").focus(); return; }
+  // build 193: een klik zonder het vinkje komt nooit bij de server; tel hem als mislukte poging (waiver_required)
+  if (!$("ppWaiver").checked) { funnelFail(b.dataset.plan, 0, { error: "waiver_required" }); needWaiver("ppWaiver", err, ptr("needWaiver")); return; }
   const label = b.textContent;
   busy(b, true, tr("payBusy")); err.textContent = "";
   try {
     const { data } = await sb.auth.getSession();
     const body = { lang, waiver: true, plan: b.dataset.plan };
     if (!data.session) body.guest = true;
+    funnelStart(b.dataset.plan);
     const { status, j } = await billing("checkout", body);
     if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
+    funnelFail(b.dataset.plan, status, j);
     if (status === 409 && (j.error === "already_lifetime" || j.error === "already_premium")) { err.textContent = ptr("alreadyPremium"); load(); return; }
     err.textContent = tr(status === 429 ? "rateLimited" : "payFailed");
   } catch (e) {
+    funnelFail(b.dataset.plan, 0, null, e && e.message);
     if (e.message === "banned" || e.message === "signed_out") { load(); return; }
     err.textContent = tr("payFailed");
   }
@@ -442,9 +474,9 @@ function renderPremiumGuest() {
   const on = PREM.enabled && PREM.stripe_ready;
   $("current").innerHTML = `<div class="badge">${ICON_LIFE}</div><div class="t"><div class="v">${esc(on ? tr("guestTitle").replace(/Lifetime/g, "Premium") : ptr("title"))}</div>
     <div class="until">${on ? tr("guestText").replace(/Lifetime/g, "Premium") : ptr("soonText")}</div>
-    <div class="until"><span>${ptr("haveAccount")}</span> <a href="#" id="guestLogin">${ptr("signInNow")}</a></div></div>`;
+    <div class="have-acct"><span class="until">${ptr("haveAccount")}</span> <button type="button" class="btn ghost sm" id="guestLogin">${ptr("signInNow")}</button></div></div>`;
   $("action").innerHTML = "";
-  $("guestLogin").onclick = (ev) => { ev.preventDefault(); show("auth"); PREM_DRAWN = false; $("plansTable").innerHTML = ""; $("email").focus(); };
+  $("guestLogin").onclick = (ev) => { ev.preventDefault(); WANT_ACCT = true; show("auth"); PREM_DRAWN = false; $("plansTable").innerHTML = ""; $("email").focus(); };
   premPricing(on ? PREM.trial_days : 0, !on);
 }
 function render(e, opts) {
@@ -526,14 +558,15 @@ const GUEST = params.get("guest") === "1";
 function renderGuest() {
   $("current").classList.remove("life");
   $("current").innerHTML = `<div class="badge">${ICON_LIFE}</div><div class="t"><div class="v">${tr("guestTitle")}</div><div class="until">${tr("guestText")}</div>
-    <div class="until"><span>${tr("haveAccount")}</span> <a href="#" id="guestLogin">${tr("signInNow")}</a></div></div>`;
+    <div class="have-acct"><span class="until">${tr("haveAccount")}</span> <button type="button" class="btn ghost sm" id="guestLogin">${tr("signInNow")}</button></div></div>`;
   $("action").innerHTML = payCard(true);
-  $("guestLogin").onclick = (ev) => { ev.preventDefault(); show("auth"); $("email").focus(); };
+  $("guestLogin").onclick = (ev) => { ev.preventDefault(); WANT_ACCT = true; show("auth"); $("email").focus(); };
   table(null);
   wirePay(true);
 }
 function wirePay(guest) {
   const b = $("payBtn");
+  funnelPaywall();
   if (!guest) drawCode();
   billingConfig().then(applyConfig).then(({ ok, j }) => {
     if (!guest) drawCode(); table(lastTable);
@@ -542,19 +575,22 @@ function wirePay(guest) {
   }).catch(paySoon);
   $("waiver").onchange = () => { if ($("waiver").checked) $("payErr").textContent = ""; };
   b.onclick = async () => {
-    if (!$("waiver").checked) { $("payErr").textContent = tr("needWaiver"); $("waiver").focus(); return; }
+    if (!$("waiver").checked) { funnelFail("lifetime", 0, { error: "waiver_required" }); needWaiver("waiver", $("payErr"), tr("needWaiver")); return; }
     busy(b, true, tr("payBusy")); $("payErr").textContent = ""; b.dataset.busy = "1";
     try {
       // build 167: met de kortingscode uit het veld (zonder code kiest de server zelf de eigen geldige code van het account)
       const body = { lang, waiver: true }, code = guest ? "" : codeValue();
       if (code) body.code = code;
       if (guest) body.guest = true;
+      funnelStart("lifetime");
       const { status, j } = await billing("checkout", body);
       if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
+      funnelFail("lifetime", status, j);
       if (status === 409 && j.error === "already_lifetime") { load(); return; }
       if (status === 503 && j.error === "billing_unavailable") { paySoon(); return; }
       $("payErr").textContent = tr(status === 400 && j.error === "code_invalid" ? "codeInvalid" : status === 429 ? "rateLimited" : "payFailed");
     } catch (e) {
+      funnelFail("lifetime", 0, null, e && e.message);
       if (!guest && (e.message === "banned" || e.message === "signed_out")) { load(); return; }
       $("payErr").textContent = tr("payFailed");
     }
@@ -573,7 +609,7 @@ async function checkPayment() {
   notice("checking");
   for (let i = 0; i < 6; i++) {
     const { ok, status, j } = await billing("status", { session_id: sessionId });
-    if (ok && j.paid) { notice(null); return true; }
+    if (ok && j.paid) { notice(null); funnelBack("purchase_ok"); return true; }
     if (!ok && status !== 503 && status !== 502) break;
     if (ok && j.status === "expired") break;
     await new Promise((r) => setTimeout(r, 2500));
@@ -583,7 +619,7 @@ async function checkPayment() {
 }
 async function load() {
   const { data } = await sb.auth.getSession();
-  if (back === "cancel") { notice("cancelled"); cleanUrl(); }
+  if (back === "cancel") { notice("cancelled"); funnelBack("purchase_cancelled"); cleanUrl(); }
   if (!data.session) {
     // build 168: na de overgang of als nieuwe accounts eerst moeten kopen (fase 'after') is de gastaankoop de standaard,
     // behalve met ?code= (een bestaand gratis account uit de mail: eerst inloggen, dan geldt de korting)
@@ -625,7 +661,14 @@ $("authForm").onsubmit = async (e) => {
   // inloggen met nette foutmeldingen en de knop altijd weer aan: assets/js/auth-forms.js
   // geblokkeerd account (user_banned): reden en einddatum staan in de mail; contact via een nieuw ticket (zonder inloggen)
   const ok = await BingrAuth.signIn({ email: $("email").value, password: $("password").value, btn: $("authBtn"), label: tr("signIn"), errEl: $("authErr"), tr, onBanned: bannedMsg });
-  if (ok) { billingConfig.p = null; load(); }
+  if (ok) {
+    billingConfig.p = null;
+    const want = WANT_ACCT; WANT_ACCT = false;
+    await load();
+    if (want && ($("ppWaiver") || $("payBtn"))) {
+      const n = $("notice"); n.textContent = PREM ? ptr("afterLogin") : tr("afterLogin"); n.classList.add("good"); n.classList.remove("hidden");
+    }
+  }
 };
 $("forgot").onclick = () => BingrAuth.sendReset({ email: $("email").value, errEl: $("authErr"), tr, sentKey: "resetSent2", trigger: $("forgot"), focusEl: $("email") });
 load();

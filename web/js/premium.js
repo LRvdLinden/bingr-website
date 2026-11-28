@@ -78,7 +78,8 @@
     var full = pr.month * MONTHS[plan];
     return full > 0 ? Math.max(0, Math.round((1 - pr[plan] / full) * 100)) : 0;
   };
-  PM.upgradeUrl = function (plan) { return UPGRADE + '?plan=' + encodeURIComponent(plan) + '&from=app&platform=web'; };
+  // build 193: platform windows vanuit de Windows-app, zodat /upgrade/ de aankoop bij het juiste platform telt
+  PM.upgradeUrl = function (plan) { return UPGRADE + '?plan=' + encodeURIComponent(plan) + '&from=app&platform=' + (B.isWindowsApp ? 'windows' : 'web'); };
 
   function open(url) { try { window.open(url, '_blank', 'noopener'); } catch (e) { /* stil */ } }
   function billing(body) { return B.account && B.account.authed ? B.account.authed(body, '/functions/v1/billing') : Promise.resolve(null); }
