@@ -168,6 +168,9 @@
     if (!overlay) { var n = 0; while (U().closeTopDialog() && n++ < 20) { /* volgende */ } }
     hideAnnounce();
     var el = drawActivate();
+    // build 193: betaaltrechter (../assets/js/funnel.js): het betaalscherm één keer per paginaweergave tellen. De aankoop
+    // zelf start op bingr.online/upgrade/ (die pagina telt verder, met het platform uit de link).
+    try { if (window.BingrFunnel) window.BingrFunnel.once('paywall', 'paywall_shown', { platform: B.isWindowsApp ? 'windows' : 'web' }); } catch (e) { /* stil */ }
     if (overlay && overlay.parentNode) overlay.parentNode.replaceChild(el, overlay);
     else { document.body.appendChild(el); document.addEventListener('keydown', keyGuard, true); }
     overlay = el;

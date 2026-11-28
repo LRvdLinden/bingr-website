@@ -59,6 +59,8 @@ jobs:
           node tools/test/build190_test.js
           # build 191: tabbladen op de detailpagina en Kijk je nog? na 30 seconden (build191_test)
           node tools/test/build191_test.js
+          # build 193: betaaltrechter (assets/js/funnel.js): body, foutcodes, build uit changelog.json (build193_test)
+          node tools/test/build193_test.js
           # build 177: tv-gids per zender op volgorde en zonder dubbelen (build177_test, docs/build177_cases.json)
           node tools/test/build177_test.js
           node tools/test/sportlogos_test.js

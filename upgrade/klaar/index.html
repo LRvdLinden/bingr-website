@@ -104,6 +104,7 @@
 <script src="../../assets/js/account.js?v=141"></script>
 <script src="../../assets/js/auth-forms.js?v=5"></script>
 <script src="../../assets/js/userbtn.js?v=146" data-base="../../"></script>
+<script src="../../assets/js/funnel.js?v=193"></script>
 <script>
 // Build 167 (AANVULLING 1, docs/ACCOUNT.md in iptv-ios-appletv): na een gastaankoop komt Stripe hier terug met
 // ?claim=<token>&session_id=cs_…. Het token bewaren we alleen in deze browser (bingr.claim, 30 dagen), zodat het ook werkt
@@ -139,6 +140,15 @@ pwToggles(tr);
 document.title = tr("docTitle");
 const KEY = "bingr.claim", MAX_AGE = 30 * 86400000;
 const okToken = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{20,200}$/.test(v);
+// build 193: betaaltrechter (assets/js/funnel.js). FRESH = net terug van Stripe (token en sessie in de link); alleen dan
+// telt een betaalde sessie één keer als purchase_ok, met het platform en product van de gestarte aankoop.
+const FRESH = okToken(params.get("claim")) && /^cs_[A-Za-z0-9_]+$/.test(params.get("session_id") || "");
+function funnelOk() {
+  try { const F = window.BingrFunnel; if (!F || !FRESH) return; const m = F.recall() || {}; F.once("back", "purchase_ok", { platform: m.platform || "web", product: m.product }); } catch (e) {}
+}
+// Een abonnement (ook met proef) is klaar zodra Stripe hierheen terugstuurt; een eenmalige aankoop pas als hij betaald is
+// (billing `status` of `claim` hieronder).
+try { const m = FRESH && window.BingrFunnel ? window.BingrFunnel.recall(true) : null; if (m && m.product && m.product !== "lifetime") funnelOk(); } catch (e) {}
 // token uit de link: bewaren in deze browser en meteen uit de adresbalk (en dus uit de geschiedenis)
 (function () {
   const tok = params.get("claim"), sid = params.get("session_id");
@@ -175,7 +185,7 @@ async function claim() {
   try {
     if (c) {
       const { ok, status, j } = await billing("claim", { claim_token: c.t }, true);
-      if (ok) { forget(); show("done"); return; }
+      if (ok) { funnelOk(); forget(); show("done"); return; }
       if (status === 409 && j.error === "owned_by_other_account") { notice(tr("otherAccount")); show("auth"); return; }
       if (status === 409 && j.error === "already_lifetime") { forget(); show("done"); return; }
       if (status === 202 || j.error === "not_paid") { notice(tr("pendingPay")); show("auth"); return; }
@@ -202,6 +212,7 @@ async function load() {
         $("signupBtn").href = "../../koppelen/?mode=signup&next=klaar&email=" + encodeURIComponent(j.email);
       }
       if (ok && j && j.paid === false) notice(tr("pendingPay"));
+      else if (ok && j && j.paid === true) funnelOk();
     } catch (e) {}
   }
 }

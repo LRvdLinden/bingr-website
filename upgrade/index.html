@@ -165,6 +165,7 @@
 <script src="../assets/js/plans.js?v=167"></script>
 <script src="../assets/js/lifetime.js?v=169"></script>
 <script src="../assets/js/premium.js?v=181"></script>
+<script src="../assets/js/funnel.js?v=193"></script>
 <script>
 // Upgrade naar Lifetime (docs/ACCOUNT.md in iptv-ios-appletv, "Abonnementen"). Ingelogd: huidig abonnement via device-auth
 // `entitlements` (platform "web") en de vergelijking. Build 133: Koop Lifetime via de functie billing (Stripe Checkout, alleen
@@ -272,6 +273,19 @@ const ptr = t({
         haveAccount: "Already have an account?", signInNow: "Sign in.", soonText: "Premium isn't on sale yet. Sign in to see your current plan.",
         alreadyPremium: "You already have a subscription. Manage it via Manage subscription.", manageFailed: "Manage subscription didn't work. Please try again." },
 });
+// build 193: de betaaltrechter meten (assets/js/funnel.js): alleen tellen, nooit wachten of de pagina breken.
+// Kwam je uit een app (?from=app&platform=…), dan telt die app het betaalscherm zelf en hoort de aankoop bij dat platform.
+// Terug van Stripe (?status=…) telt het betaalscherm niet opnieuw.
+const FN = window.BingrFunnel || null, FROM_APP = params.get("from") === "app";
+const FN_PLATFORM = FN ? FN.platformFromQuery(params) : "web";
+function funnel(step, o) { try { if (FN) FN.send(step, Object.assign({ platform: FN_PLATFORM }, o || {})); } catch (e) {} }
+function funnelPaywall() { try { if (FN && !FROM_APP && !params.get("status")) FN.once("paywall", "paywall_shown", { platform: FN_PLATFORM }); } catch (e) {} }
+function funnelStart(product) { try { if (FN) { FN.remember({ platform: FN_PLATFORM, product }); funnel("purchase_started", { product }); } } catch (e) {} }
+function funnelFail(product, status, j, thrown) { try { if (FN) funnel("purchase_failed", { product, error: FN.errorCode(status, j, thrown) }); } catch (e) {} }
+// terug van Stripe: platform en product van de gestarte aankoop (bewaard in dit tabblad)
+function funnelBack(step) {
+  try { if (!FN) return; const m = FN.recall() || {}; FN.once("back", step, { platform: m.platform || FN_PLATFORM, product: m.product }); } catch (e) {}
+}
 let PREM = null, PREM_PERIOD = "year";
 { const q = params.get("plan"); if (q && q !== "lifetime" && window.BingrPremium) PREM_PERIOD = BingrPremium.cleanPeriod(q); }
 const PJ = window.BingrPremium;
@@ -371,6 +385,7 @@ function premPricing(trialDays, disabled) {
     box.querySelectorAll("[data-plan]").forEach((b) => { b.onclick = () => premCheckout(b); });
   };
   draw();
+  funnelPaywall();
 }
 async function premCheckout(b) {
   const err = $("ppErr");
@@ -381,11 +396,14 @@ async function premCheckout(b) {
     const { data } = await sb.auth.getSession();
     const body = { lang, waiver: true, plan: b.dataset.plan };
     if (!data.session) body.guest = true;
+    funnelStart(b.dataset.plan);
     const { status, j } = await billing("checkout", body);
     if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
+    funnelFail(b.dataset.plan, status, j);
     if (status === 409 && (j.error === "already_lifetime" || j.error === "already_premium")) { err.textContent = ptr("alreadyPremium"); load(); return; }
     err.textContent = tr(status === 429 ? "rateLimited" : "payFailed");
   } catch (e) {
+    funnelFail(b.dataset.plan, 0, null, e && e.message);
     if (e.message === "banned" || e.message === "signed_out") { load(); return; }
     err.textContent = tr("payFailed");
   }
@@ -534,6 +552,7 @@ function renderGuest() {
 }
 function wirePay(guest) {
   const b = $("payBtn");
+  funnelPaywall();
   if (!guest) drawCode();
   billingConfig().then(applyConfig).then(({ ok, j }) => {
     if (!guest) drawCode(); table(lastTable);
@@ -549,12 +568,15 @@ function wirePay(guest) {
       const body = { lang, waiver: true }, code = guest ? "" : codeValue();
       if (code) body.code = code;
       if (guest) body.guest = true;
+      funnelStart("lifetime");
       const { status, j } = await billing("checkout", body);
       if (status === 200 && j.url && j.url.indexOf("https://checkout.stripe.com/") === 0) { location.href = j.url; return; }
+      funnelFail("lifetime", status, j);
       if (status === 409 && j.error === "already_lifetime") { load(); return; }
       if (status === 503 && j.error === "billing_unavailable") { paySoon(); return; }
       $("payErr").textContent = tr(status === 400 && j.error === "code_invalid" ? "codeInvalid" : status === 429 ? "rateLimited" : "payFailed");
     } catch (e) {
+      funnelFail("lifetime", 0, null, e && e.message);
       if (!guest && (e.message === "banned" || e.message === "signed_out")) { load(); return; }
       $("payErr").textContent = tr("payFailed");
     }
@@ -573,7 +595,7 @@ async function checkPayment() {
   notice("checking");
   for (let i = 0; i < 6; i++) {
     const { ok, status, j } = await billing("status", { session_id: sessionId });
-    if (ok && j.paid) { notice(null); return true; }
+    if (ok && j.paid) { notice(null); funnelBack("purchase_ok"); return true; }
     if (!ok && status !== 503 && status !== 502) break;
     if (ok && j.status === "expired") break;
     await new Promise((r) => setTimeout(r, 2500));
@@ -583,7 +605,7 @@ async function checkPayment() {
 }
 async function load() {
   const { data } = await sb.auth.getSession();
-  if (back === "cancel") { notice("cancelled"); cleanUrl(); }
+  if (back === "cancel") { notice("cancelled"); funnelBack("purchase_cancelled"); cleanUrl(); }
   if (!data.session) {
     // build 168: na de overgang of als nieuwe accounts eerst moeten kopen (fase 'after') is de gastaankoop de standaard,
     // behalve met ?code= (een bestaand gratis account uit de mail: eerst inloggen, dan geldt de korting)
